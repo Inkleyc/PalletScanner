@@ -1,0 +1,285 @@
+import * as FileSystem from "expo-file-system/legacy";
+import * as MailComposer from "expo-mail-composer";
+import * as Sharing from "expo-sharing";
+import { useState } from "react";
+import {
+  Alert,
+  Image,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from "react-native";
+
+export default function InventoryScreen() {
+  // useState so the screen re-renders when items change
+  const [items, setItems] = useState<any[]>(
+    () => (global as any).inventory ?? [],
+  );
+
+  const totalLow = items.reduce(
+    (sum: number, item: any) => sum + item.low_price,
+    0,
+  );
+  const totalHigh = items.reduce(
+    (sum: number, item: any) => sum + item.high_price,
+    0,
+  );
+
+  const removeItem = (id: number) => {
+    Alert.alert("Remove Item", "Are you sure?", [
+      { text: "Cancel", style: "cancel" },
+      {
+        text: "Remove",
+        style: "destructive",
+        onPress: () => {
+          const updated = ((global as any).inventory ?? []).filter(
+            (item: any) => item.id !== id,
+          );
+          (global as any).inventory = updated;
+          setItems(updated); // triggers re-render
+        },
+      },
+    ]);
+  };
+
+  const buildCSV = () => {
+    const header =
+      "Name,Condition,Low Price,High Price,Platform,Listing Title,Listing Description";
+    const rows = items.map((item: any) =>
+      [
+        `"${item.name}"`,
+        `"${item.condition}"`,
+        item.low_price,
+        item.high_price,
+        `"${item.best_platform}"`,
+        `"${item.listing_title}"`,
+        `"${item.listing_description.replace(/"/g, "'")}"`,
+      ].join(","),
+    );
+    return [header, ...rows].join("\n");
+  };
+
+  const exportCSV = async () => {
+    if (items.length === 0) {
+      Alert.alert("No items", "Scan and save some items first.");
+      return;
+    }
+    try {
+      const csv = buildCSV();
+      const filename = FileSystem.documentDirectory + "pallet-inventory.csv";
+      await FileSystem.writeAsStringAsync(filename, csv, { encoding: "utf8" });
+      const canShare = await Sharing.isAvailableAsync();
+      if (canShare) {
+        await Sharing.shareAsync(filename, {
+          mimeType: "text/csv",
+          dialogTitle: "Export Inventory",
+          UTI: "public.comma-separated-values-text",
+        });
+      }
+    } catch (e) {
+      Alert.alert("Error", String(e));
+    }
+  };
+
+  const emailInventory = async () => {
+    if (items.length === 0) {
+      Alert.alert("No items", "Scan and save some items first.");
+      return;
+    }
+    try {
+      const csv = buildCSV();
+      const filename = FileSystem.documentDirectory + "pallet-inventory.csv";
+      await FileSystem.writeAsStringAsync(filename, csv, { encoding: "utf8" });
+      const isAvailable = await MailComposer.isAvailableAsync();
+      if (!isAvailable) {
+        Alert.alert(
+          "No mail app",
+          "Please set up a mail account on your phone.",
+        );
+        return;
+      }
+      await MailComposer.composeAsync({
+        subject: "PalletScanner Inventory Export",
+        body: "Your pallet inventory is attached. Open in Google Sheets or Excel.",
+        attachments: [filename],
+      });
+    } catch (e) {
+      Alert.alert("Error", String(e));
+    }
+  };
+
+  return (
+    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+      <Text style={styles.title}>Inventory</Text>
+      <Text style={styles.subtitle}>Items scanned this session</Text>
+
+      <View style={styles.totalCard}>
+        <View style={styles.totalRow}>
+          <View style={styles.totalBox}>
+            <Text style={styles.totalLabel}>Items</Text>
+            <Text style={styles.totalValue}>{items.length}</Text>
+          </View>
+          <View style={styles.totalBox}>
+            <Text style={styles.totalLabel}>Est. Low</Text>
+            <Text style={styles.totalValue}>${totalLow}</Text>
+          </View>
+          <View style={styles.totalBox}>
+            <Text style={styles.totalLabel}>Est. High</Text>
+            <Text style={styles.totalValue}>${totalHigh}</Text>
+          </View>
+        </View>
+        <View style={styles.exportRow}>
+          <TouchableOpacity style={styles.exportBtn} onPress={exportCSV}>
+            <Text style={styles.exportBtnText}>Export CSV</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.emailBtn} onPress={emailInventory}>
+            <Text style={styles.emailBtnText}>Email Inventory</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+
+      {items.length === 0 && (
+        <View style={styles.emptyState}>
+          <Text style={styles.emptyIcon}>📦</Text>
+          <Text style={styles.emptyText}>No items yet</Text>
+          <Text style={styles.emptySubtext}>
+            Scan items on the Home tab and tap Save to Inventory
+          </Text>
+        </View>
+      )}
+
+      {items.map((item: any) => (
+        <View key={item.id} style={styles.itemCard}>
+          <View style={styles.itemTop}>
+            {item.photo && (
+              <Image source={{ uri: item.photo }} style={styles.itemPhoto} />
+            )}
+            <View style={styles.itemInfo}>
+              <Text style={styles.itemName}>{item.name}</Text>
+              <View style={styles.badgeRow}>
+                <Text style={styles.priceBadge}>
+                  ${item.low_price}-${item.high_price}
+                </Text>
+                <Text style={styles.conditionBadge}>{item.condition}</Text>
+              </View>
+              <Text style={styles.platformText}>{item.best_platform}</Text>
+            </View>
+          </View>
+          <View style={styles.itemActions}>
+            <TouchableOpacity
+              style={styles.removeBtn}
+              onPress={() => removeItem(item.id)}
+            >
+              <Text style={styles.removeBtnText}>Remove</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      ))}
+    </ScrollView>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: { flex: 1, backgroundColor: "#fff" },
+  content: { padding: 24, paddingTop: 60 },
+  title: { fontSize: 28, fontWeight: "600", color: "#111", marginBottom: 4 },
+  subtitle: { fontSize: 14, color: "#666", marginBottom: 24 },
+  totalCard: {
+    backgroundColor: "#f9f9f9",
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 24,
+  },
+  totalRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginBottom: 16,
+  },
+  totalBox: { alignItems: "center", flex: 1 },
+  totalLabel: { fontSize: 12, color: "#666", marginBottom: 4 },
+  totalValue: { fontSize: 22, fontWeight: "600", color: "#111" },
+  exportRow: { flexDirection: "row", gap: 10 },
+  exportBtn: {
+    flex: 1,
+    backgroundColor: "#111",
+    padding: 12,
+    borderRadius: 8,
+    alignItems: "center",
+  },
+  exportBtnText: { color: "#fff", fontWeight: "500", fontSize: 14 },
+  emailBtn: {
+    flex: 1,
+    backgroundColor: "#2d6a4f",
+    padding: 12,
+    borderRadius: 8,
+    alignItems: "center",
+  },
+  emailBtnText: { color: "#fff", fontWeight: "500", fontSize: 14 },
+  emptyState: { alignItems: "center", paddingTop: 60 },
+  emptyIcon: { fontSize: 48, marginBottom: 12 },
+  emptyText: {
+    fontSize: 18,
+    fontWeight: "600",
+    color: "#111",
+    marginBottom: 8,
+  },
+  emptySubtext: {
+    fontSize: 14,
+    color: "#666",
+    textAlign: "center",
+    lineHeight: 20,
+  },
+  itemCard: {
+    backgroundColor: "#fff",
+    borderRadius: 12,
+    borderWidth: 0.5,
+    borderColor: "#ddd",
+    marginBottom: 12,
+    overflow: "hidden",
+  },
+  itemTop: { flexDirection: "row", padding: 12, gap: 12 },
+  itemPhoto: {
+    width: 70,
+    height: 70,
+    borderRadius: 8,
+    backgroundColor: "#f0f0f0",
+  },
+  itemInfo: { flex: 1 },
+  itemName: { fontSize: 15, fontWeight: "600", color: "#111", marginBottom: 6 },
+  badgeRow: { flexDirection: "row", gap: 6, marginBottom: 4 },
+  priceBadge: {
+    backgroundColor: "#e6f4ea",
+    color: "#2d6a4f",
+    fontSize: 12,
+    fontWeight: "500",
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+  },
+  conditionBadge: {
+    backgroundColor: "#fff8e1",
+    color: "#856404",
+    fontSize: 12,
+    fontWeight: "500",
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+  },
+  platformText: { fontSize: 12, color: "#666" },
+  itemActions: {
+    borderTopWidth: 0.5,
+    borderTopColor: "#eee",
+    padding: 10,
+    alignItems: "flex-end",
+  },
+  removeBtn: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 6,
+    borderWidth: 0.5,
+    borderColor: "#ddd",
+  },
+  removeBtnText: { fontSize: 13, color: "#999" },
+});
