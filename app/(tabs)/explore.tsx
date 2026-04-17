@@ -16,7 +16,9 @@ import {
   getInventory,
   removeInventoryItem,
   subscribeInventory,
+  unmarkInventoryItemListed,
 } from "@/lib/inventory-store";
+import { openListingDraft } from "@/lib/listing-posting";
 
 export default function InventoryScreen() {
   const items = useSyncExternalStore(
@@ -155,6 +157,31 @@ export default function InventoryScreen() {
 
       {items.map((item: any) => (
         <View key={item.id} style={styles.itemCard}>
+          {item.listedPlatforms.length > 0 && (
+            <View style={styles.listedBannerRow}>
+              {item.listedPlatforms.map((platform: "facebook" | "ebay") => (
+                <View
+                  key={platform}
+                  style={[
+                    styles.listedBanner,
+                    platform === "facebook"
+                      ? styles.listedFacebookBanner
+                      : styles.listedEbayBanner,
+                  ]}
+                >
+                  <Text style={styles.listedBannerText}>
+                    Listed to {platform === "facebook" ? "Facebook" : "eBay"}
+                  </Text>
+                  <TouchableOpacity
+                    style={styles.listedBannerClose}
+                    onPress={() => unmarkInventoryItemListed(item.id, platform)}
+                  >
+                    <Text style={styles.listedBannerCloseText}>x</Text>
+                  </TouchableOpacity>
+                </View>
+              ))}
+            </View>
+          )}
           <View style={styles.itemTop}>
             {item.photo && (
               <Image source={{ uri: item.photo }} style={styles.itemPhoto} />
@@ -171,6 +198,18 @@ export default function InventoryScreen() {
             </View>
           </View>
           <View style={styles.itemActions}>
+            <TouchableOpacity
+              style={[styles.platformBtn, styles.facebookBtn]}
+              onPress={() => openListingDraft(item, "facebook")}
+            >
+              <Text style={styles.platformBtnText}>Post to Facebook</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.platformBtn, styles.ebayBtn]}
+              onPress={() => openListingDraft(item, "ebay")}
+            >
+              <Text style={styles.platformBtnText}>Post to eBay</Text>
+            </TouchableOpacity>
             <TouchableOpacity
               style={styles.removeBtn}
               onPress={() => removeItem(item.id)}
@@ -242,6 +281,43 @@ const styles = StyleSheet.create({
     marginBottom: 12,
     overflow: "hidden",
   },
+  listedBannerRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+    paddingHorizontal: 12,
+    paddingTop: 12,
+  },
+  listedBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    borderRadius: 999,
+    paddingLeft: 12,
+    paddingRight: 8,
+    paddingVertical: 6,
+    gap: 8,
+  },
+  listedFacebookBanner: { backgroundColor: "#e8f1ff" },
+  listedEbayBanner: { backgroundColor: "#ffe9ea" },
+  listedBannerText: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: "#111",
+  },
+  listedBannerClose: {
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    backgroundColor: "rgba(0,0,0,0.12)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  listedBannerCloseText: {
+    fontSize: 11,
+    lineHeight: 11,
+    color: "#333",
+    fontWeight: "700",
+  },
   itemTop: { flexDirection: "row", padding: 12, gap: 12 },
   itemPhoto: {
     width: 70,
@@ -275,14 +351,25 @@ const styles = StyleSheet.create({
     borderTopWidth: 0.5,
     borderTopColor: "#eee",
     padding: 10,
-    alignItems: "flex-end",
+    flexDirection: "row",
+    gap: 8,
+    flexWrap: "wrap",
   },
+  platformBtn: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 6,
+  },
+  facebookBtn: { backgroundColor: "#1877f2" },
+  ebayBtn: { backgroundColor: "#e53238" },
+  platformBtnText: { fontSize: 13, color: "#fff", fontWeight: "600" },
   removeBtn: {
     paddingHorizontal: 12,
-    paddingVertical: 6,
+    paddingVertical: 8,
     borderRadius: 6,
     borderWidth: 0.5,
     borderColor: "#ddd",
+    marginLeft: "auto",
   },
   removeBtnText: { fontSize: 13, color: "#999" },
 });

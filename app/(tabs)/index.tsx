@@ -1,6 +1,6 @@
 import * as Clipboard from "expo-clipboard";
 import * as ImagePicker from "expo-image-picker";
-import { useState } from "react";
+import { useState, useSyncExternalStore } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -15,7 +15,12 @@ import {
   View,
 } from "react-native";
 
-import { saveInventoryItem } from "@/lib/inventory-store";
+import {
+  getAppSettings,
+  subscribeAppSettings,
+} from "@/lib/app-settings";
+import { saveInventoryItem, type InventoryItem } from "@/lib/inventory-store";
+import { openListingDraft } from "@/lib/listing-posting";
 
 const API_KEY = process.env.EXPO_PUBLIC_ANTHROPIC_API_KEY;
 
@@ -27,6 +32,11 @@ export default function HomeScreen() {
   const [editableDescription, setEditableDescription] = useState("");
   const [editablePrice, setEditablePrice] = useState("");
   const [currentItemId, setCurrentItemId] = useState<number | null>(null);
+  const { promptToPostOnSave } = useSyncExternalStore(
+    subscribeAppSettings,
+    getAppSettings,
+    getAppSettings,
+  );
 
   const requestPermissions = async () => {
     const { status } = await ImagePicker.requestCameraPermissionsAsync();
@@ -160,6 +170,24 @@ export default function HomeScreen() {
     };
   };
 
+  const promptForListingDestination = (item: InventoryItem) => {
+    Alert.alert("Post this listing now?", "Choose where you want to post it.", [
+      {
+        text: "Facebook",
+        onPress: () => {
+          void openListingDraft(item, "facebook");
+        },
+      },
+      {
+        text: "eBay",
+        onPress: () => {
+          void openListingDraft(item, "ebay");
+        },
+      },
+      { text: "Not now", style: "cancel" },
+    ]);
+  };
+
   const saveToInventory = () => {
     if (!result) {
       Alert.alert("Nothing to save", "Analyze an item before saving it.");
@@ -176,7 +204,7 @@ export default function HomeScreen() {
     }
 
     const itemId = currentItemId ?? Date.now();
-    const inventoryItem = {
+    const inventoryItem: InventoryItem = {
       id: itemId,
       photo: images[0]?.uri ?? null,
       name: result.name,
@@ -186,6 +214,7 @@ export default function HomeScreen() {
       best_platform: result.best_platform,
       listing_title: editableTitle,
       listing_description: editableDescription,
+      listedPlatforms: [],
     };
 
     if (currentItemId !== null) {
@@ -194,7 +223,11 @@ export default function HomeScreen() {
     } else {
       saveInventoryItem(inventoryItem);
       setCurrentItemId(itemId);
-      Alert.alert("Saved!", result.name + " added to inventory.");
+      if (promptToPostOnSave) {
+        promptForListingDestination(inventoryItem);
+      } else {
+        Alert.alert("Saved!", result.name + " added to inventory.");
+      }
     }
   };
 
