@@ -1,7 +1,7 @@
 import * as FileSystem from "expo-file-system/legacy";
 import * as MailComposer from "expo-mail-composer";
 import * as Sharing from "expo-sharing";
-import { useState } from "react";
+import { useSyncExternalStore } from "react";
 import {
   Alert,
   Image,
@@ -12,10 +12,17 @@ import {
   View,
 } from "react-native";
 
+import {
+  getInventory,
+  removeInventoryItem,
+  subscribeInventory,
+} from "@/lib/inventory-store";
+
 export default function InventoryScreen() {
-  // useState so the screen re-renders when items change
-  const [items, setItems] = useState<any[]>(
-    () => (global as any).inventory ?? [],
+  const items = useSyncExternalStore(
+    subscribeInventory,
+    getInventory,
+    getInventory,
   );
 
   const totalLow = items.reduce(
@@ -34,11 +41,7 @@ export default function InventoryScreen() {
         text: "Remove",
         style: "destructive",
         onPress: () => {
-          const updated = ((global as any).inventory ?? []).filter(
-            (item: any) => item.id !== id,
-          );
-          (global as any).inventory = updated;
-          setItems(updated); // triggers re-render
+          removeInventoryItem(id);
         },
       },
     ]);

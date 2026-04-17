@@ -1,5 +1,3 @@
-const API_KEY = process.env.EXPO_PUBLIC_ANTHROPIC_API_KEY;
-
 import * as Clipboard from "expo-clipboard";
 import * as ImagePicker from "expo-image-picker";
 import { useState } from "react";
@@ -7,6 +5,8 @@ import {
   ActivityIndicator,
   Alert,
   Image,
+  KeyboardAvoidingView,
+  Platform,
   ScrollView,
   StyleSheet,
   Text,
@@ -15,15 +15,18 @@ import {
   View,
 } from "react-native";
 
+import { saveInventoryItem } from "@/lib/inventory-store";
+
+const API_KEY = process.env.EXPO_PUBLIC_ANTHROPIC_API_KEY;
+
 export default function HomeScreen() {
   const [images, setImages] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<any>(null);
-
-  // --- NEW: editable fields ---
   const [editableTitle, setEditableTitle] = useState("");
   const [editableDescription, setEditableDescription] = useState("");
   const [editablePrice, setEditablePrice] = useState("");
+  const [currentItemId, setCurrentItemId] = useState<number | null>(null);
 
   const requestPermissions = async () => {
     const { status } = await ImagePicker.requestCameraPermissionsAsync();
@@ -69,11 +72,13 @@ export default function HomeScreen() {
     setEditableTitle("");
     setEditableDescription("");
     setEditablePrice("");
+    setCurrentItemId(null);
   };
 
   const analyzeImage = async () => {
     if (images.length === 0) return;
     setLoading(true);
+    setCurrentItemId(null);
     try {
       const imageContent = images.map((img) => ({
         type: "image",
@@ -123,149 +128,229 @@ export default function HomeScreen() {
       const text = data.content[0].text;
       const parsed = JSON.parse(text.replace(/```json|```/g, "").trim());
       setResult(parsed);
-
-      // --- NEW: pre-fill editable fields with Claude's output ---
       setEditableTitle(parsed.listing_title);
       setEditableDescription(parsed.listing_description);
       setEditablePrice(`${parsed.low_price}-${parsed.high_price}`);
-    } catch (e) {
+    } catch {
       alert("Something went wrong. Please try again.");
     }
     setLoading(false);
   };
 
-  // --- UPDATED: uses editable values ---
   const copyListing = async () => {
     const text = editableTitle + "\n\n" + editableDescription;
     await Clipboard.setStringAsync(text);
     Alert.alert("Copied!", "Listing copied to clipboard.");
   };
 
-  // --- UPDATED: saves editable values ---
+  const parsePriceRange = () => {
+    const matches = editablePrice.match(/\d+(?:\.\d+)?/g) ?? [];
+    if (matches.length < 2) {
+      return null;
+    }
+
+    const [low, high] = matches.slice(0, 2).map(Number);
+    if (Number.isNaN(low) || Number.isNaN(high)) {
+      return null;
+    }
+
+    return {
+      low: Math.min(low, high),
+      high: Math.max(low, high),
+    };
+  };
+
   const saveToInventory = () => {
-    const item = {
-      id: Date.now(),
+    if (!result) {
+      Alert.alert("Nothing to save", "Analyze an item before saving it.");
+      return;
+    }
+
+    const parsedPriceRange = parsePriceRange();
+    if (!parsedPriceRange) {
+      Alert.alert(
+        "Invalid price range",
+        'Enter a range like "10-30" before saving.',
+      );
+      return;
+    }
+
+    const itemId = currentItemId ?? Date.now();
+    const inventoryItem = {
+      id: itemId,
       photo: images[0]?.uri ?? null,
       name: result.name,
       condition: result.condition,
-      low_price: result.low_price,
-      high_price: result.high_price,
+      low_price: parsedPriceRange.low,
+      high_price: parsedPriceRange.high,
       best_platform: result.best_platform,
       listing_title: editableTitle,
       listing_description: editableDescription,
     };
-    (global as any).inventory = (global as any).inventory ?? [];
-    (global as any).inventory.push(item);
-    Alert.alert("Saved!", result.name + " added to inventory.");
+
+    if (currentItemId !== null) {
+      saveInventoryItem(inventoryItem);
+      Alert.alert("Updated!", result.name + " updated in inventory.");
+    } else {
+      saveInventoryItem(inventoryItem);
+      setCurrentItemId(itemId);
+      Alert.alert("Saved!", result.name + " added to inventory.");
+    }
+  };
+
+  const addAnother = () => {
+    setCurrentItemId(null);
+    Alert.alert("Ready!", "Tap Save to Inventory to add another copy.");
+  };
+
+  const goToNextItem = () => {
+    clearAll();
   };
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      <Text style={styles.title}>Pallet Scanner</Text>
-      <Text style={styles.subtitle}>
-        Add multiple photos then analyze the item
-      </Text>
+    <KeyboardAvoidingView
+      style={styles.container}
+      behavior={Platform.OS === "ios" ? "padding" : "height"}
+      keyboardVerticalOffset={24}
+    >
+      <ScrollView
+        style={styles.container}
+        contentContainerStyle={styles.content}
+        keyboardShouldPersistTaps="handled"
+      >
+        <Text style={styles.title}>Pallet Scanner</Text>
+        <Text style={styles.subtitle}>
+          Add multiple photos then analyze the item
+        </Text>
 
-      <View style={styles.buttonRow}>
-        <TouchableOpacity style={styles.btn} onPress={addPhoto}>
-          <Text style={styles.btnText}>Take Photo</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.btn} onPress={pickImage}>
-          <Text style={styles.btnText}>Upload Photo</Text>
-        </TouchableOpacity>
-      </View>
-
-      {images.length > 0 && (
-        <View style={styles.photoStrip}>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-            {images.map((img, index) => (
-              <View key={index} style={styles.thumbContainer}>
-                <Image source={{ uri: img.uri }} style={styles.thumb} />
-                <TouchableOpacity
-                  style={styles.removeBtn}
-                  onPress={() => removePhoto(index)}
-                >
-                  <Text style={styles.removeBtnText}>x</Text>
-                </TouchableOpacity>
-              </View>
-            ))}
-          </ScrollView>
-          <Text style={styles.photoCount}>
-            {images.length} photo{images.length > 1 ? "s" : ""} added
-          </Text>
-        </View>
-      )}
-
-      {images.length > 0 && !loading && (
-        <View style={styles.actionRow}>
-          <TouchableOpacity style={styles.analyzeBtn} onPress={analyzeImage}>
-            <Text style={styles.analyzeBtnText}>Analyze Item</Text>
+        <View style={styles.buttonRow}>
+          <TouchableOpacity style={styles.btn} onPress={addPhoto}>
+            <Text style={styles.btnText}>Take Photo</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.clearBtn} onPress={clearAll}>
-            <Text style={styles.clearBtnText}>Clear</Text>
+          <TouchableOpacity style={styles.btn} onPress={pickImage}>
+            <Text style={styles.btnText}>Upload Photo</Text>
           </TouchableOpacity>
         </View>
-      )}
 
-      {loading && (
-        <ActivityIndicator
-          size="large"
-          color="#000"
-          style={{ marginTop: 20 }}
-        />
-      )}
-
-      {result && (
-        <View style={styles.resultCard}>
-          <Text style={styles.itemName}>{result.name}</Text>
-          <Text style={styles.itemDesc}>{result.description}</Text>
-          <View style={styles.badgeRow}>
-            <Text style={styles.priceBadge}>
-              ${result.low_price}-${result.high_price}
+        {images.length > 0 && (
+          <View style={styles.photoStrip}>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+              {images.map((img, index) => (
+                <View key={index} style={styles.thumbContainer}>
+                  <Image source={{ uri: img.uri }} style={styles.thumb} />
+                  <TouchableOpacity
+                    style={styles.removeBtn}
+                    onPress={() => removePhoto(index)}
+                  >
+                    <Text style={styles.removeBtnText}>x</Text>
+                  </TouchableOpacity>
+                </View>
+              ))}
+            </ScrollView>
+            <Text style={styles.photoCount}>
+              {images.length} photo{images.length > 1 ? "s" : ""} added
             </Text>
-            <Text style={styles.conditionBadge}>{result.condition}</Text>
-            <Text style={styles.platformBadge}>{result.best_platform}</Text>
           </View>
-          <Text style={styles.platformReason}>{result.platform_reason}</Text>
+        )}
 
-          <View style={styles.listingBox}>
-            <Text style={styles.listingLabel}>LISTING TITLE</Text>
-            <TextInput
-              style={styles.editableInput}
-              value={editableTitle}
-              onChangeText={setEditableTitle}
-              multiline
-              placeholder="Listing title"
-            />
-
-            <Text style={styles.listingLabel}>DESCRIPTION</Text>
-            <TextInput
-              style={[styles.editableInput, styles.editableInputTall]}
-              value={editableDescription}
-              onChangeText={setEditableDescription}
-              multiline
-              placeholder="Listing description"
-            />
-
-            <Text style={styles.listingLabel}>PRICE RANGE</Text>
-            <TextInput
-              style={styles.editableInput}
-              value={editablePrice}
-              onChangeText={setEditablePrice}
-              placeholder="e.g. 10-30"
-              keyboardType="default"
-            />
-
-            <TouchableOpacity style={styles.copyBtn} onPress={copyListing}>
-              <Text style={styles.copyBtnText}>Copy Listing</Text>
+        {images.length > 0 && !loading && (
+          <View style={styles.actionRow}>
+            <TouchableOpacity style={styles.analyzeBtn} onPress={analyzeImage}>
+              <Text style={styles.analyzeBtnText}>Analyze Item</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={styles.saveBtn} onPress={saveToInventory}>
-              <Text style={styles.saveBtnText}>Save to Inventory</Text>
+            <TouchableOpacity style={styles.clearBtn} onPress={clearAll}>
+              <Text style={styles.clearBtnText}>Clear</Text>
             </TouchableOpacity>
           </View>
-        </View>
-      )}
-    </ScrollView>
+        )}
+
+        {loading && (
+          <ActivityIndicator
+            size="large"
+            color="#000"
+            style={{ marginTop: 20 }}
+          />
+        )}
+
+        {result && (
+          <View style={styles.resultCard}>
+            <Text style={styles.itemName}>{result.name}</Text>
+            <Text style={styles.itemDesc}>{result.description}</Text>
+            <View style={styles.badgeRow}>
+              <Text style={styles.priceBadge}>
+                ${result.low_price}-${result.high_price}
+              </Text>
+              <Text style={styles.conditionBadge}>{result.condition}</Text>
+              <Text style={styles.platformBadge}>{result.best_platform}</Text>
+            </View>
+            <Text style={styles.platformReason}>{result.platform_reason}</Text>
+
+            <View style={styles.listingBox}>
+              <Text style={styles.listingLabel}>LISTING TITLE</Text>
+              <TextInput
+                style={styles.editableInput}
+                value={editableTitle}
+                onChangeText={setEditableTitle}
+                multiline
+                placeholder="Listing title"
+              />
+
+              <Text style={styles.listingLabel}>DESCRIPTION</Text>
+              <TextInput
+                style={[styles.editableInput, styles.editableInputTall]}
+                value={editableDescription}
+                onChangeText={setEditableDescription}
+                multiline
+                placeholder="Listing description"
+              />
+
+              <Text style={styles.listingLabel}>PRICE RANGE</Text>
+              <TextInput
+                style={styles.editableInput}
+                value={editablePrice}
+                onChangeText={setEditablePrice}
+                placeholder="e.g. 10-30"
+              />
+
+              <TouchableOpacity style={styles.copyBtn} onPress={copyListing}>
+                <Text style={styles.copyBtnText}>Copy Listing</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.saveBtn}
+                onPress={saveToInventory}
+              >
+                <Text style={styles.saveBtnText}>
+                  {currentItemId !== null
+                    ? "Update Inventory"
+                    : "Save to Inventory"}
+                </Text>
+              </TouchableOpacity>
+
+              {currentItemId !== null && (
+                <>
+                  <TouchableOpacity
+                    style={styles.addAnotherBtn}
+                    onPress={addAnother}
+                  >
+                    <Text style={styles.addAnotherBtnText}>
+                      + Add Another Copy
+                    </Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={styles.nextItemBtn}
+                    onPress={goToNextItem}
+                  >
+                    <Text style={styles.nextItemBtnText}>Next Item</Text>
+                  </TouchableOpacity>
+                </>
+              )}
+            </View>
+          </View>
+        )}
+      </ScrollView>
+    </KeyboardAvoidingView>
   );
 }
 
@@ -375,7 +460,6 @@ const styles = StyleSheet.create({
     marginBottom: 4,
     marginTop: 8,
   },
-  // --- NEW: editable input styles ---
   editableInput: {
     fontSize: 14,
     color: "#111",
@@ -403,4 +487,21 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   saveBtnText: { color: "#fff", fontWeight: "500", fontSize: 14 },
+  addAnotherBtn: {
+    borderWidth: 1,
+    borderColor: "#2d6a4f",
+    padding: 12,
+    borderRadius: 8,
+    alignItems: "center",
+    marginTop: 8,
+  },
+  addAnotherBtnText: { color: "#2d6a4f", fontWeight: "500", fontSize: 14 },
+  nextItemBtn: {
+    backgroundColor: "#f5f5f5",
+    padding: 12,
+    borderRadius: 8,
+    alignItems: "center",
+    marginTop: 8,
+  },
+  nextItemBtnText: { color: "#111", fontWeight: "500", fontSize: 14 },
 });
