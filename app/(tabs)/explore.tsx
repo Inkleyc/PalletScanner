@@ -51,13 +51,14 @@ export default function InventoryScreen() {
 
   const buildCSV = () => {
     const header =
-      "Name,Condition,Low Price,High Price,Platform,Listing Title,Listing Description";
+      "Name,Condition,Low Price,High Price,Floor Price,Platform,Listing Title,Listing Description";
     const rows = items.map((item: any) =>
       [
         `"${item.name}"`,
         `"${item.condition}"`,
         item.low_price,
         item.high_price,
+        item.floor_price,
         `"${item.best_platform}"`,
         `"${item.listing_title}"`,
         `"${item.listing_description.replace(/"/g, "'")}"`,
@@ -192,6 +193,7 @@ export default function InventoryScreen() {
                 <Text style={styles.priceBadge}>
                   ${item.low_price}-${item.high_price}
                 </Text>
+                <Text style={styles.floorBadge}>Floor ${item.floor_price}</Text>
                 <Text style={styles.conditionBadge}>{item.condition}</Text>
               </View>
               <Text style={styles.platformText}>{item.best_platform}</Text>
@@ -340,6 +342,15 @@ const styles = StyleSheet.create({
   conditionBadge: {
     backgroundColor: "#fff8e1",
     color: "#856404",
+    fontSize: 12,
+    fontWeight: "500",
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+  },
+  floorBadge: {
+    backgroundColor: "#fff3cd",
+    color: "#8a6d1f",
     fontSize: 12,
     fontWeight: "500",
     paddingHorizontal: 8,

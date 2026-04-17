@@ -1,4 +1,5 @@
 import * as Clipboard from "expo-clipboard";
+import { CameraView, useCameraPermissions } from "expo-camera";
 import * as ImagePicker from "expo-image-picker";
 import { useState, useSyncExternalStore } from "react";
 import {
@@ -19,6 +20,7 @@ import {
   getAppSettings,
   subscribeAppSettings,
 } from "@/lib/app-settings";
+import { lookupBarcodeProduct } from "@/lib/barcode-lookup";
 import { saveInventoryItem, type InventoryItem } from "@/lib/inventory-store";
 import { openListingDraft } from "@/lib/listing-posting";
 
@@ -31,7 +33,13 @@ export default function HomeScreen() {
   const [editableTitle, setEditableTitle] = useState("");
   const [editableDescription, setEditableDescription] = useState("");
   const [editablePrice, setEditablePrice] = useState("");
+  const [editableFloorPrice, setEditableFloorPrice] = useState("");
   const [currentItemId, setCurrentItemId] = useState<number | null>(null);
+  const [productImageUri, setProductImageUri] = useState<string | null>(null);
+  const [scannerOpen, setScannerOpen] = useState(false);
+  const [barcodeValue, setBarcodeValue] = useState("");
+  const [hasScannedBarcode, setHasScannedBarcode] = useState(false);
+  const [cameraPermission, requestCameraPermission] = useCameraPermissions();
   const { promptToPostOnSave } = useSyncExternalStore(
     subscribeAppSettings,
     getAppSettings,
@@ -53,6 +61,8 @@ export default function HomeScreen() {
     });
     if (!photo.canceled) {
       setImages((prev) => [...prev, photo.assets[0]]);
+      setProductImageUri(null);
+      setBarcodeValue("");
       setResult(null);
     }
   };
@@ -67,6 +77,8 @@ export default function HomeScreen() {
     });
     if (!picked.canceled) {
       setImages((prev) => [...prev, ...picked.assets]);
+      setProductImageUri(null);
+      setBarcodeValue("");
       setResult(null);
     }
   };
@@ -82,6 +94,11 @@ export default function HomeScreen() {
     setEditableTitle("");
     setEditableDescription("");
     setEditablePrice("");
+    setEditableFloorPrice("");
+    setProductImageUri(null);
+    setScannerOpen(false);
+    setBarcodeValue("");
+    setHasScannedBarcode(false);
     setCurrentItemId(null);
   };
 
@@ -116,13 +133,14 @@ export default function HomeScreen() {
                 ...imageContent,
                 {
                   type: "text",
-                  text: `You are a resale expert. I am showing you ${images.length} photo(s) of the same item. Analyze and respond ONLY with raw JSON, no markdown:
+                  text: `You are a resale expert. I am showing you ${images.length} photo(s) of the same item. Analyze it like a reseller preparing to list it online. For pricing, estimate a realistic low_price and high_price by checking the item against current eBay and Facebook Marketplace listings for identical or very similar items whenever that market context is available to you. Favor recent sold or active comparable listings, adjust for condition, brand, completeness, and visible wear, and make sure the suggested price range follows the real market rather than a generic guess. Also provide a floor_price, meaning the lowest reasonable price a seller should accept before walking away during negotiation. Then respond ONLY with raw JSON, no markdown:
 {
   "name": "item name",
   "description": "1-2 sentence description",
   "condition": "New / Like New / Good / Fair",
   "low_price": 10,
   "high_price": 30,
+  "floor_price": 12,
   "best_platform": "eBay",
   "platform_reason": "one sentence why",
   "listing_title": "SEO title under 80 chars",
@@ -138,9 +156,12 @@ export default function HomeScreen() {
       const text = data.content[0].text;
       const parsed = JSON.parse(text.replace(/```json|```/g, "").trim());
       setResult(parsed);
+      setProductImageUri(null);
+      setBarcodeValue("");
       setEditableTitle(parsed.listing_title);
       setEditableDescription(parsed.listing_description);
       setEditablePrice(`${parsed.low_price}-${parsed.high_price}`);
+      setEditableFloorPrice(`${parsed.floor_price ?? parsed.low_price}`);
     } catch {
       alert("Something went wrong. Please try again.");
     }
@@ -170,6 +191,16 @@ export default function HomeScreen() {
     };
   };
 
+  const parseFloorPrice = () => {
+    const match = editableFloorPrice.match(/\d+(?:\.\d+)?/);
+    if (!match) {
+      return null;
+    }
+
+    const value = Number(match[0]);
+    return Number.isNaN(value) ? null : value;
+  };
+
   const promptForListingDestination = (item: InventoryItem) => {
     Alert.alert("Post this listing now?", "Choose where you want to post it.", [
       {
@@ -188,6 +219,109 @@ export default function HomeScreen() {
     ]);
   };
 
+  const analyzeBarcode = async (barcode: string) => {
+    setLoading(true);
+    setCurrentItemId(null);
+
+    try {
+      const product = await lookupBarcodeProduct(barcode);
+      const productSummary = [
+        `Barcode: ${barcode}`,
+        product.title ? `Title: ${product.title}` : null,
+        product.brand ? `Brand: ${product.brand}` : null,
+        product.category ? `Category: ${product.category}` : null,
+        product.description ? `Description: ${product.description}` : null,
+      ]
+        .filter(Boolean)
+        .join("\n");
+
+      const response = await fetch("https://api.anthropic.com/v1/messages", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-api-key": API_KEY ?? "",
+          "anthropic-version": "2023-06-01",
+        } as HeadersInit,
+        body: JSON.stringify({
+          model: "claude-sonnet-4-20250514",
+          max_tokens: 1000,
+          messages: [
+            {
+              role: "user",
+              content: [
+                {
+                  type: "text",
+                  text: `You are a resale expert. Use this barcode lookup result to identify the product instead of analyzing photos. Create a resale-ready summary and pricing estimate. For pricing, estimate a realistic low_price and high_price by checking the item against current eBay and Facebook Marketplace listings for identical or very similar items whenever that market context is available to you. Favor recent sold or active comparable listings, adjust for condition, brand, completeness, and visible wear, and make sure the suggested price range follows the real market rather than a generic guess. Also provide a floor_price, meaning the lowest reasonable price a seller should accept before walking away during negotiation. Assume a typical secondhand condition unless the barcode data clearly suggests new sealed merchandise. Respond ONLY with raw JSON, no markdown:
+${productSummary}
+
+{
+  "name": "item name",
+  "description": "1-2 sentence description",
+  "condition": "New / Like New / Good / Fair",
+  "low_price": 10,
+  "high_price": 30,
+  "floor_price": 12,
+  "best_platform": "eBay",
+  "platform_reason": "one sentence why",
+  "listing_title": "SEO title under 80 chars",
+  "listing_description": "3-4 sentence listing description"
+}`,
+                },
+              ],
+            },
+          ],
+        }),
+      });
+      const data = await response.json();
+      const text = data.content[0].text;
+      const parsed = JSON.parse(text.replace(/```json|```/g, "").trim());
+      setImages([]);
+      setBarcodeValue(barcode);
+      setProductImageUri(product.images?.[0] ?? null);
+      setResult(parsed);
+      setEditableTitle(parsed.listing_title);
+      setEditableDescription(parsed.listing_description);
+      setEditablePrice(`${parsed.low_price}-${parsed.high_price}`);
+      setEditableFloorPrice(`${parsed.floor_price ?? parsed.low_price}`);
+    } catch (error) {
+      Alert.alert(
+        "Barcode lookup failed",
+        error instanceof Error
+          ? error.message
+          : "We couldn't pull product info from that barcode.",
+      );
+    }
+
+    setLoading(false);
+  };
+
+  const openBarcodeScanner = async () => {
+    const permission = cameraPermission?.granted
+      ? cameraPermission
+      : await requestCameraPermission();
+
+    if (!permission?.granted) {
+      Alert.alert(
+        "Camera permission required",
+        "Allow camera access to scan barcodes.",
+      );
+      return;
+    }
+
+    setHasScannedBarcode(false);
+    setScannerOpen(true);
+  };
+
+  const handleBarcodeScanned = ({ data }: { data: string }) => {
+    if (hasScannedBarcode) {
+      return;
+    }
+
+    setHasScannedBarcode(true);
+    setScannerOpen(false);
+    void analyzeBarcode(data);
+  };
+
   const saveToInventory = () => {
     if (!result) {
       Alert.alert("Nothing to save", "Analyze an item before saving it.");
@@ -203,14 +337,24 @@ export default function HomeScreen() {
       return;
     }
 
+    const parsedFloorPrice = parseFloorPrice();
+    if (parsedFloorPrice === null) {
+      Alert.alert(
+        "Invalid floor price",
+        "Enter your walk-away price before saving.",
+      );
+      return;
+    }
+
     const itemId = currentItemId ?? Date.now();
     const inventoryItem: InventoryItem = {
       id: itemId,
-      photo: images[0]?.uri ?? null,
+      photo: images[0]?.uri ?? productImageUri ?? null,
       name: result.name,
       condition: result.condition,
       low_price: parsedPriceRange.low,
       high_price: parsedPriceRange.high,
+      floor_price: Math.min(parsedFloorPrice, parsedPriceRange.high),
       best_platform: result.best_platform,
       listing_title: editableTitle,
       listing_description: editableDescription,
@@ -265,6 +409,52 @@ export default function HomeScreen() {
           </TouchableOpacity>
         </View>
 
+        <TouchableOpacity
+          style={styles.barcodeBtn}
+          onPress={openBarcodeScanner}
+        >
+          <Text style={styles.barcodeBtnText}>Scan Barcode</Text>
+        </TouchableOpacity>
+
+        {scannerOpen && (
+          <View style={styles.scannerCard}>
+            <CameraView
+              style={styles.scannerView}
+              facing="back"
+              onBarcodeScanned={handleBarcodeScanned}
+              barcodeScannerSettings={{
+                barcodeTypes: [
+                  "upc_a",
+                  "upc_e",
+                  "ean13",
+                  "ean8",
+                  "code128",
+                  "code39",
+                ],
+              }}
+            />
+            <View style={styles.scannerOverlay}>
+              <Text style={styles.scannerTitle}>
+                Center the barcode in the frame
+              </Text>
+              <Text style={styles.scannerSubtitle}>
+                We&apos;ll look up the product before falling back to the photo
+                workflow.
+              </Text>
+              <TouchableOpacity
+                style={styles.closeScannerBtn}
+                onPress={() => setScannerOpen(false)}
+              >
+                <Text style={styles.closeScannerBtnText}>Cancel Scanner</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        )}
+
+        {barcodeValue ? (
+          <Text style={styles.barcodeStatus}>Barcode: {barcodeValue}</Text>
+        ) : null}
+
         {images.length > 0 && (
           <View style={styles.photoStrip}>
             <ScrollView horizontal showsHorizontalScrollIndicator={false}>
@@ -313,6 +503,9 @@ export default function HomeScreen() {
               <Text style={styles.priceBadge}>
                 ${result.low_price}-${result.high_price}
               </Text>
+              <Text style={styles.floorBadge}>
+                Floor ${editableFloorPrice || result.floor_price || result.low_price}
+              </Text>
               <Text style={styles.conditionBadge}>{result.condition}</Text>
               <Text style={styles.platformBadge}>{result.best_platform}</Text>
             </View>
@@ -343,6 +536,15 @@ export default function HomeScreen() {
                 value={editablePrice}
                 onChangeText={setEditablePrice}
                 placeholder="e.g. 10-30"
+              />
+
+              <Text style={styles.listingLabel}>FLOOR PRICE</Text>
+              <TextInput
+                style={styles.editableInput}
+                value={editableFloorPrice}
+                onChangeText={setEditableFloorPrice}
+                placeholder="lowest price you'd take"
+                keyboardType="numeric"
               />
 
               <TouchableOpacity style={styles.copyBtn} onPress={copyListing}>
@@ -401,6 +603,51 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   btnText: { color: "#fff", fontWeight: "500", fontSize: 15 },
+  barcodeBtn: {
+    backgroundColor: "#1a56db",
+    padding: 14,
+    borderRadius: 10,
+    alignItems: "center",
+    marginBottom: 16,
+  },
+  barcodeBtnText: { color: "#fff", fontWeight: "600", fontSize: 15 },
+  scannerCard: {
+    borderRadius: 12,
+    overflow: "hidden",
+    backgroundColor: "#111",
+    marginBottom: 16,
+  },
+  scannerView: { height: 280, width: "100%" },
+  scannerOverlay: {
+    padding: 16,
+    backgroundColor: "#111",
+  },
+  scannerTitle: {
+    color: "#fff",
+    fontSize: 16,
+    fontWeight: "600",
+    marginBottom: 4,
+  },
+  scannerSubtitle: {
+    color: "rgba(255,255,255,0.75)",
+    fontSize: 13,
+    lineHeight: 18,
+    marginBottom: 12,
+  },
+  closeScannerBtn: {
+    alignSelf: "flex-start",
+    backgroundColor: "#fff",
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
+  },
+  closeScannerBtnText: { color: "#111", fontWeight: "600", fontSize: 13 },
+  barcodeStatus: {
+    fontSize: 13,
+    color: "#1a56db",
+    marginBottom: 12,
+    fontWeight: "500",
+  },
   photoStrip: { marginBottom: 16 },
   thumbContainer: { position: "relative", marginRight: 8 },
   thumb: { width: 90, height: 90, borderRadius: 8, backgroundColor: "#f0f0f0" },
@@ -448,6 +695,15 @@ const styles = StyleSheet.create({
   priceBadge: {
     backgroundColor: "#e6f4ea",
     color: "#2d6a4f",
+    fontSize: 13,
+    fontWeight: "500",
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 6,
+  },
+  floorBadge: {
+    backgroundColor: "#fff3cd",
+    color: "#8a6d1f",
     fontSize: 13,
     fontWeight: "500",
     paddingHorizontal: 10,

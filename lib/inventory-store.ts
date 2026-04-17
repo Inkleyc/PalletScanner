@@ -1,3 +1,5 @@
+import * as FileSystem from "expo-file-system/legacy";
+
 type InventoryItem = {
   id: number;
   photo: string | null;
@@ -5,6 +7,7 @@ type InventoryItem = {
   condition: string;
   low_price: number;
   high_price: number;
+  floor_price: number;
   best_platform: string;
   listing_title: string;
   listing_description: string;
@@ -14,9 +17,14 @@ type InventoryItem = {
 type InventoryListener = () => void;
 
 const inventoryListeners = new Set<InventoryListener>();
+const inventoryFile = `${FileSystem.documentDirectory}inventory.json`;
 
 const normalizeInventoryItem = (item: InventoryItem): InventoryItem => ({
   ...item,
+  floor_price:
+    typeof item.floor_price === "number" && !Number.isNaN(item.floor_price)
+      ? item.floor_price
+      : item.low_price,
   listedPlatforms: Array.isArray(item.listedPlatforms) ? item.listedPlatforms : [],
 });
 
@@ -28,9 +36,22 @@ const getGlobalInventory = (): InventoryItem[] => {
 };
 
 let inventoryState: InventoryItem[] = getGlobalInventory();
+let hydratePromise: Promise<void> | null = null;
 
 const notifyInventoryListeners = () => {
   inventoryListeners.forEach((listener) => listener());
+};
+
+const persistInventory = async () => {
+  try {
+    await FileSystem.writeAsStringAsync(
+      inventoryFile,
+      JSON.stringify(inventoryState),
+      { encoding: "utf8" },
+    );
+  } catch {
+    // Best-effort persistence; keep working in memory if writing fails.
+  }
 };
 
 export const getInventory = () => inventoryState;
@@ -39,6 +60,36 @@ export const setInventory = (items: InventoryItem[]) => {
   inventoryState = items.map(normalizeInventoryItem);
   (globalThis as { inventory?: InventoryItem[] }).inventory = inventoryState;
   notifyInventoryListeners();
+  void persistInventory();
+};
+
+export const hydrateInventory = async () => {
+  if (hydratePromise) {
+    return hydratePromise;
+  }
+
+  hydratePromise = (async () => {
+    try {
+      const fileInfo = await FileSystem.getInfoAsync(inventoryFile);
+      if (!fileInfo.exists) {
+        return;
+      }
+
+      const raw = await FileSystem.readAsStringAsync(inventoryFile, {
+        encoding: "utf8",
+      });
+      const parsed = JSON.parse(raw) as InventoryItem[];
+      inventoryState = Array.isArray(parsed)
+        ? parsed.map((item) => normalizeInventoryItem(item))
+        : inventoryState;
+      (globalThis as { inventory?: InventoryItem[] }).inventory = inventoryState;
+      notifyInventoryListeners();
+    } catch {
+      // Ignore invalid or missing persisted inventory.
+    }
+  })();
+
+  await hydratePromise;
 };
 
 export const subscribeInventory = (listener: InventoryListener) => {
@@ -110,3 +161,5 @@ export const unmarkInventoryItemListed = (
 };
 
 export type { InventoryItem };
+
+void hydrateInventory();
