@@ -1,6 +1,7 @@
 import * as Clipboard from "expo-clipboard";
 import { Alert, Linking } from "react-native";
 
+import { createEbayListing, isEbayApiConfigured } from "@/lib/ebay-integration";
 import {
   markInventoryItemListed,
   type InventoryItem,
@@ -19,8 +20,33 @@ export const buildListingText = (item: InventoryItem) =>
 export const openListingDraft = async (
   item: InventoryItem,
   platform: "facebook" | "ebay",
+  options?: {
+    showSuccessAlert?: boolean;
+  },
 ) => {
-  markInventoryItemListed(item.id, platform);
+  if (platform === "ebay" && isEbayApiConfigured()) {
+    try {
+      const result = await createEbayListing(item);
+      markInventoryItemListed(item.id, platform);
+
+      if (options?.showSuccessAlert !== false) {
+        Alert.alert(
+          "eBay listing created",
+          result.listingId
+            ? `Your eBay listing was created successfully. Listing ID: ${result.listingId}`
+            : "Your eBay listing was created successfully.",
+        );
+      }
+      return;
+    } catch (error) {
+      Alert.alert(
+        "eBay API listing failed",
+        error instanceof Error
+          ? `${error.message}\n\nFalling back to the browser listing flow.`
+          : "Falling back to the browser listing flow.",
+      );
+    }
+  }
 
   const listingText = buildListingText(item);
   const url =
@@ -43,10 +69,13 @@ export const openListingDraft = async (
     }
 
     await Linking.openURL(url);
-    Alert.alert(
-      `${platformLabel} opened`,
-      "The listing details were copied to your clipboard so you can paste them into the new listing.",
-    );
+    markInventoryItemListed(item.id, platform);
+    if (options?.showSuccessAlert !== false) {
+      Alert.alert(
+        `${platformLabel} opened`,
+        "The listing details were copied to your clipboard so you can paste them into the new listing.",
+      );
+    }
   } catch {
     Alert.alert(
       "Unable to open listing flow",

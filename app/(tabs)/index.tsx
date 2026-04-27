@@ -1,7 +1,7 @@
-import * as Clipboard from "expo-clipboard";
 import { CameraView, useCameraPermissions } from "expo-camera";
+import * as Clipboard from "expo-clipboard";
 import * as ImagePicker from "expo-image-picker";
-import { useState, useSyncExternalStore } from "react";
+import { useRef, useState, useSyncExternalStore } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -16,10 +16,7 @@ import {
   View,
 } from "react-native";
 
-import {
-  getAppSettings,
-  subscribeAppSettings,
-} from "@/lib/app-settings";
+import { getAppSettings, subscribeAppSettings } from "@/lib/app-settings";
 import { lookupBarcodeProduct } from "@/lib/barcode-lookup";
 import { saveInventoryItem, type InventoryItem } from "@/lib/inventory-store";
 import { openListingDraft } from "@/lib/listing-posting";
@@ -40,6 +37,7 @@ export default function HomeScreen() {
   const [barcodeValue, setBarcodeValue] = useState("");
   const [hasScannedBarcode, setHasScannedBarcode] = useState(false);
   const [cameraPermission, requestCameraPermission] = useCameraPermissions();
+  const barcodeScanLock = useRef(false);
   const { promptToPostOnSave } = useSyncExternalStore(
     subscribeAppSettings,
     getAppSettings,
@@ -99,6 +97,7 @@ export default function HomeScreen() {
     setScannerOpen(false);
     setBarcodeValue("");
     setHasScannedBarcode(false);
+    barcodeScanLock.current = false;
     setCurrentItemId(null);
   };
 
@@ -284,12 +283,26 @@ ${productSummary}
       setEditablePrice(`${parsed.low_price}-${parsed.high_price}`);
       setEditableFloorPrice(`${parsed.floor_price ?? parsed.low_price}`);
     } catch (error) {
+      setBarcodeValue("");
+      setProductImageUri(null);
+      setResult(null);
+      setLoading(false);
       Alert.alert(
         "Barcode lookup failed",
         error instanceof Error
           ? error.message
           : "We couldn't pull product info from that barcode.",
+        [
+          { text: "Cancel", style: "cancel" },
+          {
+            text: "Scan Again",
+            onPress: () => {
+              void openBarcodeScanner();
+            },
+          },
+        ],
       );
+      return;
     }
 
     setLoading(false);
@@ -308,15 +321,17 @@ ${productSummary}
       return;
     }
 
+    barcodeScanLock.current = false;
     setHasScannedBarcode(false);
     setScannerOpen(true);
   };
 
   const handleBarcodeScanned = ({ data }: { data: string }) => {
-    if (hasScannedBarcode) {
+    if (barcodeScanLock.current || hasScannedBarcode) {
       return;
     }
 
+    barcodeScanLock.current = true;
     setHasScannedBarcode(true);
     setScannerOpen(false);
     void analyzeBarcode(data);
@@ -504,7 +519,8 @@ ${productSummary}
                 ${result.low_price}-${result.high_price}
               </Text>
               <Text style={styles.floorBadge}>
-                Floor ${editableFloorPrice || result.floor_price || result.low_price}
+                Floor $
+                {editableFloorPrice || result.floor_price || result.low_price}
               </Text>
               <Text style={styles.conditionBadge}>{result.condition}</Text>
               <Text style={styles.platformBadge}>{result.best_platform}</Text>

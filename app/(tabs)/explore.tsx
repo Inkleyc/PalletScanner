@@ -1,7 +1,7 @@
 import * as FileSystem from "expo-file-system/legacy";
 import * as MailComposer from "expo-mail-composer";
 import * as Sharing from "expo-sharing";
-import { useSyncExternalStore } from "react";
+import { useMemo, useState, useSyncExternalStore } from "react";
 import {
   Alert,
   Image,
@@ -26,6 +26,7 @@ export default function InventoryScreen() {
     getInventory,
     getInventory,
   );
+  const [bulkEbayQueue, setBulkEbayQueue] = useState<number[]>([]);
 
   const totalLow = items.reduce(
     (sum: number, item: any) => sum + item.low_price,
@@ -34,6 +35,10 @@ export default function InventoryScreen() {
   const totalHigh = items.reduce(
     (sum: number, item: any) => sum + item.high_price,
     0,
+  );
+  const missingEbayItems = useMemo(
+    () => items.filter((item: any) => !item.listedPlatforms.includes("ebay")),
+    [items],
   );
 
   const removeItem = (id: number) => {
@@ -116,6 +121,74 @@ export default function InventoryScreen() {
     }
   };
 
+  const openNextBulkEbayItem = async (queueIds: number[]) => {
+    const nextId = queueIds[0];
+    if (nextId === undefined) {
+      setBulkEbayQueue([]);
+      Alert.alert(
+        "Mass eBay posting complete",
+        "No unposted eBay items remain.",
+      );
+      return;
+    }
+
+    const nextItem = items.find((item: any) => item.id === nextId);
+    if (!nextItem) {
+      const remainingQueue = queueIds.slice(1);
+      setBulkEbayQueue(remainingQueue);
+      if (remainingQueue.length === 0) {
+        Alert.alert(
+          "Mass eBay posting complete",
+          "No unposted eBay items remain.",
+        );
+      }
+      return;
+    }
+
+    const remainingQueue = queueIds.slice(1);
+    setBulkEbayQueue(remainingQueue);
+    await openListingDraft(nextItem, "ebay", { showSuccessAlert: false });
+
+    if (remainingQueue.length === 0) {
+      Alert.alert(
+        "eBay listing opened",
+        `Opened the last missing eBay listing for ${nextItem.name}.`,
+      );
+      return;
+    }
+
+    Alert.alert(
+      "eBay listing opened",
+      `${nextItem.name} is ready to post. Come back here when you're ready for the next item.`,
+    );
+  };
+
+  const startBulkEbayPosting = () => {
+    if (missingEbayItems.length === 0) {
+      Alert.alert(
+        "Nothing to post",
+        "Every inventory item already has the eBay flag.",
+      );
+      return;
+    }
+
+    const queueIds = missingEbayItems.map((item: any) => item.id);
+    void openNextBulkEbayItem(queueIds);
+  };
+
+  const continueBulkEbayPosting = () => {
+    if (bulkEbayQueue.length === 0) {
+      startBulkEbayPosting();
+      return;
+    }
+
+    void openNextBulkEbayItem(bulkEbayQueue);
+  };
+
+  const cancelBulkEbayPosting = () => {
+    setBulkEbayQueue([]);
+  };
+
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       <Text style={styles.title}>Inventory</Text>
@@ -144,6 +217,28 @@ export default function InventoryScreen() {
             <Text style={styles.emailBtnText}>Email Inventory</Text>
           </TouchableOpacity>
         </View>
+        <TouchableOpacity
+          style={styles.bulkEbayBtn}
+          onPress={
+            bulkEbayQueue.length > 0
+              ? continueBulkEbayPosting
+              : startBulkEbayPosting
+          }
+        >
+          <Text style={styles.bulkEbayBtnText}>
+            {bulkEbayQueue.length > 0
+              ? `Continue Mass eBay Posting (${bulkEbayQueue.length} left)`
+              : `Post All Missing to eBay (${missingEbayItems.length})`}
+          </Text>
+        </TouchableOpacity>
+        {bulkEbayQueue.length > 0 && (
+          <TouchableOpacity
+            style={styles.cancelBulkBtn}
+            onPress={cancelBulkEbayPosting}
+          >
+            <Text style={styles.cancelBulkBtnText}>Stop Mass Posting</Text>
+          </TouchableOpacity>
+        )}
       </View>
 
       {items.length === 0 && (
@@ -261,6 +356,23 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   emailBtnText: { color: "#fff", fontWeight: "500", fontSize: 14 },
+  bulkEbayBtn: {
+    backgroundColor: "#e53238",
+    padding: 12,
+    borderRadius: 8,
+    alignItems: "center",
+    marginTop: 10,
+  },
+  bulkEbayBtnText: { color: "#fff", fontWeight: "600", fontSize: 14 },
+  cancelBulkBtn: {
+    padding: 10,
+    borderRadius: 8,
+    alignItems: "center",
+    marginTop: 8,
+    borderWidth: 0.5,
+    borderColor: "#ddd",
+  },
+  cancelBulkBtnText: { color: "#666", fontWeight: "500", fontSize: 13 },
   emptyState: { alignItems: "center", paddingTop: 60 },
   emptyIcon: { fontSize: 48, marginBottom: 12 },
   emptyText: {
