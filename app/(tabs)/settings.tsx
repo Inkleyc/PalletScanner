@@ -1,4 +1,4 @@
-import { useSyncExternalStore } from "react";
+import { useMemo, useSyncExternalStore } from "react";
 import {
   Alert,
   Linking,
@@ -7,9 +7,11 @@ import {
   Switch,
   Text,
   TouchableOpacity,
+  useWindowDimensions,
   View,
 } from "react-native";
 
+import { AppLayout, AppPalette } from "@/constants/app-palette";
 import {
   getEbayApiBaseUrl,
   getEbayIntegrationStatusLabel,
@@ -20,13 +22,40 @@ import {
   setPromptToPostOnSave,
   subscribeAppSettings,
 } from "@/lib/app-settings";
+import {
+  getResetBackupSummary,
+  resetAllPalletSessions,
+  restoreResetBackup,
+  subscribeInventory,
+} from "@/lib/inventory-store";
 
 export default function SettingsScreen() {
+  const { width } = useWindowDimensions();
   const { promptToPostOnSave } = useSyncExternalStore(
     subscribeAppSettings,
     getAppSettings,
     getAppSettings,
   );
+  const isLargeLayout = width >= 900;
+  const resetBackup = useSyncExternalStore(
+    subscribeInventory,
+    getResetBackupSummary,
+    getResetBackupSummary,
+  );
+  const resetBackupTimeLabel = useMemo(() => {
+    if (!resetBackup) {
+      return null;
+    }
+
+    const remainingMs = Math.max(resetBackup.expiresAt - Date.now(), 0);
+    const remainingHours = Math.ceil(remainingMs / (60 * 60 * 1000));
+    if (remainingHours >= 24) {
+      const remainingDays = Math.ceil(remainingHours / 24);
+      return `${remainingDays} day${remainingDays === 1 ? "" : "s"} left`;
+    }
+
+    return `${remainingHours} hour${remainingHours === 1 ? "" : "s"} left`;
+  }, [resetBackup]);
 
   const connectEbayAccount = async () => {
     if (!isEbayApiConfigured()) {
@@ -42,63 +71,126 @@ export default function SettingsScreen() {
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      <Text style={styles.title}>Settings</Text>
-      <Text style={styles.subtitle}>Choose how saving and posting should work</Text>
+      <View style={[styles.innerContent, isLargeLayout && styles.innerContentWide]}>
+        <Text style={styles.title}>Settings</Text>
+        <Text style={styles.subtitle}>Choose how saving and posting should work</Text>
 
-      <View style={styles.card}>
-        <View style={styles.settingRow}>
-          <View style={styles.settingCopy}>
-            <Text style={styles.settingTitle}>Prompt To Post After Save</Text>
-            <Text style={styles.settingDescription}>
-              After saving a new inventory item, ask whether to open Facebook
-              Marketplace or eBay right away.
-            </Text>
+        <View style={styles.card}>
+          <View style={styles.settingRow}>
+            <View style={styles.settingCopy}>
+              <Text style={styles.settingTitle}>Prompt To Post After Save</Text>
+              <Text style={styles.settingDescription}>
+                After saving a new inventory item, ask whether to open Facebook
+                Marketplace or eBay right away.
+              </Text>
+            </View>
+            <Switch
+              value={promptToPostOnSave}
+              onValueChange={setPromptToPostOnSave}
+              trackColor={{ false: AppPalette.borderStrong, true: "#a9c8df" }}
+              thumbColor={promptToPostOnSave ? AppPalette.primaryStrong : "#f4f4f4"}
+            />
           </View>
-          <Switch
-            value={promptToPostOnSave}
-            onValueChange={setPromptToPostOnSave}
-            trackColor={{ false: "#d9d9d9", true: "#9fd3b9" }}
-            thumbColor={promptToPostOnSave ? "#2d6a4f" : "#f4f4f4"}
-          />
         </View>
-      </View>
 
-      <View style={styles.card}>
-        <Text style={styles.settingTitle}>eBay Integration</Text>
-        <Text style={styles.settingDescription}>
-          {isEbayApiConfigured()
-            ? "The app will try your configured backend first for real eBay API listing creation."
-            : "No eBay backend is configured yet, so eBay posting uses the browser helper flow for now."}
-        </Text>
-        <Text style={styles.integrationStatus}>
-          Status: {getEbayIntegrationStatusLabel()}
-        </Text>
-        <Text style={styles.integrationHint}>
-          Set `EXPO_PUBLIC_EBAY_API_BASE_URL` in your environment to point the
-          app at a backend that handles eBay OAuth and Sell API calls.
-        </Text>
-        <TouchableOpacity
-          style={styles.connectBtn}
-          onPress={() => {
-            void connectEbayAccount();
-          }}
-        >
-          <Text style={styles.connectBtnText}>Connect eBay Account</Text>
-        </TouchableOpacity>
+        <View style={styles.card}>
+          <Text style={styles.settingTitle}>eBay Integration</Text>
+          <Text style={styles.settingDescription}>
+            {isEbayApiConfigured()
+              ? "The app will try your configured backend first for real eBay API listing creation."
+              : "No eBay backend is configured yet, so eBay posting uses the browser helper flow for now."}
+          </Text>
+          <Text style={styles.integrationStatus}>
+            Status: {getEbayIntegrationStatusLabel()}
+          </Text>
+          <Text style={styles.integrationHint}>
+            Set `EXPO_PUBLIC_EBAY_API_BASE_URL` in your environment to point the
+            app at a backend that handles eBay OAuth and Sell API calls.
+          </Text>
+          <TouchableOpacity
+            style={styles.connectBtn}
+            onPress={() => {
+              void connectEbayAccount();
+            }}
+          >
+            <Text style={styles.connectBtnText}>Connect eBay Account</Text>
+          </TouchableOpacity>
+        </View>
+
+        <View style={styles.resetCard}>
+          <Text style={styles.settingTitle}>Delete App Data</Text>
+          <Text style={styles.settingDescription}>
+            Delete all pallets and inventory items. We keep one undo snapshot for 3 days before it expires for good.
+          </Text>
+          {resetBackup ? (
+            <View style={styles.undoBox}>
+              <Text style={styles.undoTitle}>Undo available</Text>
+              <Text style={styles.undoText}>
+                {resetBackup.palletCount} pallet{resetBackup.palletCount === 1 ? "" : "s"} and{" "}
+                {resetBackup.itemCount} item{resetBackup.itemCount === 1 ? "" : "s"} can still be restored.
+              </Text>
+              <Text style={styles.undoMeta}>{resetBackupTimeLabel}</Text>
+              <TouchableOpacity
+                style={styles.undoBtn}
+                onPress={() => {
+                  const restored = restoreResetBackup();
+                  if (restored) {
+                    Alert.alert("Restore complete", "Your deleted pallets and inventory are back.");
+                  }
+                }}
+              >
+                <Text style={styles.undoBtnText}>Undo Delete</Text>
+              </TouchableOpacity>
+            </View>
+          ) : (
+            <Text style={styles.resetHint}>No delete snapshot is currently available.</Text>
+          )}
+          <TouchableOpacity
+            style={styles.resetBtn}
+            onPress={() => {
+              Alert.alert(
+                "Delete all data",
+                "This deletes every pallet and inventory item. You can undo it from Settings for up to 3 days.",
+                [
+                  { text: "Cancel", style: "cancel" },
+                  {
+                    text: "Delete",
+                    style: "destructive",
+                    onPress: () => {
+                      resetAllPalletSessions();
+                    },
+                  },
+                ],
+              );
+            }}
+          >
+            <Text style={styles.resetBtnText}>Delete All Pallets and Items</Text>
+          </TouchableOpacity>
+        </View>
       </View>
     </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#fff" },
+  container: { flex: 1, backgroundColor: AppPalette.background },
   content: { padding: 24, paddingTop: 60 },
-  title: { fontSize: 28, fontWeight: "600", color: "#111", marginBottom: 4 },
-  subtitle: { fontSize: 14, color: "#666", marginBottom: 24 },
+  innerContent: { width: "100%", alignSelf: "center" },
+  innerContentWide: { maxWidth: AppLayout.maxContentWidth },
+  title: { fontSize: 28, fontWeight: "600", color: AppPalette.text, marginBottom: 4 },
+  subtitle: { fontSize: 14, color: AppPalette.textMuted, marginBottom: 24 },
   card: {
-    backgroundColor: "#f9f9f9",
+    backgroundColor: AppPalette.surface,
     borderRadius: 12,
     padding: 16,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: AppPalette.border,
+    shadowColor: AppPalette.shadow,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 1,
+    shadowRadius: 18,
+    elevation: 2,
   },
   settingRow: {
     flexDirection: "row",
@@ -110,32 +202,91 @@ const styles = StyleSheet.create({
   settingTitle: {
     fontSize: 16,
     fontWeight: "600",
-    color: "#111",
+    color: AppPalette.text,
     marginBottom: 6,
   },
   settingDescription: {
     fontSize: 13,
-    color: "#666",
+    color: AppPalette.textMuted,
     lineHeight: 19,
   },
   integrationStatus: {
     fontSize: 13,
-    color: "#111",
+    color: AppPalette.text,
     fontWeight: "600",
     marginTop: 12,
   },
   integrationHint: {
     fontSize: 12,
-    color: "#666",
+    color: AppPalette.textMuted,
     lineHeight: 18,
     marginTop: 8,
   },
   connectBtn: {
-    backgroundColor: "#e53238",
+    backgroundColor: AppPalette.primaryStrong,
     padding: 12,
     borderRadius: 8,
     alignItems: "center",
     marginTop: 14,
   },
-  connectBtnText: { color: "#fff", fontWeight: "600", fontSize: 14 },
+  connectBtnText: { color: AppPalette.primaryOn, fontWeight: "600", fontSize: 14 },
+  resetCard: {
+    backgroundColor: AppPalette.dangerSoft,
+    borderRadius: 12,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: "#efc0b9",
+    shadowColor: AppPalette.shadow,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 1,
+    shadowRadius: 18,
+    elevation: 2,
+  },
+  resetHint: {
+    fontSize: 12,
+    color: AppPalette.dangerStrong,
+    lineHeight: 18,
+    marginTop: 10,
+  },
+  undoBox: {
+    marginTop: 12,
+    borderRadius: 10,
+    backgroundColor: AppPalette.surface,
+    borderWidth: 1,
+    borderColor: AppPalette.border,
+    padding: 12,
+  },
+  undoTitle: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: AppPalette.text,
+    marginBottom: 4,
+  },
+  undoText: {
+    fontSize: 12,
+    color: AppPalette.textMuted,
+    lineHeight: 18,
+  },
+  undoMeta: {
+    fontSize: 12,
+    color: AppPalette.dangerStrong,
+    fontWeight: "600",
+    marginTop: 8,
+  },
+  undoBtn: {
+    marginTop: 12,
+    backgroundColor: AppPalette.primaryStrong,
+    borderRadius: 8,
+    paddingVertical: 10,
+    alignItems: "center",
+  },
+  undoBtnText: { color: AppPalette.primaryOn, fontWeight: "600", fontSize: 14 },
+  resetBtn: {
+    marginTop: 14,
+    backgroundColor: AppPalette.dangerStrong,
+    borderRadius: 8,
+    paddingVertical: 12,
+    alignItems: "center",
+  },
+  resetBtnText: { color: AppPalette.primaryOn, fontWeight: "700", fontSize: 14 },
 });

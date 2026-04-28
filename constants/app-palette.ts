@@ -1,0 +1,30 @@
+export const AppPalette = {
+  background: "#eef2f7",
+  surface: "#ffffff",
+  surfaceMuted: "#f7f9fc",
+  surfaceTint: "#edf4fb",
+  border: "#d7dee8",
+  borderStrong: "#c4cfdd",
+  text: "#172033",
+  textMuted: "#667085",
+  textSoft: "#8b97a8",
+  primary: "#234a6b",
+  primaryStrong: "#17324d",
+  primarySoft: "#e7f0f8",
+  primaryOn: "#ffffff",
+  success: "#2f7a62",
+  successSoft: "#e7f5ef",
+  warning: "#b7791f",
+  warningSoft: "#fff4db",
+  danger: "#c65a46",
+  dangerStrong: "#a13d2f",
+  dangerSoft: "#fdecea",
+  info: "#2b6cb0",
+  infoSoft: "#e8f1fb",
+  shadow: "rgba(23, 32, 51, 0.08)",
+  modalBackdrop: "rgba(23, 32, 51, 0.42)",
+} as const;
+
+export const AppLayout = {
+  maxContentWidth: 980,
+} as const;

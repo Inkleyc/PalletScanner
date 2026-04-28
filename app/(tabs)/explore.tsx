@@ -8,37 +8,74 @@ import {
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   TouchableOpacity,
+  useWindowDimensions,
   View,
 } from "react-native";
 
 import {
+  deletePalletSession,
+  getActivePalletId,
   getInventory,
+  getPallets,
   removeInventoryItem,
+  setActivePalletSession,
   subscribeInventory,
   unmarkInventoryItemListed,
+  updateInventoryItemSoldPrice,
 } from "@/lib/inventory-store";
 import { openListingDraft } from "@/lib/listing-posting";
+import { AppLayout, AppPalette } from "@/constants/app-palette";
 
 export default function InventoryScreen() {
+  const { width } = useWindowDimensions();
   const items = useSyncExternalStore(
     subscribeInventory,
     getInventory,
     getInventory,
   );
+  const pallets = useSyncExternalStore(
+    subscribeInventory,
+    getPallets,
+    getPallets,
+  );
+  const activePalletId = useSyncExternalStore(
+    subscribeInventory,
+    getActivePalletId,
+    getActivePalletId,
+  );
   const [bulkEbayQueue, setBulkEbayQueue] = useState<number[]>([]);
+  const [selectedPalletId, setSelectedPalletId] = useState<string>("all");
+  const [soldDrafts, setSoldDrafts] = useState<Record<number, string>>({});
+  const isLargeLayout = width >= 900;
 
-  const totalLow = items.reduce(
+  const selectedPallet =
+    selectedPalletId === "all"
+      ? null
+      : pallets.find((pallet) => pallet.id === selectedPalletId) ?? null;
+  const activePallet =
+    pallets.find((pallet) => pallet.id === activePalletId) ?? null;
+  const filteredItems = useMemo(
+    () =>
+      selectedPalletId === "all"
+        ? items
+        : items.filter((item: any) => item.palletId === selectedPalletId),
+    [items, selectedPalletId],
+  );
+
+  const totalLow = filteredItems.reduce(
     (sum: number, item: any) => sum + item.low_price,
     0,
   );
-  const totalHigh = items.reduce(
+  const totalHigh = filteredItems.reduce(
     (sum: number, item: any) => sum + item.high_price,
     0,
   );
   const missingEbayItems = useMemo(
-    () => items.filter((item: any) => !item.listedPlatforms.includes("ebay")),
-    [items],
+    () =>
+      filteredItems.filter((item: any) => !item.listedPlatforms.includes("ebay")),
+    [filteredItems],
   );
 
   const removeItem = (id: number) => {
@@ -54,16 +91,58 @@ export default function InventoryScreen() {
     ]);
   };
 
+  const getPalletName = (palletId: string) =>
+    pallets.find((pallet) => pallet.id === palletId)?.name ?? "Unknown pallet";
+
+  const getSoldDraftValue = (item: any) =>
+    soldDrafts[item.id] ?? (item.soldPrice !== null ? String(item.soldPrice) : "");
+
+  const saveSoldPrice = (item: any) => {
+    const rawValue = getSoldDraftValue(item).trim();
+    if (!rawValue) {
+      Alert.alert("Enter a sold price", "Type the amount the item sold for.");
+      return;
+    }
+
+    const parsedValue = Number(rawValue);
+    if (Number.isNaN(parsedValue) || parsedValue < 0) {
+      Alert.alert("Invalid sold price", "Enter a valid number like 25 or 25.50.");
+      return;
+    }
+
+    updateInventoryItemSoldPrice(item.id, parsedValue);
+    setSoldDrafts((current) => ({
+      ...current,
+      [item.id]: String(parsedValue),
+    }));
+  };
+
+  const clearSoldPrice = (item: any) => {
+    updateInventoryItemSoldPrice(item.id, null);
+    setSoldDrafts((current) => ({
+      ...current,
+      [item.id]: "",
+    }));
+  };
+
+  const getExportFilename = () => {
+    const suffix =
+      selectedPallet?.name.toLowerCase().replace(/[^a-z0-9]+/g, "-") ?? "all";
+    return FileSystem.documentDirectory + `pallet-inventory-${suffix}.csv`;
+  };
+
   const buildCSV = () => {
     const header =
-      "Name,Condition,Low Price,High Price,Floor Price,Platform,Listing Title,Listing Description";
-    const rows = items.map((item: any) =>
+      "Pallet,Name,Condition,Low Price,High Price,Floor Price,Sold Price,Platform,Listing Title,Listing Description";
+    const rows = filteredItems.map((item: any) =>
       [
+        `"${getPalletName(item.palletId)}"`,
         `"${item.name}"`,
         `"${item.condition}"`,
         item.low_price,
         item.high_price,
         item.floor_price,
+        item.soldPrice ?? "",
         `"${item.best_platform}"`,
         `"${item.listing_title}"`,
         `"${item.listing_description.replace(/"/g, "'")}"`,
@@ -73,13 +152,13 @@ export default function InventoryScreen() {
   };
 
   const exportCSV = async () => {
-    if (items.length === 0) {
+    if (filteredItems.length === 0) {
       Alert.alert("No items", "Scan and save some items first.");
       return;
     }
     try {
       const csv = buildCSV();
-      const filename = FileSystem.documentDirectory + "pallet-inventory.csv";
+      const filename = getExportFilename();
       await FileSystem.writeAsStringAsync(filename, csv, { encoding: "utf8" });
       const canShare = await Sharing.isAvailableAsync();
       if (canShare) {
@@ -95,13 +174,13 @@ export default function InventoryScreen() {
   };
 
   const emailInventory = async () => {
-    if (items.length === 0) {
+    if (filteredItems.length === 0) {
       Alert.alert("No items", "Scan and save some items first.");
       return;
     }
     try {
       const csv = buildCSV();
-      const filename = FileSystem.documentDirectory + "pallet-inventory.csv";
+      const filename = getExportFilename();
       await FileSystem.writeAsStringAsync(filename, csv, { encoding: "utf8" });
       const isAvailable = await MailComposer.isAvailableAsync();
       if (!isAvailable) {
@@ -112,8 +191,12 @@ export default function InventoryScreen() {
         return;
       }
       await MailComposer.composeAsync({
-        subject: "PalletScanner Inventory Export",
-        body: "Your pallet inventory is attached. Open in Google Sheets or Excel.",
+        subject: selectedPallet
+          ? `${selectedPallet.name} Inventory Export`
+          : "PalletScanner Inventory Export",
+        body: selectedPallet
+          ? `${selectedPallet.name} inventory is attached. Open in Google Sheets or Excel.`
+          : "Your pallet inventory is attached. Open in Google Sheets or Excel.",
         attachments: [filename],
       });
     } catch (e) {
@@ -167,7 +250,7 @@ export default function InventoryScreen() {
     if (missingEbayItems.length === 0) {
       Alert.alert(
         "Nothing to post",
-        "Every inventory item already has the eBay flag.",
+        "Every inventory item in this view already has the eBay flag.",
       );
       return;
     }
@@ -189,211 +272,436 @@ export default function InventoryScreen() {
     setBulkEbayQueue([]);
   };
 
+  const makeSelectedPalletActive = () => {
+    if (!selectedPallet) {
+      return;
+    }
+
+    setActivePalletSession(selectedPallet.id);
+    Alert.alert("Active pallet updated", `${selectedPallet.name} is now active.`);
+  };
+
+  const removeSelectedPallet = () => {
+    if (!selectedPallet) {
+      return;
+    }
+
+    Alert.alert(
+      "Delete pallet",
+      `Delete ${selectedPallet.name} and all items saved inside it?`,
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Delete",
+          style: "destructive",
+          onPress: () => {
+            const deleted = deletePalletSession(selectedPallet.id);
+            if (deleted) {
+              setSelectedPalletId("all");
+            }
+          },
+        },
+      ],
+    );
+  };
+
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      <Text style={styles.title}>Inventory</Text>
-      <Text style={styles.subtitle}>Items scanned this session</Text>
+      <View style={[styles.innerContent, isLargeLayout && styles.innerContentWide]}>
+        <Text style={styles.title}>Inventory</Text>
+        <Text style={styles.subtitle}>
+          {selectedPallet ? `${selectedPallet.name} inventory` : "Everything you have saved so far"}
+        </Text>
 
-      <View style={styles.totalCard}>
-        <View style={styles.totalRow}>
-          <View style={styles.totalBox}>
-            <Text style={styles.totalLabel}>Items</Text>
-            <Text style={styles.totalValue}>{items.length}</Text>
+        <View style={styles.filterCard}>
+          <View style={styles.filterHeader}>
+            <View>
+              <Text style={styles.filterLabel}>FILTER BY PALLET</Text>
+              <Text style={styles.filterActiveText}>
+                Active save target: {activePallet?.name ?? "None yet"}
+              </Text>
+            </View>
           </View>
-          <View style={styles.totalBox}>
-            <Text style={styles.totalLabel}>Est. Low</Text>
-            <Text style={styles.totalValue}>${totalLow}</Text>
-          </View>
-          <View style={styles.totalBox}>
-            <Text style={styles.totalLabel}>Est. High</Text>
-            <Text style={styles.totalValue}>${totalHigh}</Text>
-          </View>
-        </View>
-        <View style={styles.exportRow}>
-          <TouchableOpacity style={styles.exportBtn} onPress={exportCSV}>
-            <Text style={styles.exportBtnText}>Export CSV</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.emailBtn} onPress={emailInventory}>
-            <Text style={styles.emailBtnText}>Email Inventory</Text>
-          </TouchableOpacity>
-        </View>
-        <TouchableOpacity
-          style={styles.bulkEbayBtn}
-          onPress={
-            bulkEbayQueue.length > 0
-              ? continueBulkEbayPosting
-              : startBulkEbayPosting
-          }
-        >
-          <Text style={styles.bulkEbayBtnText}>
-            {bulkEbayQueue.length > 0
-              ? `Continue Mass eBay Posting (${bulkEbayQueue.length} left)`
-              : `Post All Missing to eBay (${missingEbayItems.length})`}
-          </Text>
-        </TouchableOpacity>
-        {bulkEbayQueue.length > 0 && (
-          <TouchableOpacity
-            style={styles.cancelBulkBtn}
-            onPress={cancelBulkEbayPosting}
-          >
-            <Text style={styles.cancelBulkBtnText}>Stop Mass Posting</Text>
-          </TouchableOpacity>
-        )}
-      </View>
-
-      {items.length === 0 && (
-        <View style={styles.emptyState}>
-          <Text style={styles.emptyIcon}>📦</Text>
-          <Text style={styles.emptyText}>No items yet</Text>
-          <Text style={styles.emptySubtext}>
-            Scan items on the Home tab and tap Save to Inventory
-          </Text>
-        </View>
-      )}
-
-      {items.map((item: any) => (
-        <View key={item.id} style={styles.itemCard}>
-          {item.listedPlatforms.length > 0 && (
-            <View style={styles.listedBannerRow}>
-              {item.listedPlatforms.map((platform: "facebook" | "ebay") => (
-                <View
-                  key={platform}
-                  style={[
-                    styles.listedBanner,
-                    platform === "facebook"
-                      ? styles.listedFacebookBanner
-                      : styles.listedEbayBanner,
-                  ]}
+          {(selectedPallet || pallets.length > 1) && (
+            <View style={styles.filterActions}>
+              {selectedPallet && selectedPallet.id !== activePalletId && (
+                <TouchableOpacity
+                  style={styles.makeActiveBtn}
+                  onPress={makeSelectedPalletActive}
                 >
-                  <Text style={styles.listedBannerText}>
-                    Listed to {platform === "facebook" ? "Facebook" : "eBay"}
-                  </Text>
-                  <TouchableOpacity
-                    style={styles.listedBannerClose}
-                    onPress={() => unmarkInventoryItemListed(item.id, platform)}
-                  >
-                    <Text style={styles.listedBannerCloseText}>x</Text>
-                  </TouchableOpacity>
-                </View>
-              ))}
+                  <Text style={styles.makeActiveBtnText}>Make Active</Text>
+                </TouchableOpacity>
+              )}
+              {selectedPallet && (
+                <TouchableOpacity
+                  style={styles.deletePalletBtn}
+                  onPress={removeSelectedPallet}
+                >
+                  <Text style={styles.deletePalletBtnText}>Delete Pallet</Text>
+                </TouchableOpacity>
+              )}
             </View>
           )}
-          <View style={styles.itemTop}>
-            {item.photo && (
-              <Image source={{ uri: item.photo }} style={styles.itemPhoto} />
-            )}
-            <View style={styles.itemInfo}>
-              <Text style={styles.itemName}>{item.name}</Text>
-              <View style={styles.badgeRow}>
-                <Text style={styles.priceBadge}>
-                  ${item.low_price}-${item.high_price}
-                </Text>
-                <Text style={styles.floorBadge}>Floor ${item.floor_price}</Text>
-                <Text style={styles.conditionBadge}>{item.condition}</Text>
-              </View>
-              <Text style={styles.platformText}>{item.best_platform}</Text>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.filterChipRow}
+          >
+            <TouchableOpacity
+              style={[
+                styles.filterChip,
+                selectedPalletId === "all" && styles.filterChipActive,
+              ]}
+              onPress={() => setSelectedPalletId("all")}
+            >
+              <Text
+                style={[
+                  styles.filterChipText,
+                  selectedPalletId === "all" && styles.filterChipTextActive,
+                ]}
+              >
+                All Inventory
+              </Text>
+            </TouchableOpacity>
+            {pallets.map((pallet) => {
+              const isSelected = selectedPalletId === pallet.id;
+              const isActive = activePalletId === pallet.id;
+              return (
+                <TouchableOpacity
+                  key={pallet.id}
+                  style={[
+                    styles.filterChip,
+                    isSelected && styles.filterChipActive,
+                  ]}
+                  onPress={() => setSelectedPalletId(pallet.id)}
+                >
+                  <Text
+                    style={[
+                      styles.filterChipText,
+                      isSelected && styles.filterChipTextActive,
+                    ]}
+                  >
+                    {pallet.name}
+                    {isActive ? " Active" : ""}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </ScrollView>
+        </View>
+
+        <View style={styles.totalCard}>
+          <View style={styles.totalRow}>
+            <View style={styles.totalBox}>
+              <Text style={styles.totalLabel}>Items</Text>
+              <Text style={styles.totalValue}>{filteredItems.length}</Text>
+            </View>
+            <View style={styles.totalBox}>
+              <Text style={styles.totalLabel}>Low</Text>
+              <Text style={styles.totalValue}>${totalLow}</Text>
+            </View>
+            <View style={styles.totalBox}>
+              <Text style={styles.totalLabel}>High</Text>
+              <Text style={styles.totalValue}>${totalHigh}</Text>
             </View>
           </View>
-          <View style={styles.itemActions}>
-            <TouchableOpacity
-              style={[styles.platformBtn, styles.facebookBtn]}
-              onPress={() => openListingDraft(item, "facebook")}
-            >
-              <Text style={styles.platformBtnText}>Post to Facebook</Text>
+          <View style={styles.exportRow}>
+            <TouchableOpacity style={styles.exportBtn} onPress={exportCSV}>
+              <Text style={styles.exportBtnText}>Export CSV</Text>
             </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.platformBtn, styles.ebayBtn]}
-              onPress={() => openListingDraft(item, "ebay")}
-            >
-              <Text style={styles.platformBtnText}>Post to eBay</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={styles.removeBtn}
-              onPress={() => removeItem(item.id)}
-            >
-              <Text style={styles.removeBtnText}>Remove</Text>
+            <TouchableOpacity style={styles.emailBtn} onPress={emailInventory}>
+              <Text style={styles.emailBtnText}>Email Inventory</Text>
             </TouchableOpacity>
           </View>
+          <TouchableOpacity
+            style={styles.bulkEbayBtn}
+            onPress={
+              bulkEbayQueue.length > 0
+                ? continueBulkEbayPosting
+                : startBulkEbayPosting
+            }
+          >
+            <Text style={styles.bulkEbayBtnText}>
+              {bulkEbayQueue.length > 0
+                ? `Continue Mass eBay Posting (${bulkEbayQueue.length} left)`
+                : `Post All Missing to eBay (${missingEbayItems.length})`}
+            </Text>
+          </TouchableOpacity>
+          {bulkEbayQueue.length > 0 && (
+            <TouchableOpacity
+              style={styles.cancelBulkBtn}
+              onPress={cancelBulkEbayPosting}
+            >
+              <Text style={styles.cancelBulkBtnText}>Stop Mass Posting</Text>
+            </TouchableOpacity>
+          )}
         </View>
-      ))}
+
+        {filteredItems.length === 0 && (
+          <View style={styles.emptyState}>
+            <Text style={styles.emptyIcon}>+</Text>
+            <Text style={styles.emptyText}>
+              {selectedPallet ? `No items in ${selectedPallet.name}` : "No items yet"}
+            </Text>
+            <Text style={styles.emptySubtext}>
+              {selectedPallet
+                ? "Switch pallets or save more items on the Home tab."
+                : pallets.length === 0
+                  ? "Create a pallet first, then start saving items from Home."
+                  : "Scan items on the Home tab and tap Save to Inventory"}
+            </Text>
+          </View>
+        )}
+
+        {filteredItems.map((item: any) => (
+          <View key={item.id} style={styles.itemCard}>
+            {item.listedPlatforms.length > 0 && (
+              <View style={styles.listedBannerRow}>
+                {item.listedPlatforms.map((platform: "facebook" | "ebay") => (
+                  <View
+                    key={platform}
+                    style={[
+                      styles.listedBanner,
+                      platform === "facebook"
+                        ? styles.listedFacebookBanner
+                        : styles.listedEbayBanner,
+                    ]}
+                  >
+                    <Text style={styles.listedBannerText}>
+                      Listed to {platform === "facebook" ? "Facebook" : "eBay"}
+                    </Text>
+                    <TouchableOpacity
+                      style={styles.listedBannerClose}
+                      onPress={() => unmarkInventoryItemListed(item.id, platform)}
+                    >
+                      <Text style={styles.listedBannerCloseText}>x</Text>
+                    </TouchableOpacity>
+                  </View>
+                ))}
+              </View>
+            )}
+            <View style={styles.itemTop}>
+              {item.photo && (
+                <Image source={{ uri: item.photo }} style={styles.itemPhoto} />
+              )}
+              <View style={styles.itemInfo}>
+                <Text style={styles.itemName}>{item.name}</Text>
+                <Text style={styles.palletTag}>{getPalletName(item.palletId)}</Text>
+                <View style={styles.badgeRow}>
+                  <Text style={styles.priceBadge}>
+                    ${item.low_price}-${item.high_price}
+                  </Text>
+                  <Text style={styles.floorBadge}>Floor ${item.floor_price}</Text>
+                  <Text style={styles.conditionBadge}>{item.condition}</Text>
+                </View>
+                <Text style={styles.platformText}>{item.best_platform}</Text>
+                <View style={styles.soldRow}>
+                  <TextInput
+                    style={styles.soldInput}
+                    value={getSoldDraftValue(item)}
+                    onChangeText={(value) =>
+                      setSoldDrafts((current) => ({
+                        ...current,
+                        [item.id]: value,
+                      }))
+                    }
+                    placeholder="Sold price"
+                    placeholderTextColor="#999"
+                    keyboardType="decimal-pad"
+                  />
+                  <TouchableOpacity
+                    style={styles.saveSoldBtn}
+                    onPress={() => saveSoldPrice(item)}
+                  >
+                    <Text style={styles.saveSoldBtnText}>
+                      {item.soldPrice !== null ? "Update" : "Save"}
+                    </Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={styles.clearSoldBtn}
+                    onPress={() => clearSoldPrice(item)}
+                  >
+                    <Text style={styles.clearSoldBtnText}>Clear</Text>
+                  </TouchableOpacity>
+                </View>
+                {item.soldPrice !== null && (
+                  <Text style={styles.soldStatus}>Sold for ${item.soldPrice}</Text>
+                )}
+              </View>
+            </View>
+            <View style={styles.itemActions}>
+              <TouchableOpacity
+                style={[styles.platformBtn, styles.facebookBtn]}
+                onPress={() => openListingDraft(item, "facebook")}
+              >
+                <Text style={styles.platformBtnText}>Post to Facebook</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.platformBtn, styles.ebayBtn]}
+                onPress={() => openListingDraft(item, "ebay")}
+              >
+                <Text style={styles.platformBtnText}>Post to eBay</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.removeBtn}
+                onPress={() => removeItem(item.id)}
+              >
+                <Text style={styles.removeBtnText}>Remove</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        ))}
+      </View>
     </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#fff" },
-  content: { padding: 24, paddingTop: 60 },
-  title: { fontSize: 28, fontWeight: "600", color: "#111", marginBottom: 4 },
-  subtitle: { fontSize: 14, color: "#666", marginBottom: 24 },
+  container: { flex: 1, backgroundColor: AppPalette.background },
+  content: { padding: 20, paddingTop: 56, paddingBottom: 28 },
+  innerContent: { width: "100%", alignSelf: "center" },
+  innerContentWide: { maxWidth: AppLayout.maxContentWidth },
+  title: { fontSize: 30, fontWeight: "700", color: AppPalette.text, marginBottom: 6 },
+  subtitle: { fontSize: 14, color: AppPalette.textMuted, marginBottom: 20, lineHeight: 20 },
+  filterCard: {
+    backgroundColor: AppPalette.surface,
+    borderRadius: 10,
+    padding: 16,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: AppPalette.border,
+    shadowColor: AppPalette.shadow,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 1,
+    shadowRadius: 18,
+    elevation: 2,
+  },
+  filterHeader: { gap: 8 },
+  filterActions: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+    alignItems: "center",
+    marginTop: 12,
+  },
+  filterLabel: {
+    fontSize: 11,
+    fontWeight: "600",
+    color: AppPalette.textSoft,
+    marginBottom: 4,
+  },
+  filterActiveText: { fontSize: 13, color: AppPalette.textMuted },
+  makeActiveBtn: {
+    backgroundColor: AppPalette.primaryStrong,
+    paddingHorizontal: 12,
+    paddingVertical: 9,
+    borderRadius: 8,
+  },
+  makeActiveBtnText: { color: AppPalette.primaryOn, fontSize: 13, fontWeight: "600" },
+  deletePalletBtn: {
+    backgroundColor: AppPalette.dangerSoft,
+    borderWidth: 1,
+    borderColor: "#efc0b9",
+    paddingHorizontal: 12,
+    paddingVertical: 9,
+    borderRadius: 8,
+  },
+  deletePalletBtnText: { color: AppPalette.dangerStrong, fontSize: 13, fontWeight: "600" },
+  filterChipRow: { gap: 8, paddingTop: 12 },
+  filterChip: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 999,
+    backgroundColor: AppPalette.surfaceMuted,
+    borderWidth: 1,
+    borderColor: AppPalette.border,
+  },
+  filterChipActive: { backgroundColor: AppPalette.primaryStrong, borderColor: AppPalette.primaryStrong },
+  filterChipText: { color: AppPalette.textMuted, fontSize: 13, fontWeight: "500" },
+  filterChipTextActive: { color: AppPalette.primaryOn, fontWeight: "600" },
   totalCard: {
-    backgroundColor: "#f9f9f9",
-    borderRadius: 12,
+    backgroundColor: AppPalette.surface,
+    borderRadius: 10,
     padding: 16,
     marginBottom: 24,
+    borderWidth: 1,
+    borderColor: AppPalette.border,
+    shadowColor: AppPalette.shadow,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 1,
+    shadowRadius: 18,
+    elevation: 2,
   },
-  totalRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    marginBottom: 16,
-  },
+  totalRow: { flexDirection: "row", justifyContent: "space-between", marginBottom: 16 },
   totalBox: { alignItems: "center", flex: 1 },
-  totalLabel: { fontSize: 12, color: "#666", marginBottom: 4 },
-  totalValue: { fontSize: 22, fontWeight: "600", color: "#111" },
+  totalLabel: { fontSize: 12, color: AppPalette.textSoft, marginBottom: 4 },
+  totalValue: { fontSize: 22, fontWeight: "700", color: AppPalette.text },
   exportRow: { flexDirection: "row", gap: 10 },
   exportBtn: {
     flex: 1,
-    backgroundColor: "#111",
+    backgroundColor: AppPalette.primaryStrong,
     padding: 12,
     borderRadius: 8,
     alignItems: "center",
   },
-  exportBtnText: { color: "#fff", fontWeight: "500", fontSize: 14 },
+  exportBtnText: { color: AppPalette.primaryOn, fontWeight: "500", fontSize: 14 },
   emailBtn: {
     flex: 1,
-    backgroundColor: "#2d6a4f",
+    backgroundColor: AppPalette.success,
     padding: 12,
     borderRadius: 8,
     alignItems: "center",
   },
-  emailBtnText: { color: "#fff", fontWeight: "500", fontSize: 14 },
+  emailBtnText: { color: AppPalette.primaryOn, fontWeight: "500", fontSize: 14 },
   bulkEbayBtn: {
-    backgroundColor: "#e53238",
+    backgroundColor: AppPalette.info,
     padding: 12,
     borderRadius: 8,
     alignItems: "center",
     marginTop: 10,
   },
-  bulkEbayBtnText: { color: "#fff", fontWeight: "600", fontSize: 14 },
+  bulkEbayBtnText: { color: AppPalette.primaryOn, fontWeight: "600", fontSize: 14 },
   cancelBulkBtn: {
     padding: 10,
     borderRadius: 8,
     alignItems: "center",
     marginTop: 8,
-    borderWidth: 0.5,
-    borderColor: "#ddd",
+    borderWidth: 1,
+    borderColor: AppPalette.border,
+    backgroundColor: AppPalette.surfaceMuted,
   },
-  cancelBulkBtnText: { color: "#666", fontWeight: "500", fontSize: 13 },
+  cancelBulkBtnText: { color: AppPalette.textMuted, fontWeight: "600", fontSize: 13 },
   emptyState: { alignItems: "center", paddingTop: 60 },
-  emptyIcon: { fontSize: 48, marginBottom: 12 },
-  emptyText: {
-    fontSize: 18,
-    fontWeight: "600",
-    color: "#111",
-    marginBottom: 8,
+  emptyIcon: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: AppPalette.primarySoft,
+    textAlign: "center",
+    lineHeight: 56,
+    fontSize: 28,
+    color: AppPalette.primary,
+    marginBottom: 12,
   },
+  emptyText: { fontSize: 18, fontWeight: "600", color: AppPalette.text, marginBottom: 8 },
   emptySubtext: {
     fontSize: 14,
-    color: "#666",
+    color: AppPalette.textMuted,
     textAlign: "center",
     lineHeight: 20,
   },
   itemCard: {
-    backgroundColor: "#fff",
+    backgroundColor: AppPalette.surface,
     borderRadius: 12,
-    borderWidth: 0.5,
-    borderColor: "#ddd",
+    borderWidth: 1,
+    borderColor: AppPalette.border,
     marginBottom: 12,
     overflow: "hidden",
+    shadowColor: AppPalette.shadow,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 1,
+    shadowRadius: 18,
+    elevation: 2,
   },
   listedBannerRow: {
     flexDirection: "row",
@@ -411,13 +719,9 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     gap: 8,
   },
-  listedFacebookBanner: { backgroundColor: "#e8f1ff" },
-  listedEbayBanner: { backgroundColor: "#ffe9ea" },
-  listedBannerText: {
-    fontSize: 12,
-    fontWeight: "600",
-    color: "#111",
-  },
+  listedFacebookBanner: { backgroundColor: AppPalette.infoSoft },
+  listedEbayBanner: { backgroundColor: AppPalette.primarySoft },
+  listedBannerText: { fontSize: 12, fontWeight: "600", color: AppPalette.text },
   listedBannerClose: {
     width: 18,
     height: 18,
@@ -429,7 +733,7 @@ const styles = StyleSheet.create({
   listedBannerCloseText: {
     fontSize: 11,
     lineHeight: 11,
-    color: "#333",
+    color: AppPalette.textMuted,
     fontWeight: "700",
   },
   itemTop: { flexDirection: "row", padding: 12, gap: 12 },
@@ -437,14 +741,42 @@ const styles = StyleSheet.create({
     width: 70,
     height: 70,
     borderRadius: 8,
-    backgroundColor: "#f0f0f0",
+    backgroundColor: AppPalette.surfaceMuted,
   },
   itemInfo: { flex: 1 },
-  itemName: { fontSize: 15, fontWeight: "600", color: "#111", marginBottom: 6 },
+  itemName: { fontSize: 16, fontWeight: "700", color: AppPalette.text, marginBottom: 4 },
+  palletTag: { fontSize: 12, color: AppPalette.textMuted, marginBottom: 6 },
   badgeRow: { flexDirection: "row", gap: 6, marginBottom: 4 },
+  soldRow: { flexDirection: "row", gap: 8, marginTop: 10, alignItems: "center" },
+  soldInput: {
+    flex: 1,
+    borderWidth: 1,
+    borderColor: AppPalette.borderStrong,
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    fontSize: 13,
+    color: AppPalette.text,
+    backgroundColor: AppPalette.surface,
+  },
+  saveSoldBtn: {
+    backgroundColor: AppPalette.primaryStrong,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    borderRadius: 8,
+  },
+  saveSoldBtnText: { color: AppPalette.primaryOn, fontSize: 12, fontWeight: "600" },
+  clearSoldBtn: {
+    backgroundColor: AppPalette.surfaceMuted,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    borderRadius: 8,
+  },
+  clearSoldBtnText: { color: AppPalette.textMuted, fontSize: 12, fontWeight: "600" },
+  soldStatus: { fontSize: 12, color: AppPalette.success, fontWeight: "600", marginTop: 8 },
   priceBadge: {
-    backgroundColor: "#e6f4ea",
-    color: "#2d6a4f",
+    backgroundColor: AppPalette.successSoft,
+    color: AppPalette.success,
     fontSize: 12,
     fontWeight: "500",
     paddingHorizontal: 8,
@@ -452,8 +784,8 @@ const styles = StyleSheet.create({
     borderRadius: 6,
   },
   conditionBadge: {
-    backgroundColor: "#fff8e1",
-    color: "#856404",
+    backgroundColor: AppPalette.warningSoft,
+    color: AppPalette.warning,
     fontSize: 12,
     fontWeight: "500",
     paddingHorizontal: 8,
@@ -461,38 +793,35 @@ const styles = StyleSheet.create({
     borderRadius: 6,
   },
   floorBadge: {
-    backgroundColor: "#fff3cd",
-    color: "#8a6d1f",
+    backgroundColor: AppPalette.surfaceTint,
+    color: AppPalette.primary,
     fontSize: 12,
     fontWeight: "500",
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: 6,
   },
-  platformText: { fontSize: 12, color: "#666" },
+  platformText: { fontSize: 12, color: AppPalette.textMuted },
   itemActions: {
-    borderTopWidth: 0.5,
-    borderTopColor: "#eee",
-    padding: 10,
+    borderTopWidth: 1,
+    borderTopColor: AppPalette.border,
+    padding: 12,
     flexDirection: "row",
     gap: 8,
     flexWrap: "wrap",
   },
-  platformBtn: {
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 6,
-  },
-  facebookBtn: { backgroundColor: "#1877f2" },
-  ebayBtn: { backgroundColor: "#e53238" },
-  platformBtnText: { fontSize: 13, color: "#fff", fontWeight: "600" },
+  platformBtn: { paddingHorizontal: 12, paddingVertical: 8, borderRadius: 6 },
+  facebookBtn: { backgroundColor: AppPalette.primaryStrong },
+  ebayBtn: { backgroundColor: AppPalette.info },
+  platformBtnText: { fontSize: 13, color: AppPalette.primaryOn, fontWeight: "600" },
   removeBtn: {
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: 6,
-    borderWidth: 0.5,
-    borderColor: "#ddd",
+    borderWidth: 1,
+    borderColor: AppPalette.border,
     marginLeft: "auto",
+    backgroundColor: AppPalette.dangerSoft,
   },
-  removeBtnText: { fontSize: 13, color: "#999" },
+  removeBtnText: { fontSize: 13, color: AppPalette.dangerStrong, fontWeight: "600" },
 });
