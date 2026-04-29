@@ -5,12 +5,17 @@ type InventoryItem = {
   photo: string | null;
   name: string;
   condition: string;
+  quantity: number;
   low_price: number;
   high_price: number;
   floor_price: number;
   best_platform: string;
   listing_title: string;
   listing_description: string;
+  listing_title_facebook?: string;
+  listing_description_facebook?: string;
+  listing_title_ebay?: string;
+  listing_description_ebay?: string;
   listedPlatforms: Array<"facebook" | "ebay">;
   palletId: string;
   soldPrice: number | null;
@@ -47,6 +52,7 @@ type InventoryListener = () => void;
 
 const inventoryListeners = new Set<InventoryListener>();
 const inventoryFile = `${FileSystem.documentDirectory}inventory.json`;
+const photosDirectory = `${FileSystem.documentDirectory}photos/`;
 const legacyPalletId = "pallet-1";
 const threeDaysMs = 3 * 24 * 60 * 60 * 1000;
 
@@ -60,6 +66,10 @@ const formatPalletName = (createdAt: number, sequence: number) => {
 
 const normalizeInventoryItem = (item: InventoryItem): InventoryItem => ({
   ...item,
+  quantity:
+    typeof item.quantity === "number" && !Number.isNaN(item.quantity) && item.quantity > 0
+      ? Math.floor(item.quantity)
+      : 1,
   floor_price:
     typeof item.floor_price === "number" && !Number.isNaN(item.floor_price)
       ? item.floor_price
@@ -73,6 +83,26 @@ const normalizeInventoryItem = (item: InventoryItem): InventoryItem => ({
     typeof item.soldPrice === "number" && !Number.isNaN(item.soldPrice)
       ? item.soldPrice
       : null,
+  listing_title_facebook:
+    typeof item.listing_title_facebook === "string" &&
+    item.listing_title_facebook.trim().length > 0
+      ? item.listing_title_facebook.trim()
+      : undefined,
+  listing_description_facebook:
+    typeof item.listing_description_facebook === "string" &&
+    item.listing_description_facebook.trim().length > 0
+      ? item.listing_description_facebook.trim()
+      : undefined,
+  listing_title_ebay:
+    typeof item.listing_title_ebay === "string" &&
+    item.listing_title_ebay.trim().length > 0
+      ? item.listing_title_ebay.trim()
+      : undefined,
+  listing_description_ebay:
+    typeof item.listing_description_ebay === "string" &&
+    item.listing_description_ebay.trim().length > 0
+      ? item.listing_description_ebay.trim()
+      : undefined,
 });
 
 const normalizePalletSession = (
@@ -167,6 +197,7 @@ let activePalletId: string | null = null;
 let resetBackupState: ResetBackup | null = null;
 let resetBackupSummaryState: ResetBackupSummary | null = null;
 let hydratePromise: Promise<void> | null = null;
+let ensurePhotosDirectoryPromise: Promise<void> | null = null;
 
 const notifyInventoryListeners = () => {
   inventoryListeners.forEach((listener) => listener());
@@ -187,6 +218,79 @@ const persistInventory = async () => {
     );
   } catch {
     // Best-effort persistence; keep working in memory if writing fails.
+  }
+};
+
+const ensurePhotosDirectory = async () => {
+  if (!ensurePhotosDirectoryPromise) {
+    ensurePhotosDirectoryPromise = FileSystem.makeDirectoryAsync(photosDirectory, {
+      intermediates: true,
+    }).catch(() => {
+      ensurePhotosDirectoryPromise = null;
+    }) as Promise<void>;
+  }
+
+  await ensurePhotosDirectoryPromise;
+};
+
+const isManagedPhotoPath = (uri: string | null | undefined) =>
+  Boolean(uri && uri.startsWith(photosDirectory));
+
+const deleteManagedPhoto = async (uri: string | null | undefined) => {
+  if (!isManagedPhotoPath(uri)) {
+    return;
+  }
+
+  try {
+    const info = await FileSystem.getInfoAsync(uri as string);
+    if (info.exists) {
+      await FileSystem.deleteAsync(uri as string, { idempotent: true });
+    }
+  } catch {
+    // Best effort cleanup.
+  }
+};
+
+const getPhotoExtension = (uri: string) => {
+  const sanitizedUri = uri.split("?")[0] ?? uri;
+  const filename = sanitizedUri.split("/").pop() ?? "";
+  const extension = filename.includes(".") ? filename.split(".").pop() : "";
+  if (!extension || extension.length > 5) {
+    return "jpg";
+  }
+  return extension.toLowerCase();
+};
+
+const persistPhotoUri = async (uri: string, itemId: number) => {
+  if (isManagedPhotoPath(uri)) {
+    return uri;
+  }
+
+  await ensurePhotosDirectory();
+  const extension = getPhotoExtension(uri);
+  const filename = `item-${itemId}-${Date.now()}.${extension}`;
+  const destination = `${photosDirectory}${filename}`;
+
+  try {
+    await FileSystem.copyAsync({
+      from: uri,
+      to: destination,
+    });
+    return destination;
+  } catch {
+    try {
+      const base64 = await FileSystem.readAsStringAsync(uri, {
+        encoding: FileSystem.EncodingType.Base64,
+      });
+      await FileSystem.writeAsStringAsync(destination, base64, {
+        encoding: FileSystem.EncodingType.Base64,
+      });
+      return destination;
+    } catch {
+      // Last-resort fallback: keep the original URI so saving the item still works
+      // even if this asset source cannot be copied into app storage on this device.
+      return uri;
+    }
   }
 };
 
@@ -332,31 +436,48 @@ export const subscribeInventory = (listener: InventoryListener) => {
   };
 };
 
-export const saveInventoryItem = (item: InventoryItem) => {
+export const saveInventoryItem = async (item: InventoryItem) => {
   const existingIndex = inventoryState.findIndex(
     (existingItem) => existingItem.id === item.id,
   );
   const normalizedItem = normalizeInventoryItem(item);
+  const existingItem = existingIndex >= 0 ? inventoryState[existingIndex] : null;
+
+  let persistedPhoto = normalizedItem.photo;
+  if (persistedPhoto) {
+    persistedPhoto = await persistPhotoUri(persistedPhoto, normalizedItem.id);
+  }
+
+  const itemToSave = {
+    ...normalizedItem,
+    photo: persistedPhoto,
+  };
 
   if (existingIndex === -1) {
-    setInventory([...inventoryState, normalizedItem]);
+    setInventory([...inventoryState, itemToSave]);
     return;
   }
 
   const updatedItems = [...inventoryState];
   updatedItems[existingIndex] = {
     ...updatedItems[existingIndex],
-    ...normalizedItem,
+    ...itemToSave,
     listedPlatforms:
-      normalizedItem.listedPlatforms.length > 0
-        ? normalizedItem.listedPlatforms
+      itemToSave.listedPlatforms.length > 0
+        ? itemToSave.listedPlatforms
         : updatedItems[existingIndex].listedPlatforms,
   };
   setInventory(updatedItems);
+
+  if (existingItem?.photo && existingItem.photo !== persistedPhoto) {
+    void deleteManagedPhoto(existingItem.photo);
+  }
 };
 
-export const removeInventoryItem = (id: number) => {
+export const removeInventoryItem = async (id: number) => {
+  const existingItem = inventoryState.find((item) => item.id === id);
   setInventory(inventoryState.filter((item) => item.id !== id));
+  await deleteManagedPhoto(existingItem?.photo);
 };
 
 export const updateInventoryItemSoldPrice = (
@@ -413,10 +534,14 @@ export const deletePalletSession = (palletId: string) => {
   const nextActivePalletId =
     activePalletId === palletId ? remainingPallets[0]?.id ?? null : activePalletId;
 
+  const removedItems = inventoryState.filter((item) => item.palletId === palletId);
   setInventoryStateAndPersist(
     inventoryState.filter((item) => item.palletId !== palletId),
   );
   commitState(remainingPallets, nextActivePalletId);
+  removedItems.forEach((item) => {
+    void deleteManagedPhoto(item.photo);
+  });
   return true;
 };
 

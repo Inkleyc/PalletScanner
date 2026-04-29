@@ -3,10 +3,10 @@ import { CameraView, useCameraPermissions } from "expo-camera";
 import * as Clipboard from "expo-clipboard";
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import {
-  ActivityIndicator,
   Alert,
   Image,
   KeyboardAvoidingView,
+  Linking,
   Platform,
   ScrollView,
   StyleSheet,
@@ -16,29 +16,52 @@ import {
   View,
 } from "react-native";
 
+import { LoadingStatus } from "@/components/loading-status";
 import { AppPalette } from "@/constants/app-palette";
+import { incrementScanCount } from "@/lib/app-meta";
 import { getAppSettings, subscribeAppSettings } from "@/lib/app-settings";
 import { lookupBarcodeProduct } from "@/lib/barcode-lookup";
+import {
+  triggerAnalysisCompleteFeedback,
+  triggerCopyFeedback,
+  triggerInventorySaveFeedback,
+} from "@/lib/feedback";
 import {
   getActivePallet,
   saveInventoryItem,
   subscribeInventory,
   type InventoryItem,
 } from "@/lib/inventory-store";
+import {
+  createEmptyListingDrafts,
+  createListingDrafts,
+  getListingDraftPlatformLabel,
+  type ListingDraftMap,
+  type ListingDraftPlatform,
+} from "@/lib/listing-drafts";
 import { openListingDraft } from "@/lib/listing-posting";
 
 const API_KEY = process.env.EXPO_PUBLIC_ANTHROPIC_API_KEY;
 const sanitizeBarcodeValue = (value: string) => value.trim().replace(/[^0-9A-Za-z]/g, "");
+const LOADING_MESSAGES = [
+  "Identifying item...",
+  "Checking market prices...",
+  "Writing your listing...",
+];
 
 export default function HomeScreen() {
   const router = useRouter();
   const [images, setImages] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<any>(null);
-  const [editableTitle, setEditableTitle] = useState("");
-  const [editableDescription, setEditableDescription] = useState("");
+  const [activeListingPlatform, setActiveListingPlatform] =
+    useState<ListingDraftPlatform>("general");
+  const [listingDrafts, setListingDrafts] =
+    useState<ListingDraftMap>(createEmptyListingDrafts());
   const [editablePrice, setEditablePrice] = useState("");
   const [editableFloorPrice, setEditableFloorPrice] = useState("");
+  const [editableQuantity, setEditableQuantity] = useState("1");
+  const [photoTipsExpanded, setPhotoTipsExpanded] = useState(false);
   const [currentItemId, setCurrentItemId] = useState<number | null>(null);
   const [currentItemPalletId, setCurrentItemPalletId] = useState<string | null>(null);
   const [productImageUri, setProductImageUri] = useState<string | null>(null);
@@ -59,6 +82,41 @@ export default function HomeScreen() {
     getAppSettings,
   );
   const activePalletName = activePallet?.name ?? "No active pallet";
+  const photoExampleQueries = Array.isArray(result?.photo_example_queries)
+    ? result.photo_example_queries.filter(
+        (query: unknown): query is string =>
+          typeof query === "string" && query.trim().length > 0,
+      )
+    : [];
+  const currentListingDraft = listingDrafts[activeListingPlatform];
+
+  const getSellabilityMeta = (score?: number) => {
+    if (typeof score !== "number") {
+      return null;
+    }
+
+    if (score >= 8) {
+      return {
+        label: "Strong Sell",
+        backgroundColor: AppPalette.successSoft,
+        color: AppPalette.success,
+      };
+    }
+
+    if (score >= 5) {
+      return {
+        label: "Worth Listing",
+        backgroundColor: AppPalette.warningSoft,
+        color: AppPalette.warning,
+      };
+    }
+
+    return {
+      label: "Consider Donating",
+      backgroundColor: AppPalette.dangerSoft,
+      color: AppPalette.dangerStrong,
+    };
+  };
 
   const buildFallbackBarcodeDraft = async (barcode: string) => {
     const response = await fetch("https://api.anthropic.com/v1/messages", {
@@ -77,7 +135,7 @@ export default function HomeScreen() {
             content: [
               {
                 type: "text",
-                text: `You are a resale expert. A barcode scan succeeded, but product lookup did not return a match. Build the best possible fallback resale draft using only the barcode value and the fact that the item was scanned in a pallet-scanning resale app. Be conservative when guessing. If the product is unknown, make that clear in the title and description and use broad, realistic placeholder pricing instead of overconfident specificity. Respond ONLY with raw JSON, no markdown:
+                text: `You are a resale expert. A barcode scan succeeded, but product lookup did not return a match. Build the best possible fallback resale draft using only the barcode value and the fact that the item was scanned in a pallet-scanning resale app. Be conservative when guessing. If the product is unknown, make that clear in the title and description and use broad, realistic placeholder pricing instead of overconfident specificity. Include practical photo tips, 2-3 short web image search queries that would help the user find example listing photos, and a sellability score based on effort versus likely value. Also write platform-specific listing copy for Facebook Marketplace and eBay. eBay titles should be keyword-heavy and concise; Facebook copy should sound a little more casual and local-buyer friendly. Respond ONLY with raw JSON, no markdown:
 
 Barcode: ${barcode}
 
@@ -91,7 +149,11 @@ Barcode: ${barcode}
   "best_platform": "eBay",
   "platform_reason": "one sentence why",
   "listing_title": "SEO title under 80 chars",
-  "listing_description": "3-4 sentence listing description"
+  "listing_description": "3-4 sentence listing description",
+  "photo_tips": "short practical photo advice",
+  "photo_example_queries": ["query one", "query two"],
+  "sellability_score": 5,
+  "sellability_reason": "one sentence why"
 }`,
               },
             ],
@@ -119,15 +181,35 @@ Barcode: ${barcode}
   const clearAll = () => {
     setImages([]);
     setResult(null);
-    setEditableTitle("");
-    setEditableDescription("");
+    setListingDrafts(createEmptyListingDrafts());
+    setActiveListingPlatform("general");
     setEditablePrice("");
     setEditableFloorPrice("");
+    setEditableQuantity("1");
+    setPhotoTipsExpanded(false);
     setProductImageUri(null);
     setBarcodeValue("");
     resetBarcodeScanState();
     setCurrentItemId(null);
     setCurrentItemPalletId(null);
+  };
+
+  const applyParsedListingDrafts = (parsed: any) => {
+    setListingDrafts(createListingDrafts(parsed));
+    setActiveListingPlatform("general");
+  };
+
+  const updateListingDraft = (
+    field: keyof ListingDraftMap["general"],
+    value: string,
+  ) => {
+    setListingDrafts((current) => ({
+      ...current,
+      [activeListingPlatform]: {
+        ...current[activeListingPlatform],
+        [field]: value,
+      },
+    }));
   };
 
   const analyzeImage = async () => {
@@ -161,7 +243,7 @@ Barcode: ${barcode}
                 ...imageContent,
                 {
                   type: "text",
-                  text: `You are a resale expert. I am showing you ${images.length} photo(s) of the same item. Analyze it like a reseller preparing to list it online. For pricing, estimate a realistic low_price and high_price by checking the item against current eBay and Facebook Marketplace listings for identical or very similar items whenever that market context is available to you. Favor recent sold or active comparable listings, adjust for condition, brand, completeness, and visible wear, and make sure the suggested price range follows the real market rather than a generic guess. Also provide a floor_price, meaning the lowest reasonable price a seller should accept before walking away during negotiation. Then respond ONLY with raw JSON, no markdown:
+                  text: `You are a resale expert. I am showing you ${images.length} photo(s) of the same item. Analyze it like a reseller preparing to list it online. For pricing, estimate a realistic low_price and high_price by checking the item against current eBay and Facebook Marketplace listings for identical or very similar items whenever that market context is available to you. Favor recent sold or active comparable listings, adjust for condition, brand, completeness, and visible wear, and make sure the suggested price range follows the real market rather than a generic guess. Also provide a floor_price, meaning the lowest reasonable price a seller should accept before walking away during negotiation. Include practical photo tips, 2-3 short web image search queries that would help the user find example listing photos, and a sellability score based on condition, estimated demand, and effort versus return. Also write platform-specific listing copy for Facebook Marketplace and eBay. eBay titles should be keyword-heavy and concise; Facebook copy should sound a little more casual and local-buyer friendly. Then respond ONLY with raw JSON, no markdown:
 {
   "name": "item name",
   "description": "1-2 sentence description",
@@ -172,7 +254,15 @@ Barcode: ${barcode}
   "best_platform": "eBay",
   "platform_reason": "one sentence why",
   "listing_title": "SEO title under 80 chars",
-  "listing_description": "3-4 sentence listing description"
+  "listing_description": "3-4 sentence listing description",
+  "listing_title_ebay": "SEO title under 80 chars for eBay",
+  "listing_description_ebay": "3-4 sentence eBay description",
+  "listing_title_facebook": "Facebook Marketplace title",
+  "listing_description_facebook": "3-4 sentence Facebook description",
+  "photo_tips": "short practical photo advice",
+  "photo_example_queries": ["query one", "query two"],
+  "sellability_score": 7,
+  "sellability_reason": "one sentence why"
 }`,
                 },
               ],
@@ -186,10 +276,12 @@ Barcode: ${barcode}
       setResult(parsed);
       setProductImageUri(null);
       setBarcodeValue("");
-      setEditableTitle(parsed.listing_title);
-      setEditableDescription(parsed.listing_description);
+      applyParsedListingDrafts(parsed);
       setEditablePrice(`${parsed.low_price}-${parsed.high_price}`);
       setEditableFloorPrice(`${parsed.floor_price ?? parsed.low_price}`);
+      setPhotoTipsExpanded(false);
+      incrementScanCount();
+      void triggerAnalysisCompleteFeedback();
     } catch {
       alert("Something went wrong. Please try again.");
     }
@@ -197,8 +289,15 @@ Barcode: ${barcode}
   };
 
   const copyListing = async () => {
-    const text = editableTitle + "\n\n" + editableDescription;
+    const text =
+      currentListingDraft.title + "\n\n" + currentListingDraft.description;
     await Clipboard.setStringAsync(text);
+    void triggerCopyFeedback();
+  };
+
+  const openPhotoExampleSearch = async (query: string) => {
+    const url = `https://www.google.com/search?tbm=isch&q=${encodeURIComponent(query)}`;
+    await Linking.openURL(url);
   };
 
   const parsePriceRange = () => {
@@ -226,6 +325,20 @@ Barcode: ${barcode}
 
     const value = Number(match[0]);
     return Number.isNaN(value) ? null : value;
+  };
+
+  const parseQuantity = () => {
+    const match = editableQuantity.match(/\d+/);
+    if (!match) {
+      return null;
+    }
+
+    const value = Number(match[0]);
+    if (Number.isNaN(value) || value < 1) {
+      return null;
+    }
+
+    return Math.floor(value);
   };
 
   const promptForListingDestination = (item: InventoryItem) => {
@@ -284,7 +397,7 @@ Barcode: ${barcode}
               content: [
                 {
                   type: "text",
-                  text: `You are a resale expert. Use this barcode lookup result to identify the product instead of analyzing photos. Create a resale-ready summary and pricing estimate. For pricing, estimate a realistic low_price and high_price by checking the item against current eBay and Facebook Marketplace listings for identical or very similar items whenever that market context is available to you. Favor recent sold or active comparable listings, adjust for condition, brand, completeness, and visible wear, and make sure the suggested price range follows the real market rather than a generic guess. Also provide a floor_price, meaning the lowest reasonable price a seller should accept before walking away during negotiation. Assume a typical secondhand condition unless the barcode data clearly suggests new sealed merchandise. Respond ONLY with raw JSON, no markdown:
+                  text: `You are a resale expert. Use this barcode lookup result to identify the product instead of analyzing photos. Create a resale-ready summary and pricing estimate. For pricing, estimate a realistic low_price and high_price by checking the item against current eBay and Facebook Marketplace listings for identical or very similar items whenever that market context is available to you. Favor recent sold or active comparable listings, adjust for condition, brand, completeness, and visible wear, and make sure the suggested price range follows the real market rather than a generic guess. Also provide a floor_price, meaning the lowest reasonable price a seller should accept before walking away during negotiation. Assume a typical secondhand condition unless the barcode data clearly suggests new sealed merchandise. Include practical photo tips, 2-3 short web image search queries that would help the user find example listing photos, and a sellability score based on condition, demand, and effort versus return. Also write platform-specific listing copy for Facebook Marketplace and eBay. eBay titles should be keyword-heavy and concise; Facebook copy should sound a little more casual and local-buyer friendly. Respond ONLY with raw JSON, no markdown:
 ${productSummary}
 
 {
@@ -297,7 +410,15 @@ ${productSummary}
   "best_platform": "eBay",
   "platform_reason": "one sentence why",
   "listing_title": "SEO title under 80 chars",
-  "listing_description": "3-4 sentence listing description"
+  "listing_description": "3-4 sentence listing description",
+  "listing_title_ebay": "SEO title under 80 chars for eBay",
+  "listing_description_ebay": "3-4 sentence eBay description",
+  "listing_title_facebook": "Facebook Marketplace title",
+  "listing_description_facebook": "3-4 sentence Facebook description",
+  "photo_tips": "short practical photo advice",
+  "photo_example_queries": ["query one", "query two"],
+  "sellability_score": 7,
+  "sellability_reason": "one sentence why"
 }`,
                 },
               ],
@@ -312,10 +433,12 @@ ${productSummary}
       setBarcodeValue(normalizedBarcode);
       setProductImageUri(product.images?.[0] ?? null);
       setResult(parsed);
-      setEditableTitle(parsed.listing_title);
-      setEditableDescription(parsed.listing_description);
+      applyParsedListingDrafts(parsed);
       setEditablePrice(`${parsed.low_price}-${parsed.high_price}`);
       setEditableFloorPrice(`${parsed.floor_price ?? parsed.low_price}`);
+      setPhotoTipsExpanded(false);
+      incrementScanCount();
+      void triggerAnalysisCompleteFeedback();
     } catch (error) {
       resetBarcodeScanState();
       setBarcodeValue("");
@@ -359,10 +482,12 @@ ${productSummary}
       setBarcodeValue(barcode);
       setProductImageUri(null);
       setResult(parsed);
-      setEditableTitle(parsed.listing_title);
-      setEditableDescription(parsed.listing_description);
+      applyParsedListingDrafts(parsed);
       setEditablePrice(`${parsed.low_price}-${parsed.high_price}`);
       setEditableFloorPrice(`${parsed.floor_price ?? parsed.low_price}`);
+      setPhotoTipsExpanded(false);
+      incrementScanCount();
+      void triggerAnalysisCompleteFeedback();
     } catch {
       Alert.alert(
         "Couldn't build draft",
@@ -433,7 +558,7 @@ ${productSummary}
     void analyzeBarcode(data);
   };
 
-  const saveToInventory = () => {
+  const saveToInventory = async () => {
     if (!result) {
       Alert.alert("Nothing to save", "Analyze an item before saving it.");
       return;
@@ -465,35 +590,51 @@ ${productSummary}
       return;
     }
 
+    const parsedQuantity = parseQuantity();
+    if (parsedQuantity === null) {
+      Alert.alert("Invalid quantity", "Enter a quantity of at least 1.");
+      return;
+    }
+
     const palletId = currentItemPalletId ?? activePallet?.id;
     if (!palletId) {
       return;
     }
-    const itemId = currentItemId ?? Date.now();
-    const inventoryItem: InventoryItem = {
-      id: itemId,
+    const baseInventoryItem: InventoryItem = {
+      id: currentItemId ?? Date.now(),
       photo: images[0]?.uri ?? productImageUri ?? null,
       name: result.name,
       condition: result.condition,
+      quantity: 1,
       low_price: parsedPriceRange.low,
       high_price: parsedPriceRange.high,
       floor_price: Math.min(parsedFloorPrice, parsedPriceRange.high),
       best_platform: result.best_platform,
-      listing_title: editableTitle,
-      listing_description: editableDescription,
+      listing_title: listingDrafts.general.title,
+      listing_description: listingDrafts.general.description,
+      listing_title_facebook: listingDrafts.facebook.title,
+      listing_description_facebook: listingDrafts.facebook.description,
+      listing_title_ebay: listingDrafts.ebay.title,
+      listing_description_ebay: listingDrafts.ebay.description,
       listedPlatforms: [],
       palletId,
       soldPrice: null,
     };
 
     if (currentItemId !== null) {
-      saveInventoryItem(inventoryItem);
+      await saveInventoryItem(baseInventoryItem);
+      void triggerInventorySaveFeedback();
     } else {
-      saveInventoryItem(inventoryItem);
-      setCurrentItemId(itemId);
+      const itemsToSave = Array.from({ length: parsedQuantity }, (_, index) => ({
+        ...baseInventoryItem,
+        id: baseInventoryItem.id + index,
+      }));
+      await Promise.all(itemsToSave.map((item) => saveInventoryItem(item)));
+      void triggerInventorySaveFeedback();
+      setCurrentItemId(baseInventoryItem.id);
       setCurrentItemPalletId(palletId);
       if (promptToPostOnSave) {
-        promptForListingDestination(inventoryItem);
+        promptForListingDestination(itemsToSave[0]);
       }
     }
   };
@@ -622,13 +763,7 @@ ${productSummary}
           </View>
         )}
 
-        {loading && (
-          <ActivityIndicator
-            size="large"
-            color="#000"
-            style={{ marginTop: 20 }}
-          />
-        )}
+        {loading && <LoadingStatus messages={LOADING_MESSAGES} />}
 
         {result && (
           <View style={styles.resultCard}>
@@ -646,14 +781,60 @@ ${productSummary}
               <Text style={styles.conditionBadge}>{result.condition}</Text>
               <Text style={styles.platformBadge}>{result.best_platform}</Text>
             </View>
+            {getSellabilityMeta(result.sellability_score) ? (
+              <View
+                style={[
+                  styles.sellabilityCard,
+                  {
+                    backgroundColor:
+                      getSellabilityMeta(result.sellability_score)?.backgroundColor,
+                  },
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.sellabilityTitle,
+                    { color: getSellabilityMeta(result.sellability_score)?.color },
+                  ]}
+                >
+                  {getSellabilityMeta(result.sellability_score)?.label} ({result.sellability_score}/10)
+                </Text>
+                <Text style={styles.sellabilityReason}>
+                  {result.sellability_reason}
+                </Text>
+              </View>
+            ) : null}
             <Text style={styles.platformReason}>{result.platform_reason}</Text>
 
             <View style={styles.listingBox}>
+              <View style={styles.listingPlatformTabs}>
+                {(["general", "facebook", "ebay"] as const).map((platform) => (
+                  <TouchableOpacity
+                    key={platform}
+                    style={[
+                      styles.listingPlatformTab,
+                      activeListingPlatform === platform && styles.listingPlatformTabActive,
+                    ]}
+                    onPress={() => setActiveListingPlatform(platform)}
+                  >
+                    <Text
+                      style={[
+                        styles.listingPlatformTabText,
+                        activeListingPlatform === platform &&
+                          styles.listingPlatformTabTextActive,
+                      ]}
+                    >
+                      {getListingDraftPlatformLabel(platform)}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+
               <Text style={styles.listingLabel}>LISTING TITLE</Text>
               <TextInput
                 style={styles.editableInput}
-                value={editableTitle}
-                onChangeText={setEditableTitle}
+                value={currentListingDraft.title}
+                onChangeText={(value) => updateListingDraft("title", value)}
                 multiline
                 placeholder="Listing title"
               />
@@ -661,8 +842,8 @@ ${productSummary}
               <Text style={styles.listingLabel}>DESCRIPTION</Text>
               <TextInput
                 style={[styles.editableInput, styles.editableInputTall]}
-                value={editableDescription}
-                onChangeText={setEditableDescription}
+                value={currentListingDraft.description}
+                onChangeText={(value) => updateListingDraft("description", value)}
                 multiline
                 placeholder="Listing description"
               />
@@ -684,18 +865,33 @@ ${productSummary}
                 keyboardType="numeric"
               />
 
+              <Text style={styles.listingLabel}>QTY</Text>
+              <TextInput
+                style={styles.editableInput}
+                value={editableQuantity}
+                onChangeText={setEditableQuantity}
+                placeholder="1"
+                keyboardType="number-pad"
+              />
+
               <TouchableOpacity style={styles.copyBtn} onPress={copyListing}>
-                <Text style={styles.copyBtnText}>Copy Listing</Text>
+                <Text style={styles.copyBtnText}>
+                  Copy {getListingDraftPlatformLabel(activeListingPlatform)} Listing
+                </Text>
               </TouchableOpacity>
 
               <TouchableOpacity
                 style={styles.saveBtn}
-                onPress={saveToInventory}
+                onPress={() => {
+                  void saveToInventory();
+                }}
               >
                 <Text style={styles.saveBtnText}>
                   {currentItemId !== null
                     ? "Update Inventory"
-                    : "Save to Inventory"}
+                    : parseQuantity() && parseQuantity()! > 1
+                      ? `Save ${parseQuantity()} Copies`
+                      : "Save to Inventory"}
                 </Text>
               </TouchableOpacity>
 
@@ -726,6 +922,40 @@ ${productSummary}
                 </>
               )}
             </View>
+
+            {result.photo_tips ? (
+              <View style={styles.photoTipsCard}>
+                <TouchableOpacity
+                  style={styles.photoTipsToggle}
+                  onPress={() => setPhotoTipsExpanded((current) => !current)}
+                >
+                  <Text style={styles.photoTipsTitle}>Photo Tips</Text>
+                  <Text style={styles.photoTipsToggleText}>
+                    {photoTipsExpanded ? "Hide" : "Show"}
+                  </Text>
+                </TouchableOpacity>
+                {photoTipsExpanded ? (
+                  <>
+                    <Text style={styles.photoTipsBody}>{result.photo_tips}</Text>
+                    {photoExampleQueries.length > 0 ? (
+                      <View style={styles.photoExampleLinks}>
+                        {photoExampleQueries.map((query: string) => (
+                          <TouchableOpacity
+                            key={query}
+                            style={styles.photoExampleLink}
+                            onPress={() => {
+                              void openPhotoExampleSearch(query);
+                            }}
+                          >
+                            <Text style={styles.photoExampleLinkText}>{query}</Text>
+                          </TouchableOpacity>
+                        ))}
+                      </View>
+                    ) : null}
+                  </>
+                ) : null}
+              </View>
+            ) : null}
           </View>
         )}
       </ScrollView>
@@ -915,12 +1145,53 @@ const styles = StyleSheet.create({
     borderRadius: 6,
   },
   platformReason: { fontSize: 13, color: AppPalette.textMuted, marginBottom: 16, lineHeight: 18 },
+  sellabilityCard: {
+    borderRadius: 10,
+    padding: 12,
+    marginBottom: 12,
+  },
+  sellabilityTitle: {
+    fontSize: 14,
+    fontWeight: "700",
+    marginBottom: 4,
+  },
+  sellabilityReason: {
+    fontSize: 13,
+    color: AppPalette.textMuted,
+    lineHeight: 18,
+  },
   listingBox: {
     backgroundColor: AppPalette.surfaceMuted,
     borderRadius: 8,
     padding: 12,
     borderWidth: 1,
     borderColor: AppPalette.border,
+  },
+  listingPlatformTabs: {
+    flexDirection: "row",
+    gap: 8,
+    marginBottom: 4,
+  },
+  listingPlatformTab: {
+    flex: 1,
+    paddingVertical: 9,
+    borderRadius: 8,
+    backgroundColor: AppPalette.surface,
+    borderWidth: 1,
+    borderColor: AppPalette.border,
+    alignItems: "center",
+  },
+  listingPlatformTabActive: {
+    backgroundColor: AppPalette.primaryStrong,
+    borderColor: AppPalette.primaryStrong,
+  },
+  listingPlatformTabText: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: AppPalette.textMuted,
+  },
+  listingPlatformTabTextActive: {
+    color: AppPalette.primaryOn,
   },
   listingLabel: {
     fontSize: 11,
@@ -981,4 +1252,50 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   finishedBtnText: { color: AppPalette.primaryOn, fontWeight: "600", fontSize: 14 },
+  photoTipsCard: {
+    marginTop: 14,
+    backgroundColor: AppPalette.surfaceMuted,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: AppPalette.border,
+    padding: 12,
+  },
+  photoTipsToggle: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  photoTipsTitle: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: AppPalette.text,
+  },
+  photoTipsToggleText: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: AppPalette.primary,
+  },
+  photoTipsBody: {
+    marginTop: 10,
+    fontSize: 13,
+    lineHeight: 19,
+    color: AppPalette.textMuted,
+  },
+  photoExampleLinks: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+    marginTop: 12,
+  },
+  photoExampleLink: {
+    backgroundColor: AppPalette.infoSoft,
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+  },
+  photoExampleLinkText: {
+    color: AppPalette.info,
+    fontSize: 12,
+    fontWeight: "600",
+  },
 });

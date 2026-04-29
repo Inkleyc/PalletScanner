@@ -1,10 +1,13 @@
 import * as FileSystem from "expo-file-system/legacy";
 import * as MailComposer from "expo-mail-composer";
 import * as Sharing from "expo-sharing";
+import { useRouter } from "expo-router";
 import { useMemo, useState, useSyncExternalStore } from "react";
 import {
   Alert,
   Image,
+  Modal,
+  Pressable,
   ScrollView,
   StyleSheet,
   Text,
@@ -28,8 +31,18 @@ import {
 import { openListingDraft } from "@/lib/listing-posting";
 import { AppLayout, AppPalette } from "@/constants/app-palette";
 
+const API_KEY = process.env.EXPO_PUBLIC_ANTHROPIC_API_KEY;
+
+type BundleSuggestion = {
+  title: string;
+  items: string[];
+  price: number;
+  reason: string;
+};
+
 export default function InventoryScreen() {
   const { width } = useWindowDimensions();
+  const router = useRouter();
   const items = useSyncExternalStore(
     subscribeInventory,
     getInventory,
@@ -48,6 +61,12 @@ export default function InventoryScreen() {
   const [bulkEbayQueue, setBulkEbayQueue] = useState<number[]>([]);
   const [selectedPalletId, setSelectedPalletId] = useState<string>("all");
   const [soldDrafts, setSoldDrafts] = useState<Record<number, string>>({});
+  const [editingSoldItemId, setEditingSoldItemId] = useState<number | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [sortMode, setSortMode] = useState<"date" | "high-desc" | "low-asc">("date");
+  const [bundleLoading, setBundleLoading] = useState(false);
+  const [bundleModalVisible, setBundleModalVisible] = useState(false);
+  const [bundleSuggestions, setBundleSuggestions] = useState<BundleSuggestion[]>([]);
   const isLargeLayout = width >= 900;
 
   const selectedPallet =
@@ -56,22 +75,51 @@ export default function InventoryScreen() {
       : pallets.find((pallet) => pallet.id === selectedPalletId) ?? null;
   const activePallet =
     pallets.find((pallet) => pallet.id === activePalletId) ?? null;
-  const filteredItems = useMemo(
-    () =>
+  const filteredItems = useMemo(() => {
+    const palletFiltered =
       selectedPalletId === "all"
         ? items
-        : items.filter((item: any) => item.palletId === selectedPalletId),
-    [items, selectedPalletId],
-  );
+        : items.filter((item: any) => item.palletId === selectedPalletId);
+    const normalizedQuery = searchQuery.trim().toLowerCase();
+    const searchFiltered = normalizedQuery
+      ? palletFiltered.filter((item: any) =>
+          item.name.toLowerCase().includes(normalizedQuery),
+        )
+      : palletFiltered;
+
+    const sortedItems = [...searchFiltered];
+    if (sortMode === "high-desc") {
+      sortedItems.sort((a: any, b: any) => b.high_price - a.high_price);
+    } else if (sortMode === "low-asc") {
+      sortedItems.sort((a: any, b: any) => a.low_price - b.low_price);
+    } else {
+      sortedItems.sort((a: any, b: any) => b.id - a.id);
+    }
+
+    return sortedItems;
+  }, [items, searchQuery, selectedPalletId, sortMode]);
+
+  const palletScopedItemCount =
+    selectedPalletId === "all"
+      ? items.length
+      : items.filter((item: any) => item.palletId === selectedPalletId).length;
 
   const totalLow = filteredItems.reduce(
-    (sum: number, item: any) => sum + item.low_price,
+    (sum: number, item: any) => sum + item.low_price * (item.quantity ?? 1),
     0,
   );
   const totalHigh = filteredItems.reduce(
-    (sum: number, item: any) => sum + item.high_price,
+    (sum: number, item: any) => sum + item.high_price * (item.quantity ?? 1),
     0,
   );
+  const totalPalletCost = selectedPallet
+    ? selectedPallet.palletCost ?? 0
+    : pallets.reduce((sum, pallet) => sum + (pallet.palletCost ?? 0), 0);
+  const projectedProfitLow = totalLow - totalPalletCost;
+  const projectedProfitHigh = totalHigh - totalPalletCost;
+  const bundleCandidateItems = selectedPallet
+    ? filteredItems
+    : items.filter((item: any) => item.palletId === activePalletId);
   const missingEbayItems = useMemo(
     () =>
       filteredItems.filter((item: any) => !item.listedPlatforms.includes("ebay")),
@@ -84,11 +132,11 @@ export default function InventoryScreen() {
       {
         text: "Remove",
         style: "destructive",
-        onPress: () => {
-          removeInventoryItem(id);
+          onPress: () => {
+            void removeInventoryItem(id);
+          },
         },
-      },
-    ]);
+      ]);
   };
 
   const getPalletName = (palletId: string) =>
@@ -123,6 +171,9 @@ export default function InventoryScreen() {
       ...current,
       [item.id]: "",
     }));
+    if (editingSoldItemId === item.id) {
+      setEditingSoldItemId(null);
+    }
   };
 
   const getExportFilename = () => {
@@ -133,15 +184,19 @@ export default function InventoryScreen() {
 
   const buildCSV = () => {
     const header =
-      "Pallet,Name,Condition,Low Price,High Price,Floor Price,Sold Price,Platform,Listing Title,Listing Description";
+      "Pallet,Name,Qty,Condition,Pallet Cost,Low Price,High Price,Floor Price,Projected Profit Low,Projected Profit High,Sold Price,Platform,Listing Title,Listing Description";
     const rows = filteredItems.map((item: any) =>
       [
         `"${getPalletName(item.palletId)}"`,
         `"${item.name}"`,
+        item.quantity ?? 1,
         `"${item.condition}"`,
-        item.low_price,
-        item.high_price,
+        pallets.find((pallet) => pallet.id === item.palletId)?.palletCost ?? "",
+        item.low_price * (item.quantity ?? 1),
+        item.high_price * (item.quantity ?? 1),
         item.floor_price,
+        item.low_price * (item.quantity ?? 1) - (pallets.find((pallet) => pallet.id === item.palletId)?.palletCost ?? 0),
+        item.high_price * (item.quantity ?? 1) - (pallets.find((pallet) => pallet.id === item.palletId)?.palletCost ?? 0),
         item.soldPrice ?? "",
         `"${item.best_platform}"`,
         `"${item.listing_title}"`,
@@ -305,9 +360,80 @@ export default function InventoryScreen() {
     );
   };
 
+  const suggestBundle = async () => {
+    if (!API_KEY) {
+      Alert.alert("Missing API key", "Set your Anthropic API key before requesting bundle suggestions.");
+      return;
+    }
+
+    if (bundleCandidateItems.length < 3) {
+      Alert.alert("Not enough items", "Save at least 3 items in the current pallet/session first.");
+      return;
+    }
+
+    setBundleLoading(true);
+    try {
+      const promptItems = bundleCandidateItems.map((item: any) => ({
+        name: item.name,
+        condition: item.condition,
+        low_price: item.low_price,
+        high_price: item.high_price,
+      }));
+
+      const response = await fetch("https://api.anthropic.com/v1/messages", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-api-key": API_KEY,
+          "anthropic-version": "2023-06-01",
+        } as HeadersInit,
+        body: JSON.stringify({
+          model: "claude-sonnet-4-20250514",
+          max_tokens: 1000,
+          messages: [
+            {
+              role: "user",
+              content: [
+                {
+                  type: "text",
+                  text: `You are a reseller helping group inventory into sensible bundles. Based on the items below, suggest 1 to 3 bundles that are actually practical to list together. Respond ONLY with raw JSON in this shape:
+{
+  "bundles": [
+    {
+      "title": "bundle listing title",
+      "items": ["item 1", "item 2"],
+      "price": 42,
+      "reason": "one sentence"
+    }
+  ]
+}
+
+Items:
+${JSON.stringify(promptItems, null, 2)}`,
+                },
+              ],
+            },
+          ],
+        }),
+      });
+
+      const data = await response.json();
+      const text = data.content[0].text;
+      const parsed = JSON.parse(text.replace(/```json|```/g, "").trim());
+      const bundles = Array.isArray(parsed.bundles) ? parsed.bundles : [];
+      setBundleSuggestions(bundles);
+      setBundleModalVisible(true);
+    } catch {
+      Alert.alert("Bundle suggestion failed", "We couldn't generate bundle suggestions right now.");
+    } finally {
+      setBundleLoading(false);
+    }
+  };
+
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      <View style={[styles.innerContent, isLargeLayout && styles.innerContentWide]}>
+    <>
+      <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+        <View style={[styles.innerContent, isLargeLayout && styles.innerContentWide]}>
         <Text style={styles.title}>Inventory</Text>
         <Text style={styles.subtitle}>
           {selectedPallet ? `${selectedPallet.name} inventory` : "Everything you have saved so far"}
@@ -388,6 +514,43 @@ export default function InventoryScreen() {
               );
             })}
           </ScrollView>
+          <TextInput
+            style={styles.searchInput}
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+            placeholder="Search inventory by item name"
+            placeholderTextColor={AppPalette.textSoft}
+          />
+          <View style={styles.sortRow}>
+            {[
+              { key: "date", label: "Newest" },
+              { key: "high-desc", label: "High to Low" },
+              { key: "low-asc", label: "Low to High" },
+            ].map((option) => {
+              const isActive = sortMode === option.key;
+              return (
+                <TouchableOpacity
+                  key={option.key}
+                  style={[styles.sortChip, isActive && styles.sortChipActive]}
+                  onPress={() =>
+                    setSortMode(option.key as "date" | "high-desc" | "low-asc")
+                  }
+                >
+                  <Text
+                    style={[
+                      styles.sortChipText,
+                      isActive && styles.sortChipTextActive,
+                    ]}
+                  >
+                    {option.label}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+          <Text style={styles.resultCount}>
+            Showing {filteredItems.length} of {palletScopedItemCount} items
+          </Text>
         </View>
 
         <View style={styles.totalCard}>
@@ -403,6 +566,20 @@ export default function InventoryScreen() {
             <View style={styles.totalBox}>
               <Text style={styles.totalLabel}>High</Text>
               <Text style={styles.totalValue}>${totalHigh}</Text>
+            </View>
+          </View>
+          <View style={styles.profitRow}>
+            <View style={styles.profitBox}>
+              <Text style={styles.totalLabel}>Pallet Cost</Text>
+              <Text style={styles.profitValue}>${totalPalletCost}</Text>
+            </View>
+            <View style={styles.profitBox}>
+              <Text style={styles.totalLabel}>Profit Low</Text>
+              <Text style={styles.profitValue}>${projectedProfitLow}</Text>
+            </View>
+            <View style={styles.profitBox}>
+              <Text style={styles.totalLabel}>Profit High</Text>
+              <Text style={styles.profitValue}>${projectedProfitHigh}</Text>
             </View>
           </View>
           <View style={styles.exportRow}>
@@ -435,6 +612,18 @@ export default function InventoryScreen() {
               <Text style={styles.cancelBulkBtnText}>Stop Mass Posting</Text>
             </TouchableOpacity>
           )}
+          {bundleCandidateItems.length >= 3 && (
+            <TouchableOpacity
+              style={styles.bundleBtn}
+              onPress={() => {
+                void suggestBundle();
+              }}
+            >
+              <Text style={styles.bundleBtnText}>
+                {bundleLoading ? "Suggesting Bundles..." : "Suggest Bundle"}
+              </Text>
+            </TouchableOpacity>
+          )}
         </View>
 
         {filteredItems.length === 0 && (
@@ -450,6 +639,12 @@ export default function InventoryScreen() {
                   ? "Create a pallet first, then start saving items from Home."
                   : "Scan items on the Home tab and tap Save to Inventory"}
             </Text>
+            <TouchableOpacity
+              style={styles.emptyAction}
+              onPress={() => router.push("/(tabs)")}
+            >
+              <Text style={styles.emptyActionText}>Go to Home</Text>
+            </TouchableOpacity>
           </View>
         )}
 
@@ -491,10 +686,57 @@ export default function InventoryScreen() {
                   <Text style={styles.priceBadge}>
                     ${item.low_price}-${item.high_price}
                   </Text>
+                  <Text style={styles.quantityBadge}>Qty {item.quantity ?? 1}</Text>
                   <Text style={styles.floorBadge}>Floor ${item.floor_price}</Text>
                   <Text style={styles.conditionBadge}>{item.condition}</Text>
                 </View>
-                <Text style={styles.platformText}>{item.best_platform}</Text>
+                <View style={styles.metaRow}>
+                  <Text style={styles.platformText}>{item.best_platform}</Text>
+                  {item.soldPrice !== null ? (
+                    <Text style={styles.soldPill}>Sold for ${item.soldPrice}</Text>
+                  ) : (
+                    <Text style={styles.unsoldText}>Not marked sold</Text>
+                  )}
+                </View>
+              </View>
+            </View>
+            <View style={styles.itemActions}>
+              <TouchableOpacity
+                style={[styles.platformBtn, styles.facebookBtn]}
+                onPress={() => openListingDraft(item, "facebook")}
+              >
+                <Text style={styles.platformBtnText}>Post to Facebook</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.platformBtn, styles.ebayBtn]}
+                onPress={() => openListingDraft(item, "ebay")}
+              >
+                <Text style={styles.platformBtnText}>Post to eBay</Text>
+              </TouchableOpacity>
+            </View>
+            <View style={styles.itemSecondaryActions}>
+              <TouchableOpacity
+                style={styles.secondaryActionBtn}
+                onPress={() =>
+                  setEditingSoldItemId((current) =>
+                    current === item.id ? null : item.id,
+                  )
+                }
+              >
+                <Text style={styles.secondaryActionBtnText}>
+                  {item.soldPrice !== null ? "Edit Sold Price" : "Mark Sold"}
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.removeBtn}
+                onPress={() => removeItem(item.id)}
+              >
+                <Text style={styles.removeBtnText}>Remove</Text>
+              </TouchableOpacity>
+            </View>
+            {editingSoldItemId === item.id && (
+              <View style={styles.soldEditorCard}>
+                <Text style={styles.soldEditorLabel}>Sold Price</Text>
                 <View style={styles.soldRow}>
                   <TextInput
                     style={styles.soldInput}
@@ -505,7 +747,7 @@ export default function InventoryScreen() {
                         [item.id]: value,
                       }))
                     }
-                    placeholder="Sold price"
+                    placeholder="Enter amount"
                     placeholderTextColor="#999"
                     keyboardType="decimal-pad"
                   />
@@ -524,35 +766,48 @@ export default function InventoryScreen() {
                     <Text style={styles.clearSoldBtnText}>Clear</Text>
                   </TouchableOpacity>
                 </View>
-                {item.soldPrice !== null && (
-                  <Text style={styles.soldStatus}>Sold for ${item.soldPrice}</Text>
-                )}
               </View>
-            </View>
-            <View style={styles.itemActions}>
-              <TouchableOpacity
-                style={[styles.platformBtn, styles.facebookBtn]}
-                onPress={() => openListingDraft(item, "facebook")}
-              >
-                <Text style={styles.platformBtnText}>Post to Facebook</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.platformBtn, styles.ebayBtn]}
-                onPress={() => openListingDraft(item, "ebay")}
-              >
-                <Text style={styles.platformBtnText}>Post to eBay</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={styles.removeBtn}
-                onPress={() => removeItem(item.id)}
-              >
-                <Text style={styles.removeBtnText}>Remove</Text>
-              </TouchableOpacity>
-            </View>
+            )}
           </View>
         ))}
-      </View>
-    </ScrollView>
+        </View>
+      </ScrollView>
+      <Modal
+        visible={bundleModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setBundleModalVisible(false)}
+      >
+        <Pressable
+          style={styles.bundleModalBackdrop}
+          onPress={() => setBundleModalVisible(false)}
+        >
+          <Pressable style={styles.bundleModalCard}>
+            <Text style={styles.bundleModalTitle}>Bundle Suggestions</Text>
+            {bundleSuggestions.length === 0 ? (
+              <Text style={styles.bundleModalEmpty}>No bundle suggestions came back this time.</Text>
+            ) : (
+              bundleSuggestions.map((bundle, index) => (
+                <View key={`${bundle.title}-${index}`} style={styles.bundleSuggestionCard}>
+                  <Text style={styles.bundleSuggestionTitle}>{bundle.title}</Text>
+                  <Text style={styles.bundleSuggestionPrice}>Suggested price: ${bundle.price}</Text>
+                  <Text style={styles.bundleSuggestionItems}>
+                    {bundle.items.join(", ")}
+                  </Text>
+                  <Text style={styles.bundleSuggestionReason}>{bundle.reason}</Text>
+                </View>
+              ))
+            )}
+            <TouchableOpacity
+              style={styles.bundleCloseBtn}
+              onPress={() => setBundleModalVisible(false)}
+            >
+              <Text style={styles.bundleCloseBtnText}>Close</Text>
+            </TouchableOpacity>
+          </Pressable>
+        </Pressable>
+      </Modal>
+    </>
   );
 }
 
@@ -619,6 +874,49 @@ const styles = StyleSheet.create({
   filterChipActive: { backgroundColor: AppPalette.primaryStrong, borderColor: AppPalette.primaryStrong },
   filterChipText: { color: AppPalette.textMuted, fontSize: 13, fontWeight: "500" },
   filterChipTextActive: { color: AppPalette.primaryOn, fontWeight: "600" },
+  searchInput: {
+    marginTop: 14,
+    borderWidth: 1,
+    borderColor: AppPalette.borderStrong,
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+    color: AppPalette.text,
+    backgroundColor: AppPalette.surface,
+    fontSize: 14,
+  },
+  sortRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+    marginTop: 12,
+  },
+  sortChip: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: AppPalette.border,
+    backgroundColor: AppPalette.surfaceMuted,
+  },
+  sortChipActive: {
+    backgroundColor: AppPalette.primary,
+    borderColor: AppPalette.primary,
+  },
+  sortChipText: {
+    color: AppPalette.textMuted,
+    fontSize: 12,
+    fontWeight: "600",
+  },
+  sortChipTextActive: {
+    color: AppPalette.primaryOn,
+  },
+  resultCount: {
+    marginTop: 12,
+    fontSize: 12,
+    color: AppPalette.textSoft,
+    fontWeight: "600",
+  },
   totalCard: {
     backgroundColor: AppPalette.surface,
     borderRadius: 10,
@@ -633,9 +931,26 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   totalRow: { flexDirection: "row", justifyContent: "space-between", marginBottom: 16 },
+  profitRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    gap: 10,
+    marginBottom: 16,
+  },
   totalBox: { alignItems: "center", flex: 1 },
+  profitBox: {
+    flex: 1,
+    alignItems: "center",
+    backgroundColor: AppPalette.surfaceMuted,
+    borderWidth: 1,
+    borderColor: AppPalette.border,
+    borderRadius: 10,
+    paddingVertical: 10,
+    paddingHorizontal: 8,
+  },
   totalLabel: { fontSize: 12, color: AppPalette.textSoft, marginBottom: 4 },
   totalValue: { fontSize: 22, fontWeight: "700", color: AppPalette.text },
+  profitValue: { fontSize: 16, fontWeight: "700", color: AppPalette.text },
   exportRow: { flexDirection: "row", gap: 10 },
   exportBtn: {
     flex: 1,
@@ -671,6 +986,14 @@ const styles = StyleSheet.create({
     backgroundColor: AppPalette.surfaceMuted,
   },
   cancelBulkBtnText: { color: AppPalette.textMuted, fontWeight: "600", fontSize: 13 },
+  bundleBtn: {
+    backgroundColor: AppPalette.primary,
+    padding: 12,
+    borderRadius: 8,
+    alignItems: "center",
+    marginTop: 10,
+  },
+  bundleBtnText: { color: AppPalette.primaryOn, fontWeight: "600", fontSize: 14 },
   emptyState: { alignItems: "center", paddingTop: 60 },
   emptyIcon: {
     width: 56,
@@ -689,6 +1012,18 @@ const styles = StyleSheet.create({
     color: AppPalette.textMuted,
     textAlign: "center",
     lineHeight: 20,
+  },
+  emptyAction: {
+    marginTop: 14,
+    backgroundColor: AppPalette.primaryStrong,
+    borderRadius: 10,
+    paddingHorizontal: 18,
+    paddingVertical: 12,
+  },
+  emptyActionText: {
+    color: AppPalette.primaryOn,
+    fontWeight: "700",
+    fontSize: 14,
   },
   itemCard: {
     backgroundColor: AppPalette.surface,
@@ -747,7 +1082,14 @@ const styles = StyleSheet.create({
   itemName: { fontSize: 16, fontWeight: "700", color: AppPalette.text, marginBottom: 4 },
   palletTag: { fontSize: 12, color: AppPalette.textMuted, marginBottom: 6 },
   badgeRow: { flexDirection: "row", gap: 6, marginBottom: 4 },
-  soldRow: { flexDirection: "row", gap: 8, marginTop: 10, alignItems: "center" },
+  metaRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    gap: 10,
+    marginTop: 4,
+  },
+  soldRow: { flexDirection: "row", gap: 8, marginTop: 8, alignItems: "center" },
   soldInput: {
     flex: 1,
     borderWidth: 1,
@@ -773,10 +1115,33 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   clearSoldBtnText: { color: AppPalette.textMuted, fontSize: 12, fontWeight: "600" },
-  soldStatus: { fontSize: 12, color: AppPalette.success, fontWeight: "600", marginTop: 8 },
+  soldPill: {
+    fontSize: 12,
+    color: AppPalette.success,
+    fontWeight: "700",
+    backgroundColor: AppPalette.successSoft,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 999,
+    overflow: "hidden",
+  },
+  unsoldText: {
+    fontSize: 12,
+    color: AppPalette.textSoft,
+    fontWeight: "600",
+  },
   priceBadge: {
     backgroundColor: AppPalette.successSoft,
     color: AppPalette.success,
+    fontSize: 12,
+    fontWeight: "500",
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+  },
+  quantityBadge: {
+    backgroundColor: AppPalette.infoSoft,
+    color: AppPalette.info,
     fontSize: 12,
     fontWeight: "500",
     paddingHorizontal: 8,
@@ -801,27 +1166,139 @@ const styles = StyleSheet.create({
     paddingVertical: 3,
     borderRadius: 6,
   },
-  platformText: { fontSize: 12, color: AppPalette.textMuted },
+  platformText: { fontSize: 12, color: AppPalette.textMuted, fontWeight: "600" },
   itemActions: {
     borderTopWidth: 1,
     borderTopColor: AppPalette.border,
-    padding: 12,
+    paddingTop: 12,
+    paddingHorizontal: 12,
+    paddingBottom: 8,
     flexDirection: "row",
     gap: 8,
     flexWrap: "wrap",
   },
-  platformBtn: { paddingHorizontal: 12, paddingVertical: 8, borderRadius: 6 },
+  itemSecondaryActions: {
+    paddingHorizontal: 12,
+    paddingBottom: 12,
+    flexDirection: "row",
+    gap: 8,
+    flexWrap: "wrap",
+  },
+  platformBtn: {
+    flex: 1,
+    minWidth: 130,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderRadius: 8,
+    alignItems: "center",
+  },
   facebookBtn: { backgroundColor: AppPalette.primaryStrong },
   ebayBtn: { backgroundColor: AppPalette.info },
   platformBtnText: { fontSize: 13, color: AppPalette.primaryOn, fontWeight: "600" },
-  removeBtn: {
+  secondaryActionBtn: {
     paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 6,
+    paddingVertical: 10,
+    borderRadius: 8,
     borderWidth: 1,
     borderColor: AppPalette.border,
-    marginLeft: "auto",
+    backgroundColor: AppPalette.surfaceMuted,
+    alignItems: "center",
+  },
+  secondaryActionBtnText: {
+    fontSize: 13,
+    color: AppPalette.text,
+    fontWeight: "600",
+  },
+  removeBtn: {
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: AppPalette.border,
     backgroundColor: AppPalette.dangerSoft,
+    alignItems: "center",
   },
   removeBtnText: { fontSize: 13, color: AppPalette.dangerStrong, fontWeight: "600" },
+  soldEditorCard: {
+    marginHorizontal: 12,
+    marginBottom: 12,
+    marginTop: 2,
+    backgroundColor: AppPalette.surfaceMuted,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: AppPalette.border,
+    padding: 12,
+  },
+  soldEditorLabel: {
+    fontSize: 11,
+    fontWeight: "700",
+    color: AppPalette.textSoft,
+    marginBottom: 2,
+  },
+  bundleModalBackdrop: {
+    flex: 1,
+    backgroundColor: AppPalette.modalBackdrop,
+    justifyContent: "center",
+    padding: 20,
+  },
+  bundleModalCard: {
+    backgroundColor: AppPalette.surface,
+    borderRadius: 14,
+    padding: 20,
+    maxHeight: "80%",
+  },
+  bundleModalTitle: {
+    fontSize: 20,
+    fontWeight: "700",
+    color: AppPalette.text,
+    marginBottom: 12,
+  },
+  bundleModalEmpty: {
+    fontSize: 14,
+    lineHeight: 20,
+    color: AppPalette.textMuted,
+  },
+  bundleSuggestionCard: {
+    backgroundColor: AppPalette.surfaceMuted,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: AppPalette.border,
+    padding: 12,
+    marginBottom: 10,
+  },
+  bundleSuggestionTitle: {
+    fontSize: 15,
+    fontWeight: "700",
+    color: AppPalette.text,
+    marginBottom: 4,
+  },
+  bundleSuggestionPrice: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: AppPalette.primary,
+    marginBottom: 6,
+  },
+  bundleSuggestionItems: {
+    fontSize: 13,
+    lineHeight: 18,
+    color: AppPalette.textMuted,
+    marginBottom: 6,
+  },
+  bundleSuggestionReason: {
+    fontSize: 12,
+    lineHeight: 18,
+    color: AppPalette.textSoft,
+  },
+  bundleCloseBtn: {
+    backgroundColor: AppPalette.primaryStrong,
+    borderRadius: 10,
+    paddingVertical: 12,
+    alignItems: "center",
+    marginTop: 8,
+  },
+  bundleCloseBtnText: {
+    color: AppPalette.primaryOn,
+    fontWeight: "700",
+    fontSize: 14,
+  },
 });

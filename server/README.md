@@ -21,6 +21,8 @@ This server handles eBay OAuth and listing creation for the Expo app so client s
 - `EBAY_RETURN_POLICY_ID`
 - `EBAY_FULFILLMENT_POLICY_ID`
 
+You can use [server/ebay.env.example](c:/Users/colto/PalletScanner/server/ebay.env.example) as a paste-in checklist when the developer portal is available again.
+
 ## Optional environment variables
 
 - `EBAY_ENVIRONMENT=production`
@@ -33,10 +35,24 @@ This server handles eBay OAuth and listing creation for the Expo app so client s
 
 ## Setup notes
 
-1. In the eBay developer portal, create or edit your production RuName so its accept URL points to your deployed backend callback route, for example `https://your-server.example.com/ebay/callback`.
-2. Set `EXPO_PUBLIC_EBAY_API_BASE_URL` in the app environment to that same backend base URL.
-3. Start the server with `npm run ebay-server`.
-4. In the app Settings tab, use the eBay connect button to authorize the seller account.
+1. In the eBay developer portal, create or edit your RuName so its accept URL points to your backend callback route.
+   - Local example: `http://192.168.1.42:8787/ebay/callback`
+   - Deployed example: `https://your-server.example.com/ebay/callback`
+2. Put the returned `RuName` value into `EBAY_RUNAME`.
+3. Set `EXPO_PUBLIC_EBAY_API_BASE_URL` in the app environment to that same backend base URL.
+   - For local device testing, use your computer's LAN IP, not `localhost`.
+4. Add the merchant location key and the three business policy IDs to your `.env`.
+5. Start the server with `npm run ebay-server`.
+6. In the app Settings tab, use the eBay connect button to authorize the seller account.
+
+## Fastest recovery plan when eBay is accessible again
+
+1. Fill the blank values in [server/ebay.env.example](c:/Users/colto/PalletScanner/server/ebay.env.example).
+2. Copy those values into your root `.env`.
+3. Start the backend with `npm run ebay-server`.
+4. Open `http://YOUR-IP:8787/ebay/status` and confirm the server reports configured credentials.
+5. In the app, tap `Settings -> Connect eBay Account`.
+6. Test creating one listing from an inventory item.
 
 ## Important
 

@@ -12,6 +12,7 @@ import {
 } from "react-native";
 
 import { AppLayout, AppPalette } from "@/constants/app-palette";
+import { FREE_SCAN_LIMIT, getAppMeta, subscribeAppMeta } from "@/lib/app-meta";
 import {
   getEbayApiBaseUrl,
   getEbayIntegrationStatusLabel,
@@ -36,6 +37,11 @@ export default function SettingsScreen() {
     getAppSettings,
     getAppSettings,
   );
+  const { lifetimeScans, currentMonthScans } = useSyncExternalStore(
+    subscribeAppMeta,
+    getAppMeta,
+    getAppMeta,
+  );
   const isLargeLayout = width >= 900;
   const resetBackup = useSyncExternalStore(
     subscribeInventory,
@@ -56,6 +62,7 @@ export default function SettingsScreen() {
 
     return `${remainingHours} hour${remainingHours === 1 ? "" : "s"} left`;
   }, [resetBackup]);
+  const scanUsageProgress = Math.min(currentMonthScans / FREE_SCAN_LIMIT, 1);
 
   const connectEbayAccount = async () => {
     if (!isEbayApiConfigured()) {
@@ -74,6 +81,28 @@ export default function SettingsScreen() {
       <View style={[styles.innerContent, isLargeLayout && styles.innerContentWide]}>
         <Text style={styles.title}>Settings</Text>
         <Text style={styles.subtitle}>Choose how saving and posting should work</Text>
+
+        <View style={styles.card}>
+          <Text style={styles.settingTitle}>Scan Usage</Text>
+          <Text style={styles.settingDescription}>
+            Keep an eye on monthly usage while we get the future Pro plan shell in place.
+          </Text>
+          <Text style={styles.integrationStatus}>
+            {currentMonthScans} / {FREE_SCAN_LIMIT} scans used this month
+          </Text>
+          <View style={styles.progressTrack}>
+            <View
+              style={[
+                styles.progressFill,
+                { width: `${scanUsageProgress * 100}%` },
+              ]}
+            />
+          </View>
+          <Text style={styles.integrationHint}>Lifetime scans: {lifetimeScans}</Text>
+          <Text style={styles.upgradeHint}>
+            Upgrade to Pro for unlimited scans
+          </Text>
+        </View>
 
         <View style={styles.card}>
           <View style={styles.settingRow}>
@@ -221,6 +250,26 @@ const styles = StyleSheet.create({
     color: AppPalette.textMuted,
     lineHeight: 18,
     marginTop: 8,
+  },
+  progressTrack: {
+    marginTop: 12,
+    height: 10,
+    borderRadius: 999,
+    backgroundColor: AppPalette.surfaceMuted,
+    overflow: "hidden",
+    borderWidth: 1,
+    borderColor: AppPalette.border,
+  },
+  progressFill: {
+    height: "100%",
+    backgroundColor: AppPalette.primaryStrong,
+    borderRadius: 999,
+  },
+  upgradeHint: {
+    fontSize: 13,
+    color: AppPalette.primary,
+    fontWeight: "600",
+    marginTop: 10,
   },
   connectBtn: {
     backgroundColor: AppPalette.primaryStrong,

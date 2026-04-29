@@ -2,20 +2,53 @@ import * as Clipboard from "expo-clipboard";
 import { Alert, Linking } from "react-native";
 
 import { createEbayListing, isEbayApiConfigured } from "@/lib/ebay-integration";
+import { triggerCopyFeedback } from "@/lib/feedback";
 import {
   markInventoryItemListed,
   type InventoryItem,
 } from "@/lib/inventory-store";
 
-export const buildListingText = (item: InventoryItem) =>
+const FACEBOOK_LISTING_URLS = [
+  "fb://marketplace/create/item",
+  "fb://facewebmodal/f?href=https://www.facebook.com/marketplace/create/item",
+  "https://www.facebook.com/marketplace/create/item",
+] as const;
+
+const getListingContentForPlatform = (
+  item: InventoryItem,
+  platform: "facebook" | "ebay",
+) => {
+  if (platform === "facebook") {
+    return {
+      title: item.listing_title_facebook || item.listing_title,
+      description:
+        item.listing_description_facebook || item.listing_description,
+    };
+  }
+
+  return {
+    title: item.listing_title_ebay || item.listing_title,
+    description: item.listing_description_ebay || item.listing_description,
+  };
+};
+
+export const buildListingText = (
+  item: InventoryItem,
+  platform: "facebook" | "ebay" = "facebook",
+) => {
+  const content = getListingContentForPlatform(item, platform);
+
+  return (
   [
-    item.listing_title,
+    content.title,
     `Price: $${item.low_price}-$${item.high_price}`,
     `Condition: ${item.condition}`,
     `Best platform: ${item.best_platform}`,
     "",
-    item.listing_description,
-  ].join("\n");
+    content.description,
+  ].join("\n")
+  );
+};
 
 export const openListingDraft = async (
   item: InventoryItem,
@@ -48,32 +81,55 @@ export const openListingDraft = async (
     }
   }
 
-  const listingText = buildListingText(item);
-  const url =
-    platform === "facebook"
-      ? "https://www.facebook.com/marketplace/create/item"
-      : "https://www.ebay.com/sl/sell";
+  const listingText = buildListingText(item, platform);
+  const ebayUrl = "https://www.ebay.com/sl/sell";
   const platformLabel =
     platform === "facebook" ? "Facebook Marketplace" : "eBay";
 
   try {
     await Clipboard.setStringAsync(listingText);
-    const supported = await Linking.canOpenURL(url);
+    void triggerCopyFeedback();
+    if (platform === "facebook") {
+      let opened = false;
 
-    if (!supported) {
-      Alert.alert(
-        "Link unavailable",
-        `${platformLabel} could not be opened, but the listing text is copied and ready to paste.`,
-      );
-      return;
+      for (const candidateUrl of FACEBOOK_LISTING_URLS) {
+        try {
+          await Linking.openURL(candidateUrl);
+          opened = true;
+          break;
+        } catch {
+          // Try the next Marketplace route.
+        }
+      }
+
+      if (!opened) {
+        Alert.alert(
+          "Link unavailable",
+          "Facebook Marketplace could not be opened, but the listing text is copied and ready to paste.",
+        );
+        return;
+      }
+    } else {
+      const supported = await Linking.canOpenURL(ebayUrl);
+
+      if (!supported) {
+        Alert.alert(
+          "Link unavailable",
+          `${platformLabel} could not be opened, but the listing text is copied and ready to paste.`,
+        );
+        return;
+      }
+
+      await Linking.openURL(ebayUrl);
     }
 
-    await Linking.openURL(url);
     markInventoryItemListed(item.id, platform);
     if (options?.showSuccessAlert !== false) {
       Alert.alert(
         `${platformLabel} opened`,
-        "The listing details were copied to your clipboard so you can paste them into the new listing.",
+        platform === "facebook"
+          ? "The listing details were copied to your clipboard so you can paste them into the new Marketplace listing."
+          : "The listing details were copied to your clipboard so you can paste them into the new listing.",
       );
     }
   } catch {
