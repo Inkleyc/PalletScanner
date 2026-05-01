@@ -6,7 +6,6 @@ import {
   Alert,
   Image,
   KeyboardAvoidingView,
-  Linking,
   Platform,
   ScrollView,
   StyleSheet,
@@ -17,6 +16,7 @@ import {
 } from "react-native";
 
 import { LoadingStatus } from "@/components/loading-status";
+import { PhotoReferenceCards } from "@/components/photo-reference-cards";
 import { AppPalette } from "@/constants/app-palette";
 import { incrementScanCount } from "@/lib/app-meta";
 import { getAppSettings, subscribeAppSettings } from "@/lib/app-settings";
@@ -293,11 +293,6 @@ Barcode: ${barcode}
       currentListingDraft.title + "\n\n" + currentListingDraft.description;
     await Clipboard.setStringAsync(text);
     void triggerCopyFeedback();
-  };
-
-  const openPhotoExampleSearch = async (query: string) => {
-    const url = `https://www.google.com/search?tbm=isch&q=${encodeURIComponent(query)}`;
-    await Linking.openURL(url);
   };
 
   const parsePriceRange = () => {
@@ -937,21 +932,7 @@ ${productSummary}
                 {photoTipsExpanded ? (
                   <>
                     <Text style={styles.photoTipsBody}>{result.photo_tips}</Text>
-                    {photoExampleQueries.length > 0 ? (
-                      <View style={styles.photoExampleLinks}>
-                        {photoExampleQueries.map((query: string) => (
-                          <TouchableOpacity
-                            key={query}
-                            style={styles.photoExampleLink}
-                            onPress={() => {
-                              void openPhotoExampleSearch(query);
-                            }}
-                          >
-                            <Text style={styles.photoExampleLinkText}>{query}</Text>
-                          </TouchableOpacity>
-                        ))}
-                      </View>
-                    ) : null}
+                    <PhotoReferenceCards queries={photoExampleQueries} />
                   </>
                 ) : null}
               </View>
@@ -1280,22 +1261,5 @@ const styles = StyleSheet.create({
     fontSize: 13,
     lineHeight: 19,
     color: AppPalette.textMuted,
-  },
-  photoExampleLinks: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 8,
-    marginTop: 12,
-  },
-  photoExampleLink: {
-    backgroundColor: AppPalette.infoSoft,
-    borderRadius: 999,
-    paddingHorizontal: 10,
-    paddingVertical: 8,
-  },
-  photoExampleLinkText: {
-    color: AppPalette.info,
-    fontSize: 12,
-    fontWeight: "600",
   },
 });

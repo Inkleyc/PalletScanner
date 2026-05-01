@@ -264,7 +264,7 @@ export default function AnalyticsScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: AppPalette.background },
-  content: { padding: 20, paddingTop: 56, paddingBottom: 28 },
+  content: { padding: 20, paddingTop: 52, paddingBottom: 24 },
   innerContent: {
     width: "100%",
     alignSelf: "center",
@@ -273,18 +273,20 @@ const styles = StyleSheet.create({
     maxWidth: AppLayout.maxContentWidth,
   },
   title: { fontSize: 30, fontWeight: "700", color: AppPalette.text, marginBottom: 6 },
-  subtitle: { fontSize: 14, color: AppPalette.textMuted, marginBottom: 20, lineHeight: 20 },
+  subtitle: { fontSize: 14, color: AppPalette.textMuted, marginBottom: 16, lineHeight: 20 },
   summaryCard: {
-    backgroundColor: AppPalette.primaryStrong,
+    backgroundColor: AppPalette.surface,
     borderRadius: 14,
     padding: 16,
-    marginBottom: 20,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: AppPalette.border,
   },
   palletCard: {
     backgroundColor: AppPalette.surface,
     borderRadius: 14,
     padding: 16,
-    marginBottom: 14,
+    marginBottom: 12,
     borderWidth: 1,
     borderColor: AppPalette.border,
   },
@@ -312,10 +314,14 @@ const styles = StyleSheet.create({
   },
   metricLabel: { fontSize: 12, color: AppPalette.textMuted, marginBottom: 4 },
   metricValue: { fontSize: 20, fontWeight: "700", color: AppPalette.text },
-  summaryMetricBox: { backgroundColor: "rgba(255,255,255,0.10)" },
-  summaryMetricLabel: { color: "rgba(255,255,255,0.7)" },
-  summaryMetricValue: { color: AppPalette.primaryOn },
-  summaryText: { fontSize: 13, color: "rgba(255,255,255,0.8)" },
+  summaryMetricBox: {
+    backgroundColor: AppPalette.surfaceMuted,
+    borderWidth: 1,
+    borderColor: AppPalette.border,
+  },
+  summaryMetricLabel: { color: AppPalette.textSoft },
+  summaryMetricValue: { color: AppPalette.text },
+  summaryText: { fontSize: 13, color: AppPalette.textMuted },
   detailText: { fontSize: 13, color: AppPalette.textMuted, marginTop: 6 },
   costRow: {
     flexDirection: "row",

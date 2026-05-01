@@ -2,7 +2,7 @@ import * as FileSystem from "expo-file-system/legacy";
 import * as MailComposer from "expo-mail-composer";
 import * as Sharing from "expo-sharing";
 import { useRouter } from "expo-router";
-import { useMemo, useState, useSyncExternalStore } from "react";
+import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import {
   Alert,
   Image,
@@ -64,10 +64,13 @@ export default function InventoryScreen() {
   const [editingSoldItemId, setEditingSoldItemId] = useState<number | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [sortMode, setSortMode] = useState<"date" | "high-desc" | "low-asc">("date");
+  const [filtersExpanded, setFiltersExpanded] = useState(false);
+  const [summaryExpanded, setSummaryExpanded] = useState(false);
   const [bundleLoading, setBundleLoading] = useState(false);
   const [bundleModalVisible, setBundleModalVisible] = useState(false);
   const [bundleSuggestions, setBundleSuggestions] = useState<BundleSuggestion[]>([]);
   const isLargeLayout = width >= 900;
+  const previousHasActiveFilters = useRef(false);
 
   const selectedPallet =
     selectedPalletId === "all"
@@ -125,6 +128,17 @@ export default function InventoryScreen() {
       filteredItems.filter((item: any) => !item.listedPlatforms.includes("ebay")),
     [filteredItems],
   );
+  const hasActiveFilters =
+    selectedPalletId !== "all" ||
+    searchQuery.trim().length > 0 ||
+    sortMode !== "date";
+
+  useEffect(() => {
+    if (hasActiveFilters && !previousHasActiveFilters.current) {
+      setFiltersExpanded(true);
+    }
+    previousHasActiveFilters.current = hasActiveFilters;
+  }, [hasActiveFilters]);
 
   const removeItem = (id: number) => {
     Alert.alert("Remove Item", "Are you sure?", [
@@ -440,190 +454,231 @@ ${JSON.stringify(promptItems, null, 2)}`,
         </Text>
 
         <View style={styles.filterCard}>
-          <View style={styles.filterHeader}>
-            <View>
-              <Text style={styles.filterLabel}>FILTER BY PALLET</Text>
-              <Text style={styles.filterActiveText}>
-                Active save target: {activePallet?.name ?? "None yet"}
-              </Text>
-            </View>
-          </View>
-          {(selectedPallet || pallets.length > 1) && (
-            <View style={styles.filterActions}>
-              {selectedPallet && selectedPallet.id !== activePalletId && (
-                <TouchableOpacity
-                  style={styles.makeActiveBtn}
-                  onPress={makeSelectedPalletActive}
-                >
-                  <Text style={styles.makeActiveBtnText}>Make Active</Text>
-                </TouchableOpacity>
-              )}
-              {selectedPallet && (
-                <TouchableOpacity
-                  style={styles.deletePalletBtn}
-                  onPress={removeSelectedPallet}
-                >
-                  <Text style={styles.deletePalletBtnText}>Delete Pallet</Text>
-                </TouchableOpacity>
-              )}
-            </View>
-          )}
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.filterChipRow}
+          <TouchableOpacity
+            style={styles.sectionHeader}
+            onPress={() => setFiltersExpanded((current) => !current)}
           >
-            <TouchableOpacity
-              style={[
-                styles.filterChip,
-                selectedPalletId === "all" && styles.filterChipActive,
-              ]}
-              onPress={() => setSelectedPalletId("all")}
-            >
-              <Text
-                style={[
-                  styles.filterChipText,
-                  selectedPalletId === "all" && styles.filterChipTextActive,
-                ]}
-              >
-                All Inventory
+            <View>
+              <Text style={styles.filterLabel}>FILTERS</Text>
+              <Text style={styles.sectionSummaryText}>
+                {selectedPallet ? selectedPallet.name : "All Inventory"} | {sortMode === "date"
+                  ? "Newest"
+                  : sortMode === "high-desc"
+                    ? "High to Low"
+                    : "Low to High"} | {filteredItems.length} item{filteredItems.length === 1 ? "" : "s"}
               </Text>
-            </TouchableOpacity>
-            {pallets.map((pallet) => {
-              const isSelected = selectedPalletId === pallet.id;
-              const isActive = activePalletId === pallet.id;
-              return (
+            </View>
+            <Text style={styles.sectionToggleText}>
+              {filtersExpanded ? "Hide" : "Show"}
+            </Text>
+          </TouchableOpacity>
+
+          {filtersExpanded ? (
+            <>
+              <View style={styles.filterHeader}>
+                <View>
+                  <Text style={styles.filterActiveText}>
+                    Active save target: {activePallet?.name ?? "None yet"}
+                  </Text>
+                </View>
+              </View>
+              {(selectedPallet || pallets.length > 1) && (
+                <View style={styles.filterActions}>
+                  {selectedPallet && selectedPallet.id !== activePalletId && (
+                    <TouchableOpacity
+                      style={styles.makeActiveBtn}
+                      onPress={makeSelectedPalletActive}
+                    >
+                      <Text style={styles.makeActiveBtnText}>Make Active</Text>
+                    </TouchableOpacity>
+                  )}
+                  {selectedPallet && (
+                    <TouchableOpacity
+                      style={styles.deletePalletBtn}
+                      onPress={removeSelectedPallet}
+                    >
+                      <Text style={styles.deletePalletBtnText}>Delete Pallet</Text>
+                    </TouchableOpacity>
+                  )}
+                </View>
+              )}
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.filterChipRow}
+              >
                 <TouchableOpacity
-                  key={pallet.id}
                   style={[
                     styles.filterChip,
-                    isSelected && styles.filterChipActive,
+                    selectedPalletId === "all" && styles.filterChipActive,
                   ]}
-                  onPress={() => setSelectedPalletId(pallet.id)}
+                  onPress={() => setSelectedPalletId("all")}
                 >
                   <Text
                     style={[
                       styles.filterChipText,
-                      isSelected && styles.filterChipTextActive,
+                      selectedPalletId === "all" && styles.filterChipTextActive,
                     ]}
                   >
-                    {pallet.name}
-                    {isActive ? " Active" : ""}
+                    All Inventory
                   </Text>
                 </TouchableOpacity>
-              );
-            })}
-          </ScrollView>
-          <TextInput
-            style={styles.searchInput}
-            value={searchQuery}
-            onChangeText={setSearchQuery}
-            placeholder="Search inventory by item name"
-            placeholderTextColor={AppPalette.textSoft}
-          />
-          <View style={styles.sortRow}>
-            {[
-              { key: "date", label: "Newest" },
-              { key: "high-desc", label: "High to Low" },
-              { key: "low-asc", label: "Low to High" },
-            ].map((option) => {
-              const isActive = sortMode === option.key;
-              return (
-                <TouchableOpacity
-                  key={option.key}
-                  style={[styles.sortChip, isActive && styles.sortChipActive]}
-                  onPress={() =>
-                    setSortMode(option.key as "date" | "high-desc" | "low-asc")
-                  }
-                >
-                  <Text
-                    style={[
-                      styles.sortChipText,
-                      isActive && styles.sortChipTextActive,
-                    ]}
-                  >
-                    {option.label}
-                  </Text>
-                </TouchableOpacity>
-              );
-            })}
-          </View>
-          <Text style={styles.resultCount}>
-            Showing {filteredItems.length} of {palletScopedItemCount} items
-          </Text>
+                {pallets.map((pallet) => {
+                  const isSelected = selectedPalletId === pallet.id;
+                  const isActive = activePalletId === pallet.id;
+                  return (
+                    <TouchableOpacity
+                      key={pallet.id}
+                      style={[
+                        styles.filterChip,
+                        isSelected && styles.filterChipActive,
+                      ]}
+                      onPress={() => setSelectedPalletId(pallet.id)}
+                    >
+                      <Text
+                        style={[
+                          styles.filterChipText,
+                          isSelected && styles.filterChipTextActive,
+                        ]}
+                      >
+                        {pallet.name}
+                        {isActive ? " Active" : ""}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </ScrollView>
+              <TextInput
+                style={styles.searchInput}
+                value={searchQuery}
+                onChangeText={setSearchQuery}
+                placeholder="Search inventory by item name"
+                placeholderTextColor={AppPalette.textSoft}
+              />
+              <View style={styles.sortRow}>
+                {[
+                  { key: "date", label: "Newest" },
+                  { key: "high-desc", label: "High to Low" },
+                  { key: "low-asc", label: "Low to High" },
+                ].map((option) => {
+                  const isActive = sortMode === option.key;
+                  return (
+                    <TouchableOpacity
+                      key={option.key}
+                      style={[styles.sortChip, isActive && styles.sortChipActive]}
+                      onPress={() =>
+                        setSortMode(option.key as "date" | "high-desc" | "low-asc")
+                      }
+                    >
+                      <Text
+                        style={[
+                          styles.sortChipText,
+                          isActive && styles.sortChipTextActive,
+                        ]}
+                      >
+                        {option.label}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+              <Text style={styles.resultCount}>
+                Showing {filteredItems.length} of {palletScopedItemCount} items
+              </Text>
+            </>
+          ) : null}
         </View>
 
         <View style={styles.totalCard}>
-          <View style={styles.totalRow}>
-            <View style={styles.totalBox}>
-              <Text style={styles.totalLabel}>Items</Text>
-              <Text style={styles.totalValue}>{filteredItems.length}</Text>
-            </View>
-            <View style={styles.totalBox}>
-              <Text style={styles.totalLabel}>Low</Text>
-              <Text style={styles.totalValue}>${totalLow}</Text>
-            </View>
-            <View style={styles.totalBox}>
-              <Text style={styles.totalLabel}>High</Text>
-              <Text style={styles.totalValue}>${totalHigh}</Text>
-            </View>
-          </View>
-          <View style={styles.profitRow}>
-            <View style={styles.profitBox}>
-              <Text style={styles.totalLabel}>Pallet Cost</Text>
-              <Text style={styles.profitValue}>${totalPalletCost}</Text>
-            </View>
-            <View style={styles.profitBox}>
-              <Text style={styles.totalLabel}>Profit Low</Text>
-              <Text style={styles.profitValue}>${projectedProfitLow}</Text>
-            </View>
-            <View style={styles.profitBox}>
-              <Text style={styles.totalLabel}>Profit High</Text>
-              <Text style={styles.profitValue}>${projectedProfitHigh}</Text>
-            </View>
-          </View>
-          <View style={styles.exportRow}>
-            <TouchableOpacity style={styles.exportBtn} onPress={exportCSV}>
-              <Text style={styles.exportBtnText}>Export CSV</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.emailBtn} onPress={emailInventory}>
-              <Text style={styles.emailBtnText}>Email Inventory</Text>
-            </TouchableOpacity>
-          </View>
           <TouchableOpacity
-            style={styles.bulkEbayBtn}
-            onPress={
-              bulkEbayQueue.length > 0
-                ? continueBulkEbayPosting
-                : startBulkEbayPosting
-            }
+            style={styles.sectionHeader}
+            onPress={() => setSummaryExpanded((current) => !current)}
           >
-            <Text style={styles.bulkEbayBtnText}>
-              {bulkEbayQueue.length > 0
-                ? `Continue Mass eBay Posting (${bulkEbayQueue.length} left)`
-                : `Post All Missing to eBay (${missingEbayItems.length})`}
+            <View>
+              <Text style={styles.filterLabel}>SUMMARY</Text>
+              <Text style={styles.sectionSummaryText}>
+                {filteredItems.length} items | Low ${totalLow} | High ${totalHigh}
+              </Text>
+            </View>
+            <Text style={styles.sectionToggleText}>
+              {summaryExpanded ? "Hide" : "Show"}
             </Text>
           </TouchableOpacity>
-          {bulkEbayQueue.length > 0 && (
-            <TouchableOpacity
-              style={styles.cancelBulkBtn}
-              onPress={cancelBulkEbayPosting}
-            >
-              <Text style={styles.cancelBulkBtnText}>Stop Mass Posting</Text>
-            </TouchableOpacity>
-          )}
-          {bundleCandidateItems.length >= 3 && (
-            <TouchableOpacity
-              style={styles.bundleBtn}
-              onPress={() => {
-                void suggestBundle();
-              }}
-            >
-              <Text style={styles.bundleBtnText}>
-                {bundleLoading ? "Suggesting Bundles..." : "Suggest Bundle"}
-              </Text>
-            </TouchableOpacity>
-          )}
+
+          {summaryExpanded ? (
+            <>
+              <View style={styles.totalRow}>
+                <View style={styles.totalBox}>
+                  <Text style={styles.totalLabel}>Items</Text>
+                  <Text style={styles.totalValue}>{filteredItems.length}</Text>
+                </View>
+                <View style={styles.totalBox}>
+                  <Text style={styles.totalLabel}>Low</Text>
+                  <Text style={styles.totalValue}>${totalLow}</Text>
+                </View>
+                <View style={styles.totalBox}>
+                  <Text style={styles.totalLabel}>High</Text>
+                  <Text style={styles.totalValue}>${totalHigh}</Text>
+                </View>
+              </View>
+              <View style={styles.profitRow}>
+                <View style={styles.profitBox}>
+                  <Text style={styles.totalLabel}>Pallet Cost</Text>
+                  <Text style={styles.profitValue}>${totalPalletCost}</Text>
+                </View>
+                <View style={styles.profitBox}>
+                  <Text style={styles.totalLabel}>Profit Low</Text>
+                  <Text style={styles.profitValue}>${projectedProfitLow}</Text>
+                </View>
+                <View style={styles.profitBox}>
+                  <Text style={styles.totalLabel}>Profit High</Text>
+                  <Text style={styles.profitValue}>${projectedProfitHigh}</Text>
+                </View>
+              </View>
+              <View style={styles.exportRow}>
+                <TouchableOpacity style={styles.exportBtn} onPress={exportCSV}>
+                  <Text style={styles.exportBtnText}>Export CSV</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.emailBtn} onPress={emailInventory}>
+                  <Text style={styles.emailBtnText}>Email Inventory</Text>
+                </TouchableOpacity>
+              </View>
+              <TouchableOpacity
+                style={styles.bulkEbayBtn}
+                onPress={
+                  bulkEbayQueue.length > 0
+                    ? continueBulkEbayPosting
+                    : startBulkEbayPosting
+                }
+              >
+                <Text style={styles.bulkEbayBtnText}>
+                  {bulkEbayQueue.length > 0
+                    ? `Continue Mass eBay Posting (${bulkEbayQueue.length} left)`
+                    : `Post All Missing to eBay (${missingEbayItems.length})`}
+                </Text>
+              </TouchableOpacity>
+              {bulkEbayQueue.length > 0 && (
+                <TouchableOpacity
+                  style={styles.cancelBulkBtn}
+                  onPress={cancelBulkEbayPosting}
+                >
+                  <Text style={styles.cancelBulkBtnText}>Stop Mass Posting</Text>
+                </TouchableOpacity>
+              )}
+              {bundleCandidateItems.length >= 3 && (
+                <TouchableOpacity
+                  style={styles.bundleBtn}
+                  onPress={() => {
+                    void suggestBundle();
+                  }}
+                >
+                  <Text style={styles.bundleBtnText}>
+                    {bundleLoading ? "Suggesting Bundles..." : "Suggest Bundle"}
+                  </Text>
+                </TouchableOpacity>
+              )}
+            </>
+          ) : null}
         </View>
 
         {filteredItems.length === 0 && (
@@ -813,11 +868,11 @@ ${JSON.stringify(promptItems, null, 2)}`,
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: AppPalette.background },
-  content: { padding: 20, paddingTop: 56, paddingBottom: 28 },
+  content: { padding: 20, paddingTop: 52, paddingBottom: 24 },
   innerContent: { width: "100%", alignSelf: "center" },
   innerContentWide: { maxWidth: AppLayout.maxContentWidth },
   title: { fontSize: 30, fontWeight: "700", color: AppPalette.text, marginBottom: 6 },
-  subtitle: { fontSize: 14, color: AppPalette.textMuted, marginBottom: 20, lineHeight: 20 },
+  subtitle: { fontSize: 14, color: AppPalette.textMuted, marginBottom: 16, lineHeight: 20 },
   filterCard: {
     backgroundColor: AppPalette.surface,
     borderRadius: 10,
@@ -830,6 +885,23 @@ const styles = StyleSheet.create({
     shadowOpacity: 1,
     shadowRadius: 18,
     elevation: 2,
+  },
+  sectionHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    gap: 12,
+  },
+  sectionSummaryText: {
+    fontSize: 13,
+    color: AppPalette.textMuted,
+    marginTop: 4,
+    fontWeight: "600",
+  },
+  sectionToggleText: {
+    fontSize: 13,
+    color: AppPalette.primary,
+    fontWeight: "700",
   },
   filterHeader: { gap: 8 },
   filterActions: {
@@ -921,7 +993,7 @@ const styles = StyleSheet.create({
     backgroundColor: AppPalette.surface,
     borderRadius: 10,
     padding: 16,
-    marginBottom: 24,
+    marginBottom: 18,
     borderWidth: 1,
     borderColor: AppPalette.border,
     shadowColor: AppPalette.shadow,
@@ -954,28 +1026,34 @@ const styles = StyleSheet.create({
   exportRow: { flexDirection: "row", gap: 10 },
   exportBtn: {
     flex: 1,
-    backgroundColor: AppPalette.primaryStrong,
+    backgroundColor: AppPalette.surfaceMuted,
+    borderWidth: 1,
+    borderColor: AppPalette.border,
     padding: 12,
     borderRadius: 8,
     alignItems: "center",
   },
-  exportBtnText: { color: AppPalette.primaryOn, fontWeight: "500", fontSize: 14 },
+  exportBtnText: { color: AppPalette.text, fontWeight: "600", fontSize: 14 },
   emailBtn: {
     flex: 1,
-    backgroundColor: AppPalette.success,
+    backgroundColor: AppPalette.successSoft,
+    borderWidth: 1,
+    borderColor: "#cfe7dc",
     padding: 12,
     borderRadius: 8,
     alignItems: "center",
   },
-  emailBtnText: { color: AppPalette.primaryOn, fontWeight: "500", fontSize: 14 },
+  emailBtnText: { color: AppPalette.success, fontWeight: "600", fontSize: 14 },
   bulkEbayBtn: {
-    backgroundColor: AppPalette.info,
+    backgroundColor: AppPalette.infoSoft,
+    borderWidth: 1,
+    borderColor: "#c9d9f1",
     padding: 12,
     borderRadius: 8,
     alignItems: "center",
     marginTop: 10,
   },
-  bulkEbayBtnText: { color: AppPalette.primaryOn, fontWeight: "600", fontSize: 14 },
+  bulkEbayBtnText: { color: AppPalette.info, fontWeight: "700", fontSize: 14 },
   cancelBulkBtn: {
     padding: 10,
     borderRadius: 8,
@@ -987,13 +1065,15 @@ const styles = StyleSheet.create({
   },
   cancelBulkBtnText: { color: AppPalette.textMuted, fontWeight: "600", fontSize: 13 },
   bundleBtn: {
-    backgroundColor: AppPalette.primary,
+    backgroundColor: AppPalette.primarySoft,
+    borderWidth: 1,
+    borderColor: "#cfdeed",
     padding: 12,
     borderRadius: 8,
     alignItems: "center",
     marginTop: 10,
   },
-  bundleBtnText: { color: AppPalette.primaryOn, fontWeight: "600", fontSize: 14 },
+  bundleBtnText: { color: AppPalette.primary, fontWeight: "700", fontSize: 14 },
   emptyState: { alignItems: "center", paddingTop: 60 },
   emptyIcon: {
     width: 56,
