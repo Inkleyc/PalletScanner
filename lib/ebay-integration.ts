@@ -16,14 +16,17 @@ export const createEbayListing = async (item: InventoryItem) => {
     throw new Error("eBay API backend is not configured.");
   }
 
+  const title = item.listing_title_ebay || item.listing_title;
+  const description = item.listing_description_ebay || item.listing_description;
+
   const response = await fetch(`${getEbayApiBaseUrl()}/ebay/listings`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
-      title: item.listing_title,
-      description: item.listing_description,
+      title,
+      description,
       price: item.high_price,
       floorPrice: item.floor_price,
       condition: item.condition,
