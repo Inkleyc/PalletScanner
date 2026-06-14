@@ -470,16 +470,31 @@ const fallbackAspectValue = (aspect, searchableText, payload) => {
   const normalizedName = name.toLowerCase();
   const values = aspect.aspectValues ?? [];
   const localizedValues = values.map((entry) => entry.localizedValue);
-  const matchingValue = findMatchingAspectValue(values, searchableText);
-  if (matchingValue) {
-    return matchingValue;
-  }
 
   const findPreferred = (...candidates) =>
     candidates.find((candidate) => localizedValues.includes(candidate)) ?? null;
   const productName = payload.product?.name || payload.title || "Does not apply";
 
   if (normalizedName.includes("brand")) {
+    const invalidBrandValues = new Set([
+      "compatible",
+      "compatible brand",
+      "for apple",
+      "for samsung",
+      "generic",
+    ]);
+    const matchingBrand = values
+      .map((entry) => entry.localizedValue)
+      .filter(Boolean)
+      .filter(
+        (value) =>
+          !invalidBrandValues.has(value.toLowerCase()) &&
+          searchableText.includes(value.toLowerCase()),
+      )
+      .sort((a, b) => b.length - a.length)[0];
+    if (matchingBrand) {
+      return matchingBrand;
+    }
     return findPreferred(
       "Apple",
       "Samsung",
@@ -493,6 +508,10 @@ const fallbackAspectValue = (aspect, searchableText, payload) => {
       "Does not apply",
       "Other",
     );
+  }
+  const matchingValue = findMatchingAspectValue(values, searchableText);
+  if (matchingValue) {
+    return matchingValue;
   }
   if (normalizedName === "model") {
     return productName.slice(0, 65);

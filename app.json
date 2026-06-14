@@ -14,7 +14,8 @@
       "buildNumber": "1",
       "infoPlist": {
         "NSCameraUsageDescription": "PalletScanner uses the camera to scan barcodes and photograph inventory.",
-        "NSPhotoLibraryUsageDescription": "PalletScanner uses your photo library to attach product photos to inventory listings."
+        "NSPhotoLibraryUsageDescription": "PalletScanner uses your photo library to attach product photos to inventory listings.",
+        "ITSAppUsesNonExemptEncryption": false
       }
     },
     "android": {

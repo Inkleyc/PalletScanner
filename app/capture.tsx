@@ -49,6 +49,7 @@ const LOADING_MESSAGES = [
   "Writing your listing...",
 ];
 const MAX_LISTING_PHOTOS = 5;
+const RECOMMENDED_LISTING_PHOTOS = 3;
 
 export default function HomeScreen() {
   const router = useRouter();
@@ -141,6 +142,10 @@ export default function HomeScreen() {
     setScannerOpen(false);
   };
 
+  const getPhotoGuidance = () =>
+    result?.photo_tips?.trim() ||
+    "Start with the full item in good light. Then add the back, labels or model number, included accessories, and any visible wear.";
+
   const addPhoto = async () => {
     const canContinue = await requestPermissions();
     if (!canContinue) {
@@ -149,32 +154,52 @@ export default function HomeScreen() {
     if (images.length === 0) {
       Alert.alert(
         "Photo checklist",
-        "Start with the full item in good light. Then add the back, labels or model number, included accessories, and any visible wear.",
+        getPhotoGuidance(),
         [
           { text: "Cancel", style: "cancel" },
           {
             text: "Open Camera",
             onPress: () => {
-              void takePhoto();
+              void takePhoto(getPhotoGuidance());
             },
           },
         ],
       );
       return;
     }
-    await takePhoto();
+    await takePhoto(getPhotoGuidance());
   };
 
-  const takePhoto = async () => {
+  const takePhoto = async (photoTips?: string) => {
     let photo = await ImagePicker.launchCameraAsync({
       base64: true,
       quality: 0.7,
     });
     if (!photo.canceled) {
+      const nextCount = Math.min(images.length + 1, MAX_LISTING_PHOTOS);
       setImages((prev) => [...prev, photo.assets[0]].slice(0, MAX_LISTING_PHOTOS));
       setProductImageUri(null);
       setBarcodeValue("");
       setResult(null);
+      if (nextCount < RECOMMENDED_LISTING_PHOTOS) {
+        Alert.alert(
+          "Add another angle",
+          `${nextCount} photo${nextCount === 1 ? "" : "s"} added. Add ${
+            RECOMMENDED_LISTING_PHOTOS - nextCount
+          } more for a stronger listing.\n\nPhoto suggestion: ${
+            photoTips?.trim() || getPhotoGuidance()
+          }`,
+          [
+            { text: "Done", style: "cancel" },
+            {
+              text: "Take Another",
+              onPress: () => {
+                void takePhoto(photoTips);
+              },
+            },
+          ],
+        );
+      }
     }
   };
 

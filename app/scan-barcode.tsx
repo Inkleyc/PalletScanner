@@ -197,7 +197,7 @@ Barcode: ${barcode}
     setCurrentItemPalletId(null);
   };
 
-  const addListingPhoto = async () => {
+  const addListingPhoto = async (photoTips?: string) => {
     const { status } = await ImagePicker.requestCameraPermissionsAsync();
     if (status !== "granted") {
       Alert.alert(
@@ -217,17 +217,20 @@ Barcode: ${barcode}
         [...current, photo.assets[0]].slice(0, MAX_LISTING_PHOTOS),
       );
       if (nextCount < RECOMMENDED_LISTING_PHOTOS) {
+        const guidance = photoTips?.trim()
+          ? `\n\nPhoto suggestion: ${photoTips.trim()}`
+          : "\n\nPhoto suggestion: Add the back, labels or model number, included accessories, and any visible wear.";
         Alert.alert(
           "Add another angle",
           `${nextCount} photo${nextCount === 1 ? "" : "s"} added. Add ${
             RECOMMENDED_LISTING_PHOTOS - nextCount
-          } more for a stronger listing.`,
+          } more for a stronger listing.${guidance}`,
           [
             { text: "Done", style: "cancel" },
             {
               text: "Take Another",
               onPress: () => {
-                void addListingPhoto();
+                void addListingPhoto(photoTips);
               },
             },
           ],
@@ -249,7 +252,7 @@ Barcode: ${barcode}
         {
           text: "Take Photo",
           onPress: () => {
-            void addListingPhoto();
+            void addListingPhoto(guidance);
           },
         },
       ],
@@ -797,7 +800,12 @@ ${productSummary}
         ) : null}
 
         {result && images.length < MAX_LISTING_PHOTOS ? (
-          <TouchableOpacity style={styles.barcodeBtn} onPress={addListingPhoto}>
+          <TouchableOpacity
+            style={styles.barcodeBtn}
+            onPress={() => {
+              void addListingPhoto(result.photo_tips);
+            }}
+          >
             <Text style={styles.barcodeBtnText}>
               {images.length === 0 ? "Take Listing Photos" : "Add Listing Photo"}
             </Text>
