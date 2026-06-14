@@ -2,19 +2,15 @@ services:
   - type: web
     name: palletscanner-ebay-api
     runtime: docker
-    plan: starter
+    plan: free
     region: oregon
     dockerfilePath: ./Dockerfile.ebay
     dockerContext: .
     healthCheckPath: /health
     autoDeployTrigger: commit
-    disk:
-      name: ebay-token-data
-      mountPath: /app/server-data
-      sizeGB: 1
     envVars:
       - key: EBAY_ENVIRONMENT
-        value: production
+        value: sandbox
       - key: EBAY_SERVER_PORT
         value: "8787"
       - key: EBAY_MARKETPLACE_ID

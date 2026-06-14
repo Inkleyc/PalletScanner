@@ -27,8 +27,16 @@
 
 ### Render
 
-The root `render.yaml` provisions a Docker web service with a persistent disk
-and generated backend encryption/authentication secrets. In Render:
+The root `render.yaml` provisions a free sandbox Docker web service with
+generated backend encryption/authentication secrets. It is intended for
+development and external testing before live eBay credentials are enabled.
+
+Free Render services can sleep and use an ephemeral filesystem. The encrypted
+eBay authorization token can disappear after a restart or redeploy, requiring
+the sandbox seller account to be connected again. Do not use this setup for
+live listings.
+
+In Render:
 
 1. Create a new Blueprint from the `Inkleyc/PalletScanner` repository.
 2. Enter the production eBay values marked `sync: false`.
@@ -38,6 +46,11 @@ and generated backend encryption/authentication secrets. In Render:
 5. Use the assigned `https://palletscanner-ebay-api.onrender.com` URL, or the
    exact Render URL shown in the dashboard, for the eBay callback and EAS app
    environment.
+
+When real testers need reliable access, change `plan` to `starter`, add a
+persistent disk mounted at `/app/server-data`, and switch
+`EBAY_ENVIRONMENT` to `production` only after entering production eBay
+credentials and policies.
 
 ### Self-hosted Docker
 
