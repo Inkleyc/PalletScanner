@@ -30,6 +30,11 @@
 The root `render.yaml` provisions a free sandbox Docker web service with
 generated backend encryption/authentication secrets. It is intended for
 development and external testing before live eBay credentials are enabled.
+The free sandbox service uses a shared access key so anonymous internet
+traffic cannot operate the connected sandbox account. Put the same generated
+value in Render as `PALLETSCANNER_API_KEY` and in the Expo preview environment
+as `EXPO_PUBLIC_PALLETSCANNER_AUTH_TOKEN`. This is development-only; production
+must use per-user JWT authentication.
 
 Free Render services can sleep and use an ephemeral filesystem. The encrypted
 eBay authorization token can disappear after a restart or redeploy, requiring
@@ -39,11 +44,9 @@ live listings.
 In Render:
 
 1. Create a new Blueprint from the `Inkleyc/PalletScanner` repository.
-2. Enter the production eBay values marked `sync: false`.
-3. Set `PALLETSCANNER_ALLOWED_ORIGIN` to the production web origin. For a
-   mobile-only release, use the planned public app website origin.
-4. Apply the Blueprint and wait for `/health` to become healthy.
-5. Use the assigned `https://palletscanner-ebay-api.onrender.com` URL, or the
+2. Enter the sandbox eBay values marked `sync: false`.
+3. Apply the Blueprint and wait for `/health` to become healthy.
+4. Use the assigned `https://palletscanner-ebay-api.onrender.com` URL, or the
    exact Render URL shown in the dashboard, for the eBay callback and EAS app
    environment.
 

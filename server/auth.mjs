@@ -64,6 +64,23 @@ export const authenticateRequest = (req) => {
   if (!authorization.startsWith("Bearer ")) {
     throw new Error("Authentication required.");
   }
+  const token = authorization.slice("Bearer ".length).trim();
 
-  return verifyHs256Jwt(authorization.slice("Bearer ".length).trim());
+  if (authMode === "shared-key") {
+    const expectedToken = process.env.PALLETSCANNER_API_KEY;
+    if (!expectedToken) {
+      throw new Error("PALLETSCANNER_API_KEY is required in shared-key mode.");
+    }
+    const expected = Buffer.from(expectedToken);
+    const actual = Buffer.from(token);
+    if (
+      expected.length !== actual.length ||
+      !timingSafeEqual(expected, actual)
+    ) {
+      throw new Error("Invalid authentication token.");
+    }
+    return { userId: "sandbox", claims: {} };
+  }
+
+  return verifyHs256Jwt(token);
 };
