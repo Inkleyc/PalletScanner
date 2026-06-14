@@ -1,0 +1,12 @@
+.git
+.expo
+.env
+.env.*
+node_modules
+server-data
+*.log
+docs
+server
+Dockerfile.ebay
+docker-compose.ebay.yml
+write-*.js

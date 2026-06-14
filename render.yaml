@@ -1,0 +1,51 @@
+services:
+  - type: web
+    name: palletscanner-ebay-api
+    runtime: docker
+    plan: starter
+    region: oregon
+    dockerfilePath: ./Dockerfile.ebay
+    dockerContext: .
+    healthCheckPath: /health
+    autoDeployTrigger: commit
+    disk:
+      name: ebay-token-data
+      mountPath: /app/server-data
+      sizeGB: 1
+    envVars:
+      - key: EBAY_ENVIRONMENT
+        value: production
+      - key: EBAY_SERVER_PORT
+        value: "8787"
+      - key: EBAY_MARKETPLACE_ID
+        value: EBAY_US
+      - key: EBAY_CURRENCY
+        value: USD
+      - key: EBAY_LOCALE
+        value: en-US
+      - key: EBAY_CATEGORY_ID
+        value: ""
+      - key: PALLETSCANNER_AUTH_MODE
+        value: jwt
+      - key: PALLETSCANNER_LISTING_RATE_LIMIT_PER_MINUTE
+        value: "20"
+      - key: PALLETSCANNER_JWT_SECRET
+        generateValue: true
+      - key: EBAY_TOKEN_ENCRYPTION_KEY
+        generateValue: true
+      - key: EBAY_CLIENT_ID
+        sync: false
+      - key: EBAY_CLIENT_SECRET
+        sync: false
+      - key: EBAY_RUNAME
+        sync: false
+      - key: EBAY_MERCHANT_LOCATION_KEY
+        sync: false
+      - key: EBAY_PAYMENT_POLICY_ID
+        sync: false
+      - key: EBAY_RETURN_POLICY_ID
+        sync: false
+      - key: EBAY_FULFILLMENT_POLICY_ID
+        sync: false
+      - key: PALLETSCANNER_ALLOWED_ORIGIN
+        sync: false

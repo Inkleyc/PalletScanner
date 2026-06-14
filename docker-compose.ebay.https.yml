@@ -1,0 +1,43 @@
+services:
+  ebay-api:
+    build:
+      context: .
+      dockerfile: Dockerfile.ebay
+    env_file:
+      - server/ebay.production.env
+    expose:
+      - "8787"
+    volumes:
+      - ebay-server-data:/app/server-data
+    restart: unless-stopped
+    init: true
+    read_only: true
+    tmpfs:
+      - /tmp
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+
+  caddy:
+    image: caddy:2-alpine
+    environment:
+      EBAY_DOMAIN: ${EBAY_DOMAIN}
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - ./server/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    depends_on:
+      - ebay-api
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+
+volumes:
+  ebay-server-data:
+  caddy-data:
+  caddy-config:

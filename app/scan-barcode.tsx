@@ -1,6 +1,7 @@
 import { useRouter } from "expo-router";
 import { CameraView, useCameraPermissions } from "expo-camera";
 import * as Clipboard from "expo-clipboard";
+import * as ImagePicker from "expo-image-picker";
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import {
   Alert,
@@ -48,6 +49,8 @@ const LOADING_MESSAGES = [
   "Checking market prices...",
   "Writing your listing...",
 ];
+const MAX_LISTING_PHOTOS = 5;
+const RECOMMENDED_LISTING_PHOTOS = 3;
 
 export default function HomeScreen() {
   const router = useRouter();
@@ -194,6 +197,65 @@ Barcode: ${barcode}
     setCurrentItemPalletId(null);
   };
 
+  const addListingPhoto = async () => {
+    const { status } = await ImagePicker.requestCameraPermissionsAsync();
+    if (status !== "granted") {
+      Alert.alert(
+        "Camera permission required",
+        "Allow camera access to take listing photos.",
+      );
+      return;
+    }
+
+    const photo = await ImagePicker.launchCameraAsync({
+      base64: true,
+      quality: 0.7,
+    });
+    if (!photo.canceled) {
+      const nextCount = Math.min(images.length + 1, MAX_LISTING_PHOTOS);
+      setImages((current) =>
+        [...current, photo.assets[0]].slice(0, MAX_LISTING_PHOTOS),
+      );
+      if (nextCount < RECOMMENDED_LISTING_PHOTOS) {
+        Alert.alert(
+          "Add another angle",
+          `${nextCount} photo${nextCount === 1 ? "" : "s"} added. Add ${
+            RECOMMENDED_LISTING_PHOTOS - nextCount
+          } more for a stronger listing.`,
+          [
+            { text: "Done", style: "cancel" },
+            {
+              text: "Take Another",
+              onPress: () => {
+                void addListingPhoto();
+              },
+            },
+          ],
+        );
+      }
+    }
+  };
+
+  const promptForListingPhotos = (photoTips?: string) => {
+    const guidance = photoTips?.trim()
+      ? photoTips.trim()
+      : "Start with a clear front view, then photograph the back, included accessories, labels, and any visible wear.";
+
+    Alert.alert(
+      "Add listing photos",
+      `${guidance}\n\nTake 2-5 photos. Include at least one close-up that honestly shows the condition.`,
+      [
+        { text: "Later", style: "cancel" },
+        {
+          text: "Take Photo",
+          onPress: () => {
+            void addListingPhoto();
+          },
+        },
+      ],
+    );
+  };
+
   const applyParsedListingDrafts = (parsed: any) => {
     setListingDrafts(createListingDrafts(parsed));
     setActiveListingPlatform("general");
@@ -282,6 +344,7 @@ Barcode: ${barcode}
       setPhotoTipsExpanded(false);
       incrementScanCount();
       void triggerAnalysisCompleteFeedback();
+      promptForListingPhotos(parsed.photo_tips);
     } catch {
       alert("Something went wrong. Please try again.");
     }
@@ -434,6 +497,7 @@ ${productSummary}
       setPhotoTipsExpanded(false);
       incrementScanCount();
       void triggerAnalysisCompleteFeedback();
+      promptForListingPhotos(parsed.photo_tips);
     } catch (error) {
       resetBarcodeScanState();
       setBarcodeValue("");
@@ -598,6 +662,12 @@ ${productSummary}
     const baseInventoryItem: InventoryItem = {
       id: currentItemId ?? Date.now(),
       photo: images[0]?.uri ?? productImageUri ?? null,
+      photos:
+        images.length > 0
+          ? images.slice(0, 5).map((image) => image.uri)
+          : productImageUri
+            ? [productImageUri]
+            : [],
       name: result.name,
       condition: result.condition,
       quantity: 1,
@@ -726,6 +796,14 @@ ${productSummary}
           <Text style={styles.barcodeStatus}>Barcode: {barcodeValue}</Text>
         ) : null}
 
+        {result && images.length < MAX_LISTING_PHOTOS ? (
+          <TouchableOpacity style={styles.barcodeBtn} onPress={addListingPhoto}>
+            <Text style={styles.barcodeBtnText}>
+              {images.length === 0 ? "Take Listing Photos" : "Add Listing Photo"}
+            </Text>
+          </TouchableOpacity>
+        ) : null}
+
         {images.length > 0 && (
           <View style={styles.photoStrip}>
             <ScrollView horizontal showsHorizontalScrollIndicator={false}>
@@ -742,7 +820,7 @@ ${productSummary}
               ))}
             </ScrollView>
             <Text style={styles.photoCount}>
-              {images.length} photo{images.length > 1 ? "s" : ""} added
+              {images.length} of {MAX_LISTING_PHOTOS} photos added
             </Text>
           </View>
         )}

@@ -1,0 +1,142 @@
+# eBay Production Runbook
+
+## What Is Ready
+
+- Dynamic eBay categories from Taxonomy.
+- Category-valid conditions and required item specifics.
+- Multi-photo upload through eBay Media API.
+- Listing ID, URL, SKU, offer ID, category, status, and errors stored per item.
+- Direct View on eBay actions.
+- Existing offers are updated instead of duplicated.
+- Mark Sold and Remove withdraw active eBay offers before changing local data.
+- Encrypted per-user token files.
+- JWT-protected listing, status, connect URL, and disconnect endpoints.
+- Per-user listing rate limits.
+- Configurable CORS.
+- Docker deployment with a persistent token volume.
+
+## External Decisions Still Required
+
+1. Choose a stable HTTPS host and domain, such as `api.example.com`.
+2. Choose the app-user identity provider that issues HS256 JWTs with a stable `sub`.
+3. Create production eBay application credentials.
+4. Configure production seller policies and inventory locations.
+5. Rotate the sandbox client secret that was shared during development.
+
+## Deploy
+
+### Render
+
+The root `render.yaml` provisions a Docker web service with a persistent disk
+and generated backend encryption/authentication secrets. In Render:
+
+1. Create a new Blueprint from the `Inkleyc/PalletScanner` repository.
+2. Enter the production eBay values marked `sync: false`.
+3. Set `PALLETSCANNER_ALLOWED_ORIGIN` to the production web origin. For a
+   mobile-only release, use the planned public app website origin.
+4. Apply the Blueprint and wait for `/health` to become healthy.
+5. Use the assigned `https://palletscanner-ebay-api.onrender.com` URL, or the
+   exact Render URL shown in the dashboard, for the eBay callback and EAS app
+   environment.
+
+### Self-hosted Docker
+
+1. Copy `server/ebay.production.env.example` to
+   `server/ebay.production.env`.
+2. Generate strong secrets:
+
+   ```powershell
+   $bytes = New-Object byte[] 48
+   [Security.Cryptography.RandomNumberGenerator]::Fill($bytes)
+   [Convert]::ToBase64String($bytes)
+   ```
+
+3. Put different generated values in:
+   - `PALLETSCANNER_JWT_SECRET`
+   - `EBAY_TOKEN_ENCRYPTION_KEY`
+4. Fill the production eBay credentials, policies, and location.
+5. Start locally:
+
+   ```bash
+   docker compose -f docker-compose.ebay.yml up --build
+   ```
+
+6. On a public Linux host, point the domain's DNS `A`/`AAAA` record at the
+   host, set `EBAY_DOMAIN=api.example.com`, and start the automatic HTTPS
+   stack:
+
+   ```bash
+   docker compose -f docker-compose.ebay.https.yml up -d --build
+   ```
+
+7. Deploy the same container to a host with:
+   - HTTPS termination.
+   - A persistent volume mounted at `/app/server-data`.
+   - Health checks against `/health`.
+   - Environment variables stored as host secrets.
+
+## eBay Portal Cutover
+
+Set the production RuName accepted URL to:
+
+```text
+https://api.example.com/ebay/callback
+```
+
+Set the app build environment to:
+
+```env
+EXPO_PUBLIC_EBAY_API_BASE_URL=https://api.example.com
+```
+
+The app must obtain a signed user JWT after login and send it as:
+
+```text
+Authorization: Bearer USER_JWT
+```
+
+The JWT must use HS256, include a stable `sub`, and optionally include `exp`.
+
+## Credential Rotation
+
+Before any production release:
+
+1. Generate a new sandbox client secret in the eBay developer portal.
+2. Replace `EBAY_CLIENT_SECRET` locally.
+3. Reconnect the sandbox seller and run one listing test.
+4. Never reuse the sandbox secret for production.
+5. Create a separate production keyset.
+6. Store secrets only in the backend hosting provider.
+7. Confirm `.env`, `server-data`, and production env files are ignored by Git.
+8. Rotate `PALLETSCANNER_JWT_SECRET` and
+   `EBAY_TOKEN_ENCRYPTION_KEY` through a controlled migration if compromised.
+
+## Production Verification
+
+1. `GET /health` returns `{"ok":true}`.
+2. Unauthenticated `GET /ebay/status` returns `401`.
+3. Authenticated `GET /ebay/connect-url` returns an eBay authorization URL.
+4. OAuth callback stores an encrypted token under `server-data/ebay-connections`.
+5. A listing with multiple photos publishes successfully.
+6. Reposting the same item preserves its offer and listing IDs.
+7. Mark Sold withdraws the offer before recording the sale locally.
+8. Removing an item withdraws the offer before deleting local inventory.
+9. The inventory item shows View on eBay.
+10. `POST /ebay/disconnect` removes that user's authorization.
+11. Another user cannot see or use the first user's eBay connection.
+
+## Mobile Builds
+
+The repository includes development, preview, and production profiles in
+`eas.json`. Before the first cloud build:
+
+1. Sign in with `npx eas-cli login`.
+2. Link the project with `npx eas-cli init`.
+3. Create `EXPO_PUBLIC_EBAY_API_BASE_URL` in the EAS `preview` and
+   `production` environments.
+4. Add the app's runtime authentication configuration to those environments.
+5. Run `npx eas-cli build --profile preview --platform all`.
+6. After preview validation, run
+   `npx eas-cli build --profile production --platform ios`.
+7. Submit the iOS production build to TestFlight with
+   `npx eas-cli submit --platform ios --latest`.

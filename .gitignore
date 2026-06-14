@@ -33,7 +33,9 @@ yarn-error.*
 # local env files
 .env*.local
 .env
+server/ebay.production.env
 server-data/
+*.log
 
 # typescript
 *.tsbuildinfo

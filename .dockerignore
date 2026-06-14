@@ -1,0 +1,14 @@
+node_modules
+.git
+.expo
+.env
+server-data
+*.log
+docs
+app
+assets
+components
+constants
+hooks
+lib
+scripts

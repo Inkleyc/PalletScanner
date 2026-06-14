@@ -9,9 +9,17 @@
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.coltoninkley.palletscanner",
+      "buildNumber": "1",
+      "infoPlist": {
+        "NSCameraUsageDescription": "PalletScanner uses the camera to scan barcodes and photograph inventory.",
+        "NSPhotoLibraryUsageDescription": "PalletScanner uses your photo library to attach product photos to inventory listings."
+      }
     },
     "android": {
+      "package": "com.coltoninkley.palletscanner",
+      "versionCode": 1,
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
@@ -19,7 +27,11 @@
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
       "edgeToEdgeEnabled": true,
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "permissions": [
+        "android.permission.CAMERA",
+        "android.permission.RECORD_AUDIO"
+      ]
     },
     "web": {
       "output": "static",
@@ -50,6 +62,13 @@
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
-    }
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "36973777-f009-4dd0-ba11-8bd1f7b0c983"
+      }
+    },
+    "owner": "colton.inkley"
   }
 }

@@ -6,6 +6,7 @@ import { triggerCopyFeedback } from "@/lib/feedback";
 import {
   markInventoryItemListed,
   type InventoryItem,
+  updateInventoryItemEbayStatus,
 } from "@/lib/inventory-store";
 
 const FACEBOOK_LISTING_URLS = [
@@ -55,29 +56,74 @@ export const openListingDraft = async (
   platform: "facebook" | "ebay",
   options?: {
     showSuccessAlert?: boolean;
+    onProgress?: (message: string) => void;
   },
 ) => {
   if (platform === "ebay" && isEbayApiConfigured()) {
+    updateInventoryItemEbayStatus(item.id, {
+      status: "posting",
+      progress: "Preparing listing",
+    });
+    options?.onProgress?.("Preparing listing");
     try {
-      const result = await createEbayListing(item);
-      markInventoryItemListed(item.id, platform);
+      const result = await createEbayListing(item, (message) => {
+        updateInventoryItemEbayStatus(item.id, {
+          status: "posting",
+          progress: message,
+        });
+        options?.onProgress?.(message);
+      });
+      updateInventoryItemEbayStatus(item.id, {
+        status: "active",
+        listingId: result.listingId,
+        listingUrl: result.listingUrl,
+        sku: result.sku,
+        offerId: result.offerId,
+        categoryId: result.categoryId,
+        categoryName: result.categoryName,
+      });
 
       if (options?.showSuccessAlert !== false) {
+        const message = result.categoryName
+          ? `Published in ${result.categoryName}.`
+          : "Your eBay listing was created successfully.";
         Alert.alert(
-          "eBay listing created",
+          result.updated ? "eBay listing updated" : "eBay listing created",
           result.listingId
-            ? `Your eBay listing was created successfully. Listing ID: ${result.listingId}`
-            : "Your eBay listing was created successfully.",
+            ? `${
+                result.updated
+                  ? "Your existing eBay listing was updated."
+                  : message
+              }\n\nListing ID: ${result.listingId}`
+            : message,
+          result.listingUrl
+            ? [
+                { text: "Done", style: "cancel" },
+                {
+                  text: "View on eBay",
+                  onPress: () => {
+                    void Linking.openURL(result.listingUrl as string);
+                  },
+                },
+              ]
+            : undefined,
         );
       }
       return;
     } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : "Unknown eBay listing error.";
+      updateInventoryItemEbayStatus(item.id, {
+        status: "error",
+        error: errorMessage,
+      });
       Alert.alert(
         "eBay API listing failed",
         error instanceof Error
-          ? `${error.message}\n\nFalling back to the browser listing flow.`
-          : "Falling back to the browser listing flow.",
+          ? `${error.message}\n\nThe item was not marked as listed. Fix the issue and try again.`
+          : "The item was not marked as listed. Fix the issue and try again.",
       );
+      return;
     }
   }
 

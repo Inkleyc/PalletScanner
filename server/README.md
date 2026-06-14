@@ -2,6 +2,8 @@
 
 This server handles eBay OAuth and listing creation for the Expo app so client secrets stay off the device.
 
+For the full plain-English setup map, including local development versus distributed app architecture, see [docs/ebay-integration-guide.md](../docs/ebay-integration-guide.md).
+
 ## Endpoints
 
 - `GET /health`
@@ -10,6 +12,8 @@ This server handles eBay OAuth and listing creation for the Expo app so client s
 - `GET /ebay/connect-url`
 - `GET /ebay/callback`
 - `POST /ebay/listings`
+- `POST /ebay/listings/end`
+- `POST /ebay/disconnect`
 
 ## Required environment variables
 
@@ -32,6 +36,11 @@ You can use [server/ebay.env.example](c:/Users/colto/PalletScanner/server/ebay.e
 - `EBAY_LOCALE=en-US`
 - `EBAY_CATEGORY_ID=1234`
 - `EBAY_SCOPE=https://api.ebay.com/oauth/api_scope/sell.inventory https://api.ebay.com/oauth/api_scope/sell.account`
+- `PALLETSCANNER_AUTH_MODE=local`
+- `PALLETSCANNER_JWT_SECRET=...`
+- `EBAY_TOKEN_ENCRYPTION_KEY=...`
+- `PALLETSCANNER_ALLOWED_ORIGIN=https://app.example.com`
+- `PALLETSCANNER_LISTING_RATE_LIMIT_PER_MINUTE=20`
 
 ## Setup notes
 
@@ -56,5 +65,7 @@ You can use [server/ebay.env.example](c:/Users/colto/PalletScanner/server/ebay.e
 
 ## Important
 
-- Sandbox category suggestions are not supported by eBay Taxonomy, so set `EBAY_CATEGORY_ID` if you want to test listing creation in sandbox.
-- Listing creation also depends on valid business policy IDs and a merchant location already existing in the connected eBay account.
+- Leave `EBAY_CATEGORY_ID` blank to use dynamic Taxonomy suggestions.
+- Listing creation depends on valid business policy IDs and an inventory location.
+- Production defaults to JWT authentication and requires encrypted token storage.
+- See [docs/ebay-production-runbook.md](../docs/ebay-production-runbook.md).

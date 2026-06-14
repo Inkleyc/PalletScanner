@@ -6,6 +6,7 @@ import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "reac
 import {
   Alert,
   Image,
+  Linking,
   Modal,
   Pressable,
   ScrollView,
@@ -27,7 +28,9 @@ import {
   subscribeInventory,
   unmarkInventoryItemListed,
   updateInventoryItemSoldPrice,
+  markInventoryItemEbayEnded,
 } from "@/lib/inventory-store";
+import { endEbayListing } from "@/lib/ebay-integration";
 import { openListingDraft } from "@/lib/listing-posting";
 import { AppLayout, AppPalette } from "@/constants/app-palette";
 
@@ -140,14 +143,37 @@ export default function InventoryScreen() {
     previousHasActiveFilters.current = hasActiveFilters;
   }, [hasActiveFilters]);
 
-  const removeItem = (id: number) => {
+  const endItemEbayListing = async (item: any) => {
+    if (!item.ebayOfferId) {
+      return;
+    }
+
+    await endEbayListing(item.ebayOfferId);
+    markInventoryItemEbayEnded(item.id);
+  };
+
+  const removeItem = (item: any) => {
     Alert.alert("Remove Item", "Are you sure?", [
       { text: "Cancel", style: "cancel" },
       {
         text: "Remove",
         style: "destructive",
           onPress: () => {
-            void removeInventoryItem(id);
+            void (async () => {
+              try {
+                await endItemEbayListing(item);
+                await removeInventoryItem(item.id);
+              } catch (error) {
+                Alert.alert(
+                  "eBay listing is still active",
+                  `${
+                    error instanceof Error
+                      ? error.message
+                      : "The listing could not be ended."
+                  }\n\nThe item was kept in inventory so it cannot be sold by accident.`,
+                );
+              }
+            })();
           },
         },
       ]);
@@ -172,11 +198,26 @@ export default function InventoryScreen() {
       return;
     }
 
-    updateInventoryItemSoldPrice(item.id, parsedValue);
-    setSoldDrafts((current) => ({
-      ...current,
-      [item.id]: String(parsedValue),
-    }));
+    void (async () => {
+      try {
+        await endItemEbayListing(item);
+        updateInventoryItemSoldPrice(item.id, parsedValue);
+        setSoldDrafts((current) => ({
+          ...current,
+          [item.id]: String(parsedValue),
+        }));
+        setEditingSoldItemId(null);
+      } catch (error) {
+        Alert.alert(
+          "Could not mark sold",
+          `${
+            error instanceof Error
+              ? error.message
+              : "The eBay listing could not be ended."
+          }\n\nThe item remains unsold in the app.`,
+        );
+      }
+    })();
   };
 
   const clearSoldPrice = (item: any) => {
@@ -766,9 +807,33 @@ ${JSON.stringify(promptItems, null, 2)}`,
                 style={[styles.platformBtn, styles.ebayBtn]}
                 onPress={() => openListingDraft(item, "ebay")}
               >
-                <Text style={styles.platformBtnText}>Post to eBay</Text>
+                <Text style={styles.platformBtnText}>
+                  {item.ebayStatus === "posting"
+                    ? "Posting..."
+                    : item.ebayListingUrl
+                      ? "Update eBay Listing"
+                      : "Post to eBay"}
+                </Text>
               </TouchableOpacity>
             </View>
+            {item.ebayListingUrl ? (
+              <TouchableOpacity
+                style={styles.viewEbayBtn}
+                onPress={() => {
+                  void Linking.openURL(item.ebayListingUrl);
+                }}
+              >
+                <Text style={styles.viewEbayBtnText}>View on eBay</Text>
+              </TouchableOpacity>
+            ) : null}
+            {item.ebayStatus === "posting" ? (
+              <Text style={styles.ebayProgressText}>
+                {item.ebayProgress || "Posting to eBay..."}
+              </Text>
+            ) : null}
+            {item.ebayStatus === "error" && item.ebayLastError ? (
+              <Text style={styles.ebayErrorText}>{item.ebayLastError}</Text>
+            ) : null}
             <View style={styles.itemSecondaryActions}>
               <TouchableOpacity
                 style={styles.secondaryActionBtn}
@@ -784,7 +849,7 @@ ${JSON.stringify(promptItems, null, 2)}`,
               </TouchableOpacity>
               <TouchableOpacity
                 style={styles.removeBtn}
-                onPress={() => removeItem(item.id)}
+                onPress={() => removeItem(item)}
               >
                 <Text style={styles.removeBtnText}>Remove</Text>
               </TouchableOpacity>
@@ -1274,6 +1339,35 @@ const styles = StyleSheet.create({
   },
   facebookBtn: { backgroundColor: AppPalette.primaryStrong },
   ebayBtn: { backgroundColor: AppPalette.info },
+  viewEbayBtn: {
+    marginHorizontal: 12,
+    marginBottom: 8,
+    borderWidth: 1,
+    borderColor: AppPalette.info,
+    backgroundColor: AppPalette.infoSoft,
+    borderRadius: 8,
+    paddingVertical: 10,
+    alignItems: "center",
+  },
+  viewEbayBtnText: {
+    color: AppPalette.info,
+    fontSize: 13,
+    fontWeight: "700",
+  },
+  ebayErrorText: {
+    marginHorizontal: 12,
+    marginBottom: 10,
+    color: AppPalette.dangerStrong,
+    fontSize: 12,
+    lineHeight: 17,
+  },
+  ebayProgressText: {
+    marginHorizontal: 12,
+    marginBottom: 10,
+    color: AppPalette.info,
+    fontSize: 12,
+    fontWeight: "600",
+  },
   platformBtnText: { fontSize: 13, color: AppPalette.primaryOn, fontWeight: "600" },
   secondaryActionBtn: {
     paddingHorizontal: 12,

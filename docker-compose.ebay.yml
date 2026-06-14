@@ -1,0 +1,23 @@
+services:
+  ebay-api:
+    build:
+      context: .
+      dockerfile: Dockerfile.ebay
+    env_file:
+      - server/ebay.production.env
+    ports:
+      - "${EBAY_BIND_ADDRESS:-127.0.0.1}:8787:8787"
+    volumes:
+      - ebay-server-data:/app/server-data
+    restart: unless-stopped
+    init: true
+    read_only: true
+    tmpfs:
+      - /tmp
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+
+volumes:
+  ebay-server-data:

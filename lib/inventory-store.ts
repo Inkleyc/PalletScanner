@@ -3,6 +3,7 @@ import * as FileSystem from "expo-file-system/legacy";
 type InventoryItem = {
   id: number;
   photo: string | null;
+  photos?: string[];
   name: string;
   condition: string;
   quantity: number;
@@ -19,6 +20,16 @@ type InventoryItem = {
   listedPlatforms: Array<"facebook" | "ebay">;
   palletId: string;
   soldPrice: number | null;
+  ebayListingId?: string;
+  ebayListingUrl?: string;
+  ebaySku?: string;
+  ebayOfferId?: string;
+  ebayCategoryId?: string;
+  ebayCategoryName?: string;
+  ebayStatus?: "idle" | "posting" | "active" | "error";
+  ebayProgress?: string;
+  ebayLastError?: string;
+  ebayUpdatedAt?: number;
 };
 
 type PalletSession = {
@@ -66,6 +77,14 @@ const formatPalletName = (createdAt: number, sequence: number) => {
 
 const normalizeInventoryItem = (item: InventoryItem): InventoryItem => ({
   ...item,
+  photos: Array.isArray(item.photos)
+    ? item.photos.filter(
+        (photo): photo is string =>
+          typeof photo === "string" && photo.trim().length > 0,
+      )
+    : item.photo
+      ? [item.photo]
+      : [],
   quantity:
     typeof item.quantity === "number" && !Number.isNaN(item.quantity) && item.quantity > 0
       ? Math.floor(item.quantity)
@@ -102,6 +121,49 @@ const normalizeInventoryItem = (item: InventoryItem): InventoryItem => ({
     typeof item.listing_description_ebay === "string" &&
     item.listing_description_ebay.trim().length > 0
       ? item.listing_description_ebay.trim()
+      : undefined,
+  ebayListingId:
+    typeof item.ebayListingId === "string" && item.ebayListingId.trim()
+      ? item.ebayListingId.trim()
+      : undefined,
+  ebayListingUrl:
+    typeof item.ebayListingUrl === "string" && item.ebayListingUrl.trim()
+      ? item.ebayListingUrl.trim()
+      : undefined,
+  ebaySku:
+    typeof item.ebaySku === "string" && item.ebaySku.trim()
+      ? item.ebaySku.trim()
+      : undefined,
+  ebayOfferId:
+    typeof item.ebayOfferId === "string" && item.ebayOfferId.trim()
+      ? item.ebayOfferId.trim()
+      : undefined,
+  ebayCategoryId:
+    typeof item.ebayCategoryId === "string" && item.ebayCategoryId.trim()
+      ? item.ebayCategoryId.trim()
+      : undefined,
+  ebayCategoryName:
+    typeof item.ebayCategoryName === "string" && item.ebayCategoryName.trim()
+      ? item.ebayCategoryName.trim()
+      : undefined,
+  ebayStatus:
+    item.ebayStatus === "posting" ||
+    item.ebayStatus === "active" ||
+    item.ebayStatus === "error"
+      ? item.ebayStatus
+      : "idle",
+  ebayLastError:
+    typeof item.ebayLastError === "string" && item.ebayLastError.trim()
+      ? item.ebayLastError.trim()
+      : undefined,
+  ebayProgress:
+    typeof item.ebayProgress === "string" && item.ebayProgress.trim()
+      ? item.ebayProgress.trim()
+      : undefined,
+  ebayUpdatedAt:
+    typeof item.ebayUpdatedAt === "number" &&
+    !Number.isNaN(item.ebayUpdatedAt)
+      ? item.ebayUpdatedAt
       : undefined,
 });
 
@@ -261,14 +323,14 @@ const getPhotoExtension = (uri: string) => {
   return extension.toLowerCase();
 };
 
-const persistPhotoUri = async (uri: string, itemId: number) => {
+const persistPhotoUri = async (uri: string, itemId: number, index = 0) => {
   if (isManagedPhotoPath(uri)) {
     return uri;
   }
 
   await ensurePhotosDirectory();
   const extension = getPhotoExtension(uri);
-  const filename = `item-${itemId}-${Date.now()}.${extension}`;
+  const filename = `item-${itemId}-${index}-${Date.now()}.${extension}`;
   const destination = `${photosDirectory}${filename}`;
 
   try {
@@ -443,14 +505,23 @@ export const saveInventoryItem = async (item: InventoryItem) => {
   const normalizedItem = normalizeInventoryItem(item);
   const existingItem = existingIndex >= 0 ? inventoryState[existingIndex] : null;
 
-  let persistedPhoto = normalizedItem.photo;
-  if (persistedPhoto) {
-    persistedPhoto = await persistPhotoUri(persistedPhoto, normalizedItem.id);
-  }
+  const sourcePhotos =
+    normalizedItem.photos && normalizedItem.photos.length > 0
+      ? normalizedItem.photos
+      : normalizedItem.photo
+        ? [normalizedItem.photo]
+        : [];
+  const persistedPhotos = await Promise.all(
+    sourcePhotos
+      .slice(0, 5)
+      .map((photo, index) => persistPhotoUri(photo, normalizedItem.id, index)),
+  );
+  const persistedPhoto = persistedPhotos[0] ?? null;
 
   const itemToSave = {
     ...normalizedItem,
     photo: persistedPhoto,
+    photos: persistedPhotos,
   };
 
   if (existingIndex === -1) {
@@ -469,15 +540,27 @@ export const saveInventoryItem = async (item: InventoryItem) => {
   };
   setInventory(updatedItems);
 
-  if (existingItem?.photo && existingItem.photo !== persistedPhoto) {
-    void deleteManagedPhoto(existingItem.photo);
+  const existingPhotos = existingItem?.photos?.length
+    ? existingItem.photos
+    : existingItem?.photo
+      ? [existingItem.photo]
+      : [];
+  for (const existingPhoto of existingPhotos) {
+    if (!persistedPhotos.includes(existingPhoto)) {
+      void deleteManagedPhoto(existingPhoto);
+    }
   }
 };
 
 export const removeInventoryItem = async (id: number) => {
   const existingItem = inventoryState.find((item) => item.id === id);
   setInventory(inventoryState.filter((item) => item.id !== id));
-  await deleteManagedPhoto(existingItem?.photo);
+  const existingPhotos = existingItem?.photos?.length
+    ? existingItem.photos
+    : existingItem?.photo
+      ? [existingItem.photo]
+      : [];
+  await Promise.all(existingPhotos.map((photo) => deleteManagedPhoto(photo)));
 };
 
 export const updateInventoryItemSoldPrice = (
@@ -540,7 +623,14 @@ export const deletePalletSession = (palletId: string) => {
   );
   commitState(remainingPallets, nextActivePalletId);
   removedItems.forEach((item) => {
-    void deleteManagedPhoto(item.photo);
+    const itemPhotos = item.photos?.length
+      ? item.photos
+      : item.photo
+        ? [item.photo]
+        : [];
+    itemPhotos.forEach((photo) => {
+      void deleteManagedPhoto(photo);
+    });
   });
   return true;
 };
@@ -636,6 +726,70 @@ export const unmarkInventoryItemListed = (
             ...item,
             listedPlatforms: item.listedPlatforms.filter(
               (listedPlatform) => listedPlatform !== platform,
+            ),
+          }
+        : item,
+    ),
+  );
+};
+
+export const updateInventoryItemEbayStatus = (
+  id: number,
+  update: {
+    status: "idle" | "posting" | "active" | "error";
+    listingId?: string;
+    listingUrl?: string;
+    sku?: string;
+    offerId?: string;
+    categoryId?: string;
+    categoryName?: string;
+    error?: string;
+    progress?: string;
+  },
+) => {
+  setInventory(
+    inventoryState.map((item) =>
+      item.id === id
+        ? {
+            ...item,
+            ebayStatus: update.status,
+            ebayListingId: update.listingId ?? item.ebayListingId,
+            ebayListingUrl: update.listingUrl ?? item.ebayListingUrl,
+            ebaySku: update.sku ?? item.ebaySku,
+            ebayOfferId: update.offerId ?? item.ebayOfferId,
+            ebayCategoryId: update.categoryId ?? item.ebayCategoryId,
+            ebayCategoryName: update.categoryName ?? item.ebayCategoryName,
+            ebayLastError:
+              update.status === "error" ? update.error : undefined,
+            ebayProgress:
+              update.status === "posting" ? update.progress : undefined,
+            ebayUpdatedAt: Date.now(),
+            listedPlatforms:
+              update.status === "active" &&
+              !item.listedPlatforms.includes("ebay")
+                ? [...item.listedPlatforms, "ebay"]
+                : item.listedPlatforms,
+          }
+        : item,
+    ),
+  );
+};
+
+export const markInventoryItemEbayEnded = (id: number) => {
+  setInventory(
+    inventoryState.map((item) =>
+      item.id === id
+        ? {
+            ...item,
+            ebayStatus: "idle",
+            ebayProgress: undefined,
+            ebayLastError: undefined,
+            ebayListingId: undefined,
+            ebayListingUrl: undefined,
+            ebayOfferId: undefined,
+            ebayUpdatedAt: Date.now(),
+            listedPlatforms: item.listedPlatforms.filter(
+              (platform) => platform !== "ebay",
             ),
           }
         : item,

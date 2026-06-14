@@ -48,6 +48,7 @@ const LOADING_MESSAGES = [
   "Checking market prices...",
   "Writing your listing...",
 ];
+const MAX_LISTING_PHOTOS = 5;
 
 export default function HomeScreen() {
   const router = useRouter();
@@ -145,12 +146,32 @@ export default function HomeScreen() {
     if (!canContinue) {
       return;
     }
+    if (images.length === 0) {
+      Alert.alert(
+        "Photo checklist",
+        "Start with the full item in good light. Then add the back, labels or model number, included accessories, and any visible wear.",
+        [
+          { text: "Cancel", style: "cancel" },
+          {
+            text: "Open Camera",
+            onPress: () => {
+              void takePhoto();
+            },
+          },
+        ],
+      );
+      return;
+    }
+    await takePhoto();
+  };
+
+  const takePhoto = async () => {
     let photo = await ImagePicker.launchCameraAsync({
       base64: true,
       quality: 0.7,
     });
     if (!photo.canceled) {
-      setImages((prev) => [...prev, photo.assets[0]]);
+      setImages((prev) => [...prev, photo.assets[0]].slice(0, MAX_LISTING_PHOTOS));
       setProductImageUri(null);
       setBarcodeValue("");
       setResult(null);
@@ -169,7 +190,9 @@ export default function HomeScreen() {
       allowsMultipleSelection: true,
     });
     if (!picked.canceled) {
-      setImages((prev) => [...prev, ...picked.assets]);
+      setImages((prev) =>
+        [...prev, ...picked.assets].slice(0, MAX_LISTING_PHOTOS),
+      );
       setProductImageUri(null);
       setBarcodeValue("");
       setResult(null);
@@ -525,6 +548,12 @@ ${productSummary}
     const baseInventoryItem: InventoryItem = {
       id: currentItemId ?? Date.now(),
       photo: images[0]?.uri ?? productImageUri ?? null,
+      photos:
+        images.length > 0
+          ? images.slice(0, 5).map((image) => image.uri)
+          : productImageUri
+            ? [productImageUri]
+            : [],
       name: result.name,
       condition: result.condition,
       quantity: 1,
@@ -671,7 +700,7 @@ ${productSummary}
               ))}
             </ScrollView>
             <Text style={styles.photoCount}>
-              {images.length} photo{images.length > 1 ? "s" : ""} added
+              {images.length} of {MAX_LISTING_PHOTOS} photos added
             </Text>
           </View>
         )}

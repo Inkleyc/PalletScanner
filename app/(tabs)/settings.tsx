@@ -1,4 +1,10 @@
-import { useMemo, useSyncExternalStore } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+  useSyncExternalStore,
+} from "react";
 import {
   Alert,
   Linking,
@@ -14,9 +20,11 @@ import {
 import { AppLayout, AppPalette } from "@/constants/app-palette";
 import { FREE_SCAN_LIMIT, getAppMeta, subscribeAppMeta } from "@/lib/app-meta";
 import {
-  getEbayApiBaseUrl,
-  getEbayIntegrationStatusLabel,
+  disconnectEbayAccount,
+  getEbayConnectUrl,
+  getEbayConnectionStatus,
   isEbayApiConfigured,
+  type EbayConnectionStatus,
 } from "@/lib/ebay-integration";
 import {
   getAppSettings,
@@ -32,6 +40,11 @@ import {
 
 export default function SettingsScreen() {
   const { width } = useWindowDimensions();
+  const [ebayStatus, setEbayStatus] = useState<EbayConnectionStatus | null>(
+    null,
+  );
+  const [ebayStatusError, setEbayStatusError] = useState<string | null>(null);
+  const [isRefreshingEbay, setIsRefreshingEbay] = useState(false);
   const { promptToPostOnSave } = useSyncExternalStore(
     subscribeAppSettings,
     getAppSettings,
@@ -64,6 +77,31 @@ export default function SettingsScreen() {
   }, [resetBackup]);
   const scanUsageProgress = Math.min(currentMonthScans / FREE_SCAN_LIMIT, 1);
 
+  const refreshEbayStatus = useCallback(async () => {
+    if (!isEbayApiConfigured()) {
+      setEbayStatus(null);
+      setEbayStatusError(null);
+      return;
+    }
+
+    setIsRefreshingEbay(true);
+    try {
+      setEbayStatus(await getEbayConnectionStatus());
+      setEbayStatusError(null);
+    } catch (error) {
+      setEbayStatus(null);
+      setEbayStatusError(
+        error instanceof Error ? error.message : "Backend unavailable",
+      );
+    } finally {
+      setIsRefreshingEbay(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void refreshEbayStatus();
+  }, [refreshEbayStatus]);
+
   const connectEbayAccount = async () => {
     if (!isEbayApiConfigured()) {
       Alert.alert(
@@ -73,7 +111,30 @@ export default function SettingsScreen() {
       return;
     }
 
-    await Linking.openURL(`${getEbayApiBaseUrl()}/ebay/connect`);
+    try {
+      await Linking.openURL(await getEbayConnectUrl());
+    } catch (error) {
+      Alert.alert(
+        "Unable to connect eBay",
+        error instanceof Error ? error.message : "Try again in a moment.",
+      );
+    }
+  };
+
+  const disconnectEbay = async () => {
+    try {
+      await disconnectEbayAccount();
+      Alert.alert(
+        "eBay disconnected",
+        "The stored seller authorization was removed.",
+      );
+      await refreshEbayStatus();
+    } catch (error) {
+      Alert.alert(
+        "Unable to disconnect eBay",
+        error instanceof Error ? error.message : "Try again in a moment.",
+      );
+    }
   };
 
   return (
@@ -130,8 +191,26 @@ export default function SettingsScreen() {
               : "No eBay backend is configured yet, so eBay posting uses the browser helper flow for now."}
           </Text>
           <Text style={styles.integrationStatus}>
-            Status: {getEbayIntegrationStatusLabel()}
+            Status:{" "}
+            {!isEbayApiConfigured()
+              ? "Browser fallback"
+              : ebayStatusError
+                ? "Backend unavailable"
+                : ebayStatus?.connected
+                  ? "Seller account connected"
+                  : isRefreshingEbay
+                    ? "Checking..."
+                    : "Seller account not connected"}
           </Text>
+          {ebayStatus ? (
+            <Text style={styles.integrationHint}>
+              {ebayStatus.environment === "sandbox" ? "Sandbox" : "Production"}{" "}
+              · {ebayStatus.marketplaceId}
+            </Text>
+          ) : null}
+          {ebayStatusError ? (
+            <Text style={styles.integrationError}>{ebayStatusError}</Text>
+          ) : null}
           <Text style={styles.integrationHint}>
             Set `EXPO_PUBLIC_EBAY_API_BASE_URL` in your environment to point the
             app at a backend that handles eBay OAuth and Sell API calls.
@@ -144,6 +223,29 @@ export default function SettingsScreen() {
           >
             <Text style={styles.connectBtnText}>Connect eBay Account</Text>
           </TouchableOpacity>
+          {isEbayApiConfigured() ? (
+            <TouchableOpacity
+              style={styles.refreshBtn}
+              disabled={isRefreshingEbay}
+              onPress={() => {
+                void refreshEbayStatus();
+              }}
+            >
+              <Text style={styles.refreshBtnText}>
+                {isRefreshingEbay ? "Checking..." : "Refresh Status"}
+              </Text>
+            </TouchableOpacity>
+          ) : null}
+          {ebayStatus?.connected ? (
+            <TouchableOpacity
+              style={styles.disconnectBtn}
+              onPress={() => {
+                void disconnectEbay();
+              }}
+            >
+              <Text style={styles.disconnectBtnText}>Disconnect eBay</Text>
+            </TouchableOpacity>
+          ) : null}
         </View>
 
         <View style={styles.resetCard}>
@@ -251,6 +353,12 @@ const styles = StyleSheet.create({
     lineHeight: 18,
     marginTop: 8,
   },
+  integrationError: {
+    fontSize: 12,
+    color: AppPalette.dangerStrong,
+    lineHeight: 18,
+    marginTop: 8,
+  },
   progressTrack: {
     marginTop: 12,
     height: 10,
@@ -279,6 +387,32 @@ const styles = StyleSheet.create({
     marginTop: 14,
   },
   connectBtnText: { color: AppPalette.primaryOn, fontWeight: "600", fontSize: 14 },
+  refreshBtn: {
+    marginTop: 8,
+    borderWidth: 1,
+    borderColor: AppPalette.borderStrong,
+    borderRadius: 8,
+    padding: 12,
+    alignItems: "center",
+  },
+  refreshBtnText: {
+    color: AppPalette.text,
+    fontWeight: "600",
+    fontSize: 14,
+  },
+  disconnectBtn: {
+    marginTop: 8,
+    borderWidth: 1,
+    borderColor: AppPalette.dangerStrong,
+    borderRadius: 8,
+    padding: 12,
+    alignItems: "center",
+  },
+  disconnectBtnText: {
+    color: AppPalette.dangerStrong,
+    fontWeight: "600",
+    fontSize: 14,
+  },
   resetCard: {
     backgroundColor: AppPalette.dangerSoft,
     borderRadius: 12,
