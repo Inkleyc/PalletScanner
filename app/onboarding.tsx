@@ -88,12 +88,15 @@ const styles = StyleSheet.create({
   },
   content: {
     flex: 1,
+    maxWidth: 760,
+    alignSelf: "stretch",
     justifyContent: "space-between",
     paddingHorizontal: 24,
     paddingTop: 48,
     paddingBottom: 32,
   },
   hero: {
+    alignSelf: "stretch",
     alignItems: "center",
     justifyContent: "center",
     flex: 1,
@@ -108,6 +111,9 @@ const styles = StyleSheet.create({
     marginBottom: 28,
   },
   title: {
+    maxWidth: 520,
+    alignSelf: "center",
+    flexShrink: 1,
     fontSize: 28,
     fontWeight: "700",
     color: AppPalette.text,
@@ -138,6 +144,8 @@ const styles = StyleSheet.create({
     backgroundColor: AppPalette.primaryStrong,
   },
   actions: {
+    maxWidth: 480,
+    alignSelf: "stretch",
     gap: 12,
   },
   primaryButton: {

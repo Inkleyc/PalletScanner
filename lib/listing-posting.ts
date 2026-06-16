@@ -1,6 +1,7 @@
 import * as Clipboard from "expo-clipboard";
-import { Alert, Linking } from "react-native";
+import { Linking } from "react-native";
 
+import { AppAlert as Alert } from "@/lib/app-alert";
 import { createEbayListing, isEbayApiConfigured } from "@/lib/ebay-integration";
 import { triggerCopyFeedback } from "@/lib/feedback";
 import {

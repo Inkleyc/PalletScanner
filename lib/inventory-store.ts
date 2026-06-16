@@ -1,4 +1,11 @@
 import * as FileSystem from "expo-file-system/legacy";
+import { Platform } from "react-native";
+
+import {
+  browserUriToDataUri,
+  readWebStorage,
+  writeWebStorage,
+} from "@/lib/web-storage";
 
 type InventoryItem = {
   id: number;
@@ -64,6 +71,7 @@ type InventoryListener = () => void;
 const inventoryListeners = new Set<InventoryListener>();
 const inventoryFile = `${FileSystem.documentDirectory}inventory.json`;
 const photosDirectory = `${FileSystem.documentDirectory}photos/`;
+const inventoryWebKey = "inventory";
 const legacyPalletId = "pallet-1";
 const threeDaysMs = 3 * 24 * 60 * 60 * 1000;
 
@@ -273,6 +281,10 @@ const persistInventory = async () => {
       activePalletId,
       resetBackup: resetBackupState,
     };
+    if (Platform.OS === "web") {
+      await writeWebStorage(inventoryWebKey, JSON.stringify(payload));
+      return;
+    }
     await FileSystem.writeAsStringAsync(
       inventoryFile,
       JSON.stringify(payload),
@@ -284,6 +296,9 @@ const persistInventory = async () => {
 };
 
 const ensurePhotosDirectory = async () => {
+  if (Platform.OS === "web") {
+    return;
+  }
   if (!ensurePhotosDirectoryPromise) {
     ensurePhotosDirectoryPromise = FileSystem.makeDirectoryAsync(photosDirectory, {
       intermediates: true,
@@ -299,6 +314,9 @@ const isManagedPhotoPath = (uri: string | null | undefined) =>
   Boolean(uri && uri.startsWith(photosDirectory));
 
 const deleteManagedPhoto = async (uri: string | null | undefined) => {
+  if (Platform.OS === "web") {
+    return;
+  }
   if (!isManagedPhotoPath(uri)) {
     return;
   }
@@ -324,6 +342,13 @@ const getPhotoExtension = (uri: string) => {
 };
 
 const persistPhotoUri = async (uri: string, itemId: number, index = 0) => {
+  if (Platform.OS === "web") {
+    try {
+      return await browserUriToDataUri(uri);
+    } catch {
+      return uri;
+    }
+  }
   if (isManagedPhotoPath(uri)) {
     return uri;
   }
@@ -444,6 +469,43 @@ export const hydrateInventory = async () => {
 
   hydratePromise = (async () => {
     try {
+      if (Platform.OS === "web") {
+        const raw = await readWebStorage(inventoryWebKey);
+        if (!raw) {
+          return;
+        }
+        const parsed = JSON.parse(raw) as
+          | InventoryItem[]
+          | InventoryPersistence;
+        if (Array.isArray(parsed)) {
+          const normalizedItems = parsed.map(normalizeInventoryItem);
+          setInventoryStateAndPersist(normalizedItems);
+          const normalizedState = normalizePalletState(
+            ensureMigrationPallet(normalizedItems, []),
+            legacyPalletId,
+          );
+          palletState = normalizedState.pallets;
+          activePalletId = normalizedState.activePalletId;
+          setResetBackupState(null);
+        } else {
+          const normalizedItems = Array.isArray(parsed.items)
+            ? parsed.items.map(normalizeInventoryItem)
+            : [];
+          setInventoryStateAndPersist(normalizedItems);
+          const normalizedState = normalizePalletState(
+            ensureMigrationPallet(
+              normalizedItems,
+              Array.isArray(parsed.pallets) ? parsed.pallets : [],
+            ),
+            parsed.activePalletId,
+          );
+          palletState = normalizedState.pallets;
+          activePalletId = normalizedState.activePalletId;
+          setResetBackupState(parsed.resetBackup ?? null);
+        }
+        notifyInventoryListeners();
+        return;
+      }
       const fileInfo = await FileSystem.getInfoAsync(inventoryFile);
       if (!fileInfo.exists) {
         return;

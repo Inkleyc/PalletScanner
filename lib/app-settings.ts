@@ -1,4 +1,7 @@
 import * as FileSystem from "expo-file-system/legacy";
+import { Platform } from "react-native";
+
+import { readWebStorage, writeWebStorage } from "@/lib/web-storage";
 
 type AppSettings = {
   promptToPostOnSave: boolean;
@@ -8,6 +11,7 @@ type SettingsListener = () => void;
 
 const settingsListeners = new Set<SettingsListener>();
 const settingsFile = `${FileSystem.documentDirectory}app-settings.json`;
+const settingsWebKey = "app-settings";
 
 let settingsState: AppSettings = {
   promptToPostOnSave: true,
@@ -21,6 +25,10 @@ const notifySettingsListeners = () => {
 
 const persistSettings = async () => {
   try {
+    if (Platform.OS === "web") {
+      await writeWebStorage(settingsWebKey, JSON.stringify(settingsState));
+      return;
+    }
     await FileSystem.writeAsStringAsync(
       settingsFile,
       JSON.stringify(settingsState),
@@ -38,6 +46,18 @@ export const hydrateAppSettings = async () => {
 
   hydratePromise = (async () => {
     try {
+      if (Platform.OS === "web") {
+        const raw = await readWebStorage(settingsWebKey);
+        if (!raw) {
+          return;
+        }
+        settingsState = {
+          ...settingsState,
+          ...(JSON.parse(raw) as Partial<AppSettings>),
+        };
+        notifySettingsListeners();
+        return;
+      }
       const fileInfo = await FileSystem.getInfoAsync(settingsFile);
       if (!fileInfo.exists) {
         return;

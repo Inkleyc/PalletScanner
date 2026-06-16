@@ -1,6 +1,5 @@
 import { useState, useSyncExternalStore } from "react";
 import {
-  Alert,
   ScrollView,
   StyleSheet,
   Text,
@@ -22,6 +21,7 @@ import {
   updatePalletSessionCost,
 } from "@/lib/inventory-store";
 import { AppLayout, AppPalette } from "@/constants/app-palette";
+import { AppAlert as Alert } from "@/lib/app-alert";
 
 export default function PalletsScreen() {
   const { width } = useWindowDimensions();

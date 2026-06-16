@@ -4,10 +4,10 @@ import * as Sharing from "expo-sharing";
 import { useRouter } from "expo-router";
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import {
-  Alert,
   Image,
   Linking,
   Modal,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -30,6 +30,7 @@ import {
   updateInventoryItemSoldPrice,
   markInventoryItemEbayEnded,
 } from "@/lib/inventory-store";
+import { AppAlert as Alert } from "@/lib/app-alert";
 import { endEbayListing } from "@/lib/ebay-integration";
 import { openListingDraft } from "@/lib/listing-posting";
 import { AppLayout, AppPalette } from "@/constants/app-palette";
@@ -268,6 +269,16 @@ export default function InventoryScreen() {
     }
     try {
       const csv = buildCSV();
+      if (Platform.OS === "web") {
+        const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+        const url = URL.createObjectURL(blob);
+        const anchor = document.createElement("a");
+        anchor.href = url;
+        anchor.download = getExportFilename().split("/").pop() ?? "inventory.csv";
+        anchor.click();
+        URL.revokeObjectURL(url);
+        return;
+      }
       const filename = getExportFilename();
       await FileSystem.writeAsStringAsync(filename, csv, { encoding: "utf8" });
       const canShare = await Sharing.isAvailableAsync();

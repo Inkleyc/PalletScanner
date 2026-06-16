@@ -1,4 +1,7 @@
 import * as FileSystem from "expo-file-system/legacy";
+import { Platform } from "react-native";
+
+import { readWebStorage, writeWebStorage } from "@/lib/web-storage";
 
 type AppMetaState = {
   hasSeenOnboarding: boolean;
@@ -13,6 +16,7 @@ export const FREE_SCAN_LIMIT = 10;
 
 const appMetaListeners = new Set<AppMetaListener>();
 const appMetaFile = `${FileSystem.documentDirectory}app-meta.json`;
+const appMetaWebKey = "app-meta";
 
 const getCurrentMonthKey = () => {
   const date = new Date();
@@ -57,6 +61,10 @@ const normalizeAppMetaState = (state: Partial<AppMetaState>): AppMetaState => {
 
 const persistAppMeta = async () => {
   try {
+    if (Platform.OS === "web") {
+      await writeWebStorage(appMetaWebKey, JSON.stringify(appMetaState));
+      return;
+    }
     await FileSystem.writeAsStringAsync(
       appMetaFile,
       JSON.stringify(appMetaState),
@@ -83,6 +91,17 @@ export const hydrateAppMeta = async () => {
 
   hydratePromise = (async () => {
     try {
+      if (Platform.OS === "web") {
+        const raw = await readWebStorage(appMetaWebKey);
+        if (!raw) {
+          return;
+        }
+        appMetaState = normalizeAppMetaState(
+          JSON.parse(raw) as Partial<AppMetaState>,
+        );
+        notifyAppMetaListeners();
+        return;
+      }
       const fileInfo = await FileSystem.getInfoAsync(appMetaFile);
       if (!fileInfo.exists) {
         return;

@@ -9,7 +9,9 @@
     "ios": "expo start --ios",
     "web": "expo start --web",
     "lint": "expo lint",
-    "ebay-server": "node ./server/ebay-server.mjs"
+    "ebay-server": "node ./server/ebay-server.mjs",
+    "web:export": "expo export --platform web",
+    "web:deploy": "eas deploy --environment preview --non-interactive"
   },
   "dependencies": {
     "@expo/vector-icons": "^15.0.3",

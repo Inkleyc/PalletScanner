@@ -6,7 +6,6 @@ import {
   useSyncExternalStore,
 } from "react";
 import {
-  Alert,
   Linking,
   ScrollView,
   StyleSheet,
@@ -18,6 +17,7 @@ import {
 } from "react-native";
 
 import { AppLayout, AppPalette } from "@/constants/app-palette";
+import { AppAlert as Alert } from "@/lib/app-alert";
 import { FREE_SCAN_LIMIT, getAppMeta, subscribeAppMeta } from "@/lib/app-meta";
 import {
   disconnectEbayAccount,

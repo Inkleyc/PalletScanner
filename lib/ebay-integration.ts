@@ -1,6 +1,8 @@
 import * as FileSystem from "expo-file-system/legacy";
+import { Platform } from "react-native";
 
 import type { InventoryItem } from "@/lib/inventory-store";
+import { browserUriToDataUri } from "@/lib/web-storage";
 
 const EBAY_API_BASE_URL = process.env.EXPO_PUBLIC_EBAY_API_BASE_URL ?? "";
 const APP_AUTH_TOKEN = process.env.EXPO_PUBLIC_PALLETSCANNER_AUTH_TOKEN ?? "";
@@ -109,12 +111,18 @@ export const createEbayListing = async (
         return { url: uri };
       }
 
-      const base64 = await FileSystem.readAsStringAsync(uri, {
-        encoding: FileSystem.EncodingType.Base64,
-      });
+      const dataUri =
+        Platform.OS === "web" ? await browserUriToDataUri(uri) : null;
+      const base64 =
+        dataUri?.split(",")[1] ??
+        (await FileSystem.readAsStringAsync(uri, {
+          encoding: FileSystem.EncodingType.Base64,
+        }));
       const extension = uri.split("?")[0]?.split(".").pop()?.toLowerCase();
-      const mimeType =
-        extension === "png"
+      const dataMimeType = dataUri?.match(/^data:([^;]+);base64,/)?.[1];
+      const mimeType = dataMimeType
+        ? dataMimeType
+        : extension === "png"
           ? "image/png"
           : extension === "heic" || extension === "heif"
             ? "image/heic"

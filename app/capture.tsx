@@ -4,7 +4,6 @@ import * as Clipboard from "expo-clipboard";
 import * as ImagePicker from "expo-image-picker";
 import { useRef, useState, useSyncExternalStore } from "react";
 import {
-  Alert,
   Image,
   KeyboardAvoidingView,
   Platform,
@@ -19,6 +18,7 @@ import {
 import { LoadingStatus } from "@/components/loading-status";
 import { PhotoReferenceCards } from "@/components/photo-reference-cards";
 import { AppPalette } from "@/constants/app-palette";
+import { AppAlert as Alert } from "@/lib/app-alert";
 import { incrementScanCount } from "@/lib/app-meta";
 import { getAppSettings, subscribeAppSettings } from "@/lib/app-settings";
 import { lookupBarcodeProduct } from "@/lib/barcode-lookup";
