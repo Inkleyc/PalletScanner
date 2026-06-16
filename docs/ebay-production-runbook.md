@@ -156,3 +156,23 @@ The repository includes development, preview, and production profiles in
    `npx eas-cli build --profile production --platform ios`.
 7. Submit the iOS production build to TestFlight with
    `npx eas-cli submit --platform ios --latest`.
+
+## Web Preview
+
+The browser app is built from the same Expo project. It uses IndexedDB for
+inventory/settings persistence, browser modals for app alerts, and the same
+Render eBay backend as the mobile preview.
+
+To publish a preview web deployment:
+
+```powershell
+npx eas-cli env:pull preview --path .env.preview
+# Load the EXPO_PUBLIC_* values from .env.preview for this shell.
+npm run web:export
+npm run web:deploy
+Remove-Item .env.preview
+```
+
+`npm run web:deploy` uploads the exported `dist` folder to EAS Hosting. That is
+an external publication step, so do it only when the current build is ready to
+share.
