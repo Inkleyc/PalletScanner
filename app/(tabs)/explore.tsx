@@ -29,6 +29,7 @@ import {
   unmarkInventoryItemListed,
   updateInventoryItemSoldPrice,
   markInventoryItemEbayEnded,
+  updateInventoryItemFacebookStatus,
 } from "@/lib/inventory-store";
 import { AppAlert as Alert } from "@/lib/app-alert";
 import { endEbayListing } from "@/lib/ebay-integration";
@@ -63,6 +64,7 @@ export default function InventoryScreen() {
     getActivePalletId,
   );
   const [bulkEbayQueue, setBulkEbayQueue] = useState<number[]>([]);
+  const [bulkFacebookQueue, setBulkFacebookQueue] = useState<number[]>([]);
   const [selectedPalletId, setSelectedPalletId] = useState<string>("all");
   const [soldDrafts, setSoldDrafts] = useState<Record<number, string>>({});
   const [editingSoldItemId, setEditingSoldItemId] = useState<number | null>(null);
@@ -130,6 +132,13 @@ export default function InventoryScreen() {
   const missingEbayItems = useMemo(
     () =>
       filteredItems.filter((item: any) => !item.listedPlatforms.includes("ebay")),
+    [filteredItems],
+  );
+  const missingFacebookItems = useMemo(
+    () =>
+      filteredItems.filter(
+        (item: any) => !item.listedPlatforms.includes("facebook"),
+      ),
     [filteredItems],
   );
   const hasActiveFilters =
@@ -391,6 +400,61 @@ export default function InventoryScreen() {
 
   const cancelBulkEbayPosting = () => {
     setBulkEbayQueue([]);
+  };
+
+  const openNextBulkFacebookItem = async (queueIds: number[]) => {
+    const nextId = queueIds[0];
+    if (nextId === undefined) {
+      setBulkFacebookQueue([]);
+      Alert.alert(
+        "Facebook posting queue complete",
+        "No unposted Facebook items remain in this view.",
+      );
+      return;
+    }
+
+    const nextItem = items.find((item: any) => item.id === nextId);
+    if (!nextItem) {
+      const remainingQueue = queueIds.slice(1);
+      setBulkFacebookQueue(remainingQueue);
+      if (remainingQueue.length === 0) {
+        Alert.alert(
+          "Facebook posting queue complete",
+          "No unposted Facebook items remain in this view.",
+        );
+      }
+      return;
+    }
+
+    const remainingQueue = queueIds.slice(1);
+    setBulkFacebookQueue(remainingQueue);
+    await openListingDraft(nextItem, "facebook");
+  };
+
+  const startBulkFacebookPosting = () => {
+    if (missingFacebookItems.length === 0) {
+      Alert.alert(
+        "Nothing to post",
+        "Every inventory item in this view already has the Facebook flag.",
+      );
+      return;
+    }
+
+    const queueIds = missingFacebookItems.map((item: any) => item.id);
+    void openNextBulkFacebookItem(queueIds);
+  };
+
+  const continueBulkFacebookPosting = () => {
+    if (bulkFacebookQueue.length === 0) {
+      startBulkFacebookPosting();
+      return;
+    }
+
+    void openNextBulkFacebookItem(bulkFacebookQueue);
+  };
+
+  const cancelBulkFacebookPosting = () => {
+    setBulkFacebookQueue([]);
   };
 
   const makeSelectedPalletActive = () => {
@@ -696,6 +760,30 @@ ${JSON.stringify(promptItems, null, 2)}`,
                 </TouchableOpacity>
               </View>
               <TouchableOpacity
+                style={styles.bulkFacebookBtn}
+                onPress={
+                  bulkFacebookQueue.length > 0
+                    ? continueBulkFacebookPosting
+                    : startBulkFacebookPosting
+                }
+              >
+                <Text style={styles.bulkFacebookBtnText}>
+                  {bulkFacebookQueue.length > 0
+                    ? `Continue Facebook Posting (${bulkFacebookQueue.length} left)`
+                    : `Post All Missing to Facebook (${missingFacebookItems.length})`}
+                </Text>
+              </TouchableOpacity>
+              {bulkFacebookQueue.length > 0 && (
+                <TouchableOpacity
+                  style={styles.cancelBulkBtn}
+                  onPress={cancelBulkFacebookPosting}
+                >
+                  <Text style={styles.cancelBulkBtnText}>
+                    Stop Facebook Posting
+                  </Text>
+                </TouchableOpacity>
+              )}
+              <TouchableOpacity
                 style={styles.bulkEbayBtn}
                 onPress={
                   bulkEbayQueue.length > 0
@@ -757,7 +845,9 @@ ${JSON.stringify(promptItems, null, 2)}`,
 
         {filteredItems.map((item: any) => (
           <View key={item.id} style={styles.itemCard}>
-            {item.listedPlatforms.length > 0 && (
+            {(item.listedPlatforms.length > 0 ||
+              (item.facebookStatus === "opened" &&
+                !item.listedPlatforms.includes("facebook"))) && (
               <View style={styles.listedBannerRow}>
                 {item.listedPlatforms.map((platform: "facebook" | "ebay") => (
                   <View
@@ -780,6 +870,12 @@ ${JSON.stringify(promptItems, null, 2)}`,
                     </TouchableOpacity>
                   </View>
                 ))}
+                {item.facebookStatus === "opened" &&
+                !item.listedPlatforms.includes("facebook") ? (
+                  <View style={[styles.listedBanner, styles.facebookDraftBanner]}>
+                    <Text style={styles.listedBannerText}>Facebook draft opened</Text>
+                  </View>
+                ) : null}
               </View>
             )}
             <View style={styles.itemTop}>
@@ -812,7 +908,14 @@ ${JSON.stringify(promptItems, null, 2)}`,
                 style={[styles.platformBtn, styles.facebookBtn]}
                 onPress={() => openListingDraft(item, "facebook")}
               >
-                <Text style={styles.platformBtnText}>Post to Facebook</Text>
+                <Text style={styles.platformBtnText}>
+                  {item.facebookStatus === "opened" &&
+                  !item.listedPlatforms.includes("facebook")
+                    ? "Continue Facebook Draft"
+                    : item.listedPlatforms.includes("facebook")
+                      ? "Copy Facebook Details"
+                      : "Post to Facebook"}
+                </Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={[styles.platformBtn, styles.ebayBtn]}
@@ -827,6 +930,26 @@ ${JSON.stringify(promptItems, null, 2)}`,
                 </Text>
               </TouchableOpacity>
             </View>
+            {item.facebookStatus === "opened" &&
+            !item.listedPlatforms.includes("facebook") ? (
+              <TouchableOpacity
+                style={styles.markFacebookListedBtn}
+                onPress={() =>
+                  updateInventoryItemFacebookStatus(item.id, {
+                    status: "listed",
+                  })
+                }
+              >
+                <Text style={styles.markFacebookListedBtnText}>
+                  Mark Facebook Listed
+                </Text>
+              </TouchableOpacity>
+            ) : null}
+            {item.facebookStatus === "error" && item.facebookLastError ? (
+              <Text style={styles.facebookErrorText}>
+                {item.facebookLastError}
+              </Text>
+            ) : null}
             {item.ebayListingUrl ? (
               <TouchableOpacity
                 style={styles.viewEbayBtn}
@@ -1130,6 +1253,20 @@ const styles = StyleSheet.create({
     marginTop: 10,
   },
   bulkEbayBtnText: { color: AppPalette.info, fontWeight: "700", fontSize: 14 },
+  bulkFacebookBtn: {
+    backgroundColor: AppPalette.primarySoft,
+    borderWidth: 1,
+    borderColor: "#cfdeed",
+    padding: 12,
+    borderRadius: 8,
+    alignItems: "center",
+    marginTop: 10,
+  },
+  bulkFacebookBtnText: {
+    color: AppPalette.primary,
+    fontWeight: "700",
+    fontSize: 14,
+  },
   cancelBulkBtn: {
     padding: 10,
     borderRadius: 8,
@@ -1213,6 +1350,11 @@ const styles = StyleSheet.create({
   listedFacebookBanner: { backgroundColor: AppPalette.infoSoft },
   listedEbayBanner: { backgroundColor: AppPalette.primarySoft },
   listedBannerText: { fontSize: 12, fontWeight: "600", color: AppPalette.text },
+  facebookDraftBanner: {
+    backgroundColor: AppPalette.warningSoft,
+    borderWidth: 1,
+    borderColor: "#f4d7a2",
+  },
   listedBannerClose: {
     width: 18,
     height: 18,
@@ -1350,6 +1492,21 @@ const styles = StyleSheet.create({
   },
   facebookBtn: { backgroundColor: AppPalette.primaryStrong },
   ebayBtn: { backgroundColor: AppPalette.info },
+  markFacebookListedBtn: {
+    marginHorizontal: 12,
+    marginBottom: 8,
+    borderWidth: 1,
+    borderColor: "#c9d9f1",
+    backgroundColor: AppPalette.infoSoft,
+    borderRadius: 8,
+    paddingVertical: 10,
+    alignItems: "center",
+  },
+  markFacebookListedBtnText: {
+    color: AppPalette.info,
+    fontSize: 13,
+    fontWeight: "700",
+  },
   viewEbayBtn: {
     marginHorizontal: 12,
     marginBottom: 8,
@@ -1366,6 +1523,13 @@ const styles = StyleSheet.create({
     fontWeight: "700",
   },
   ebayErrorText: {
+    marginHorizontal: 12,
+    marginBottom: 10,
+    color: AppPalette.dangerStrong,
+    fontSize: 12,
+    lineHeight: 17,
+  },
+  facebookErrorText: {
     marginHorizontal: 12,
     marginBottom: 10,
     color: AppPalette.dangerStrong,

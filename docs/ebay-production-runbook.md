@@ -22,6 +22,27 @@
 3. Create production eBay application credentials.
 4. Configure production seller policies and inventory locations.
 5. Rotate the sandbox client secret that was shared during development.
+6. Use a backend plan with persistent storage before live listings.
+7. Enroll in the Apple Developer Program before TestFlight or App Store iOS builds.
+
+## Sandbox Exit Gate
+
+Do not switch the deployed backend to `EBAY_ENVIRONMENT=production` until all of
+these are true:
+
+- The backend is on a stable HTTPS domain that will not change after OAuth setup.
+- `PALLETSCANNER_AUTH_MODE=jwt` is enabled.
+- The app has real user login and sends a per-user `Authorization: Bearer` token.
+- `EBAY_TOKEN_ENCRYPTION_KEY` and `PALLETSCANNER_JWT_SECRET` are strong generated
+  secrets stored only in the host.
+- The server has persistent storage for `server-data/ebay-connections`.
+- Production eBay client ID, client secret, and RuName are installed.
+- Production payment, return, fulfillment, merchant location, and optional
+  category values are from the production seller account.
+- The sandbox eBay secret that was shared during development has been rotated.
+
+The free Render sandbox service is good for proving the flow. It is not suitable
+for production eBay because it can sleep, restart, and lose OAuth token files.
 
 ## Deploy
 

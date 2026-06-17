@@ -8,6 +8,7 @@ import {
   markInventoryItemListed,
   type InventoryItem,
   updateInventoryItemEbayStatus,
+  updateInventoryItemFacebookStatus,
 } from "@/lib/inventory-store";
 
 const FACEBOOK_LISTING_URLS = [
@@ -34,10 +35,39 @@ const getListingContentForPlatform = (
   };
 };
 
+export const buildFacebookListingPackage = (item: InventoryItem) => {
+  const content = getListingContentForPlatform(item, "facebook");
+  const photos = item.photos?.length
+    ? item.photos
+    : item.photo
+      ? [item.photo]
+      : [];
+
+  return {
+    title: content.title,
+    price: String(item.high_price),
+    description: content.description,
+    condition: item.condition,
+    photoCount: photos.length,
+    fullText: [
+      content.title,
+      `Price: $${item.high_price}`,
+      `Condition: ${item.condition}`,
+      `Quantity: ${item.quantity ?? 1}`,
+      "",
+      content.description,
+    ].join("\n"),
+  };
+};
+
 export const buildListingText = (
   item: InventoryItem,
   platform: "facebook" | "ebay" = "facebook",
 ) => {
+  if (platform === "facebook") {
+    return buildFacebookListingPackage(item).fullText;
+  }
+
   const content = getListingContentForPlatform(item, platform);
 
   return (
@@ -49,6 +79,77 @@ export const buildListingText = (
     "",
     content.description,
   ].join("\n")
+  );
+};
+
+const copyFacebookValue = async (
+  item: InventoryItem,
+  label: string,
+  value: string,
+) => {
+  await Clipboard.setStringAsync(value);
+  void triggerCopyFeedback();
+  showFacebookPostingGuide(item, `${label} copied.`);
+};
+
+const markFacebookListed = (item: InventoryItem) => {
+  updateInventoryItemFacebookStatus(item.id, { status: "listed" });
+  Alert.alert(
+    "Facebook listing marked",
+    "The item is now marked as listed to Facebook in your inventory.",
+  );
+};
+
+const showFacebookPostingGuide = (
+  item: InventoryItem,
+  statusMessage?: string,
+) => {
+  const facebookPackage = buildFacebookListingPackage(item);
+  const photoMessage =
+    facebookPackage.photoCount > 0
+      ? `Add the ${facebookPackage.photoCount} saved photo${
+          facebookPackage.photoCount === 1 ? "" : "s"
+        } from this item, then paste each field as needed.`
+      : "Add photos before publishing if you have them.";
+
+  Alert.alert(
+    statusMessage ?? "Facebook Marketplace opened",
+    `${photoMessage}\n\nThe full listing is already copied. Use these buttons when Facebook asks for a specific field.`,
+    [
+      {
+        text: "Copy Title",
+        onPress: () => {
+          void copyFacebookValue(item, "Title", facebookPackage.title);
+        },
+      },
+      {
+        text: "Copy Price",
+        onPress: () => {
+          void copyFacebookValue(item, "Price", facebookPackage.price);
+        },
+      },
+      {
+        text: "Copy Description",
+        onPress: () => {
+          void copyFacebookValue(
+            item,
+            "Description",
+            facebookPackage.description,
+          );
+        },
+      },
+      {
+        text: "Copy All",
+        onPress: () => {
+          void copyFacebookValue(item, "Full listing", facebookPackage.fullText);
+        },
+      },
+      {
+        text: "Mark Listed",
+        onPress: () => markFacebookListed(item),
+      },
+      { text: "Done", style: "cancel" },
+    ],
   );
 };
 
@@ -128,12 +229,12 @@ export const openListingDraft = async (
     }
   }
 
-  const listingText = buildListingText(item, platform);
   const ebayUrl = "https://www.ebay.com/sl/sell";
   const platformLabel =
     platform === "facebook" ? "Facebook Marketplace" : "eBay";
 
   try {
+    const listingText = buildListingText(item, platform);
     await Clipboard.setStringAsync(listingText);
     void triggerCopyFeedback();
     if (platform === "facebook") {
@@ -150,12 +251,22 @@ export const openListingDraft = async (
       }
 
       if (!opened) {
+        updateInventoryItemFacebookStatus(item.id, {
+          status: "error",
+          error: "Facebook Marketplace could not be opened.",
+        });
         Alert.alert(
           "Link unavailable",
           "Facebook Marketplace could not be opened, but the listing text is copied and ready to paste.",
         );
         return;
       }
+
+      updateInventoryItemFacebookStatus(item.id, { status: "opened" });
+      if (options?.showSuccessAlert !== false) {
+        showFacebookPostingGuide(item);
+      }
+      return;
     } else {
       const supported = await Linking.canOpenURL(ebayUrl);
 
@@ -174,12 +285,19 @@ export const openListingDraft = async (
     if (options?.showSuccessAlert !== false) {
       Alert.alert(
         `${platformLabel} opened`,
-        platform === "facebook"
-          ? "The listing details were copied to your clipboard so you can paste them into the new Marketplace listing."
-          : "The listing details were copied to your clipboard so you can paste them into the new listing.",
+        "The listing details were copied to your clipboard so you can paste them into the new listing.",
       );
     }
-  } catch {
+  } catch (error) {
+    if (platform === "facebook") {
+      updateInventoryItemFacebookStatus(item.id, {
+        status: "error",
+        error:
+          error instanceof Error
+            ? error.message
+            : "Unable to open Facebook listing flow.",
+      });
+    }
     Alert.alert(
       "Unable to open listing flow",
       `I copied the listing details, but couldn't open ${platformLabel}.`,

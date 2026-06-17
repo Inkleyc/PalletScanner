@@ -37,6 +37,9 @@ type InventoryItem = {
   ebayProgress?: string;
   ebayLastError?: string;
   ebayUpdatedAt?: number;
+  facebookStatus?: "idle" | "opened" | "listed" | "error";
+  facebookLastError?: string;
+  facebookUpdatedAt?: number;
 };
 
 type PalletSession = {
@@ -172,6 +175,23 @@ const normalizeInventoryItem = (item: InventoryItem): InventoryItem => ({
     typeof item.ebayUpdatedAt === "number" &&
     !Number.isNaN(item.ebayUpdatedAt)
       ? item.ebayUpdatedAt
+      : undefined,
+  facebookStatus:
+    item.facebookStatus === "opened" ||
+    item.facebookStatus === "listed" ||
+    item.facebookStatus === "error"
+      ? item.facebookStatus
+      : item.listedPlatforms?.includes("facebook")
+        ? "listed"
+        : "idle",
+  facebookLastError:
+    typeof item.facebookLastError === "string" && item.facebookLastError.trim()
+      ? item.facebookLastError.trim()
+      : undefined,
+  facebookUpdatedAt:
+    typeof item.facebookUpdatedAt === "number" &&
+    !Number.isNaN(item.facebookUpdatedAt)
+      ? item.facebookUpdatedAt
       : undefined,
 });
 
@@ -771,6 +791,12 @@ export const markInventoryItemListed = (
         ? {
             ...item,
             listedPlatforms: [...item.listedPlatforms, platform],
+            facebookStatus:
+              platform === "facebook" ? "listed" : item.facebookStatus,
+            facebookLastError:
+              platform === "facebook" ? undefined : item.facebookLastError,
+            facebookUpdatedAt:
+              platform === "facebook" ? Date.now() : item.facebookUpdatedAt,
           }
         : item,
     ),
@@ -789,6 +815,43 @@ export const unmarkInventoryItemListed = (
             listedPlatforms: item.listedPlatforms.filter(
               (listedPlatform) => listedPlatform !== platform,
             ),
+            facebookStatus:
+              platform === "facebook" ? "idle" : item.facebookStatus,
+            facebookLastError:
+              platform === "facebook" ? undefined : item.facebookLastError,
+            facebookUpdatedAt:
+              platform === "facebook" ? Date.now() : item.facebookUpdatedAt,
+          }
+        : item,
+    ),
+  );
+};
+
+export const updateInventoryItemFacebookStatus = (
+  id: number,
+  update: {
+    status: "idle" | "opened" | "listed" | "error";
+    error?: string;
+  },
+) => {
+  setInventory(
+    inventoryState.map((item) =>
+      item.id === id
+        ? {
+            ...item,
+            facebookStatus: update.status,
+            facebookLastError:
+              update.status === "error" ? update.error : undefined,
+            facebookUpdatedAt: Date.now(),
+            listedPlatforms:
+              update.status === "listed" &&
+              !item.listedPlatforms.includes("facebook")
+                ? [...item.listedPlatforms, "facebook"]
+                : update.status === "idle"
+                  ? item.listedPlatforms.filter(
+                      (platform) => platform !== "facebook",
+                    )
+                  : item.listedPlatforms,
           }
         : item,
     ),

@@ -1,5 +1,3 @@
-import { Alert as NativeAlert, Platform } from "react-native";
-
 export type AppAlertButton = {
   text?: string;
   style?: "default" | "cancel" | "destructive";
@@ -35,11 +33,6 @@ export const AppAlert = {
     message?: string,
     buttons?: AppAlertButton[],
   ) {
-    if (Platform.OS !== "web") {
-      NativeAlert.alert(title, message, buttons);
-      return;
-    }
-
     alertState = {
       title,
       message,
