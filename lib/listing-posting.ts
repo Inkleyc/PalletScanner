@@ -96,7 +96,7 @@ const markFacebookListed = (item: InventoryItem) => {
   updateInventoryItemFacebookStatus(item.id, { status: "listed" });
   Alert.alert(
     "Facebook listing marked",
-    "The item is now marked as listed to Facebook in your inventory.",
+    "The item is now marked as listed to Facebook in your inventory. Add the final listing URL from the inventory card when you have it.",
   );
 };
 

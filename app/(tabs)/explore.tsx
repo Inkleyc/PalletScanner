@@ -1051,9 +1051,12 @@ ${JSON.stringify(promptItems, null, 2)}`,
               <TouchableOpacity
                 style={styles.markFacebookListedBtn}
                 onPress={() =>
-                  updateInventoryItemFacebookStatus(item.id, {
-                    status: "listed",
-                  })
+                  {
+                    updateInventoryItemFacebookStatus(item.id, {
+                      status: "listed",
+                    });
+                    setEditingFacebookUrlItemId(item.id);
+                  }
                 }
               >
                 <Text style={styles.markFacebookListedBtnText}>
