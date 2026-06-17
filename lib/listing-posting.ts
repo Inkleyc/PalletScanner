@@ -111,10 +111,12 @@ const showFacebookPostingGuide = (
           facebookPackage.photoCount === 1 ? "" : "s"
         } from this item, then paste each field as needed.`
       : "Add photos before publishing if you have them.";
+  const photoTips =
+    "Photo checklist: main front shot, model/label, condition flaws, accessories or charging ports.";
 
   Alert.alert(
     statusMessage ?? "Facebook Marketplace opened",
-    `${photoMessage}\n\nThe full listing is already copied. Use these buttons when Facebook asks for a specific field.`,
+    `${photoMessage}\n\n${photoTips}\n\nThe full listing is already copied. Use these buttons when Facebook asks for a specific field.`,
     [
       {
         text: "Copy Title",
