@@ -44,6 +44,17 @@ these are true:
 The free Render sandbox service is good for proving the flow. It is not suitable
 for production eBay because it can sleep, restart, and lose OAuth token files.
 
+Run the local readiness check before changing hosted production settings:
+
+```bash
+npm run ebay:production-check
+```
+
+The check validates the production eBay environment, JWT mode, non-sandbox keys,
+specific CORS origin, and required backend secrets. It cannot verify external
+eBay account review or Apple Developer enrollment; those still need to be
+confirmed in their portals.
+
 ## Deploy
 
 ### Render

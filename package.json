@@ -10,6 +10,7 @@
     "web": "expo start --web",
     "lint": "expo lint",
     "ebay-server": "node ./server/ebay-server.mjs",
+    "ebay:production-check": "node ./server/production-check.mjs",
     "web:export": "expo export --platform web",
     "web:deploy": "eas deploy --environment preview --non-interactive"
   },
