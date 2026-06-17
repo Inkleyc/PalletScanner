@@ -38,6 +38,7 @@ type InventoryItem = {
   ebayLastError?: string;
   ebayUpdatedAt?: number;
   facebookStatus?: "idle" | "opened" | "listed" | "error";
+  facebookListingUrl?: string;
   facebookLastError?: string;
   facebookUpdatedAt?: number;
 };
@@ -182,8 +183,12 @@ const normalizeInventoryItem = (item: InventoryItem): InventoryItem => ({
     item.facebookStatus === "error"
       ? item.facebookStatus
       : item.listedPlatforms?.includes("facebook")
-        ? "listed"
-        : "idle",
+      ? "listed"
+      : "idle",
+  facebookListingUrl:
+    typeof item.facebookListingUrl === "string" && item.facebookListingUrl.trim()
+      ? item.facebookListingUrl.trim()
+      : undefined,
   facebookLastError:
     typeof item.facebookLastError === "string" && item.facebookLastError.trim()
       ? item.facebookLastError.trim()
@@ -852,6 +857,30 @@ export const updateInventoryItemFacebookStatus = (
                       (platform) => platform !== "facebook",
                     )
                   : item.listedPlatforms,
+          }
+        : item,
+    ),
+  );
+};
+
+export const updateInventoryItemFacebookListingUrl = (
+  id: number,
+  listingUrl: string | undefined,
+) => {
+  const normalizedUrl = listingUrl?.trim();
+  setInventory(
+    inventoryState.map((item) =>
+      item.id === id
+        ? {
+            ...item,
+            facebookListingUrl: normalizedUrl || undefined,
+            facebookStatus: normalizedUrl ? "listed" : item.facebookStatus,
+            facebookLastError: undefined,
+            facebookUpdatedAt: Date.now(),
+            listedPlatforms:
+              normalizedUrl && !item.listedPlatforms.includes("facebook")
+                ? [...item.listedPlatforms, "facebook"]
+                : item.listedPlatforms,
           }
         : item,
     ),

@@ -1,4 +1,5 @@
 import * as FileSystem from "expo-file-system/legacy";
+import * as Clipboard from "expo-clipboard";
 import * as MailComposer from "expo-mail-composer";
 import * as Sharing from "expo-sharing";
 import { useRouter } from "expo-router";
@@ -29,6 +30,7 @@ import {
   unmarkInventoryItemListed,
   updateInventoryItemSoldPrice,
   markInventoryItemEbayEnded,
+  updateInventoryItemFacebookListingUrl,
   updateInventoryItemFacebookStatus,
 } from "@/lib/inventory-store";
 import { AppAlert as Alert } from "@/lib/app-alert";
@@ -67,7 +69,11 @@ export default function InventoryScreen() {
   const [bulkFacebookQueue, setBulkFacebookQueue] = useState<number[]>([]);
   const [selectedPalletId, setSelectedPalletId] = useState<string>("all");
   const [soldDrafts, setSoldDrafts] = useState<Record<number, string>>({});
+  const [facebookUrlDrafts, setFacebookUrlDrafts] = useState<Record<number, string>>({});
   const [editingSoldItemId, setEditingSoldItemId] = useState<number | null>(null);
+  const [editingFacebookUrlItemId, setEditingFacebookUrlItemId] = useState<
+    number | null
+  >(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [sortMode, setSortMode] = useState<"date" | "high-desc" | "low-asc">("date");
   const [filtersExpanded, setFiltersExpanded] = useState(false);
@@ -195,6 +201,9 @@ export default function InventoryScreen() {
   const getSoldDraftValue = (item: any) =>
     soldDrafts[item.id] ?? (item.soldPrice !== null ? String(item.soldPrice) : "");
 
+  const getFacebookUrlDraftValue = (item: any) =>
+    facebookUrlDrafts[item.id] ?? item.facebookListingUrl ?? "";
+
   const saveSoldPrice = (item: any) => {
     const rawValue = getSoldDraftValue(item).trim();
     if (!rawValue) {
@@ -238,6 +247,48 @@ export default function InventoryScreen() {
     }));
     if (editingSoldItemId === item.id) {
       setEditingSoldItemId(null);
+    }
+  };
+
+  const pasteFacebookUrl = async (item: any) => {
+    const value = await Clipboard.getStringAsync();
+    setFacebookUrlDrafts((current) => ({
+      ...current,
+      [item.id]: value.trim(),
+    }));
+  };
+
+  const saveFacebookUrl = (item: any) => {
+    const rawValue = getFacebookUrlDraftValue(item).trim();
+    if (!rawValue) {
+      Alert.alert("Paste the listing URL", "Open the Facebook listing, copy its URL, then paste it here.");
+      return;
+    }
+
+    if (!/^https?:\/\//i.test(rawValue) || !/(facebook|fb)\.com/i.test(rawValue)) {
+      Alert.alert(
+        "Check the URL",
+        "Use the full Facebook listing URL, starting with https://.",
+      );
+      return;
+    }
+
+    updateInventoryItemFacebookListingUrl(item.id, rawValue);
+    setFacebookUrlDrafts((current) => ({
+      ...current,
+      [item.id]: rawValue,
+    }));
+    setEditingFacebookUrlItemId(null);
+  };
+
+  const clearFacebookUrl = (item: any) => {
+    updateInventoryItemFacebookListingUrl(item.id, undefined);
+    setFacebookUrlDrafts((current) => ({
+      ...current,
+      [item.id]: "",
+    }));
+    if (editingFacebookUrlItemId === item.id) {
+      setEditingFacebookUrlItemId(null);
     }
   };
 
@@ -945,6 +996,79 @@ ${JSON.stringify(promptItems, null, 2)}`,
                 </Text>
               </TouchableOpacity>
             ) : null}
+            {(item.listedPlatforms.includes("facebook") ||
+              item.facebookStatus === "opened" ||
+              item.facebookListingUrl) ? (
+              <View style={styles.facebookUrlActions}>
+                {item.facebookListingUrl ? (
+                  <TouchableOpacity
+                    style={styles.viewFacebookBtn}
+                    onPress={() => {
+                      void Linking.openURL(item.facebookListingUrl);
+                    }}
+                  >
+                    <Text style={styles.viewFacebookBtnText}>
+                      View Facebook Listing
+                    </Text>
+                  </TouchableOpacity>
+                ) : null}
+                <TouchableOpacity
+                  style={styles.facebookUrlBtn}
+                  onPress={() =>
+                    setEditingFacebookUrlItemId((current) =>
+                      current === item.id ? null : item.id,
+                    )
+                  }
+                >
+                  <Text style={styles.facebookUrlBtnText}>
+                    {item.facebookListingUrl
+                      ? "Edit Facebook URL"
+                      : "Add Facebook URL"}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            ) : null}
+            {editingFacebookUrlItemId === item.id ? (
+              <View style={styles.facebookUrlEditorCard}>
+                <Text style={styles.soldEditorLabel}>Facebook Listing URL</Text>
+                <TextInput
+                  style={styles.facebookUrlInput}
+                  value={getFacebookUrlDraftValue(item)}
+                  onChangeText={(value) =>
+                    setFacebookUrlDrafts((current) => ({
+                      ...current,
+                      [item.id]: value,
+                    }))
+                  }
+                  placeholder="https://www.facebook.com/marketplace/item/..."
+                  placeholderTextColor="#999"
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                />
+                <View style={styles.facebookUrlEditorActions}>
+                  <TouchableOpacity
+                    style={styles.secondaryActionBtn}
+                    onPress={() => {
+                      void pasteFacebookUrl(item);
+                    }}
+                  >
+                    <Text style={styles.secondaryActionBtnText}>Paste</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={styles.saveSoldBtn}
+                    onPress={() => saveFacebookUrl(item)}
+                  >
+                    <Text style={styles.saveSoldBtnText}>Save</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={styles.clearSoldBtn}
+                    onPress={() => clearFacebookUrl(item)}
+                  >
+                    <Text style={styles.clearSoldBtnText}>Clear</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            ) : null}
             {item.facebookStatus === "error" && item.facebookLastError ? (
               <Text style={styles.facebookErrorText}>
                 {item.facebookLastError}
@@ -1506,6 +1630,68 @@ const styles = StyleSheet.create({
     color: AppPalette.info,
     fontSize: 13,
     fontWeight: "700",
+  },
+  facebookUrlActions: {
+    paddingHorizontal: 12,
+    paddingBottom: 8,
+    flexDirection: "row",
+    gap: 8,
+    flexWrap: "wrap",
+  },
+  viewFacebookBtn: {
+    flex: 1,
+    minWidth: 150,
+    borderWidth: 1,
+    borderColor: AppPalette.primary,
+    backgroundColor: AppPalette.primarySoft,
+    borderRadius: 8,
+    paddingVertical: 10,
+    alignItems: "center",
+  },
+  viewFacebookBtnText: {
+    color: AppPalette.primary,
+    fontSize: 13,
+    fontWeight: "700",
+  },
+  facebookUrlBtn: {
+    flex: 1,
+    minWidth: 130,
+    borderWidth: 1,
+    borderColor: AppPalette.border,
+    backgroundColor: AppPalette.surfaceMuted,
+    borderRadius: 8,
+    paddingVertical: 10,
+    alignItems: "center",
+  },
+  facebookUrlBtnText: {
+    color: AppPalette.text,
+    fontSize: 13,
+    fontWeight: "700",
+  },
+  facebookUrlEditorCard: {
+    marginHorizontal: 12,
+    marginBottom: 12,
+    backgroundColor: AppPalette.surfaceMuted,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: AppPalette.border,
+    padding: 12,
+  },
+  facebookUrlInput: {
+    borderWidth: 1,
+    borderColor: AppPalette.borderStrong,
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 9,
+    fontSize: 13,
+    color: AppPalette.text,
+    backgroundColor: AppPalette.surface,
+  },
+  facebookUrlEditorActions: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+    marginTop: 10,
   },
   viewEbayBtn: {
     marginHorizontal: 12,

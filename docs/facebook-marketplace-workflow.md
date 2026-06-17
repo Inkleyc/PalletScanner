@@ -19,6 +19,8 @@ copy.
    `Mark Facebook Listed`.
 7. Runs a batch helper from Inventory summary for every item in the current view
    that is not yet marked listed to Facebook.
+8. Saves a published Facebook listing URL so the seller can reopen the listing
+   from the inventory card.
 
 This avoids accidentally treating an unfinished Marketplace draft as a completed
 listing.
@@ -44,9 +46,7 @@ decision.
 
 - Add a photo gallery action that lets the seller save/share selected item photos
   right before opening Marketplace.
-- Add a `View Facebook Listing` URL field after the seller publishes and pastes
-  the final listing URL back into the app.
 - Add filters for `Facebook draft opened` so unfinished Marketplace posts are easy
   to clean up.
-- Add a `Copy Listing URL` / `Paste Listing URL` action after publish so the app
-  can jump back to a completed Facebook listing later.
+- Add a reminder prompt after `Mark Facebook Listed` to paste the final listing
+  URL before moving on.
