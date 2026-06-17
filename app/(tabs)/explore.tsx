@@ -47,6 +47,13 @@ type BundleSuggestion = {
   reason: string;
 };
 
+type ListingFilter =
+  | "all"
+  | "needs-facebook"
+  | "facebook-drafts"
+  | "needs-ebay"
+  | "listed";
+
 export default function InventoryScreen() {
   const { width } = useWindowDimensions();
   const router = useRouter();
@@ -76,6 +83,7 @@ export default function InventoryScreen() {
   >(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [sortMode, setSortMode] = useState<"date" | "high-desc" | "low-asc">("date");
+  const [listingFilter, setListingFilter] = useState<ListingFilter>("all");
   const [filtersExpanded, setFiltersExpanded] = useState(false);
   const [summaryExpanded, setSummaryExpanded] = useState(false);
   const [bundleLoading, setBundleLoading] = useState(false);
@@ -83,6 +91,16 @@ export default function InventoryScreen() {
   const [bundleSuggestions, setBundleSuggestions] = useState<BundleSuggestion[]>([]);
   const isLargeLayout = width >= 900;
   const previousHasActiveFilters = useRef(false);
+  const listingFilterLabel =
+    listingFilter === "needs-facebook"
+      ? "Needs Facebook"
+      : listingFilter === "facebook-drafts"
+        ? "Facebook Drafts"
+        : listingFilter === "needs-ebay"
+          ? "Needs eBay"
+          : listingFilter === "listed"
+            ? "Listed"
+            : "All Statuses";
 
   const selectedPallet =
     selectedPalletId === "all"
@@ -102,7 +120,26 @@ export default function InventoryScreen() {
         )
       : palletFiltered;
 
-    const sortedItems = [...searchFiltered];
+    const listingFiltered = searchFiltered.filter((item: any) => {
+      if (listingFilter === "needs-facebook") {
+        return !item.listedPlatforms.includes("facebook");
+      }
+      if (listingFilter === "facebook-drafts") {
+        return (
+          item.facebookStatus === "opened" &&
+          !item.listedPlatforms.includes("facebook")
+        );
+      }
+      if (listingFilter === "needs-ebay") {
+        return !item.listedPlatforms.includes("ebay");
+      }
+      if (listingFilter === "listed") {
+        return item.listedPlatforms.length > 0;
+      }
+      return true;
+    });
+
+    const sortedItems = [...listingFiltered];
     if (sortMode === "high-desc") {
       sortedItems.sort((a: any, b: any) => b.high_price - a.high_price);
     } else if (sortMode === "low-asc") {
@@ -112,7 +149,7 @@ export default function InventoryScreen() {
     }
 
     return sortedItems;
-  }, [items, searchQuery, selectedPalletId, sortMode]);
+  }, [items, listingFilter, searchQuery, selectedPalletId, sortMode]);
 
   const palletScopedItemCount =
     selectedPalletId === "all"
@@ -150,7 +187,8 @@ export default function InventoryScreen() {
   const hasActiveFilters =
     selectedPalletId !== "all" ||
     searchQuery.trim().length > 0 ||
-    sortMode !== "date";
+    sortMode !== "date" ||
+    listingFilter !== "all";
 
   useEffect(() => {
     if (hasActiveFilters && !previousHasActiveFilters.current) {
@@ -632,7 +670,7 @@ ${JSON.stringify(promptItems, null, 2)}`,
                   ? "Newest"
                   : sortMode === "high-desc"
                     ? "High to Low"
-                    : "Low to High"} | {filteredItems.length} item{filteredItems.length === 1 ? "" : "s"}
+                    : "Low to High"} | {listingFilterLabel} | {filteredItems.length} item{filteredItems.length === 1 ? "" : "s"}
               </Text>
             </View>
             <Text style={styles.sectionToggleText}>
@@ -736,6 +774,33 @@ ${JSON.stringify(promptItems, null, 2)}`,
                       onPress={() =>
                         setSortMode(option.key as "date" | "high-desc" | "low-asc")
                       }
+                    >
+                      <Text
+                        style={[
+                          styles.sortChipText,
+                          isActive && styles.sortChipTextActive,
+                        ]}
+                      >
+                        {option.label}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+              <View style={styles.sortRow}>
+                {[
+                  { key: "all", label: "All Statuses" },
+                  { key: "needs-facebook", label: "Needs Facebook" },
+                  { key: "facebook-drafts", label: "Facebook Drafts" },
+                  { key: "needs-ebay", label: "Needs eBay" },
+                  { key: "listed", label: "Listed" },
+                ].map((option) => {
+                  const isActive = listingFilter === option.key;
+                  return (
+                    <TouchableOpacity
+                      key={option.key}
+                      style={[styles.sortChip, isActive && styles.sortChipActive]}
+                      onPress={() => setListingFilter(option.key as ListingFilter)}
                     >
                       <Text
                         style={[
