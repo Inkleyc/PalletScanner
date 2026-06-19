@@ -100,6 +100,14 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
+        name="facebook"
+        options={{
+          title: "Facebook",
+          tabBarIcon: createTabIcon("tag.fill", "FacebookTabIcon"),
+          tabBarLabel: createTabLabel("Facebook", "FacebookTabLabel"),
+        }}
+      />
+      <Tabs.Screen
         name="pallets"
         options={{
           title: "Pallets",

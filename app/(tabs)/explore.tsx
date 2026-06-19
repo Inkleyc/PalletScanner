@@ -967,16 +967,24 @@ ${JSON.stringify(promptItems, null, 2)}`,
               </View>
               <TouchableOpacity
                 style={styles.bulkFacebookBtn}
+                onPress={() => router.push("/facebook" as never)}
+              >
+                <Text style={styles.bulkFacebookBtnText}>
+                  Open Facebook Queue ({missingFacebookItems.length})
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.bulkFacebookSecondaryBtn}
                 onPress={
                   bulkFacebookQueue.length > 0
                     ? continueBulkFacebookPosting
                     : startBulkFacebookPosting
                 }
               >
-                <Text style={styles.bulkFacebookBtnText}>
+                <Text style={styles.bulkFacebookSecondaryBtnText}>
                   {bulkFacebookQueue.length > 0
-                    ? `Continue Facebook Posting (${bulkFacebookQueue.length} left)`
-                    : `Post All Missing to Facebook (${missingFacebookItems.length})`}
+                    ? `Continue Quick Posting (${bulkFacebookQueue.length} left)`
+                    : "Quick Open Next Facebook Draft"}
                 </Text>
               </TouchableOpacity>
               {bulkFacebookQueue.length > 0 && (
@@ -1628,6 +1636,20 @@ const styles = StyleSheet.create({
     color: AppPalette.primary,
     fontWeight: "700",
     fontSize: 14,
+  },
+  bulkFacebookSecondaryBtn: {
+    borderWidth: 1,
+    borderColor: AppPalette.border,
+    backgroundColor: AppPalette.surfaceMuted,
+    padding: 12,
+    borderRadius: 8,
+    alignItems: "center",
+    marginTop: 8,
+  },
+  bulkFacebookSecondaryBtnText: {
+    color: AppPalette.text,
+    fontWeight: "700",
+    fontSize: 13,
   },
   cancelBulkBtn: {
     padding: 10,

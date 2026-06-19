@@ -20,6 +20,7 @@ const MAPPING = {
   'chart.bar.fill': 'bar-chart',
   'gearshape.fill': 'settings',
   'paperplane.fill': 'send',
+  'tag.fill': 'sell',
   'chevron.left.forwardslash.chevron.right': 'code',
   'chevron.right': 'chevron-right',
 } as IconMapping;

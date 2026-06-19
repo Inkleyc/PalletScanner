@@ -26,6 +26,7 @@ copy.
    from the inventory card.
 9. Appends the saved Facebook seller note from Settings to every Marketplace
    description.
+10. Provides a dedicated Facebook Queue tab for posting one item at a time.
 
 This avoids accidentally treating an unfinished Marketplace draft as a completed
 listing.
@@ -58,6 +59,22 @@ Settings includes Facebook account shortcuts:
 - `Open Selling Page`
 
 Use these before posting if the device needs to switch Facebook accounts.
+
+## Facebook Queue
+
+The Facebook Queue tab is the friendliest posting path. It shows one unposted
+item at a time and guides the seller through:
+
+1. Fixing blockers like missing photos or missing price.
+2. Copying each Marketplace field.
+3. Opening Facebook Marketplace.
+4. Publishing in Facebook.
+5. Marking the item listed in PalletScanner.
+6. Saving the final Facebook listing URL.
+
+The queue exists because Facebook does not allow PalletScanner to submit a
+personal Marketplace listing in the background. Instead, the app makes the manual
+steps obvious and repeatable.
 
 ## Current Limits
 
