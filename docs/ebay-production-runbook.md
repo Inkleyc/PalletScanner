@@ -150,6 +150,19 @@ EXPO_PUBLIC_SUPABASE_URL=https://YOUR_PROJECT.supabase.co
 EXPO_PUBLIC_SUPABASE_ANON_KEY=YOUR_SUPABASE_ANON_KEY
 ```
 
+Then verify the app environment:
+
+```bash
+npm run supabase:app-check
+```
+
+In Supabase Auth URL configuration, allow:
+
+- `palletscanner://settings`
+- The production web Settings URL, such as
+  `https://YOUR_WEB_APP_HOST/settings`
+- Any local web test URL you use, such as `http://localhost:8081/settings`
+
 Set `PALLETSCANNER_JWT_SECRET` on the backend to the Supabase project JWT
 secret so the backend can verify those access tokens.
 

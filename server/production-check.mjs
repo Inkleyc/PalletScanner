@@ -86,12 +86,12 @@ if (!hasValue("EBAY_CATEGORY_ID")) {
 }
 
 if (!hasValue("PALLETSCANNER_IDENTITY_PROVIDER")) {
-  warnings.push(
-    "Set PALLETSCANNER_IDENTITY_PROVIDER=supabase in production deployment notes/env.",
+  failures.push(
+    "PALLETSCANNER_IDENTITY_PROVIDER must be supabase.",
   );
 } else if (readEnv("PALLETSCANNER_IDENTITY_PROVIDER") !== "supabase") {
-  warnings.push(
-    "PALLETSCANNER_IDENTITY_PROVIDER is not supabase. Confirm the JWT issuer still uses HS256 with stable sub claims.",
+  failures.push(
+    "PALLETSCANNER_IDENTITY_PROVIDER must be supabase for this production path.",
   );
 }
 

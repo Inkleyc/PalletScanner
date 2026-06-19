@@ -13,6 +13,7 @@
     "ebay:production-check": "node ./server/production-check.mjs",
     "ebay:generate-secrets": "node ./server/generate-production-secrets.mjs",
     "ebay:generate-test-jwt": "node ./server/generate-test-jwt.mjs",
+    "supabase:app-check": "node ./scripts/check-supabase-app-env.mjs",
     "web:export": "expo export --platform web",
     "web:deploy": "eas deploy --environment preview --non-interactive"
   },
