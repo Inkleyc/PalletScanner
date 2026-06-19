@@ -11,6 +11,7 @@ import {
   updateInventoryItemEbayStatus,
   updateInventoryItemFacebookStatus,
 } from "@/lib/inventory-store";
+import { getPostingReadiness } from "@/lib/posting-validation";
 
 const FACEBOOK_LISTING_URLS = [
   "fb://marketplace/create/item",
@@ -220,6 +221,16 @@ export const openListingDraft = async (
     onProgress?: (message: string) => void;
   },
 ) => {
+  const readiness = getPostingReadiness(item, platform);
+  if (!readiness.ready) {
+    const platformLabel = platform === "facebook" ? "Facebook" : "eBay";
+    Alert.alert(
+      `${platformLabel} needs more details`,
+      readiness.errors.join("\n"),
+    );
+    return;
+  }
+
   if (platform === "ebay" && isEbayApiConfigured()) {
     updateInventoryItemEbayStatus(item.id, {
       status: "posting",

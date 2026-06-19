@@ -21,6 +21,10 @@ import { AppLayout, AppPalette } from "@/constants/app-palette";
 import { AppAlert as Alert } from "@/lib/app-alert";
 import { FREE_SCAN_LIMIT, getAppMeta, subscribeAppMeta } from "@/lib/app-meta";
 import {
+  openFacebookLogin,
+  openFacebookSelling,
+} from "@/lib/facebook-integration";
+import {
   clearRuntimeBearerToken,
   getAppAuth,
   setRuntimeBearerToken,
@@ -215,6 +219,28 @@ export default function SettingsScreen() {
     );
   };
 
+  const openFacebookAccountLogin = async () => {
+    try {
+      await openFacebookLogin();
+    } catch (error) {
+      Alert.alert(
+        "Unable to open Facebook",
+        error instanceof Error ? error.message : "Try opening Facebook manually.",
+      );
+    }
+  };
+
+  const openFacebookSellingPage = async () => {
+    try {
+      await openFacebookSelling();
+    } catch (error) {
+      Alert.alert(
+        "Unable to open Marketplace",
+        error instanceof Error ? error.message : "Try opening Facebook manually.",
+      );
+    }
+  };
+
   const connectEbayAccount = async () => {
     if (!isEbayApiConfigured()) {
       Alert.alert(
@@ -316,6 +342,35 @@ export default function SettingsScreen() {
           >
             <Text style={styles.noteSaveBtnText}>Save Facebook Note</Text>
           </TouchableOpacity>
+        </View>
+
+        <View style={styles.card}>
+          <Text style={styles.settingTitle}>Facebook Account</Text>
+          <Text style={styles.settingDescription}>
+            Facebook Marketplace uses whichever account is active in the
+            Facebook app or browser. Open Facebook here before posting if you
+            need to switch accounts.
+          </Text>
+          <View style={styles.facebookAccountActions}>
+            <TouchableOpacity
+              style={styles.facebookAccountBtn}
+              onPress={() => {
+                void openFacebookAccountLogin();
+              }}
+            >
+              <Text style={styles.facebookAccountBtnText}>Open Facebook Login</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.facebookAccountSecondaryBtn}
+              onPress={() => {
+                void openFacebookSellingPage();
+              }}
+            >
+              <Text style={styles.facebookAccountSecondaryBtnText}>
+                Open Selling Page
+              </Text>
+            </TouchableOpacity>
+          </View>
         </View>
 
         <View style={styles.card}>
@@ -716,6 +771,40 @@ const styles = StyleSheet.create({
   },
   noteSaveBtnText: {
     color: AppPalette.primaryOn,
+    fontSize: 13,
+    fontWeight: "700",
+  },
+  facebookAccountActions: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+    marginTop: 12,
+  },
+  facebookAccountBtn: {
+    flex: 1,
+    minWidth: 150,
+    backgroundColor: AppPalette.primaryStrong,
+    borderRadius: 8,
+    paddingVertical: 11,
+    alignItems: "center",
+  },
+  facebookAccountBtnText: {
+    color: AppPalette.primaryOn,
+    fontSize: 13,
+    fontWeight: "700",
+  },
+  facebookAccountSecondaryBtn: {
+    flex: 1,
+    minWidth: 150,
+    borderWidth: 1,
+    borderColor: AppPalette.borderStrong,
+    borderRadius: 8,
+    paddingVertical: 11,
+    alignItems: "center",
+    backgroundColor: AppPalette.surfaceMuted,
+  },
+  facebookAccountSecondaryBtnText: {
+    color: AppPalette.text,
     fontSize: 13,
     fontWeight: "700",
   },

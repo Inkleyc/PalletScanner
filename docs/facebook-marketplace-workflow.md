@@ -30,6 +30,35 @@ copy.
 This avoids accidentally treating an unfinished Marketplace draft as a completed
 listing.
 
+## Copy Behavior
+
+PalletScanner cannot autofill Facebook Marketplace fields directly. Facebook
+does not expose a reliable personal Marketplace create-listing API or field-fill
+intent for third-party apps.
+
+The app supports two copy modes:
+
+- `Copy All`: puts the full prepared listing on the clipboard. This is useful
+  for pasting into description or notes.
+- Field buttons: copy the exact value for a single Marketplace field, such as
+  title, price, description, condition, quantity, or the photo checklist.
+
+Use the field buttons when Facebook asks for a specific form field. Use `Copy
+All` only when you want the full package in one paste.
+
+## Facebook Account
+
+Facebook Marketplace uses the account currently active in the Facebook app or
+browser. PalletScanner cannot force Facebook to post under a different personal
+account.
+
+Settings includes Facebook account shortcuts:
+
+- `Open Facebook Login`
+- `Open Selling Page`
+
+Use these before posting if the device needs to switch Facebook accounts.
+
 ## Current Limits
 
 Facebook does not provide a normal public API for creating personal Marketplace

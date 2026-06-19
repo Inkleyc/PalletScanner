@@ -39,6 +39,10 @@ import {
   copyFacebookListingValue,
   openListingDraft,
 } from "@/lib/listing-posting";
+import {
+  getPostingReadiness,
+  getPostingReadinessMessage,
+} from "@/lib/posting-validation";
 import { AppLayout, AppPalette } from "@/constants/app-palette";
 
 const API_KEY = process.env.EXPO_PUBLIC_ANTHROPIC_API_KEY;
@@ -1047,6 +1051,31 @@ ${JSON.stringify(promptItems, null, 2)}`,
 
         {filteredItems.map((item: any) => (
           <View key={item.id} style={styles.itemCard}>
+            {(() => {
+              const facebookReadiness = getPostingReadiness(item, "facebook");
+              const ebayReadiness = getPostingReadiness(item, "ebay");
+              if (facebookReadiness.ready && ebayReadiness.ready) {
+                return null;
+              }
+
+              return (
+                <View style={styles.postingReadinessBox}>
+                  <Text style={styles.postingReadinessTitle}>
+                    Posting checks
+                  </Text>
+                  {!facebookReadiness.ready ? (
+                    <Text style={styles.postingReadinessText}>
+                      Facebook: {getPostingReadinessMessage(item, "facebook")}
+                    </Text>
+                  ) : null}
+                  {!ebayReadiness.ready ? (
+                    <Text style={styles.postingReadinessText}>
+                      eBay: {getPostingReadinessMessage(item, "ebay")}
+                    </Text>
+                  ) : null}
+                </View>
+              );
+            })()}
             {(item.listedPlatforms.length > 0 ||
               (item.facebookStatus === "opened" &&
                 !item.listedPlatforms.includes("facebook"))) && (
@@ -1663,6 +1692,26 @@ const styles = StyleSheet.create({
     shadowOpacity: 1,
     shadowRadius: 18,
     elevation: 2,
+  },
+  postingReadinessBox: {
+    marginHorizontal: 12,
+    marginTop: 12,
+    borderWidth: 1,
+    borderColor: "#efc0b9",
+    backgroundColor: AppPalette.dangerSoft,
+    borderRadius: 10,
+    padding: 10,
+  },
+  postingReadinessTitle: {
+    color: AppPalette.dangerStrong,
+    fontSize: 12,
+    fontWeight: "800",
+    marginBottom: 4,
+  },
+  postingReadinessText: {
+    color: AppPalette.dangerStrong,
+    fontSize: 12,
+    lineHeight: 17,
   },
   listedBannerRow: {
     flexDirection: "row",
