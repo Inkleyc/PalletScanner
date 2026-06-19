@@ -249,17 +249,19 @@ The app still never talks directly to eBay with secrets. Every customer uses the
 - The app should show connection status for the current user.
 - You need production eBay keys and likely eBay application review/approval depending on the APIs and scale.
 
-### The Big Backend Change Needed
+### Production Token Storage
 
-The current backend stores one token file:
+The backend now supports per-user encrypted token files under:
 
 ```text
-server-data/ebay-user-token.json
+server-data/ebay-connections/
 ```
 
-That works for local development with one seller. It does not work for distribution because every seller needs their own token record.
+The user ID comes from the authenticated app request. In local mode, the server
+can still read the legacy single-user token file for development only.
 
-For distribution, replace the single token file with a database table like:
+For a larger multi-user production system, the encrypted file store can later be
+replaced with a database table like:
 
 ```text
 users
@@ -287,7 +289,8 @@ inventory_items
   ebay_status
 ```
 
-The backend must know which app user is making the request, load that user's eBay refresh token, then create the listing for that seller.
+The backend must know which app user is making the request, load that user's
+eBay refresh token, then create the listing for that seller.
 
 ### Distribution Security Checklist
 
@@ -367,11 +370,10 @@ Goal: make this safe for multiple users.
 
 1. Host the backend on a stable HTTPS domain.
 2. Add app-user login.
-3. Move token storage from local file to encrypted per-user database storage.
-4. Add per-user eBay connection status.
-5. Add duplicate-listing protection.
-6. Add category/policy setup screens or a setup checklist.
-7. Submit or verify any production eBay app requirements.
+3. Choose and connect app-user login.
+4. Put the backend on persistent storage.
+5. Add category/policy setup screens or a setup checklist.
+6. Submit or verify any production eBay app requirements.
 
 ## Common Failure Points
 

@@ -93,10 +93,8 @@ credentials and policies.
    `server/ebay.production.env`.
 2. Generate strong secrets:
 
-   ```powershell
-   $bytes = New-Object byte[] 48
-   [Security.Cryptography.RandomNumberGenerator]::Fill($bytes)
-   [Convert]::ToBase64String($bytes)
+   ```bash
+   npm run ebay:generate-secrets
    ```
 
 3. Put different generated values in:
@@ -144,6 +142,17 @@ Authorization: Bearer USER_JWT
 ```
 
 The JWT must use HS256, include a stable `sub`, and optionally include `exp`.
+
+Until the final identity provider is connected, you can smoke-test production JWT
+mode with a short-lived token:
+
+```bash
+npm run ebay:generate-test-jwt -- production-test-user 24
+```
+
+Paste that token into `Settings -> eBay Integration -> Runtime App Auth`. This is
+for production backend testing only. A released app should get the JWT from real
+login at runtime.
 
 ## Credential Rotation
 

@@ -2,6 +2,7 @@ import * as FileSystem from "expo-file-system/legacy";
 import { Platform } from "react-native";
 
 import type { InventoryItem } from "@/lib/inventory-store";
+import { getRuntimeBearerToken } from "@/lib/app-auth";
 import { browserUriToDataUri } from "@/lib/web-storage";
 
 const EBAY_API_BASE_URL = process.env.EXPO_PUBLIC_EBAY_API_BASE_URL ?? "";
@@ -30,15 +31,15 @@ export const isEbayApiConfigured = () => Boolean(EBAY_API_BASE_URL.trim());
 
 export const getEbayApiBaseUrl = () => EBAY_API_BASE_URL.trim().replace(/\/$/, "");
 
-const getEbayRequestHeaders = () => ({
-  ...(APP_AUTH_TOKEN.trim()
-    ? { Authorization: `Bearer ${APP_AUTH_TOKEN.trim()}` }
-    : {}),
-});
+const getEbayRequestHeaders = async (): Promise<Record<string, string>> => {
+  const runtimeToken = await getRuntimeBearerToken();
+  const token = runtimeToken || APP_AUTH_TOKEN.trim();
+  return token ? { Authorization: `Bearer ${token}` } : {};
+};
 
 export const getEbayConnectUrl = async () => {
   const response = await fetch(`${getEbayApiBaseUrl()}/ebay/connect-url`, {
-    headers: getEbayRequestHeaders(),
+    headers: await getEbayRequestHeaders(),
   });
   if (!response.ok) {
     throw new Error(await response.text());
@@ -50,7 +51,7 @@ export const getEbayConnectUrl = async () => {
 export const disconnectEbayAccount = async () => {
   const response = await fetch(`${getEbayApiBaseUrl()}/ebay/disconnect`, {
     method: "POST",
-    headers: getEbayRequestHeaders(),
+    headers: await getEbayRequestHeaders(),
   });
   if (!response.ok) {
     throw new Error(await response.text());
@@ -66,7 +67,7 @@ export const endEbayListing = async (offerId: string) => {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      ...getEbayRequestHeaders(),
+      ...(await getEbayRequestHeaders()),
     },
     body: JSON.stringify({ offerId }),
   });
@@ -77,7 +78,7 @@ export const endEbayListing = async (offerId: string) => {
 
 export const getEbayConnectionStatus = async () => {
   const response = await fetch(`${getEbayApiBaseUrl()}/ebay/status`, {
-    headers: getEbayRequestHeaders(),
+    headers: await getEbayRequestHeaders(),
   });
   if (!response.ok) {
     throw new Error(await response.text());
@@ -142,7 +143,7 @@ export const createEbayListing = async (
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      ...getEbayRequestHeaders(),
+      ...(await getEbayRequestHeaders()),
     },
     body: JSON.stringify({
       itemId: item.id,

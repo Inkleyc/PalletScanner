@@ -11,6 +11,7 @@ import {
   StyleSheet,
   Switch,
   Text,
+  TextInput,
   TouchableOpacity,
   useWindowDimensions,
   View,
@@ -19,6 +20,12 @@ import {
 import { AppLayout, AppPalette } from "@/constants/app-palette";
 import { AppAlert as Alert } from "@/lib/app-alert";
 import { FREE_SCAN_LIMIT, getAppMeta, subscribeAppMeta } from "@/lib/app-meta";
+import {
+  clearRuntimeBearerToken,
+  getAppAuth,
+  setRuntimeBearerToken,
+  subscribeAppAuth,
+} from "@/lib/app-auth";
 import {
   disconnectEbayAccount,
   getEbayConnectUrl,
@@ -50,6 +57,12 @@ export default function SettingsScreen() {
     getAppSettings,
     getAppSettings,
   );
+  const appAuth = useSyncExternalStore(
+    subscribeAppAuth,
+    getAppAuth,
+    getAppAuth,
+  );
+  const [bearerTokenDraft, setBearerTokenDraft] = useState("");
   const { lifetimeScans, currentMonthScans } = useSyncExternalStore(
     subscribeAppMeta,
     getAppMeta,
@@ -101,6 +114,29 @@ export default function SettingsScreen() {
   useEffect(() => {
     void refreshEbayStatus();
   }, [refreshEbayStatus]);
+
+  useEffect(() => {
+    setBearerTokenDraft(appAuth.bearerToken);
+  }, [appAuth.bearerToken]);
+
+  const saveBearerToken = async () => {
+    setRuntimeBearerToken(bearerTokenDraft);
+    Alert.alert(
+      "App auth token saved",
+      "Future eBay requests will use this runtime bearer token.",
+    );
+    await refreshEbayStatus();
+  };
+
+  const clearBearerToken = async () => {
+    clearRuntimeBearerToken();
+    setBearerTokenDraft("");
+    Alert.alert(
+      "App auth token cleared",
+      "The app will fall back to any preview token baked into the build.",
+    );
+    await refreshEbayStatus();
+  };
 
   const connectEbayAccount = async () => {
     if (!isEbayApiConfigured()) {
@@ -215,6 +251,44 @@ export default function SettingsScreen() {
             Set `EXPO_PUBLIC_EBAY_API_BASE_URL` in your environment to point the
             app at a backend that handles eBay OAuth and Sell API calls.
           </Text>
+          <View style={styles.authBox}>
+            <Text style={styles.authBoxTitle}>Runtime App Auth</Text>
+            <Text style={styles.integrationHint}>
+              Production backends require a user bearer token. Paste a JWT here
+              for production testing until the final login provider is wired in.
+            </Text>
+            <TextInput
+              style={styles.authInput}
+              value={bearerTokenDraft}
+              onChangeText={setBearerTokenDraft}
+              placeholder="Bearer token / JWT"
+              placeholderTextColor={AppPalette.textSoft}
+              autoCapitalize="none"
+              autoCorrect={false}
+              multiline
+            />
+            <Text style={styles.integrationHint}>
+              Runtime token: {appAuth.bearerToken ? "Saved" : "Not saved"}
+            </Text>
+            <View style={styles.authActionRow}>
+              <TouchableOpacity
+                style={styles.authSaveBtn}
+                onPress={() => {
+                  void saveBearerToken();
+                }}
+              >
+                <Text style={styles.authSaveBtnText}>Save Token</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.authClearBtn}
+                onPress={() => {
+                  void clearBearerToken();
+                }}
+              >
+                <Text style={styles.authClearBtnText}>Clear</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
           <TouchableOpacity
             style={styles.connectBtn}
             onPress={() => {
@@ -358,6 +432,67 @@ const styles = StyleSheet.create({
     color: AppPalette.dangerStrong,
     lineHeight: 18,
     marginTop: 8,
+  },
+  authBox: {
+    marginTop: 14,
+    borderWidth: 1,
+    borderColor: AppPalette.border,
+    backgroundColor: AppPalette.surfaceMuted,
+    borderRadius: 10,
+    padding: 12,
+  },
+  authBoxTitle: {
+    color: AppPalette.text,
+    fontSize: 13,
+    fontWeight: "700",
+    marginBottom: 2,
+  },
+  authInput: {
+    marginTop: 10,
+    minHeight: 76,
+    borderWidth: 1,
+    borderColor: AppPalette.borderStrong,
+    borderRadius: 8,
+    backgroundColor: AppPalette.surface,
+    color: AppPalette.text,
+    paddingHorizontal: 10,
+    paddingVertical: 9,
+    fontSize: 12,
+    lineHeight: 17,
+    textAlignVertical: "top",
+  },
+  authActionRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+    marginTop: 10,
+  },
+  authSaveBtn: {
+    flex: 1,
+    minWidth: 120,
+    backgroundColor: AppPalette.primaryStrong,
+    borderRadius: 8,
+    paddingVertical: 10,
+    alignItems: "center",
+  },
+  authSaveBtnText: {
+    color: AppPalette.primaryOn,
+    fontSize: 13,
+    fontWeight: "700",
+  },
+  authClearBtn: {
+    minWidth: 92,
+    borderWidth: 1,
+    borderColor: AppPalette.borderStrong,
+    borderRadius: 8,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    alignItems: "center",
+  },
+  authClearBtnText: {
+    color: AppPalette.text,
+    fontSize: 13,
+    fontWeight: "700",
   },
   progressTrack: {
     marginTop: 12,
