@@ -13,7 +13,8 @@
 
 ## Code-Level Production Prep
 
-1. Create a Supabase project.
+1. Create a Supabase project using
+   [docs/supabase-setup-guide.md](./supabase-setup-guide.md).
 
 2. In Supabase, collect:
    - Project URL
