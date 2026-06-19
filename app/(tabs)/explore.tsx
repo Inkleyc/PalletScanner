@@ -43,6 +43,11 @@ import {
   getPostingReadiness,
   getPostingReadinessMessage,
 } from "@/lib/posting-validation";
+import {
+  getItemNextAction,
+  getItemPhotoScore,
+  getListingConfidence,
+} from "@/lib/workflow-guidance";
 import { AppLayout, AppPalette } from "@/constants/app-palette";
 
 const API_KEY = process.env.EXPO_PUBLIC_ANTHROPIC_API_KEY;
@@ -1057,8 +1062,41 @@ ${JSON.stringify(promptItems, null, 2)}`,
           </View>
         )}
 
-        {filteredItems.map((item: any) => (
+        {filteredItems.map((item: any) => {
+          const nextAction = getItemNextAction(item);
+          const photoScore = getItemPhotoScore(item);
+          const listingConfidence = getListingConfidence(item);
+
+          return (
           <View key={item.id} style={styles.itemCard}>
+            <View style={styles.nextActionBox}>
+              <View style={styles.nextActionTextBlock}>
+                <Text style={styles.nextActionEyebrow}>NEXT ACTION</Text>
+                <Text style={styles.nextActionTitle}>{nextAction.label}</Text>
+                <Text style={styles.nextActionDetail}>{nextAction.detail}</Text>
+              </View>
+              <View
+                style={[
+                  styles.nextActionPill,
+                  nextAction.tone === "danger" && styles.nextActionPillDanger,
+                  nextAction.tone === "warning" && styles.nextActionPillWarning,
+                  nextAction.tone === "success" && styles.nextActionPillSuccess,
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.nextActionPillText,
+                    nextAction.tone === "danger" && styles.nextActionPillTextDanger,
+                    nextAction.tone === "warning" &&
+                      styles.nextActionPillTextWarning,
+                    nextAction.tone === "success" &&
+                      styles.nextActionPillTextSuccess,
+                  ]}
+                >
+                  {listingConfidence.label}
+                </Text>
+              </View>
+            </View>
             {(() => {
               const facebookReadiness = getPostingReadiness(item, "facebook");
               const ebayReadiness = getPostingReadiness(item, "ebay");
@@ -1131,6 +1169,33 @@ ${JSON.stringify(promptItems, null, 2)}`,
                   <Text style={styles.quantityBadge}>Qty {item.quantity ?? 1}</Text>
                   <Text style={styles.floorBadge}>Floor ${item.floor_price}</Text>
                   <Text style={styles.conditionBadge}>{item.condition}</Text>
+                </View>
+                <View style={styles.guidanceRow}>
+                  <Text
+                    style={[
+                      styles.guidancePill,
+                      photoScore.tone === "danger" && styles.guidancePillDanger,
+                      photoScore.tone === "warning" &&
+                        styles.guidancePillWarning,
+                      photoScore.tone === "success" &&
+                        styles.guidancePillSuccess,
+                    ]}
+                  >
+                    {photoScore.label}
+                  </Text>
+                  <Text
+                    style={[
+                      styles.guidancePill,
+                      listingConfidence.tone === "danger" &&
+                        styles.guidancePillDanger,
+                      listingConfidence.tone === "warning" &&
+                        styles.guidancePillWarning,
+                      listingConfidence.tone === "success" &&
+                        styles.guidancePillSuccess,
+                    ]}
+                  >
+                    {listingConfidence.detail}
+                  </Text>
                 </View>
                 <View style={styles.metaRow}>
                   <Text style={styles.platformText}>{item.best_platform}</Text>
@@ -1371,7 +1436,8 @@ ${JSON.stringify(promptItems, null, 2)}`,
               </View>
             )}
           </View>
-        ))}
+          );
+        })}
         </View>
       </ScrollView>
       <Modal
@@ -1715,6 +1781,62 @@ const styles = StyleSheet.create({
     shadowRadius: 18,
     elevation: 2,
   },
+  nextActionBox: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    gap: 12,
+    padding: 12,
+    backgroundColor: AppPalette.surfaceTint,
+    borderBottomWidth: 1,
+    borderBottomColor: AppPalette.border,
+  },
+  nextActionTextBlock: { flex: 1 },
+  nextActionEyebrow: {
+    color: AppPalette.textSoft,
+    fontSize: 10,
+    fontWeight: "800",
+    marginBottom: 3,
+  },
+  nextActionTitle: {
+    color: AppPalette.text,
+    fontSize: 15,
+    fontWeight: "800",
+  },
+  nextActionDetail: {
+    color: AppPalette.textMuted,
+    fontSize: 12,
+    lineHeight: 17,
+    marginTop: 3,
+  },
+  nextActionPill: {
+    alignSelf: "flex-start",
+    borderRadius: 999,
+    backgroundColor: AppPalette.infoSoft,
+    borderWidth: 1,
+    borderColor: "#c9d9f1",
+    paddingHorizontal: 9,
+    paddingVertical: 5,
+  },
+  nextActionPillDanger: {
+    backgroundColor: AppPalette.dangerSoft,
+    borderColor: "#efc0b9",
+  },
+  nextActionPillWarning: {
+    backgroundColor: AppPalette.warningSoft,
+    borderColor: "#f4d7a2",
+  },
+  nextActionPillSuccess: {
+    backgroundColor: AppPalette.successSoft,
+    borderColor: "#cfe7dc",
+  },
+  nextActionPillText: {
+    color: AppPalette.info,
+    fontSize: 11,
+    fontWeight: "800",
+  },
+  nextActionPillTextDanger: { color: AppPalette.dangerStrong },
+  nextActionPillTextWarning: { color: AppPalette.warning },
+  nextActionPillTextSuccess: { color: AppPalette.success },
   postingReadinessBox: {
     marginHorizontal: 12,
     marginTop: 12,
@@ -1784,6 +1906,34 @@ const styles = StyleSheet.create({
   itemName: { fontSize: 16, fontWeight: "700", color: AppPalette.text, marginBottom: 4 },
   palletTag: { fontSize: 12, color: AppPalette.textMuted, marginBottom: 6 },
   badgeRow: { flexDirection: "row", gap: 6, marginBottom: 4 },
+  guidanceRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 6,
+    marginTop: 4,
+  },
+  guidancePill: {
+    backgroundColor: AppPalette.infoSoft,
+    color: AppPalette.info,
+    fontSize: 11,
+    fontWeight: "700",
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 999,
+    overflow: "hidden",
+  },
+  guidancePillDanger: {
+    backgroundColor: AppPalette.dangerSoft,
+    color: AppPalette.dangerStrong,
+  },
+  guidancePillWarning: {
+    backgroundColor: AppPalette.warningSoft,
+    color: AppPalette.warning,
+  },
+  guidancePillSuccess: {
+    backgroundColor: AppPalette.successSoft,
+    color: AppPalette.success,
+  },
   metaRow: {
     flexDirection: "row",
     justifyContent: "space-between",

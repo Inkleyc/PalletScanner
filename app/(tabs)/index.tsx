@@ -13,12 +13,15 @@ import {
 } from "react-native";
 
 import {
+  getInventory,
   getActivePallet,
   getNextDefaultPalletName,
+  getPallets,
   createPalletSession,
   subscribeInventory,
 } from "@/lib/inventory-store";
 import { AppLayout, AppPalette } from "@/constants/app-palette";
+import { getTodayWork, getWorkflowStats } from "@/lib/workflow-guidance";
 
 export default function HomeScreen() {
   const router = useRouter();
@@ -31,6 +34,18 @@ export default function HomeScreen() {
     getActivePallet,
     getActivePallet,
   );
+  const items = useSyncExternalStore(
+    subscribeInventory,
+    getInventory,
+    getInventory,
+  );
+  const pallets = useSyncExternalStore(
+    subscribeInventory,
+    getPallets,
+    getPallets,
+  );
+  const workflowStats = getWorkflowStats(items);
+  const todayWork = getTodayWork(items, pallets);
 
   const openCreatePalletModal = () => {
     setNewPalletName(getNextDefaultPalletName());
@@ -73,6 +88,51 @@ export default function HomeScreen() {
                 {activePallet ? "Create New Pallet" : "Create Your First Pallet"}
               </Text>
             </TouchableOpacity>
+          </View>
+
+          <View style={styles.todayCard}>
+            <View style={styles.todayHeader}>
+              <View>
+                <Text style={styles.cardEyebrowDark}>TODAY&apos;S WORK</Text>
+                <Text style={styles.todayTitle}>
+                  {todayWork[0]?.label ?? "Work queue is clear"}
+                </Text>
+              </View>
+              <TouchableOpacity
+                style={styles.todayQueueBtn}
+                onPress={() => router.push("/facebook" as never)}
+              >
+                <Text style={styles.todayQueueBtnText}>Facebook Queue</Text>
+              </TouchableOpacity>
+            </View>
+            <Text style={styles.todayDetail}>
+              {todayWork[0]?.detail ?? "Capture more inventory when you are ready."}
+            </Text>
+            <View style={styles.metricGrid}>
+              <View style={styles.metricBox}>
+                <Text style={styles.metricLabel}>Items</Text>
+                <Text style={styles.metricValue}>{workflowStats.totalItems}</Text>
+              </View>
+              <View style={styles.metricBox}>
+                <Text style={styles.metricLabel}>Ready eBay</Text>
+                <Text style={styles.metricValue}>{workflowStats.readyForEbay}</Text>
+              </View>
+              <View style={styles.metricBox}>
+                <Text style={styles.metricLabel}>Ready FB</Text>
+                <Text style={styles.metricValue}>
+                  {workflowStats.readyForFacebook}
+                </Text>
+              </View>
+            </View>
+            {todayWork.slice(1).map((work) => (
+              <View key={`${work.action}-${work.label}`} style={styles.workRow}>
+                <View style={[styles.workDot, styles[`workDot_${work.tone}`]]} />
+                <View style={styles.workCopy}>
+                  <Text style={styles.workLabel}>{work.label}</Text>
+                  <Text style={styles.workDetail}>{work.detail}</Text>
+                </View>
+              </View>
+            ))}
           </View>
 
           <View style={styles.actionsCard}>
@@ -176,6 +236,12 @@ const styles = StyleSheet.create({
     lineHeight: 20,
     marginBottom: 16,
   },
+  cardEyebrowDark: {
+    fontSize: 11,
+    fontWeight: "700",
+    color: AppPalette.textSoft,
+    marginBottom: 6,
+  },
   cardAction: {
     backgroundColor: AppPalette.primaryOn,
     borderRadius: 10,
@@ -190,6 +256,100 @@ const styles = StyleSheet.create({
     borderColor: AppPalette.border,
     padding: 16,
     marginBottom: 16,
+  },
+  todayCard: {
+    backgroundColor: AppPalette.surface,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: AppPalette.border,
+    padding: 16,
+    marginBottom: 16,
+  },
+  todayHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    gap: 12,
+    alignItems: "flex-start",
+  },
+  todayTitle: {
+    fontSize: 20,
+    fontWeight: "800",
+    color: AppPalette.text,
+    lineHeight: 25,
+  },
+  todayDetail: {
+    color: AppPalette.textMuted,
+    fontSize: 13,
+    lineHeight: 19,
+    marginTop: 8,
+  },
+  todayQueueBtn: {
+    backgroundColor: AppPalette.primarySoft,
+    borderWidth: 1,
+    borderColor: "#cfdeed",
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+  },
+  todayQueueBtnText: {
+    color: AppPalette.primary,
+    fontSize: 12,
+    fontWeight: "800",
+  },
+  metricGrid: {
+    flexDirection: "row",
+    gap: 8,
+    marginTop: 14,
+    marginBottom: 12,
+  },
+  metricBox: {
+    flex: 1,
+    backgroundColor: AppPalette.surfaceMuted,
+    borderWidth: 1,
+    borderColor: AppPalette.border,
+    borderRadius: 10,
+    padding: 10,
+  },
+  metricLabel: {
+    color: AppPalette.textSoft,
+    fontSize: 11,
+    fontWeight: "800",
+    marginBottom: 4,
+  },
+  metricValue: {
+    color: AppPalette.text,
+    fontSize: 22,
+    fontWeight: "800",
+  },
+  workRow: {
+    flexDirection: "row",
+    gap: 10,
+    alignItems: "flex-start",
+    paddingTop: 10,
+    borderTopWidth: 1,
+    borderTopColor: AppPalette.border,
+  },
+  workDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    marginTop: 4,
+  },
+  workDot_danger: { backgroundColor: AppPalette.dangerStrong },
+  workDot_warning: { backgroundColor: AppPalette.warning },
+  workDot_info: { backgroundColor: AppPalette.info },
+  workDot_success: { backgroundColor: AppPalette.success },
+  workCopy: { flex: 1 },
+  workLabel: {
+    color: AppPalette.text,
+    fontSize: 13,
+    fontWeight: "800",
+  },
+  workDetail: {
+    color: AppPalette.textMuted,
+    fontSize: 12,
+    lineHeight: 17,
+    marginTop: 2,
   },
   secondaryAction: {
     backgroundColor: AppPalette.surfaceMuted,

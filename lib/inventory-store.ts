@@ -37,7 +37,7 @@ type InventoryItem = {
   ebayProgress?: string;
   ebayLastError?: string;
   ebayUpdatedAt?: number;
-  facebookStatus?: "idle" | "opened" | "listed" | "error";
+  facebookStatus?: "idle" | "opened" | "listed" | "skipped" | "error";
   facebookListingUrl?: string;
   facebookLastError?: string;
   facebookUpdatedAt?: number;
@@ -180,6 +180,7 @@ const normalizeInventoryItem = (item: InventoryItem): InventoryItem => ({
   facebookStatus:
     item.facebookStatus === "opened" ||
     item.facebookStatus === "listed" ||
+    item.facebookStatus === "skipped" ||
     item.facebookStatus === "error"
       ? item.facebookStatus
       : item.listedPlatforms?.includes("facebook")
@@ -835,7 +836,7 @@ export const unmarkInventoryItemListed = (
 export const updateInventoryItemFacebookStatus = (
   id: number,
   update: {
-    status: "idle" | "opened" | "listed" | "error";
+    status: "idle" | "opened" | "listed" | "skipped" | "error";
     error?: string;
   },
 ) => {

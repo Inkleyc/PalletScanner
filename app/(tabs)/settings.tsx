@@ -53,11 +53,13 @@ import {
   subscribeAppSettings,
 } from "@/lib/app-settings";
 import {
+  getInventory,
   getResetBackupSummary,
   resetAllPalletSessions,
   restoreResetBackup,
   subscribeInventory,
 } from "@/lib/inventory-store";
+import { getWorkflowStats } from "@/lib/workflow-guidance";
 
 export default function SettingsScreen() {
   const { width } = useWindowDimensions();
@@ -96,6 +98,11 @@ export default function SettingsScreen() {
     getResetBackupSummary,
     getResetBackupSummary,
   );
+  const inventoryItems = useSyncExternalStore(
+    subscribeInventory,
+    getInventory,
+    getInventory,
+  );
   const resetBackupTimeLabel = useMemo(() => {
     if (!resetBackup) {
       return null;
@@ -111,6 +118,43 @@ export default function SettingsScreen() {
     return `${remainingHours} hour${remainingHours === 1 ? "" : "s"} left`;
   }, [resetBackup]);
   const scanUsageProgress = Math.min(currentMonthScans / FREE_SCAN_LIMIT, 1);
+  const workflowStats = getWorkflowStats(inventoryItems);
+  const setupChecklist = [
+    {
+      label: "eBay backend",
+      ready: isEbayApiConfigured(),
+      detail: isEbayApiConfigured()
+        ? "Configured"
+        : "Set EXPO_PUBLIC_EBAY_API_BASE_URL",
+    },
+    {
+      label: "eBay seller auth",
+      ready: Boolean(ebayStatus?.connected),
+      detail: ebayStatus?.connected ? "Connected" : "Connect the seller account",
+    },
+    {
+      label: "Facebook account",
+      ready: true,
+      detail: "Uses the active Facebook app or browser session",
+    },
+    {
+      label: "App login",
+      ready: !isSupabaseConfigured() || supabaseAuth.signedIn,
+      detail: !isSupabaseConfigured()
+        ? "Optional until Supabase is enabled"
+        : supabaseAuth.signedIn
+          ? "Signed in"
+          : "Send a magic link",
+    },
+    {
+      label: "Listing data",
+      ready: workflowStats.needsCopyFixes === 0 && workflowStats.needsPhotos === 0,
+      detail:
+        workflowStats.needsCopyFixes === 0 && workflowStats.needsPhotos === 0
+          ? "Current inventory is post-ready"
+          : `${workflowStats.needsCopyFixes} need checks, ${workflowStats.needsPhotos} need photos`,
+    },
+  ];
 
   const refreshEbayStatus = useCallback(async () => {
     if (!isEbayApiConfigured()) {
@@ -281,6 +325,41 @@ export default function SettingsScreen() {
       <View style={[styles.innerContent, isLargeLayout && styles.innerContentWide]}>
         <Text style={styles.title}>Settings</Text>
         <Text style={styles.subtitle}>Choose how saving and posting should work</Text>
+
+        <View style={styles.card}>
+          <Text style={styles.settingTitle}>Setup Checklist</Text>
+          <Text style={styles.settingDescription}>
+            A quick health check for the pieces that affect posting and daily use.
+          </Text>
+          <View style={styles.checklist}>
+            {setupChecklist.map((item) => (
+              <View key={item.label} style={styles.checklistRow}>
+                <View
+                  style={[
+                    styles.checklistDot,
+                    item.ready
+                      ? styles.checklistDotReady
+                      : styles.checklistDotAttention,
+                  ]}
+                />
+                <View style={styles.checklistCopy}>
+                  <Text style={styles.checklistLabel}>{item.label}</Text>
+                  <Text style={styles.checklistDetail}>{item.detail}</Text>
+                </View>
+                <Text
+                  style={[
+                    styles.checklistStatus,
+                    item.ready
+                      ? styles.checklistStatusReady
+                      : styles.checklistStatusAttention,
+                  ]}
+                >
+                  {item.ready ? "Ready" : "Check"}
+                </Text>
+              </View>
+            ))}
+          </View>
+        </View>
 
         <View style={styles.card}>
           <Text style={styles.settingTitle}>Scan Usage</Text>
@@ -627,6 +706,47 @@ const styles = StyleSheet.create({
     lineHeight: 18,
     marginTop: 8,
   },
+  checklist: {
+    marginTop: 12,
+    borderWidth: 1,
+    borderColor: AppPalette.border,
+    borderRadius: 10,
+    overflow: "hidden",
+  },
+  checklistRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    padding: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: AppPalette.border,
+    backgroundColor: AppPalette.surfaceMuted,
+  },
+  checklistDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+  },
+  checklistDotReady: { backgroundColor: AppPalette.success },
+  checklistDotAttention: { backgroundColor: AppPalette.warning },
+  checklistCopy: { flex: 1 },
+  checklistLabel: {
+    color: AppPalette.text,
+    fontSize: 13,
+    fontWeight: "800",
+  },
+  checklistDetail: {
+    color: AppPalette.textMuted,
+    fontSize: 12,
+    lineHeight: 17,
+    marginTop: 2,
+  },
+  checklistStatus: {
+    fontSize: 12,
+    fontWeight: "800",
+  },
+  checklistStatusReady: { color: AppPalette.success },
+  checklistStatusAttention: { color: AppPalette.warning },
   integrationError: {
     fontSize: 12,
     color: AppPalette.dangerStrong,

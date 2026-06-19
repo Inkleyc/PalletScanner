@@ -51,8 +51,16 @@ export default function FacebookQueueScreen() {
   const queueItems = useMemo(
     () =>
       items
-        .filter((item) => !item.listedPlatforms.includes("facebook"))
+        .filter(
+          (item) =>
+            !item.listedPlatforms.includes("facebook") &&
+            item.facebookStatus !== "skipped",
+        )
         .sort((a, b) => b.id - a.id),
+    [items],
+  );
+  const skippedItems = useMemo(
+    () => items.filter((item) => item.facebookStatus === "skipped"),
     [items],
   );
   const draftItems = useMemo(
@@ -133,6 +141,20 @@ export default function FacebookQueueScreen() {
     );
   };
 
+  const skipForNow = (itemId: number) => {
+    updateInventoryItemFacebookStatus(itemId, { status: "skipped" });
+    setActiveIndex((current) =>
+      Math.min(current, Math.max(queueItems.length - 2, 0)),
+    );
+  };
+
+  const restoreSkipped = () => {
+    skippedItems.forEach((item) => {
+      updateInventoryItemFacebookStatus(item.id, { status: "idle" });
+    });
+    setActiveIndex(0);
+  };
+
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       <View style={[styles.innerContent, isLargeLayout && styles.innerContentWide]}>
@@ -154,6 +176,14 @@ export default function FacebookQueueScreen() {
             <Text style={styles.metricLabel}>Missing URLs</Text>
             <Text style={styles.metricValue}>{listedMissingUrlItems.length}</Text>
           </View>
+          <TouchableOpacity
+            style={styles.metricBox}
+            onPress={restoreSkipped}
+            disabled={skippedItems.length === 0}
+          >
+            <Text style={styles.metricLabel}>Skipped</Text>
+            <Text style={styles.metricValue}>{skippedItems.length}</Text>
+          </TouchableOpacity>
         </View>
 
         {!activeItem ? (
@@ -318,6 +348,12 @@ export default function FacebookQueueScreen() {
                 onPress={() => moveQueue("previous")}
               >
                 <Text style={styles.secondaryBtnText}>Previous</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.secondaryBtn}
+                onPress={() => skipForNow(activeItem.id)}
+              >
+                <Text style={styles.secondaryBtnText}>Skip for Now</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={styles.primarySmallBtn}
