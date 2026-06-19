@@ -142,6 +142,16 @@ Authorization: Bearer USER_JWT
 ```
 
 The JWT must use HS256, include a stable `sub`, and optionally include `exp`.
+Supabase Auth is the app's first supported login path. Put these values in the
+Expo/EAS app environment:
+
+```env
+EXPO_PUBLIC_SUPABASE_URL=https://YOUR_PROJECT.supabase.co
+EXPO_PUBLIC_SUPABASE_ANON_KEY=YOUR_SUPABASE_ANON_KEY
+```
+
+Set `PALLETSCANNER_JWT_SECRET` on the backend to the Supabase project JWT
+secret so the backend can verify those access tokens.
 
 Until the final identity provider is connected, you can smoke-test production JWT
 mode with a short-lived token:

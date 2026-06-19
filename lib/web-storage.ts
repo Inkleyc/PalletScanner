@@ -38,6 +38,19 @@ export const writeWebStorage = async (key: string, value: string) => {
   });
 };
 
+export const deleteWebStorage = async (key: string) => {
+  const database = await openDatabase();
+  return new Promise<void>((resolve, reject) => {
+    const transaction = database.transaction(storeName, "readwrite");
+    transaction.objectStore(storeName).delete(key);
+    transaction.oncomplete = () => {
+      database.close();
+      resolve();
+    };
+    transaction.onerror = () => reject(transaction.error);
+  });
+};
+
 export const browserUriToDataUri = async (uri: string) => {
   if (uri.startsWith("data:") || uri.startsWith("https://")) {
     return uri;

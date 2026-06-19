@@ -67,9 +67,27 @@ These cannot be completed from the repository:
 
 ## Recommended Auth Path
 
-Use the current runtime token field only for production smoke tests. For real
-users, connect a hosted auth provider and have the app obtain a JWT at runtime.
-The backend expects HS256 JWTs with:
+Supabase Auth is wired into the app as the recommended first production auth
+provider. Add these public values to the Expo/EAS app environment:
+
+```env
+EXPO_PUBLIC_SUPABASE_URL=https://YOUR_PROJECT.supabase.co
+EXPO_PUBLIC_SUPABASE_ANON_KEY=YOUR_SUPABASE_ANON_KEY
+```
+
+Then set the backend JWT secret to the Supabase project JWT secret:
+
+```env
+PALLETSCANNER_AUTH_MODE=jwt
+PALLETSCANNER_JWT_SECRET=YOUR_SUPABASE_PROJECT_JWT_SECRET
+```
+
+Supabase access tokens use the signed-in user's stable ID as `sub`, which lets
+the eBay backend store one encrypted eBay connection per app user.
+
+Use the manual runtime token field only for production smoke tests. For real
+users, the Supabase login card in Settings obtains the JWT at runtime. The
+backend expects HS256 JWTs with:
 
 ```json
 {
@@ -78,5 +96,4 @@ The backend expects HS256 JWTs with:
 }
 ```
 
-Once login is connected, remove any shared preview token from production app
-build environments.
+Remove any shared preview token from production app build environments.

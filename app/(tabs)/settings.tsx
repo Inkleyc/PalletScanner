@@ -27,6 +27,15 @@ import {
   subscribeAppAuth,
 } from "@/lib/app-auth";
 import {
+  getSupabaseAuthSnapshot,
+  handleSupabaseCallbackUrl,
+  hydrateSupabaseAuth,
+  isSupabaseConfigured,
+  sendSupabaseMagicLink,
+  signOutSupabase,
+  subscribeSupabaseAuth,
+} from "@/lib/supabase-auth";
+import {
   disconnectEbayAccount,
   getEbayConnectUrl,
   getEbayConnectionStatus,
@@ -63,6 +72,13 @@ export default function SettingsScreen() {
     getAppAuth,
   );
   const [bearerTokenDraft, setBearerTokenDraft] = useState("");
+  const [loginEmail, setLoginEmail] = useState("");
+  const [isSendingLoginLink, setIsSendingLoginLink] = useState(false);
+  const supabaseAuth = useSyncExternalStore(
+    subscribeSupabaseAuth,
+    getSupabaseAuthSnapshot,
+    getSupabaseAuthSnapshot,
+  );
   const { lifetimeScans, currentMonthScans } = useSyncExternalStore(
     subscribeAppMeta,
     getAppMeta,
@@ -116,6 +132,29 @@ export default function SettingsScreen() {
   }, [refreshEbayStatus]);
 
   useEffect(() => {
+    void hydrateSupabaseAuth();
+    void Linking.getInitialURL().then((url) => {
+      void handleSupabaseCallbackUrl(url).then((handled) => {
+        if (handled) {
+          void refreshEbayStatus();
+        }
+      });
+    });
+
+    const subscription = Linking.addEventListener("url", ({ url }) => {
+      void handleSupabaseCallbackUrl(url).then((handled) => {
+        if (handled) {
+          void refreshEbayStatus();
+        }
+      });
+    });
+
+    return () => {
+      subscription.remove();
+    };
+  }, [refreshEbayStatus]);
+
+  useEffect(() => {
     setBearerTokenDraft(appAuth.bearerToken);
   }, [appAuth.bearerToken]);
 
@@ -135,6 +174,30 @@ export default function SettingsScreen() {
       "App auth token cleared",
       "The app will fall back to any preview token baked into the build.",
     );
+    await refreshEbayStatus();
+  };
+
+  const sendLoginLink = async () => {
+    setIsSendingLoginLink(true);
+    try {
+      await sendSupabaseMagicLink(loginEmail);
+      Alert.alert(
+        "Check your email",
+        "Open the magic link on this device to sign in.",
+      );
+    } catch (error) {
+      Alert.alert(
+        "Unable to send login link",
+        error instanceof Error ? error.message : "Try again in a moment.",
+      );
+    } finally {
+      setIsSendingLoginLink(false);
+    }
+  };
+
+  const signOut = async () => {
+    await signOutSupabase();
+    Alert.alert("Signed out", "The saved app login session was cleared.");
     await refreshEbayStatus();
   };
 
@@ -252,10 +315,56 @@ export default function SettingsScreen() {
             app at a backend that handles eBay OAuth and Sell API calls.
           </Text>
           <View style={styles.authBox}>
-            <Text style={styles.authBoxTitle}>Runtime App Auth</Text>
+            <Text style={styles.authBoxTitle}>App Login</Text>
+            <Text style={styles.integrationHint}>
+              Supabase login:{" "}
+              {!isSupabaseConfigured()
+                ? "Not configured"
+                : supabaseAuth.signedIn
+                  ? `Signed in${supabaseAuth.email ? ` as ${supabaseAuth.email}` : ""}`
+                  : "Ready"}
+            </Text>
+            {supabaseAuth.configured && !supabaseAuth.signedIn ? (
+              <>
+                <TextInput
+                  style={styles.authInput}
+                  value={loginEmail}
+                  onChangeText={setLoginEmail}
+                  placeholder="Email address"
+                  placeholderTextColor={AppPalette.textSoft}
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  keyboardType="email-address"
+                />
+                <TouchableOpacity
+                  style={styles.authSaveBtn}
+                  disabled={isSendingLoginLink}
+                  onPress={() => {
+                    void sendLoginLink();
+                  }}
+                >
+                  <Text style={styles.authSaveBtnText}>
+                    {isSendingLoginLink ? "Sending..." : "Send Login Link"}
+                  </Text>
+                </TouchableOpacity>
+              </>
+            ) : null}
+            {supabaseAuth.signedIn ? (
+              <TouchableOpacity
+                style={styles.authClearBtn}
+                onPress={() => {
+                  void signOut();
+                }}
+              >
+                <Text style={styles.authClearBtnText}>Sign Out</Text>
+              </TouchableOpacity>
+            ) : null}
+          </View>
+          <View style={styles.authBox}>
+            <Text style={styles.authBoxTitle}>Runtime App Auth Token</Text>
             <Text style={styles.integrationHint}>
               Production backends require a user bearer token. Paste a JWT here
-              for production testing until the final login provider is wired in.
+              for production testing or let app login fill it automatically.
             </Text>
             <TextInput
               style={styles.authInput}
