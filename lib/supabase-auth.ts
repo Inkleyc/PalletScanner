@@ -35,6 +35,12 @@ const listeners = new Set<SupabaseAuthListener>();
 let client: SupabaseClient | null = null;
 let currentSession: Session | null = null;
 let initialized = false;
+let authSnapshot: SupabaseAuthSnapshot = {
+  configured: Boolean(SUPABASE_URL.trim() && SUPABASE_ANON_KEY.trim()),
+  email: null,
+  userId: null,
+  signedIn: false,
+};
 
 const notify = () => listeners.forEach((listener) => listener());
 
@@ -80,6 +86,12 @@ export const isSupabaseConfigured = () =>
 
 const syncSession = (session: Session | null) => {
   currentSession = session;
+  authSnapshot = {
+    configured: isSupabaseConfigured(),
+    email: currentSession?.user.email ?? null,
+    userId: currentSession?.user.id ?? null,
+    signedIn: Boolean(currentSession?.access_token),
+  };
   if (session?.access_token) {
     setRuntimeBearerToken(session.access_token);
   } else {
@@ -125,12 +137,7 @@ export const hydrateSupabaseAuth = async () => {
   syncSession(data.session);
 };
 
-export const getSupabaseAuthSnapshot = (): SupabaseAuthSnapshot => ({
-  configured: isSupabaseConfigured(),
-  email: currentSession?.user.email ?? null,
-  userId: currentSession?.user.id ?? null,
-  signedIn: Boolean(currentSession?.access_token),
-});
+export const getSupabaseAuthSnapshot = (): SupabaseAuthSnapshot => authSnapshot;
 
 export const subscribeSupabaseAuth = (listener: SupabaseAuthListener) => {
   listeners.add(listener);
