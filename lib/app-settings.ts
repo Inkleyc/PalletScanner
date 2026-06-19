@@ -5,6 +5,7 @@ import { readWebStorage, writeWebStorage } from "@/lib/web-storage";
 
 type AppSettings = {
   promptToPostOnSave: boolean;
+  facebookSellerNote: string;
 };
 
 type SettingsListener = () => void;
@@ -15,6 +16,8 @@ const settingsWebKey = "app-settings";
 
 let settingsState: AppSettings = {
   promptToPostOnSave: true,
+  facebookSellerNote:
+    "Local pickup. Message with any questions or to arrange a time.",
 };
 
 let hydratePromise: Promise<void> | null = null;
@@ -93,6 +96,15 @@ export const setPromptToPostOnSave = (value: boolean) => {
   settingsState = {
     ...settingsState,
     promptToPostOnSave: value,
+  };
+  notifySettingsListeners();
+  void persistSettings();
+};
+
+export const setFacebookSellerNote = (value: string) => {
+  settingsState = {
+    ...settingsState,
+    facebookSellerNote: value.trim(),
   };
   notifySettingsListeners();
   void persistSettings();

@@ -35,7 +35,10 @@ import {
 } from "@/lib/inventory-store";
 import { AppAlert as Alert } from "@/lib/app-alert";
 import { endEbayListing } from "@/lib/ebay-integration";
-import { openListingDraft } from "@/lib/listing-posting";
+import {
+  copyFacebookListingValue,
+  openListingDraft,
+} from "@/lib/listing-posting";
 import { AppLayout, AppPalette } from "@/constants/app-palette";
 
 const API_KEY = process.env.EXPO_PUBLIC_ANTHROPIC_API_KEY;
@@ -51,6 +54,8 @@ type ListingFilter =
   | "all"
   | "needs-facebook"
   | "facebook-drafts"
+  | "missing-facebook-url"
+  | "no-photos"
   | "needs-ebay"
   | "listed";
 
@@ -96,11 +101,15 @@ export default function InventoryScreen() {
       ? "Needs Facebook"
       : listingFilter === "facebook-drafts"
         ? "Facebook Drafts"
-        : listingFilter === "needs-ebay"
-          ? "Needs eBay"
-          : listingFilter === "listed"
-            ? "Listed"
-            : "All Statuses";
+        : listingFilter === "missing-facebook-url"
+          ? "Missing Facebook URL"
+          : listingFilter === "no-photos"
+            ? "No Photos"
+            : listingFilter === "needs-ebay"
+              ? "Needs eBay"
+              : listingFilter === "listed"
+                ? "Listed"
+                : "All Statuses";
 
   const selectedPallet =
     selectedPalletId === "all"
@@ -128,6 +137,17 @@ export default function InventoryScreen() {
         return (
           item.facebookStatus === "opened" &&
           !item.listedPlatforms.includes("facebook")
+        );
+      }
+      if (listingFilter === "missing-facebook-url") {
+        return (
+          item.listedPlatforms.includes("facebook") && !item.facebookListingUrl
+        );
+      }
+      if (listingFilter === "no-photos") {
+        return (
+          !(Array.isArray(item.photos) && item.photos.length > 0) &&
+          !item.photo
         );
       }
       if (listingFilter === "needs-ebay") {
@@ -181,6 +201,32 @@ export default function InventoryScreen() {
     () =>
       filteredItems.filter(
         (item: any) => !item.listedPlatforms.includes("facebook"),
+      ),
+    [filteredItems],
+  );
+  const facebookDraftItems = useMemo(
+    () =>
+      filteredItems.filter(
+        (item: any) =>
+          item.facebookStatus === "opened" &&
+          !item.listedPlatforms.includes("facebook"),
+      ),
+    [filteredItems],
+  );
+  const facebookMissingUrlItems = useMemo(
+    () =>
+      filteredItems.filter(
+        (item: any) =>
+          item.listedPlatforms.includes("facebook") && !item.facebookListingUrl,
+      ),
+    [filteredItems],
+  );
+  const noPhotoItems = useMemo(
+    () =>
+      filteredItems.filter(
+        (item: any) =>
+          !(Array.isArray(item.photos) && item.photos.length > 0) &&
+          !item.photo,
       ),
     [filteredItems],
   );
@@ -792,6 +838,8 @@ ${JSON.stringify(promptItems, null, 2)}`,
                   { key: "all", label: "All Statuses" },
                   { key: "needs-facebook", label: "Needs Facebook" },
                   { key: "facebook-drafts", label: "Facebook Drafts" },
+                  { key: "missing-facebook-url", label: "Missing FB URL" },
+                  { key: "no-photos", label: "No Photos" },
                   { key: "needs-ebay", label: "Needs eBay" },
                   { key: "listed", label: "Listed" },
                 ].map((option) => {
@@ -866,6 +914,44 @@ ${JSON.stringify(promptItems, null, 2)}`,
                   <Text style={styles.totalLabel}>Profit High</Text>
                   <Text style={styles.profitValue}>${projectedProfitHigh}</Text>
                 </View>
+              </View>
+              <View style={styles.facebookReadinessGrid}>
+                <TouchableOpacity
+                  style={styles.facebookReadinessBox}
+                  onPress={() => setListingFilter("needs-facebook")}
+                >
+                  <Text style={styles.totalLabel}>Needs Facebook</Text>
+                  <Text style={styles.facebookReadinessValue}>
+                    {missingFacebookItems.length}
+                  </Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.facebookReadinessBox}
+                  onPress={() => setListingFilter("facebook-drafts")}
+                >
+                  <Text style={styles.totalLabel}>Drafts Open</Text>
+                  <Text style={styles.facebookReadinessValue}>
+                    {facebookDraftItems.length}
+                  </Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.facebookReadinessBox}
+                  onPress={() => setListingFilter("missing-facebook-url")}
+                >
+                  <Text style={styles.totalLabel}>Missing URLs</Text>
+                  <Text style={styles.facebookReadinessValue}>
+                    {facebookMissingUrlItems.length}
+                  </Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.facebookReadinessBox}
+                  onPress={() => setListingFilter("no-photos")}
+                >
+                  <Text style={styles.totalLabel}>No Photos</Text>
+                  <Text style={styles.facebookReadinessValue}>
+                    {noPhotoItems.length}
+                  </Text>
+                </TouchableOpacity>
               </View>
               <View style={styles.exportRow}>
                 <TouchableOpacity style={styles.exportBtn} onPress={exportCSV}>
@@ -1046,6 +1132,39 @@ ${JSON.stringify(promptItems, null, 2)}`,
                 </Text>
               </TouchableOpacity>
             </View>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.facebookQuickCopyRow}
+            >
+              {[
+                "Title",
+                "Price",
+                "Description",
+                "Condition",
+                "Photo checklist",
+              ].map((label) => (
+                <TouchableOpacity
+                  key={label}
+                  style={styles.facebookQuickCopyBtn}
+                  onPress={() => {
+                    void copyFacebookListingValue(
+                      item,
+                      label as
+                        | "Title"
+                        | "Price"
+                        | "Description"
+                        | "Condition"
+                        | "Photo checklist",
+                    );
+                  }}
+                >
+                  <Text style={styles.facebookQuickCopyBtnText}>
+                    Copy {label}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
             {item.facebookStatus === "opened" &&
             !item.listedPlatforms.includes("facebook") ? (
               <TouchableOpacity
@@ -1414,6 +1533,28 @@ const styles = StyleSheet.create({
   totalLabel: { fontSize: 12, color: AppPalette.textSoft, marginBottom: 4 },
   totalValue: { fontSize: 22, fontWeight: "700", color: AppPalette.text },
   profitValue: { fontSize: 16, fontWeight: "700", color: AppPalette.text },
+  facebookReadinessGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+    marginBottom: 14,
+  },
+  facebookReadinessBox: {
+    flex: 1,
+    minWidth: 128,
+    backgroundColor: AppPalette.surfaceMuted,
+    borderWidth: 1,
+    borderColor: AppPalette.border,
+    borderRadius: 10,
+    paddingVertical: 10,
+    paddingHorizontal: 10,
+  },
+  facebookReadinessValue: {
+    color: AppPalette.text,
+    fontSize: 20,
+    fontWeight: "800",
+    marginTop: 3,
+  },
   exportRow: { flexDirection: "row", gap: 10 },
   exportBtn: {
     flex: 1,
@@ -1684,6 +1825,24 @@ const styles = StyleSheet.create({
   },
   facebookBtn: { backgroundColor: AppPalette.primaryStrong },
   ebayBtn: { backgroundColor: AppPalette.info },
+  facebookQuickCopyRow: {
+    gap: 8,
+    paddingHorizontal: 12,
+    paddingBottom: 10,
+  },
+  facebookQuickCopyBtn: {
+    borderWidth: 1,
+    borderColor: AppPalette.border,
+    backgroundColor: AppPalette.surfaceMuted,
+    borderRadius: 999,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  facebookQuickCopyBtnText: {
+    color: AppPalette.text,
+    fontSize: 12,
+    fontWeight: "700",
+  },
   markFacebookListedBtn: {
     marginHorizontal: 12,
     marginBottom: 8,

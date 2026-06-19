@@ -44,6 +44,7 @@ import {
 } from "@/lib/ebay-integration";
 import {
   getAppSettings,
+  setFacebookSellerNote,
   setPromptToPostOnSave,
   subscribeAppSettings,
 } from "@/lib/app-settings";
@@ -61,11 +62,12 @@ export default function SettingsScreen() {
   );
   const [ebayStatusError, setEbayStatusError] = useState<string | null>(null);
   const [isRefreshingEbay, setIsRefreshingEbay] = useState(false);
-  const { promptToPostOnSave } = useSyncExternalStore(
+  const { facebookSellerNote, promptToPostOnSave } = useSyncExternalStore(
     subscribeAppSettings,
     getAppSettings,
     getAppSettings,
   );
+  const [facebookSellerNoteDraft, setFacebookSellerNoteDraft] = useState("");
   const appAuth = useSyncExternalStore(
     subscribeAppAuth,
     getAppAuth,
@@ -158,6 +160,10 @@ export default function SettingsScreen() {
     setBearerTokenDraft(appAuth.bearerToken);
   }, [appAuth.bearerToken]);
 
+  useEffect(() => {
+    setFacebookSellerNoteDraft(facebookSellerNote);
+  }, [facebookSellerNote]);
+
   const saveBearerToken = async () => {
     setRuntimeBearerToken(bearerTokenDraft);
     Alert.alert(
@@ -199,6 +205,14 @@ export default function SettingsScreen() {
     await signOutSupabase();
     Alert.alert("Signed out", "The saved app login session was cleared.");
     await refreshEbayStatus();
+  };
+
+  const saveFacebookSellerNote = () => {
+    setFacebookSellerNote(facebookSellerNoteDraft);
+    Alert.alert(
+      "Facebook note saved",
+      "This note will be appended to future Facebook Marketplace descriptions.",
+    );
   };
 
   const connectEbayAccount = async () => {
@@ -280,6 +294,28 @@ export default function SettingsScreen() {
               thumbColor={promptToPostOnSave ? AppPalette.primaryStrong : "#f4f4f4"}
             />
           </View>
+        </View>
+
+        <View style={styles.card}>
+          <Text style={styles.settingTitle}>Facebook Seller Note</Text>
+          <Text style={styles.settingDescription}>
+            This note is added to Facebook Marketplace descriptions so pickup,
+            payment, or message preferences stay consistent.
+          </Text>
+          <TextInput
+            style={styles.noteInput}
+            value={facebookSellerNoteDraft}
+            onChangeText={setFacebookSellerNoteDraft}
+            placeholder="Local pickup. Message with questions."
+            placeholderTextColor={AppPalette.textSoft}
+            multiline
+          />
+          <TouchableOpacity
+            style={styles.noteSaveBtn}
+            onPress={saveFacebookSellerNote}
+          >
+            <Text style={styles.noteSaveBtnText}>Save Facebook Note</Text>
+          </TouchableOpacity>
         </View>
 
         <View style={styles.card}>
@@ -656,6 +692,32 @@ const styles = StyleSheet.create({
     color: AppPalette.dangerStrong,
     fontWeight: "600",
     fontSize: 14,
+  },
+  noteInput: {
+    marginTop: 12,
+    minHeight: 92,
+    borderWidth: 1,
+    borderColor: AppPalette.borderStrong,
+    borderRadius: 8,
+    backgroundColor: AppPalette.surface,
+    color: AppPalette.text,
+    paddingHorizontal: 10,
+    paddingVertical: 10,
+    fontSize: 13,
+    lineHeight: 19,
+    textAlignVertical: "top",
+  },
+  noteSaveBtn: {
+    marginTop: 10,
+    backgroundColor: AppPalette.primaryStrong,
+    borderRadius: 8,
+    paddingVertical: 11,
+    alignItems: "center",
+  },
+  noteSaveBtnText: {
+    color: AppPalette.primaryOn,
+    fontSize: 13,
+    fontWeight: "700",
   },
   resetCard: {
     backgroundColor: AppPalette.dangerSoft,

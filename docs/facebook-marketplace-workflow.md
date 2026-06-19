@@ -14,6 +14,9 @@ copy.
    - Title
    - Price
    - Description
+   - Condition
+   - Quantity
+   - Photo checklist
    - Full listing text
 6. Marks the item as `Facebook draft opened` until the seller taps
    `Mark Facebook Listed`.
@@ -21,6 +24,8 @@ copy.
    that is not yet marked listed to Facebook.
 8. Saves a published Facebook listing URL so the seller can reopen the listing
    from the inventory card.
+9. Appends the saved Facebook seller note from Settings to every Marketplace
+   description.
 
 This avoids accidentally treating an unfinished Marketplace draft as a completed
 listing.
@@ -46,7 +51,6 @@ decision.
 
 - Add a photo gallery action that lets the seller save/share selected item photos
   right before opening Marketplace.
-- Add filters for `Facebook draft opened` so unfinished Marketplace posts are easy
-  to clean up.
-- Add a reminder prompt after `Mark Facebook Listed` to paste the final listing
-  URL before moving on.
+- Add location/pickup templates for common seller scenarios.
+- Add a Facebook draft review screen that groups unfinished drafts, missing URLs,
+  and items with no photos.

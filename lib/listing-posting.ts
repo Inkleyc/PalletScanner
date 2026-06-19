@@ -2,6 +2,7 @@ import * as Clipboard from "expo-clipboard";
 import { Linking } from "react-native";
 
 import { AppAlert as Alert } from "@/lib/app-alert";
+import { getAppSettings } from "@/lib/app-settings";
 import { createEbayListing, isEbayApiConfigured } from "@/lib/ebay-integration";
 import { triggerCopyFeedback } from "@/lib/feedback";
 import {
@@ -37,25 +38,34 @@ const getListingContentForPlatform = (
 
 export const buildFacebookListingPackage = (item: InventoryItem) => {
   const content = getListingContentForPlatform(item, "facebook");
+  const sellerNote = getAppSettings().facebookSellerNote.trim();
+  const description = sellerNote
+    ? `${content.description}\n\n${sellerNote}`
+    : content.description;
   const photos = item.photos?.length
     ? item.photos
     : item.photo
       ? [item.photo]
       : [];
+  const photoChecklist =
+    "Main front shot, model/label, condition flaws, accessories, charging ports, and any serial/model details.";
 
   return {
     title: content.title,
     price: String(item.high_price),
-    description: content.description,
+    description,
     condition: item.condition,
+    quantity: String(item.quantity ?? 1),
     photoCount: photos.length,
+    photoChecklist,
+    sellerNote,
     fullText: [
       content.title,
       `Price: $${item.high_price}`,
       `Condition: ${item.condition}`,
       `Quantity: ${item.quantity ?? 1}`,
       "",
-      content.description,
+      description,
     ].join("\n"),
   };
 };
@@ -92,6 +102,33 @@ const copyFacebookValue = async (
   showFacebookPostingGuide(item, `${label} copied.`);
 };
 
+export const copyFacebookListingValue = async (
+  item: InventoryItem,
+  label:
+    | "Title"
+    | "Price"
+    | "Description"
+    | "Condition"
+    | "Quantity"
+    | "Photo checklist"
+    | "Full listing",
+) => {
+  const facebookPackage = buildFacebookListingPackage(item);
+  const valueByLabel = {
+    Title: facebookPackage.title,
+    Price: facebookPackage.price,
+    Description: facebookPackage.description,
+    Condition: facebookPackage.condition,
+    Quantity: facebookPackage.quantity,
+    "Photo checklist": facebookPackage.photoChecklist,
+    "Full listing": facebookPackage.fullText,
+  };
+
+  await Clipboard.setStringAsync(valueByLabel[label]);
+  void triggerCopyFeedback();
+  Alert.alert(`${label} copied`, "Ready to paste into Facebook Marketplace.");
+};
+
 const markFacebookListed = (item: InventoryItem) => {
   updateInventoryItemFacebookStatus(item.id, { status: "listed" });
   Alert.alert(
@@ -111,12 +148,10 @@ const showFacebookPostingGuide = (
           facebookPackage.photoCount === 1 ? "" : "s"
         } from this item, then paste each field as needed.`
       : "Add photos before publishing if you have them.";
-  const photoTips =
-    "Photo checklist: main front shot, model/label, condition flaws, accessories or charging ports.";
 
   Alert.alert(
     statusMessage ?? "Facebook Marketplace opened",
-    `${photoMessage}\n\n${photoTips}\n\nThe full listing is already copied. Use these buttons when Facebook asks for a specific field.`,
+    `${photoMessage}\n\nPhoto checklist: ${facebookPackage.photoChecklist}\n\nThe full listing is already copied. Use these buttons when Facebook asks for a specific field.`,
     [
       {
         text: "Copy Title",
@@ -137,6 +172,28 @@ const showFacebookPostingGuide = (
             item,
             "Description",
             facebookPackage.description,
+          );
+        },
+      },
+      {
+        text: "Copy Condition",
+        onPress: () => {
+          void copyFacebookValue(item, "Condition", facebookPackage.condition);
+        },
+      },
+      {
+        text: "Copy Quantity",
+        onPress: () => {
+          void copyFacebookValue(item, "Quantity", facebookPackage.quantity);
+        },
+      },
+      {
+        text: "Copy Photo Checklist",
+        onPress: () => {
+          void copyFacebookValue(
+            item,
+            "Photo checklist",
+            facebookPackage.photoChecklist,
           );
         },
       },
