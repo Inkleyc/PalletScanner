@@ -36,6 +36,23 @@ export type AppWorkflowStats = {
 const getPhotos = (item: InventoryItem) =>
   item.photos?.length ? item.photos : item.photo ? [item.photo] : [];
 
+export const photoSlotLabels = [
+  "Front",
+  "Back",
+  "Label or model",
+  "Accessories",
+  "Wear or damage",
+] as const;
+
+export const getPhotoSlots = (item: InventoryItem) => {
+  const photos = getPhotos(item);
+  return photoSlotLabels.map((label, index) => ({
+    label,
+    done: photos.length > index,
+    photo: photos[index],
+  }));
+};
+
 export const getItemPhotoScore = (item: InventoryItem) => {
   const count = getPhotos(item).length;
   if (count >= 4) {

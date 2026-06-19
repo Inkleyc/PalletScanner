@@ -1,3 +1,4 @@
+import { useRouter } from "expo-router";
 import {
   useCallback,
   useEffect,
@@ -62,6 +63,7 @@ import {
 import { getWorkflowStats } from "@/lib/workflow-guidance";
 
 export default function SettingsScreen() {
+  const router = useRouter();
   const { width } = useWindowDimensions();
   const [ebayStatus, setEbayStatus] = useState<EbayConnectionStatus | null>(
     null,
@@ -359,6 +361,12 @@ export default function SettingsScreen() {
               </View>
             ))}
           </View>
+          <TouchableOpacity
+            style={styles.readinessBtn}
+            onPress={() => router.push("/production-readiness" as never)}
+          >
+            <Text style={styles.readinessBtnText}>Open Production Readiness</Text>
+          </TouchableOpacity>
         </View>
 
         <View style={styles.card}>
@@ -747,6 +755,18 @@ const styles = StyleSheet.create({
   },
   checklistStatusReady: { color: AppPalette.success },
   checklistStatusAttention: { color: AppPalette.warning },
+  readinessBtn: {
+    marginTop: 12,
+    backgroundColor: AppPalette.primaryStrong,
+    borderRadius: 8,
+    paddingVertical: 11,
+    alignItems: "center",
+  },
+  readinessBtnText: {
+    color: AppPalette.primaryOn,
+    fontSize: 13,
+    fontWeight: "800",
+  },
   integrationError: {
     fontSize: 12,
     color: AppPalette.dangerStrong,

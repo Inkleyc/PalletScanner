@@ -48,6 +48,7 @@ import {
   getItemPhotoScore,
   getListingConfidence,
 } from "@/lib/workflow-guidance";
+import { isFacebookListingUrl, normalizeListingUrl } from "@/lib/listing-url";
 import { AppLayout, AppPalette } from "@/constants/app-palette";
 
 const API_KEY = process.env.EXPO_PUBLIC_ANTHROPIC_API_KEY;
@@ -358,7 +359,8 @@ export default function InventoryScreen() {
       return;
     }
 
-    if (!/^https?:\/\//i.test(rawValue) || !/(facebook|fb)\.com/i.test(rawValue)) {
+    const normalizedUrl = normalizeListingUrl(rawValue);
+    if (!isFacebookListingUrl(normalizedUrl)) {
       Alert.alert(
         "Check the URL",
         "Use the full Facebook listing URL, starting with https://.",
@@ -366,12 +368,41 @@ export default function InventoryScreen() {
       return;
     }
 
-    updateInventoryItemFacebookListingUrl(item.id, rawValue);
+    updateInventoryItemFacebookListingUrl(item.id, normalizedUrl);
     setFacebookUrlDrafts((current) => ({
       ...current,
-      [item.id]: rawValue,
+      [item.id]: normalizedUrl,
     }));
     setEditingFacebookUrlItemId(null);
+  };
+
+  const handleNextAction = (item: any, action: ReturnType<typeof getItemNextAction>["action"]) => {
+    if (action === "add-photos" || action === "fix-copy") {
+      router.push(`/item/${item.id}` as never);
+      return;
+    }
+
+    if (action === "post-facebook") {
+      router.push("/facebook" as never);
+      return;
+    }
+
+    if (action === "post-ebay") {
+      void openListingDraft(item, "ebay");
+      return;
+    }
+
+    if (action === "save-facebook-url") {
+      setEditingFacebookUrlItemId(item.id);
+      return;
+    }
+
+    if (action === "mark-sold") {
+      setEditingSoldItemId(item.id);
+      return;
+    }
+
+    router.push(`/item/${item.id}` as never);
   };
 
   const clearFacebookUrl = (item: any) => {
@@ -1208,6 +1239,18 @@ ${JSON.stringify(promptItems, null, 2)}`,
               </View>
             </View>
             <View style={styles.itemActions}>
+              <TouchableOpacity
+                style={[styles.platformBtn, styles.reviewBtn]}
+                onPress={() => router.push(`/item/${item.id}` as never)}
+              >
+                <Text style={styles.platformBtnText}>Review Item</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.platformBtn, styles.fixItBtn]}
+                onPress={() => handleNextAction(item, nextAction.action)}
+              >
+                <Text style={styles.fixItBtnText}>{nextAction.label}</Text>
+              </TouchableOpacity>
               <TouchableOpacity
                 style={[styles.platformBtn, styles.facebookBtn]}
                 onPress={() => openListingDraft(item, "facebook")}
@@ -2046,6 +2089,17 @@ const styles = StyleSheet.create({
   },
   facebookBtn: { backgroundColor: AppPalette.primaryStrong },
   ebayBtn: { backgroundColor: AppPalette.info },
+  reviewBtn: { backgroundColor: AppPalette.text },
+  fixItBtn: {
+    backgroundColor: AppPalette.warningSoft,
+    borderWidth: 1,
+    borderColor: "#f4d7a2",
+  },
+  fixItBtnText: {
+    fontSize: 13,
+    color: AppPalette.warning,
+    fontWeight: "800",
+  },
   facebookQuickCopyRow: {
     gap: 8,
     paddingHorizontal: 12,

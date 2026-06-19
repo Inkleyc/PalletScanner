@@ -41,6 +41,7 @@ type InventoryItem = {
   facebookListingUrl?: string;
   facebookLastError?: string;
   facebookUpdatedAt?: number;
+  facebookCopiedSteps?: string[];
 };
 
 type PalletSession = {
@@ -199,6 +200,12 @@ const normalizeInventoryItem = (item: InventoryItem): InventoryItem => ({
     !Number.isNaN(item.facebookUpdatedAt)
       ? item.facebookUpdatedAt
       : undefined,
+  facebookCopiedSteps: Array.isArray(item.facebookCopiedSteps)
+    ? item.facebookCopiedSteps.filter(
+        (step): step is string =>
+          typeof step === "string" && step.trim().length > 0,
+      )
+    : [],
 });
 
 const normalizePalletSession = (
@@ -882,6 +889,44 @@ export const updateInventoryItemFacebookListingUrl = (
               normalizedUrl && !item.listedPlatforms.includes("facebook")
                 ? [...item.listedPlatforms, "facebook"]
                 : item.listedPlatforms,
+          }
+        : item,
+    ),
+  );
+};
+
+export const updateInventoryItemFacebookCopiedStep = (
+  id: number,
+  step: string,
+) => {
+  const normalizedStep = step.trim();
+  if (!normalizedStep) {
+    return;
+  }
+
+  setInventory(
+    inventoryState.map((item) =>
+      item.id === id
+        ? {
+            ...item,
+            facebookCopiedSteps: [
+              ...new Set([...(item.facebookCopiedSteps ?? []), normalizedStep]),
+            ],
+            facebookUpdatedAt: Date.now(),
+          }
+        : item,
+    ),
+  );
+};
+
+export const clearInventoryItemFacebookCopiedSteps = (id: number) => {
+  setInventory(
+    inventoryState.map((item) =>
+      item.id === id
+        ? {
+            ...item,
+            facebookCopiedSteps: [],
+            facebookUpdatedAt: Date.now(),
           }
         : item,
     ),

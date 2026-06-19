@@ -138,6 +138,16 @@ export default function HomeScreen() {
           <View style={styles.actionsCard}>
             <TouchableOpacity
               style={styles.secondaryAction}
+              onPress={() => router.push("/daily" as never)}
+            >
+              <Text style={styles.secondaryActionTitle}>Daily Selling Mode</Text>
+              <Text style={styles.secondaryActionCopy}>
+                Work through photos, posting, URLs, and sales in order.
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.secondaryAction}
               onPress={() => router.push("/capture")}
             >
               <Text style={styles.secondaryActionTitle}>Capture with Photos</Text>

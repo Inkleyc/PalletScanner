@@ -17,7 +17,9 @@ import { AppLayout, AppPalette } from "@/constants/app-palette";
 import { AppAlert as Alert } from "@/lib/app-alert";
 import {
   getInventory,
+  clearInventoryItemFacebookCopiedSteps,
   subscribeInventory,
+  updateInventoryItemFacebookCopiedStep,
   updateInventoryItemFacebookListingUrl,
   updateInventoryItemFacebookStatus,
 } from "@/lib/inventory-store";
@@ -26,6 +28,7 @@ import {
   openListingDraft,
 } from "@/lib/listing-posting";
 import { getPostingReadiness } from "@/lib/posting-validation";
+import { isFacebookListingUrl, normalizeListingUrl } from "@/lib/listing-url";
 
 const facebookCopySteps = [
   "Title",
@@ -113,7 +116,8 @@ export default function FacebookQueueScreen() {
       return;
     }
 
-    if (!/^https?:\/\//i.test(trimmedUrl) || !/(facebook|fb)\.com/i.test(trimmedUrl)) {
+    const normalizedUrl = normalizeListingUrl(trimmedUrl);
+    if (!isFacebookListingUrl(normalizedUrl)) {
       Alert.alert(
         "Check the URL",
         "Use the full Facebook listing URL, starting with https://.",
@@ -121,7 +125,8 @@ export default function FacebookQueueScreen() {
       return;
     }
 
-    updateInventoryItemFacebookListingUrl(itemId, trimmedUrl);
+    updateInventoryItemFacebookListingUrl(itemId, normalizedUrl);
+    clearInventoryItemFacebookCopiedSteps(itemId);
     Alert.alert("Facebook URL saved", "You can reopen this listing from Inventory.");
   };
 
@@ -258,17 +263,28 @@ export default function FacebookQueueScreen() {
                 {facebookCopySteps.map((label, index) => (
                   <TouchableOpacity
                     key={label}
-                    style={styles.copyBtn}
+                    style={[
+                      styles.copyBtn,
+                      activeItem.facebookCopiedSteps?.includes(label) &&
+                        styles.copyBtnDone,
+                    ]}
                     onPress={() => {
                       void copyFacebookListingValue(activeItem, label);
+                      updateInventoryItemFacebookCopiedStep(activeItem.id, label);
                     }}
                   >
                     <Text style={styles.copyBtnText}>
-                      {index + 1}. Copy {label}
+                      {activeItem.facebookCopiedSteps?.includes(label) ? "Done" : index + 1}. Copy {label}
                     </Text>
                   </TouchableOpacity>
                 ))}
               </View>
+              <TouchableOpacity
+                style={styles.resetStepsBtn}
+                onPress={() => clearInventoryItemFacebookCopiedSteps(activeItem.id)}
+              >
+                <Text style={styles.resetStepsBtnText}>Reset copied steps</Text>
+              </TouchableOpacity>
             </View>
 
             <TouchableOpacity
@@ -572,8 +588,27 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     alignItems: "center",
   },
+  copyBtnDone: {
+    backgroundColor: AppPalette.successSoft,
+    borderColor: "#cfe7dc",
+  },
   copyBtnText: {
     color: AppPalette.text,
+    fontSize: 12,
+    fontWeight: "800",
+  },
+  resetStepsBtn: {
+    alignSelf: "flex-start",
+    marginTop: 10,
+    borderWidth: 1,
+    borderColor: AppPalette.border,
+    backgroundColor: AppPalette.surface,
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+  },
+  resetStepsBtnText: {
+    color: AppPalette.textMuted,
     fontSize: 12,
     fontWeight: "800",
   },
