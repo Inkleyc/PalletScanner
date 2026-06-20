@@ -27,6 +27,7 @@ export default function HomeScreen() {
   const router = useRouter();
   const { width } = useWindowDimensions();
   const [createModalVisible, setCreateModalVisible] = useState(false);
+  const [actionMenuVisible, setActionMenuVisible] = useState(false);
   const [newPalletName, setNewPalletName] = useState("");
   const isLargeLayout = width >= 900;
   const activePallet = useSyncExternalStore(
@@ -137,33 +138,16 @@ export default function HomeScreen() {
 
           <View style={styles.actionsCard}>
             <TouchableOpacity
-              style={styles.secondaryAction}
+              style={styles.primaryWorkAction}
               onPress={() => router.push("/daily" as never)}
             >
-              <Text style={styles.secondaryActionTitle}>Daily Selling Mode</Text>
-              <Text style={styles.secondaryActionCopy}>
-                Work through photos, posting, URLs, and sales in order.
-              </Text>
+              <Text style={styles.primaryWorkActionText}>Start Today&apos;s Work</Text>
             </TouchableOpacity>
-
             <TouchableOpacity
               style={styles.secondaryAction}
-              onPress={() => router.push("/capture")}
+              onPress={() => setActionMenuVisible(true)}
             >
-              <Text style={styles.secondaryActionTitle}>Capture with Photos</Text>
-              <Text style={styles.secondaryActionCopy}>
-                Take photos or upload them in a dedicated temporary screen.
-              </Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.secondaryAction}
-              onPress={() => router.push("/scan-barcode")}
-            >
-              <Text style={styles.secondaryActionTitle}>Scan Barcode</Text>
-              <Text style={styles.secondaryActionCopy}>
-                Open the scanner and build a draft from product data.
-              </Text>
+              <Text style={styles.secondaryActionTitle}>Choose Another Action</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -203,6 +187,65 @@ export default function HomeScreen() {
                 <Text style={styles.modalPrimaryActionText}>Create</Text>
               </TouchableOpacity>
             </View>
+          </Pressable>
+        </Pressable>
+      </Modal>
+      <Modal
+        visible={actionMenuVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setActionMenuVisible(false)}
+      >
+        <Pressable
+          style={styles.modalBackdrop}
+          onPress={() => setActionMenuVisible(false)}
+        >
+          <Pressable style={styles.modalCard}>
+            <Text style={styles.modalTitle}>Choose Action</Text>
+            <Text style={styles.modalCopy}>
+              Pick the workflow you want to open next.
+            </Text>
+            {[
+              {
+                label: "Capture with Photos",
+                route: "/capture",
+              },
+              {
+                label: "Scan Barcode",
+                route: "/scan-barcode",
+              },
+              {
+                label: "Facebook Queue",
+                route: "/facebook",
+              },
+              {
+                label: "Inventory",
+                route: "/explore",
+              },
+              {
+                label: "Pallets",
+                route: "/pallets",
+              },
+              {
+                label: "Stats",
+                route: "/analytics",
+              },
+              {
+                label: "Settings",
+                route: "/settings",
+              },
+            ].map((action) => (
+              <TouchableOpacity
+                key={action.label}
+                style={styles.menuAction}
+                onPress={() => {
+                  setActionMenuVisible(false);
+                  router.push(action.route as never);
+                }}
+              >
+                <Text style={styles.menuActionText}>{action.label}</Text>
+              </TouchableOpacity>
+            ))}
           </Pressable>
         </Pressable>
       </Modal>
@@ -266,6 +309,17 @@ const styles = StyleSheet.create({
     borderColor: AppPalette.border,
     padding: 16,
     marginBottom: 16,
+  },
+  primaryWorkAction: {
+    backgroundColor: AppPalette.primaryStrong,
+    borderRadius: 10,
+    paddingVertical: 13,
+    alignItems: "center",
+  },
+  primaryWorkActionText: {
+    color: AppPalette.primaryOn,
+    fontSize: 15,
+    fontWeight: "800",
   },
   todayCard: {
     backgroundColor: AppPalette.surface,
@@ -376,6 +430,20 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   secondaryActionCopy: { fontSize: 13, color: AppPalette.textMuted, lineHeight: 18 },
+  menuAction: {
+    borderWidth: 1,
+    borderColor: AppPalette.border,
+    backgroundColor: AppPalette.surfaceMuted,
+    borderRadius: 10,
+    paddingVertical: 12,
+    paddingHorizontal: 12,
+    marginTop: 8,
+  },
+  menuActionText: {
+    color: AppPalette.text,
+    fontSize: 14,
+    fontWeight: "800",
+  },
   modalBackdrop: {
     flex: 1,
     backgroundColor: AppPalette.modalBackdrop,

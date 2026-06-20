@@ -104,6 +104,7 @@ export default function InventoryScreen() {
   const [bundleLoading, setBundleLoading] = useState(false);
   const [bundleModalVisible, setBundleModalVisible] = useState(false);
   const [bundleSuggestions, setBundleSuggestions] = useState<BundleSuggestion[]>([]);
+  const [actionSheetItemId, setActionSheetItemId] = useState<number | null>(null);
   const isLargeLayout = width >= 900;
   const previousHasActiveFilters = useRef(false);
   const listingFilterLabel =
@@ -245,6 +246,10 @@ export default function InventoryScreen() {
     searchQuery.trim().length > 0 ||
     sortMode !== "date" ||
     listingFilter !== "all";
+  const actionSheetItem = useMemo(
+    () => items.find((item: any) => item.id === actionSheetItemId) ?? null,
+    [actionSheetItemId, items],
+  );
 
   useEffect(() => {
     if (hasActiveFilters && !previousHasActiveFilters.current) {
@@ -1240,44 +1245,20 @@ ${JSON.stringify(promptItems, null, 2)}`,
             </View>
             <View style={styles.itemActions}>
               <TouchableOpacity
-                style={[styles.platformBtn, styles.reviewBtn]}
-                onPress={() => router.push(`/item/${item.id}` as never)}
-              >
-                <Text style={styles.platformBtnText}>Review Item</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
                 style={[styles.platformBtn, styles.fixItBtn]}
                 onPress={() => handleNextAction(item, nextAction.action)}
               >
                 <Text style={styles.fixItBtnText}>{nextAction.label}</Text>
               </TouchableOpacity>
               <TouchableOpacity
-                style={[styles.platformBtn, styles.facebookBtn]}
-                onPress={() => openListingDraft(item, "facebook")}
+                style={[styles.platformBtn, styles.moreBtn]}
+                onPress={() => setActionSheetItemId(item.id)}
               >
-                <Text style={styles.platformBtnText}>
-                  {item.facebookStatus === "opened" &&
-                  !item.listedPlatforms.includes("facebook")
-                    ? "Continue Facebook Draft"
-                    : item.listedPlatforms.includes("facebook")
-                      ? "Copy Facebook Details"
-                      : "Post to Facebook"}
-                </Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.platformBtn, styles.ebayBtn]}
-                onPress={() => openListingDraft(item, "ebay")}
-              >
-                <Text style={styles.platformBtnText}>
-                  {item.ebayStatus === "posting"
-                    ? "Posting..."
-                    : item.ebayListingUrl
-                      ? "Update eBay Listing"
-                      : "Post to eBay"}
-                </Text>
+                <Text style={styles.moreBtnText}>More</Text>
               </TouchableOpacity>
             </View>
             <ScrollView
+              style={styles.hidden}
               horizontal
               showsHorizontalScrollIndicator={false}
               contentContainerStyle={styles.facebookQuickCopyRow}
@@ -1313,7 +1294,7 @@ ${JSON.stringify(promptItems, null, 2)}`,
             {item.facebookStatus === "opened" &&
             !item.listedPlatforms.includes("facebook") ? (
               <TouchableOpacity
-                style={styles.markFacebookListedBtn}
+                style={[styles.markFacebookListedBtn, styles.hidden]}
                 onPress={() =>
                   {
                     updateInventoryItemFacebookStatus(item.id, {
@@ -1331,7 +1312,7 @@ ${JSON.stringify(promptItems, null, 2)}`,
             {(item.listedPlatforms.includes("facebook") ||
               item.facebookStatus === "opened" ||
               item.facebookListingUrl) ? (
-              <View style={styles.facebookUrlActions}>
+              <View style={[styles.facebookUrlActions, styles.hidden]}>
                 {item.facebookListingUrl ? (
                   <TouchableOpacity
                     style={styles.viewFacebookBtn}
@@ -1402,13 +1383,13 @@ ${JSON.stringify(promptItems, null, 2)}`,
               </View>
             ) : null}
             {item.facebookStatus === "error" && item.facebookLastError ? (
-              <Text style={styles.facebookErrorText}>
+              <Text style={[styles.facebookErrorText, styles.hidden]}>
                 {item.facebookLastError}
               </Text>
             ) : null}
             {item.ebayListingUrl ? (
               <TouchableOpacity
-                style={styles.viewEbayBtn}
+                style={[styles.viewEbayBtn, styles.hidden]}
                 onPress={() => {
                   void Linking.openURL(item.ebayListingUrl);
                 }}
@@ -1417,14 +1398,14 @@ ${JSON.stringify(promptItems, null, 2)}`,
               </TouchableOpacity>
             ) : null}
             {item.ebayStatus === "posting" ? (
-              <Text style={styles.ebayProgressText}>
+              <Text style={[styles.ebayProgressText, styles.hidden]}>
                 {item.ebayProgress || "Posting to eBay..."}
               </Text>
             ) : null}
             {item.ebayStatus === "error" && item.ebayLastError ? (
-              <Text style={styles.ebayErrorText}>{item.ebayLastError}</Text>
+              <Text style={[styles.ebayErrorText, styles.hidden]}>{item.ebayLastError}</Text>
             ) : null}
-            <View style={styles.itemSecondaryActions}>
+            <View style={[styles.itemSecondaryActions, styles.hidden]}>
               <TouchableOpacity
                 style={styles.secondaryActionBtn}
                 onPress={() =>
@@ -1518,12 +1499,199 @@ ${JSON.stringify(promptItems, null, 2)}`,
           </Pressable>
         </Pressable>
       </Modal>
+      <Modal
+        visible={Boolean(actionSheetItem)}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setActionSheetItemId(null)}
+      >
+        <Pressable
+          style={styles.bundleModalBackdrop}
+          onPress={() => setActionSheetItemId(null)}
+        >
+          <Pressable style={styles.actionSheetCard}>
+            {actionSheetItem ? (
+              <>
+                <View style={styles.actionSheetHeader}>
+                  <View style={styles.actionSheetTitleBlock}>
+                    <Text style={styles.actionSheetEyebrow}>ITEM ACTIONS</Text>
+                    <Text style={styles.actionSheetTitle}>
+                      {actionSheetItem.name}
+                    </Text>
+                  </View>
+                  <TouchableOpacity
+                    style={styles.actionSheetClose}
+                    onPress={() => setActionSheetItemId(null)}
+                  >
+                    <Text style={styles.actionSheetCloseText}>x</Text>
+                  </TouchableOpacity>
+                </View>
+
+                <View style={styles.actionSheetStatusBox}>
+                  <Text style={styles.actionSheetStatusTitle}>Next step</Text>
+                  <Text style={styles.actionSheetStatusText}>
+                    {getItemNextAction(actionSheetItem).label}:{" "}
+                    {getItemNextAction(actionSheetItem).detail}
+                  </Text>
+                  <Text style={styles.actionSheetStatusTitle}>Posting checks</Text>
+                  <Text
+                    style={
+                      getPostingReadiness(actionSheetItem, "facebook").ready
+                        ? styles.actionSheetGoodText
+                        : styles.actionSheetWarningText
+                    }
+                  >
+                    Facebook: {getPostingReadinessMessage(actionSheetItem, "facebook")}
+                  </Text>
+                  <Text
+                    style={
+                      getPostingReadiness(actionSheetItem, "ebay").ready
+                        ? styles.actionSheetGoodText
+                        : styles.actionSheetWarningText
+                    }
+                  >
+                    eBay: {getPostingReadinessMessage(actionSheetItem, "ebay")}
+                  </Text>
+                </View>
+
+                <View style={styles.actionSheetGrid}>
+                  <TouchableOpacity
+                    style={styles.actionSheetPrimaryBtn}
+                    onPress={() => {
+                      setActionSheetItemId(null);
+                      router.push(`/item/${actionSheetItem.id}` as never);
+                    }}
+                  >
+                    <Text style={styles.actionSheetPrimaryBtnText}>Review Item</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={styles.actionSheetBtn}
+                    onPress={() => {
+                      setActionSheetItemId(null);
+                      void openListingDraft(actionSheetItem, "facebook");
+                    }}
+                  >
+                    <Text style={styles.actionSheetBtnText}>Post to Facebook</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={styles.actionSheetBtn}
+                    onPress={() => {
+                      setActionSheetItemId(null);
+                      void openListingDraft(actionSheetItem, "ebay");
+                    }}
+                  >
+                    <Text style={styles.actionSheetBtnText}>Post to eBay</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={styles.actionSheetBtn}
+                    onPress={() => {
+                      updateInventoryItemFacebookStatus(actionSheetItem.id, {
+                        status: "listed",
+                      });
+                      setEditingFacebookUrlItemId(actionSheetItem.id);
+                      setActionSheetItemId(null);
+                    }}
+                  >
+                    <Text style={styles.actionSheetBtnText}>Mark FB Listed</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={styles.actionSheetBtn}
+                    onPress={() => {
+                      setEditingFacebookUrlItemId(actionSheetItem.id);
+                      setActionSheetItemId(null);
+                    }}
+                  >
+                    <Text style={styles.actionSheetBtnText}>Add FB URL</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={styles.actionSheetBtn}
+                    onPress={() => {
+                      setEditingSoldItemId(actionSheetItem.id);
+                      setActionSheetItemId(null);
+                    }}
+                  >
+                    <Text style={styles.actionSheetBtnText}>Mark Sold</Text>
+                  </TouchableOpacity>
+                </View>
+
+                <Text style={styles.actionSheetSectionTitle}>Facebook quick copy</Text>
+                <ScrollView
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  contentContainerStyle={styles.actionSheetCopyRow}
+                >
+                  {[
+                    "Title",
+                    "Price",
+                    "Description",
+                    "Condition",
+                    "Photo checklist",
+                  ].map((label) => (
+                    <TouchableOpacity
+                      key={label}
+                      style={styles.facebookQuickCopyBtn}
+                      onPress={() => {
+                        void copyFacebookListingValue(
+                          actionSheetItem,
+                          label as
+                            | "Title"
+                            | "Price"
+                            | "Description"
+                            | "Condition"
+                            | "Photo checklist",
+                        );
+                      }}
+                    >
+                      <Text style={styles.facebookQuickCopyBtnText}>
+                        Copy {label}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+
+                <View style={styles.actionSheetGrid}>
+                  {actionSheetItem.facebookListingUrl ? (
+                    <TouchableOpacity
+                      style={styles.actionSheetBtn}
+                      onPress={() => {
+                        void Linking.openURL(actionSheetItem.facebookListingUrl as string);
+                      }}
+                    >
+                      <Text style={styles.actionSheetBtnText}>View Facebook</Text>
+                    </TouchableOpacity>
+                  ) : null}
+                  {actionSheetItem.ebayListingUrl ? (
+                    <TouchableOpacity
+                      style={styles.actionSheetBtn}
+                      onPress={() => {
+                        void Linking.openURL(actionSheetItem.ebayListingUrl as string);
+                      }}
+                    >
+                      <Text style={styles.actionSheetBtnText}>View eBay</Text>
+                    </TouchableOpacity>
+                  ) : null}
+                  <TouchableOpacity
+                    style={styles.actionSheetDangerBtn}
+                    onPress={() => {
+                      setActionSheetItemId(null);
+                      removeItem(actionSheetItem);
+                    }}
+                  >
+                    <Text style={styles.actionSheetDangerBtnText}>Remove Item</Text>
+                  </TouchableOpacity>
+                </View>
+              </>
+            ) : null}
+          </Pressable>
+        </Pressable>
+      </Modal>
     </>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: AppPalette.background },
+  hidden: { display: "none" },
   content: { padding: 20, paddingTop: 52, paddingBottom: 24 },
   innerContent: { width: "100%", alignSelf: "center" },
   innerContentWide: { maxWidth: AppLayout.maxContentWidth },
@@ -1881,6 +2049,7 @@ const styles = StyleSheet.create({
   nextActionPillTextWarning: { color: AppPalette.warning },
   nextActionPillTextSuccess: { color: AppPalette.success },
   postingReadinessBox: {
+    display: "none",
     marginHorizontal: 12,
     marginTop: 12,
     borderWidth: 1,
@@ -1901,6 +2070,7 @@ const styles = StyleSheet.create({
     lineHeight: 17,
   },
   listedBannerRow: {
+    display: "none",
     flexDirection: "row",
     flexWrap: "wrap",
     gap: 8,
@@ -1950,6 +2120,7 @@ const styles = StyleSheet.create({
   palletTag: { fontSize: 12, color: AppPalette.textMuted, marginBottom: 6 },
   badgeRow: { flexDirection: "row", gap: 6, marginBottom: 4 },
   guidanceRow: {
+    display: "none",
     flexDirection: "row",
     flexWrap: "wrap",
     gap: 6,
@@ -2090,6 +2261,16 @@ const styles = StyleSheet.create({
   facebookBtn: { backgroundColor: AppPalette.primaryStrong },
   ebayBtn: { backgroundColor: AppPalette.info },
   reviewBtn: { backgroundColor: AppPalette.text },
+  moreBtn: {
+    backgroundColor: AppPalette.surfaceMuted,
+    borderWidth: 1,
+    borderColor: AppPalette.borderStrong,
+  },
+  moreBtnText: {
+    fontSize: 13,
+    color: AppPalette.text,
+    fontWeight: "800",
+  },
   fixItBtn: {
     backgroundColor: AppPalette.warningSoft,
     borderWidth: 1,
@@ -2283,6 +2464,138 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     padding: 20,
     maxHeight: "80%",
+  },
+  actionSheetCard: {
+    backgroundColor: AppPalette.surface,
+    borderRadius: 14,
+    padding: 16,
+    maxHeight: "88%",
+  },
+  actionSheetHeader: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    justifyContent: "space-between",
+    gap: 12,
+    marginBottom: 12,
+  },
+  actionSheetTitleBlock: { flex: 1 },
+  actionSheetEyebrow: {
+    color: AppPalette.textSoft,
+    fontSize: 11,
+    fontWeight: "800",
+    marginBottom: 4,
+  },
+  actionSheetTitle: {
+    color: AppPalette.text,
+    fontSize: 20,
+    fontWeight: "800",
+    lineHeight: 25,
+  },
+  actionSheetClose: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: AppPalette.surfaceMuted,
+    borderWidth: 1,
+    borderColor: AppPalette.border,
+  },
+  actionSheetCloseText: {
+    color: AppPalette.textMuted,
+    fontSize: 14,
+    fontWeight: "800",
+  },
+  actionSheetStatusBox: {
+    backgroundColor: AppPalette.surfaceMuted,
+    borderWidth: 1,
+    borderColor: AppPalette.border,
+    borderRadius: 10,
+    padding: 12,
+    marginBottom: 12,
+  },
+  actionSheetStatusTitle: {
+    color: AppPalette.textSoft,
+    fontSize: 11,
+    fontWeight: "800",
+    marginTop: 6,
+    marginBottom: 3,
+  },
+  actionSheetStatusText: {
+    color: AppPalette.text,
+    fontSize: 13,
+    lineHeight: 18,
+    fontWeight: "700",
+  },
+  actionSheetGoodText: {
+    color: AppPalette.success,
+    fontSize: 12,
+    lineHeight: 17,
+    fontWeight: "700",
+  },
+  actionSheetWarningText: {
+    color: AppPalette.dangerStrong,
+    fontSize: 12,
+    lineHeight: 17,
+  },
+  actionSheetGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+    marginBottom: 12,
+  },
+  actionSheetPrimaryBtn: {
+    flex: 1,
+    minWidth: 140,
+    backgroundColor: AppPalette.primaryStrong,
+    borderRadius: 8,
+    paddingVertical: 11,
+    alignItems: "center",
+  },
+  actionSheetPrimaryBtnText: {
+    color: AppPalette.primaryOn,
+    fontSize: 13,
+    fontWeight: "800",
+  },
+  actionSheetBtn: {
+    flex: 1,
+    minWidth: 140,
+    backgroundColor: AppPalette.surfaceMuted,
+    borderWidth: 1,
+    borderColor: AppPalette.borderStrong,
+    borderRadius: 8,
+    paddingVertical: 11,
+    alignItems: "center",
+  },
+  actionSheetBtnText: {
+    color: AppPalette.text,
+    fontSize: 13,
+    fontWeight: "800",
+  },
+  actionSheetDangerBtn: {
+    flex: 1,
+    minWidth: 140,
+    backgroundColor: AppPalette.dangerSoft,
+    borderWidth: 1,
+    borderColor: "#efc0b9",
+    borderRadius: 8,
+    paddingVertical: 11,
+    alignItems: "center",
+  },
+  actionSheetDangerBtnText: {
+    color: AppPalette.dangerStrong,
+    fontSize: 13,
+    fontWeight: "800",
+  },
+  actionSheetSectionTitle: {
+    color: AppPalette.text,
+    fontSize: 14,
+    fontWeight: "800",
+    marginBottom: 8,
+  },
+  actionSheetCopyRow: {
+    gap: 8,
+    paddingBottom: 12,
   },
   bundleModalTitle: {
     fontSize: 20,

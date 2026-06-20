@@ -111,6 +111,7 @@ export default function TabLayout() {
         name="pallets"
         options={{
           title: "Pallets",
+          href: null,
           tabBarIcon: createTabIcon("archivebox.fill", "PalletsTabIcon"),
           tabBarLabel: createTabLabel("Pallets", "PalletsTabLabel"),
         }}
@@ -119,6 +120,7 @@ export default function TabLayout() {
         name="analytics"
         options={{
           title: "Stats",
+          href: null,
           tabBarIcon: createTabIcon("chart.bar.fill", "StatsTabIcon"),
           tabBarLabel: createTabLabel("Stats", "StatsTabLabel"),
         }}
