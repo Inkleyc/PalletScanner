@@ -32,6 +32,12 @@ for (const marker of [
   "Attention Queue",
   "Desktop-first review table",
   "Admin Settings",
+  "data-action=\"export-inventory\"",
+  "inventory-status-filter",
+  "inventory-platform-filter",
+  "data-sort-column",
+  "inventory-empty-row",
+  "data-action=\"connect-ebay\"",
 ]) {
   if (!app.includes(marker)) {
     throw new Error(`app.js is missing ${marker}`);
