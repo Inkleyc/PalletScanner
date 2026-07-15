@@ -238,12 +238,20 @@ export default function SettingsScreen() {
             <Text style={styles.integrationError}>{ebayStatusError}</Text>
           ) : null}
           <TouchableOpacity
-            style={styles.primaryBtn}
+            style={[
+              styles.primaryBtn,
+              !isEbayApiConfigured() && styles.disabledBtn,
+            ]}
+            disabled={!isEbayApiConfigured()}
             onPress={() => {
               void connectEbayAccount();
             }}
           >
-            <Text style={styles.primaryBtnText}>Connect eBay Account</Text>
+            <Text style={styles.primaryBtnText}>
+              {isEbayApiConfigured()
+                ? "Connect eBay Account"
+                : "eBay Backend Not Configured"}
+            </Text>
           </TouchableOpacity>
           {isEbayApiConfigured() ? (
             <TouchableOpacity
@@ -490,6 +498,9 @@ const styles = StyleSheet.create({
     color: AppPalette.primaryOn,
     fontSize: 13,
     fontWeight: "700",
+  },
+  disabledBtn: {
+    opacity: 0.56,
   },
   secondaryBtn: {
     flexGrow: 1,
