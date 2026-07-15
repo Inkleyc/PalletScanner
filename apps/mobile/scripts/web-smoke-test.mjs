@@ -125,7 +125,7 @@ const clickByText = async (client, text) =>
 
 const routeChecks = [
   { path: "/onboarding", text: "Scan any item from a pallet or lot", label: "Onboarding" },
-  { path: "/(tabs)", text: "Pallet Scanner", label: "Home" },
+  { path: "/(tabs)", text: "Pallet Scanner", label: "Scan" },
   { path: "/(tabs)/explore", text: "Inventory", label: "Inventory" },
   { path: "/(tabs)/pallets", text: "Pallets", label: "Pallets" },
   { path: "/(tabs)/analytics", text: "Pallet Stats", label: "Analytics" },
@@ -160,7 +160,7 @@ const main = async () => {
     await delay(500);
     const homeAfterClick = await getPageState(client);
     assertIncludes(homeAfterClick, "Create New Pallet", "Create pallet modal");
-    results.push("Home create pallet modal: OK");
+    results.push("Scan create pallet modal: OK");
 
     await navigate(client, "/(tabs)/explore");
     await clickByText(client, "Show");
