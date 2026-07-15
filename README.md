@@ -35,6 +35,12 @@ Start mobile web preview:
 npm run web
 ```
 
+Start the web business dashboard preview:
+
+```bash
+npm run dashboard:dev
+```
+
 Export a static mobile web build:
 
 ```bash
@@ -59,6 +65,16 @@ Run lint:
 npm run lint
 ```
 
+Run the main local checks:
+
+```bash
+npm run lint
+npm run web:export
+npm run dashboard:check
+npm run core:typecheck
+npm run api-client:typecheck
+```
+
 ## Planned Repo Shape
 
 ```text
@@ -74,6 +90,8 @@ docs/          Product plans, setup guides, and runbooks
 
 ## Current Status
 
-The Expo app has moved to `apps/mobile`. Shared business logic lives in `packages/core`, and `packages/api-client` is scaffolded for the future shared backend client. `apps/web` is still a placeholder for the future business dashboard.
+The Expo app has moved to `apps/mobile`. Shared business logic lives in `packages/core`, and `packages/api-client` owns the shared eBay backend client contract.
+
+`apps/web` is now a dependency-free dashboard preview with overview metrics, pallet health, an attention queue, searchable/filterable/sortable inventory, filtered CSV export, an item detail panel, and eBay Admin Settings readiness checks. It is still intentionally lightweight while we shape the desktop product, but it is no longer just a placeholder.
 
 Local app environment values should live in `apps/mobile/.env` for Expo commands. The root `.env` can remain for backend/server workflows.
