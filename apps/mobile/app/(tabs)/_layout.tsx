@@ -129,6 +129,7 @@ export default function TabLayout() {
         name="settings"
         options={{
           title: "Settings",
+          href: null,
           tabBarIcon: createTabIcon("gearshape.fill", "SettingsTabIcon"),
           tabBarLabel: createTabLabel("Settings", "SettingsTabLabel"),
         }}

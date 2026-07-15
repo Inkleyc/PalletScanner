@@ -76,6 +76,14 @@ export default function HomeScreen() {
         <View style={[styles.innerContent, isLargeLayout && styles.innerContentWide]}>
           <Text style={styles.title}>Pallet Scanner</Text>
           <Text style={styles.subtitle}>Choose a pallet, scan the item, save it, move on.</Text>
+          <View style={styles.utilityRow}>
+            <TouchableOpacity
+              style={styles.utilityAction}
+              onPress={() => router.push("/(tabs)/settings")}
+            >
+              <Text style={styles.utilityActionText}>Settings</Text>
+            </TouchableOpacity>
+          </View>
 
           <View style={styles.primaryCard}>
             <Text style={styles.cardEyebrow}>ACTIVE PALLET</Text>
@@ -192,7 +200,24 @@ const styles = StyleSheet.create({
     maxWidth: AppLayout.maxContentWidth,
   },
   title: { fontSize: 30, fontWeight: "700", color: AppPalette.text, marginBottom: 6 },
-  subtitle: { fontSize: 14, color: AppPalette.textMuted, marginBottom: 20 },
+  subtitle: { fontSize: 14, color: AppPalette.textMuted, marginBottom: 10 },
+  utilityRow: {
+    alignItems: "flex-start",
+    marginBottom: 18,
+  },
+  utilityAction: {
+    borderWidth: 1,
+    borderColor: AppPalette.border,
+    borderRadius: 999,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    backgroundColor: AppPalette.surface,
+  },
+  utilityActionText: {
+    color: AppPalette.textMuted,
+    fontSize: 12,
+    fontWeight: "700",
+  },
   primaryCard: {
     backgroundColor: AppPalette.primaryStrong,
     borderRadius: 14,
