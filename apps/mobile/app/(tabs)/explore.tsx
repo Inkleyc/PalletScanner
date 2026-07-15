@@ -53,6 +53,7 @@ import {
   getInventoryWorkflowStatus,
   getListingFilterLabel,
   hasActiveInventoryFilters,
+  type InventoryItem,
   type InventorySortMode,
   type ListingFilter,
 } from "@palletscanner/core";
@@ -136,7 +137,7 @@ export default function InventoryScreen() {
   const palletScopedItemCount =
     selectedPalletId === "all"
       ? items.length
-      : items.filter((item: any) => item.palletId === selectedPalletId).length;
+      : items.filter((item) => item.palletId === selectedPalletId).length;
 
   const {
     totalLow,
@@ -150,7 +151,7 @@ export default function InventoryScreen() {
   );
   const bundleCandidateItems = selectedPallet
     ? filteredItems
-    : items.filter((item: any) => item.palletId === activePalletId);
+    : items.filter((item) => item.palletId === activePalletId);
   const missingEbayItems = useMemo(
     () => getItemsMissingPlatformListing(filteredItems, "ebay"),
     [filteredItems],
@@ -208,7 +209,7 @@ export default function InventoryScreen() {
     previousHasActiveFilters.current = hasActiveFilters;
   }, [hasActiveFilters]);
 
-  const endItemEbayListing = async (item: any) => {
+  const endItemEbayListing = async (item: InventoryItem) => {
     if (!item.ebayOfferId) {
       return;
     }
@@ -217,7 +218,7 @@ export default function InventoryScreen() {
     markInventoryItemEbayEnded(item.id);
   };
 
-  const removeItem = (item: any) => {
+  const removeItem = (item: InventoryItem) => {
     Alert.alert("Remove Item", "Are you sure?", [
       { text: "Cancel", style: "cancel" },
       {
@@ -244,13 +245,13 @@ export default function InventoryScreen() {
       ]);
   };
 
-  const getSoldDraftValue = (item: any) =>
+  const getSoldDraftValue = (item: InventoryItem) =>
     soldDrafts[item.id] ?? (item.soldPrice !== null ? String(item.soldPrice) : "");
 
-  const getFacebookUrlDraftValue = (item: any) =>
+  const getFacebookUrlDraftValue = (item: InventoryItem) =>
     facebookUrlDrafts[item.id] ?? item.facebookListingUrl ?? "";
 
-  const saveSoldPrice = (item: any) => {
+  const saveSoldPrice = (item: InventoryItem) => {
     const rawValue = getSoldDraftValue(item).trim();
     if (!rawValue) {
       Alert.alert("Enter a sold price", "Type the amount the item sold for.");
@@ -285,7 +286,7 @@ export default function InventoryScreen() {
     })();
   };
 
-  const clearSoldPrice = (item: any) => {
+  const clearSoldPrice = (item: InventoryItem) => {
     updateInventoryItemSoldPrice(item.id, null);
     setSoldDrafts((current) => ({
       ...current,
@@ -296,7 +297,7 @@ export default function InventoryScreen() {
     }
   };
 
-  const pasteFacebookUrl = async (item: any) => {
+  const pasteFacebookUrl = async (item: InventoryItem) => {
     const value = await Clipboard.getStringAsync();
     setFacebookUrlDrafts((current) => ({
       ...current,
@@ -304,7 +305,7 @@ export default function InventoryScreen() {
     }));
   };
 
-  const saveFacebookUrl = (item: any) => {
+  const saveFacebookUrl = (item: InventoryItem) => {
     const rawValue = getFacebookUrlDraftValue(item).trim();
     if (!rawValue) {
       Alert.alert("Paste the listing URL", "Open the Facebook listing, copy its URL, then paste it here.");
@@ -327,7 +328,7 @@ export default function InventoryScreen() {
     setEditingFacebookUrlItemId(null);
   };
 
-  const clearFacebookUrl = (item: any) => {
+  const clearFacebookUrl = (item: InventoryItem) => {
     updateInventoryItemFacebookListingUrl(item.id, undefined);
     setFacebookUrlDrafts((current) => ({
       ...current,
@@ -416,7 +417,7 @@ export default function InventoryScreen() {
       return;
     }
 
-    const nextItem = items.find((item: any) => item.id === nextId);
+    const nextItem = items.find((item) => item.id === nextId);
     if (!nextItem) {
       const remainingQueue = queueIds.slice(1);
       setBulkEbayQueue(remainingQueue);
@@ -456,7 +457,7 @@ export default function InventoryScreen() {
       return;
     }
 
-    const queueIds = missingEbayItems.map((item: any) => item.id);
+    const queueIds = missingEbayItems.map((item) => item.id);
     void openNextBulkEbayItem(queueIds);
   };
 
@@ -484,7 +485,7 @@ export default function InventoryScreen() {
       return;
     }
 
-    const nextItem = items.find((item: any) => item.id === nextId);
+    const nextItem = items.find((item) => item.id === nextId);
     if (!nextItem) {
       const remainingQueue = queueIds.slice(1);
       setBulkFacebookQueue(remainingQueue);
@@ -511,7 +512,7 @@ export default function InventoryScreen() {
       return;
     }
 
-    const queueIds = missingFacebookItems.map((item: any) => item.id);
+    const queueIds = missingFacebookItems.map((item) => item.id);
     void openNextBulkFacebookItem(queueIds);
   };
 
@@ -574,7 +575,7 @@ export default function InventoryScreen() {
 
     setBundleLoading(true);
     try {
-      const promptItems = bundleCandidateItems.map((item: any) => ({
+      const promptItems = bundleCandidateItems.map((item) => ({
         name: item.name,
         condition: item.condition,
         low_price: item.low_price,
@@ -995,7 +996,7 @@ ${JSON.stringify(promptItems, null, 2)}`,
           </View>
         )}
 
-        {filteredItems.map((item: any) => (
+        {filteredItems.map((item) => (
           <View key={item.id} style={styles.itemCard}>
             {(() => {
               const workflowStatus = getInventoryWorkflowStatus(item);
