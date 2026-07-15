@@ -30,6 +30,40 @@ const renderMetric = (label, value, tone = "") => `
   </section>
 `;
 
+const getPalletName = (palletId) =>
+  pallets.find((entry) => entry.id === palletId)?.name ?? "Unassigned";
+
+const getInventorySearchText = (item) =>
+  [
+    item.name,
+    getPalletName(item.palletId),
+    item.condition,
+    item.platform,
+    statusLabel[item.status],
+  ]
+    .join(" ")
+    .toLowerCase();
+
+const applyInventorySearch = () => {
+  const searchInput = document.querySelector("#inventory-search");
+  const rows = [...document.querySelectorAll("[data-inventory-row]")];
+  const query = searchInput?.value.trim().toLowerCase() ?? "";
+  let visibleCount = 0;
+
+  for (const row of rows) {
+    const isVisible = !query || row.dataset.searchText.includes(query);
+    row.hidden = !isVisible;
+    if (isVisible) {
+      visibleCount += 1;
+    }
+  }
+
+  const resultCount = document.querySelector("#inventory-result-count");
+  if (resultCount) {
+    resultCount.textContent = `${visibleCount} item${visibleCount === 1 ? "" : "s"}`;
+  }
+};
+
 const normalizeBaseUrl = (value) => value.trim().replace(/\/$/, "");
 
 const getEbayHeaders = () => ({
@@ -250,7 +284,7 @@ const render = () => {
                 (pallet) => `
                   <article class="pallet-card">
                     <div class="card-row">
-                      <strong>${pallet.name}</strong>
+                      <strong>${escapeHtml(pallet.name)}</strong>
                       <span>${pallet.itemCount} items</span>
                     </div>
                     <dl>
@@ -279,8 +313,8 @@ const render = () => {
                 (item) => `
                   <article class="queue-item">
                     <div>
-                      <strong>${item.name}</strong>
-                      <span>${item.issue}</span>
+                      <strong>${escapeHtml(item.name)}</strong>
+                      <span>${escapeHtml(item.issue)}</span>
                     </div>
                     <span class="badge ${statusClass[item.status]}">${statusLabel[item.status]}</span>
                   </article>
@@ -296,7 +330,10 @@ const render = () => {
               <p class="eyebrow">Inventory</p>
               <h3>Desktop-first review table</h3>
             </div>
-            <input aria-label="Search inventory" placeholder="Search inventory" />
+            <div class="inventory-tools">
+              <span id="inventory-result-count">${items.length} items</span>
+              <input id="inventory-search" aria-label="Search inventory" placeholder="Search inventory" />
+            </div>
           </div>
           <table>
             <thead>
@@ -312,13 +349,13 @@ const render = () => {
             <tbody>
               ${items
                 .map((item) => {
-                  const pallet = pallets.find((entry) => entry.id === item.palletId);
+                  const palletName = getPalletName(item.palletId);
                   return `
-                    <tr>
-                      <td>${item.name}</td>
-                      <td>${pallet?.name ?? "Unassigned"}</td>
-                      <td>${item.condition}</td>
-                      <td>${item.platform}</td>
+                    <tr data-inventory-row data-search-text="${escapeHtml(getInventorySearchText(item))}">
+                      <td>${escapeHtml(item.name)}</td>
+                      <td>${escapeHtml(palletName)}</td>
+                      <td>${escapeHtml(item.condition)}</td>
+                      <td>${escapeHtml(item.platform)}</td>
                       <td>${currency(item.low)}-${currency(item.high)}</td>
                       <td><span class="badge ${statusClass[item.status]}">${statusLabel[item.status]}</span></td>
                     </tr>
@@ -377,6 +414,10 @@ const render = () => {
     ?.addEventListener("click", () => {
       void disconnectEbay();
     });
+  document
+    .querySelector("#inventory-search")
+    ?.addEventListener("input", applyInventorySearch);
+  applyInventorySearch();
 };
 
 render();

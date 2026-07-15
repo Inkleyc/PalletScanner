@@ -165,6 +165,19 @@ button {
   gap: 16px;
 }
 
+.inventory-tools {
+  align-items: center;
+  display: flex;
+  gap: 10px;
+}
+
+.inventory-tools span {
+  color: #697364;
+  font-size: 12px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
 .panel h3 {
   font-size: 20px;
 }
@@ -398,9 +411,18 @@ th {
     padding: 20px;
   }
 
-  nav,
   .topbar {
     display: none;
+  }
+
+  nav {
+    display: none;
+  }
+
+  .panel-heading,
+  .inventory-tools {
+    align-items: stretch;
+    flex-direction: column;
   }
 
   .metrics-grid,
