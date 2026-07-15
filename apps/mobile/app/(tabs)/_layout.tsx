@@ -103,6 +103,7 @@ export default function TabLayout() {
         name="facebook"
         options={{
           title: "Facebook",
+          href: null,
           tabBarIcon: createTabIcon("tag.fill", "FacebookTabIcon"),
           tabBarLabel: createTabLabel("Facebook", "FacebookTabLabel"),
         }}
@@ -119,6 +120,7 @@ export default function TabLayout() {
         name="analytics"
         options={{
           title: "Stats",
+          href: null,
           tabBarIcon: createTabIcon("chart.bar.fill", "StatsTabIcon"),
           tabBarLabel: createTabLabel("Stats", "StatsTabLabel"),
         }}

@@ -14,6 +14,7 @@ import {
 
 import {
   getActivePallet,
+  getInventory,
   getNextDefaultPalletName,
   createPalletSession,
   subscribeInventory,
@@ -30,6 +31,11 @@ export default function HomeScreen() {
     subscribeInventory,
     getActivePallet,
     getActivePallet,
+  );
+  const items = useSyncExternalStore(
+    subscribeInventory,
+    getInventory,
+    getInventory,
   );
 
   const openCreatePalletModal = () => {
@@ -48,22 +54,34 @@ export default function HomeScreen() {
   };
 
   const activePalletName = activePallet?.name ?? "No active pallet";
+  const activePalletItems = activePallet
+    ? items.filter((item) => item.palletId === activePallet.id)
+    : [];
+  const lastSavedItem = activePalletItems
+    .slice()
+    .sort((a, b) => b.id - a.id)[0];
 
   return (
     <>
       <ScrollView style={styles.container} contentContainerStyle={styles.content}>
         <View style={[styles.innerContent, isLargeLayout && styles.innerContentWide]}>
           <Text style={styles.title}>Pallet Scanner</Text>
-          <Text style={styles.subtitle}>Start with a pallet, then capture the next item.</Text>
+          <Text style={styles.subtitle}>Choose a pallet, scan the item, save it, move on.</Text>
 
           <View style={styles.primaryCard}>
             <Text style={styles.cardEyebrow}>ACTIVE PALLET</Text>
             <Text style={styles.cardTitle}>{activePalletName}</Text>
             <Text style={styles.cardCopy}>
               {activePallet
-                ? "New scans and new photo drafts will save into this pallet."
+                ? `${activePalletItems.length} item${activePalletItems.length === 1 ? "" : "s"} saved here.`
                 : "Create a pallet first so new items have somewhere to go."}
             </Text>
+            {lastSavedItem ? (
+              <View style={styles.lastItemBox}>
+                <Text style={styles.lastItemLabel}>LAST SAVED</Text>
+                <Text style={styles.lastItemName}>{lastSavedItem.name}</Text>
+              </View>
+            ) : null}
 
             <TouchableOpacity
               style={styles.cardAction}
@@ -77,22 +95,32 @@ export default function HomeScreen() {
 
           <View style={styles.actionsCard}>
             <TouchableOpacity
-              style={styles.secondaryAction}
-              onPress={() => router.push("/capture")}
+              style={[styles.workflowAction, styles.primaryWorkflowAction]}
+              onPress={() => router.push("/scan-barcode")}
             >
-              <Text style={styles.secondaryActionTitle}>Capture with Photos</Text>
-              <Text style={styles.secondaryActionCopy}>
-                Take photos or upload them in a dedicated temporary screen.
+              <Text style={styles.primaryWorkflowTitle}>Scan Barcode</Text>
+              <Text style={styles.primaryWorkflowCopy}>
+                Fastest path when the item has a readable UPC or product code.
               </Text>
             </TouchableOpacity>
 
             <TouchableOpacity
-              style={styles.secondaryAction}
-              onPress={() => router.push("/scan-barcode")}
+              style={styles.workflowAction}
+              onPress={() => router.push("/capture")}
             >
-              <Text style={styles.secondaryActionTitle}>Scan Barcode</Text>
-              <Text style={styles.secondaryActionCopy}>
-                Open the scanner and build a draft from product data.
+              <Text style={styles.workflowTitle}>Capture Photos</Text>
+              <Text style={styles.workflowCopy}>
+                Use photos when there is no barcode or condition matters most.
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.workflowAction}
+              onPress={() => router.push("/(tabs)/explore")}
+            >
+              <Text style={styles.workflowTitle}>Review Inventory</Text>
+              <Text style={styles.workflowCopy}>
+                Check saved items, mark sold, or continue listing work.
               </Text>
             </TouchableOpacity>
           </View>
@@ -176,6 +204,24 @@ const styles = StyleSheet.create({
     lineHeight: 20,
     marginBottom: 16,
   },
+  lastItemBox: {
+    backgroundColor: "rgba(255,255,255,0.12)",
+    borderRadius: 8,
+    padding: 10,
+    marginBottom: 14,
+  },
+  lastItemLabel: {
+    color: "rgba(255,255,255,0.7)",
+    fontSize: 10,
+    fontWeight: "800",
+    marginBottom: 4,
+  },
+  lastItemName: {
+    color: AppPalette.primaryOn,
+    fontSize: 14,
+    fontWeight: "700",
+    lineHeight: 18,
+  },
   cardAction: {
     backgroundColor: AppPalette.primaryOn,
     borderRadius: 10,
@@ -191,7 +237,7 @@ const styles = StyleSheet.create({
     padding: 16,
     marginBottom: 16,
   },
-  secondaryAction: {
+  workflowAction: {
     backgroundColor: AppPalette.surfaceMuted,
     borderWidth: 1,
     borderColor: AppPalette.border,
@@ -199,13 +245,28 @@ const styles = StyleSheet.create({
     padding: 14,
     marginTop: 10,
   },
-  secondaryActionTitle: {
+  primaryWorkflowAction: {
+    backgroundColor: AppPalette.primaryStrong,
+    borderColor: AppPalette.primaryStrong,
+  },
+  workflowTitle: {
     fontSize: 15,
     fontWeight: "700",
     color: AppPalette.text,
     marginBottom: 4,
   },
-  secondaryActionCopy: { fontSize: 13, color: AppPalette.textMuted, lineHeight: 18 },
+  workflowCopy: { fontSize: 13, color: AppPalette.textMuted, lineHeight: 18 },
+  primaryWorkflowTitle: {
+    fontSize: 17,
+    fontWeight: "800",
+    color: AppPalette.primaryOn,
+    marginBottom: 4,
+  },
+  primaryWorkflowCopy: {
+    fontSize: 13,
+    color: "rgba(255,255,255,0.82)",
+    lineHeight: 18,
+  },
   modalBackdrop: {
     flex: 1,
     backgroundColor: AppPalette.modalBackdrop,
