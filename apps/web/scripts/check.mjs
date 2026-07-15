@@ -44,6 +44,8 @@ for (const marker of [
   "data-action=\"export-inventory\"",
   "Needs Facebook",
   "Needs eBay",
+  "filter-facebook",
+  "filter-ebay",
   "inventory-status-filter",
   "inventory-platform-filter",
   "data-action=\"reset-inventory\"",

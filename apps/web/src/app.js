@@ -53,6 +53,13 @@ const renderMetric = (label, value, tone = "") => `
   </section>
 `;
 
+const renderActionMetric = (label, value, action, tone = "") => `
+  <button class="metric metric-button ${tone}" type="button" data-action="${action}">
+    <span>${label}</span>
+    <strong>${value}</strong>
+  </button>
+`;
+
 const getPalletName = (palletId) =>
   pallets.find((entry) => entry.id === palletId)?.name ?? "Unassigned";
 
@@ -249,6 +256,23 @@ const resetInventoryView = () => {
     platformFilter.value = "all";
   }
   applyInventorySearch();
+};
+
+const filterInventoryPlatform = (platform) => {
+  const searchInput = document.querySelector("#inventory-search");
+  const statusFilter = document.querySelector("#inventory-status-filter");
+  const platformFilter = document.querySelector("#inventory-platform-filter");
+  if (searchInput) {
+    searchInput.value = "";
+  }
+  if (statusFilter) {
+    statusFilter.value = "all";
+  }
+  if (platformFilter) {
+    platformFilter.value = platform;
+  }
+  applyInventorySearch();
+  document.querySelector("#inventory")?.scrollIntoView({ behavior: "smooth" });
 };
 
 const getSelectedInventoryItem = () =>
@@ -513,8 +537,8 @@ const render = () => {
           ${renderMetric("Gross Profit", currency(totals.grossProfit), totals.grossProfit >= 0 ? "success" : "danger")}
           ${renderMetric("Sell Through", `${totals.sellThrough.toFixed(0)}%`)}
           ${renderMetric("Needs Attention", attentionItems.length, "warning")}
-          ${renderMetric("Needs Facebook", totals.needsFacebook, "warning")}
-          ${renderMetric("Needs eBay", totals.needsEbay, "warning")}
+          ${renderActionMetric("Needs Facebook", totals.needsFacebook, "filter-facebook", "warning")}
+          ${renderActionMetric("Needs eBay", totals.needsEbay, "filter-ebay", "warning")}
         </section>
 
         <section id="pallets" class="panel">
@@ -710,6 +734,12 @@ const render = () => {
   document
     .querySelector("[data-action='reset-inventory']")
     ?.addEventListener("click", resetInventoryView);
+  document
+    .querySelector("[data-action='filter-facebook']")
+    ?.addEventListener("click", () => filterInventoryPlatform("Facebook"));
+  document
+    .querySelector("[data-action='filter-ebay']")
+    ?.addEventListener("click", () => filterInventoryPlatform("eBay"));
   document.querySelectorAll("[data-inventory-row]").forEach((row) => {
     row.addEventListener("click", () => {
       selectInventoryItem(Number(row.dataset.itemId));

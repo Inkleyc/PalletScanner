@@ -126,6 +126,21 @@ button {
   padding: 16px;
 }
 
+.metric-button {
+  cursor: pointer;
+  text-align: left;
+}
+
+.metric-button:hover {
+  border-color: #b6c4ab;
+  background: #f7f8f4;
+}
+
+.metric-button:focus {
+  outline: 2px solid #789066;
+  outline-offset: 2px;
+}
+
 .metric span {
   color: #697364;
   display: block;
