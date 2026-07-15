@@ -28,6 +28,10 @@ import {
   triggerInventorySaveFeedback,
 } from "@/lib/feedback";
 import {
+  buildInventoryItemDraft,
+  duplicateInventoryItemDraft,
+} from "@/lib/inventory-item-drafts";
+import {
   getActivePallet,
   saveInventoryItem,
   subscribeInventory,
@@ -70,6 +74,7 @@ export default function HomeScreen() {
   const [editableFloorPrice, setEditableFloorPrice] = useState("");
   const [editableQuantity, setEditableQuantity] = useState("1");
   const [photoTipsExpanded, setPhotoTipsExpanded] = useState(false);
+  const [advancedListingExpanded, setAdvancedListingExpanded] = useState(false);
   const [currentItemId, setCurrentItemId] = useState<number | null>(null);
   const [currentItemPalletId, setCurrentItemPalletId] = useState<string | null>(null);
   const [productImageUri, setProductImageUri] = useState<string | null>(null);
@@ -195,6 +200,7 @@ Barcode: ${barcode}
     setEditableFloorPrice("");
     setEditableQuantity("1");
     setPhotoTipsExpanded(false);
+    setAdvancedListingExpanded(false);
     setProductImageUri(null);
     setBarcodeValue("");
     resetBarcodeScanState();
@@ -267,6 +273,7 @@ Barcode: ${barcode}
   const applyParsedListingDrafts = (parsed: any) => {
     setListingDrafts(createListingDrafts(parsed));
     setActiveListingPlatform("general");
+    setAdvancedListingExpanded(false);
   };
 
   const updateListingDraft = (
@@ -630,41 +637,25 @@ ${productSummary}
     if (!palletId) {
       return;
     }
-    const baseInventoryItem: InventoryItem = {
-      id: currentItemId ?? Date.now(),
-      photo: images[0]?.uri ?? productImageUri ?? null,
-      photos:
-        images.length > 0
-          ? images.slice(0, 5).map((image) => image.uri)
-          : productImageUri
-            ? [productImageUri]
-            : [],
-      name: result.name,
-      condition: result.condition,
-      quantity: 1,
-      low_price: parsedPriceRange.low,
-      high_price: parsedPriceRange.high,
-      floor_price: Math.min(parsedFloorPrice, parsedPriceRange.high),
-      best_platform: result.best_platform,
-      listing_title: listingDrafts.general.title,
-      listing_description: listingDrafts.general.description,
-      listing_title_facebook: listingDrafts.facebook.title,
-      listing_description_facebook: listingDrafts.facebook.description,
-      listing_title_ebay: listingDrafts.ebay.title,
-      listing_description_ebay: listingDrafts.ebay.description,
-      listedPlatforms: [],
+    const baseInventoryItem = buildInventoryItemDraft({
+      currentItemId,
       palletId,
-      soldPrice: null,
-    };
+      analysis: result,
+      listingDrafts,
+      images,
+      productImageUri,
+      priceRange: parsedPriceRange,
+      floorPrice: parsedFloorPrice,
+    });
 
     if (currentItemId !== null) {
       await saveInventoryItem(baseInventoryItem);
       void triggerInventorySaveFeedback();
     } else {
-      const itemsToSave = Array.from({ length: parsedQuantity }, (_, index) => ({
-        ...baseInventoryItem,
-        id: baseInventoryItem.id + index,
-      }));
+      const itemsToSave = duplicateInventoryItemDraft(
+        baseInventoryItem,
+        parsedQuantity,
+      );
       await Promise.all(itemsToSave.map((item) => saveInventoryItem(item)));
       void triggerInventorySaveFeedback();
       setCurrentItemId(baseInventoryItem.id);
@@ -856,78 +847,39 @@ ${productSummary}
             <Text style={styles.platformReason}>{result.platform_reason}</Text>
 
             <View style={styles.listingBox}>
-              <View style={styles.listingPlatformTabs}>
-                {(["general", "facebook", "ebay"] as const).map((platform) => (
-                  <TouchableOpacity
-                    key={platform}
-                    style={[
-                      styles.listingPlatformTab,
-                      activeListingPlatform === platform && styles.listingPlatformTabActive,
-                    ]}
-                    onPress={() => setActiveListingPlatform(platform)}
-                  >
-                    <Text
-                      style={[
-                        styles.listingPlatformTabText,
-                        activeListingPlatform === platform &&
-                          styles.listingPlatformTabTextActive,
-                      ]}
-                    >
-                      {getListingDraftPlatformLabel(platform)}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
+              <View style={styles.quickEditGrid}>
+                <View style={styles.quickEditField}>
+                  <Text style={styles.listingLabel}>PRICE RANGE</Text>
+                  <TextInput
+                    style={styles.editableInput}
+                    value={editablePrice}
+                    onChangeText={setEditablePrice}
+                    placeholder="e.g. 10-30"
+                  />
+                </View>
+
+                <View style={styles.quickEditField}>
+                  <Text style={styles.listingLabel}>FLOOR</Text>
+                  <TextInput
+                    style={styles.editableInput}
+                    value={editableFloorPrice}
+                    onChangeText={setEditableFloorPrice}
+                    placeholder="lowest"
+                    keyboardType="numeric"
+                  />
+                </View>
+
+                <View style={styles.quickEditQtyField}>
+                  <Text style={styles.listingLabel}>QTY</Text>
+                  <TextInput
+                    style={styles.editableInput}
+                    value={editableQuantity}
+                    onChangeText={setEditableQuantity}
+                    placeholder="1"
+                    keyboardType="number-pad"
+                  />
+                </View>
               </View>
-
-              <Text style={styles.listingLabel}>LISTING TITLE</Text>
-              <TextInput
-                style={styles.editableInput}
-                value={currentListingDraft.title}
-                onChangeText={(value) => updateListingDraft("title", value)}
-                multiline
-                placeholder="Listing title"
-              />
-
-              <Text style={styles.listingLabel}>DESCRIPTION</Text>
-              <TextInput
-                style={[styles.editableInput, styles.editableInputTall]}
-                value={currentListingDraft.description}
-                onChangeText={(value) => updateListingDraft("description", value)}
-                multiline
-                placeholder="Listing description"
-              />
-
-              <Text style={styles.listingLabel}>PRICE RANGE</Text>
-              <TextInput
-                style={styles.editableInput}
-                value={editablePrice}
-                onChangeText={setEditablePrice}
-                placeholder="e.g. 10-30"
-              />
-
-              <Text style={styles.listingLabel}>FLOOR PRICE</Text>
-              <TextInput
-                style={styles.editableInput}
-                value={editableFloorPrice}
-                onChangeText={setEditableFloorPrice}
-                placeholder="lowest price you'd take"
-                keyboardType="numeric"
-              />
-
-              <Text style={styles.listingLabel}>QTY</Text>
-              <TextInput
-                style={styles.editableInput}
-                value={editableQuantity}
-                onChangeText={setEditableQuantity}
-                placeholder="1"
-                keyboardType="number-pad"
-              />
-
-              <TouchableOpacity style={styles.copyBtn} onPress={copyListing}>
-                <Text style={styles.copyBtnText}>
-                  Copy {getListingDraftPlatformLabel(activeListingPlatform)} Listing
-                </Text>
-              </TouchableOpacity>
 
               <TouchableOpacity
                 style={styles.saveBtn}
@@ -970,6 +922,69 @@ ${productSummary}
                   </TouchableOpacity>
                 </>
               )}
+
+              <TouchableOpacity
+                style={styles.advancedToggle}
+                onPress={() => setAdvancedListingExpanded((current) => !current)}
+              >
+                <Text style={styles.advancedToggleText}>
+                  {advancedListingExpanded ? "Hide listing draft" : "Edit listing draft"}
+                </Text>
+              </TouchableOpacity>
+
+              {advancedListingExpanded ? (
+                <View style={styles.advancedListingBox}>
+                  <View style={styles.listingPlatformTabs}>
+                    {(["general", "facebook", "ebay"] as const).map((platform) => (
+                      <TouchableOpacity
+                        key={platform}
+                        style={[
+                          styles.listingPlatformTab,
+                          activeListingPlatform === platform &&
+                            styles.listingPlatformTabActive,
+                        ]}
+                        onPress={() => setActiveListingPlatform(platform)}
+                      >
+                        <Text
+                          style={[
+                            styles.listingPlatformTabText,
+                            activeListingPlatform === platform &&
+                              styles.listingPlatformTabTextActive,
+                          ]}
+                        >
+                          {getListingDraftPlatformLabel(platform)}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+
+                  <Text style={styles.listingLabel}>LISTING TITLE</Text>
+                  <TextInput
+                    style={styles.editableInput}
+                    value={currentListingDraft.title}
+                    onChangeText={(value) => updateListingDraft("title", value)}
+                    multiline
+                    placeholder="Listing title"
+                  />
+
+                  <Text style={styles.listingLabel}>DESCRIPTION</Text>
+                  <TextInput
+                    style={[styles.editableInput, styles.editableInputTall]}
+                    value={currentListingDraft.description}
+                    onChangeText={(value) =>
+                      updateListingDraft("description", value)
+                    }
+                    multiline
+                    placeholder="Listing description"
+                  />
+
+                  <TouchableOpacity style={styles.copyBtn} onPress={copyListing}>
+                    <Text style={styles.copyBtnText}>
+                      Copy {getListingDraftPlatformLabel(activeListingPlatform)} Listing
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              ) : null}
             </View>
 
             {result.photo_tips ? (
@@ -1201,6 +1216,29 @@ const styles = StyleSheet.create({
     padding: 12,
     borderWidth: 1,
     borderColor: AppPalette.border,
+  },
+  quickEditGrid: {
+    flexDirection: "row",
+    gap: 8,
+    alignItems: "flex-start",
+  },
+  quickEditField: { flex: 1 },
+  quickEditQtyField: { width: 72 },
+  advancedToggle: {
+    paddingVertical: 12,
+    alignItems: "center",
+    marginTop: 4,
+  },
+  advancedToggleText: {
+    color: AppPalette.primary,
+    fontSize: 14,
+    fontWeight: "700",
+  },
+  advancedListingBox: {
+    borderTopWidth: 1,
+    borderTopColor: AppPalette.border,
+    paddingTop: 12,
+    marginTop: 4,
   },
   listingPlatformTabs: {
     flexDirection: "row",
