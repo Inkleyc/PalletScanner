@@ -805,20 +805,22 @@ ${JSON.stringify(promptItems, null, 2)}`,
                   <Text style={styles.totalValue}>${totalHigh}</Text>
                 </View>
               </View>
-              <View style={styles.profitRow}>
-                <View style={styles.profitBox}>
-                  <Text style={styles.totalLabel}>Pallet Cost</Text>
-                  <Text style={styles.profitValue}>${totalPalletCost}</Text>
+              {isLargeLayout ? (
+                <View style={styles.profitRow}>
+                  <View style={styles.profitBox}>
+                    <Text style={styles.totalLabel}>Pallet Cost</Text>
+                    <Text style={styles.profitValue}>${totalPalletCost}</Text>
+                  </View>
+                  <View style={styles.profitBox}>
+                    <Text style={styles.totalLabel}>Profit Low</Text>
+                    <Text style={styles.profitValue}>${projectedProfitLow}</Text>
+                  </View>
+                  <View style={styles.profitBox}>
+                    <Text style={styles.totalLabel}>Profit High</Text>
+                    <Text style={styles.profitValue}>${projectedProfitHigh}</Text>
+                  </View>
                 </View>
-                <View style={styles.profitBox}>
-                  <Text style={styles.totalLabel}>Profit Low</Text>
-                  <Text style={styles.profitValue}>${projectedProfitLow}</Text>
-                </View>
-                <View style={styles.profitBox}>
-                  <Text style={styles.totalLabel}>Profit High</Text>
-                  <Text style={styles.profitValue}>${projectedProfitHigh}</Text>
-                </View>
-              </View>
+              ) : null}
               <View style={styles.facebookReadinessGrid}>
                 <TouchableOpacity
                   style={styles.facebookReadinessBox}
@@ -857,80 +859,84 @@ ${JSON.stringify(promptItems, null, 2)}`,
                   </Text>
                 </TouchableOpacity>
               </View>
-              <View style={styles.exportRow}>
-                <TouchableOpacity style={styles.exportBtn} onPress={exportCSV}>
-                  <Text style={styles.exportBtnText}>Export CSV</Text>
-                </TouchableOpacity>
-                <TouchableOpacity style={styles.emailBtn} onPress={emailInventory}>
-                  <Text style={styles.emailBtnText}>Email Inventory</Text>
-                </TouchableOpacity>
-              </View>
-              <TouchableOpacity
-                style={styles.bulkFacebookBtn}
-                onPress={() => router.push("/facebook" as never)}
-              >
-                <Text style={styles.bulkFacebookBtnText}>
-                  Open Facebook Queue ({missingFacebookItems.length})
-                </Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={styles.bulkFacebookSecondaryBtn}
-                onPress={
-                  bulkFacebookQueue.length > 0
-                    ? continueBulkFacebookPosting
-                    : startBulkFacebookPosting
-                }
-              >
-                <Text style={styles.bulkFacebookSecondaryBtnText}>
-                  {bulkFacebookQueue.length > 0
-                    ? `Continue Quick Posting (${bulkFacebookQueue.length} left)`
-                    : "Quick Open Next Facebook Draft"}
-                </Text>
-              </TouchableOpacity>
-              {bulkFacebookQueue.length > 0 && (
-                <TouchableOpacity
-                  style={styles.cancelBulkBtn}
-                  onPress={cancelBulkFacebookPosting}
-                >
-                  <Text style={styles.cancelBulkBtnText}>
-                    Stop Facebook Posting
-                  </Text>
-                </TouchableOpacity>
-              )}
-              <TouchableOpacity
-                style={styles.bulkEbayBtn}
-                onPress={
-                  bulkEbayQueue.length > 0
-                    ? continueBulkEbayPosting
-                    : startBulkEbayPosting
-                }
-              >
-                <Text style={styles.bulkEbayBtnText}>
-                  {bulkEbayQueue.length > 0
-                    ? `Continue Mass eBay Posting (${bulkEbayQueue.length} left)`
-                    : `Post All Missing to eBay (${missingEbayItems.length})`}
-                </Text>
-              </TouchableOpacity>
-              {bulkEbayQueue.length > 0 && (
-                <TouchableOpacity
-                  style={styles.cancelBulkBtn}
-                  onPress={cancelBulkEbayPosting}
-                >
-                  <Text style={styles.cancelBulkBtnText}>Stop Mass Posting</Text>
-                </TouchableOpacity>
-              )}
-              {bundleCandidateItems.length >= 3 && (
-                <TouchableOpacity
-                  style={styles.bundleBtn}
-                  onPress={() => {
-                    void suggestBundle();
-                  }}
-                >
-                  <Text style={styles.bundleBtnText}>
-                    {bundleLoading ? "Suggesting Bundles..." : "Suggest Bundle"}
-                  </Text>
-                </TouchableOpacity>
-              )}
+              {isLargeLayout ? (
+                <>
+                  <View style={styles.exportRow}>
+                    <TouchableOpacity style={styles.exportBtn} onPress={exportCSV}>
+                      <Text style={styles.exportBtnText}>Export CSV</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity style={styles.emailBtn} onPress={emailInventory}>
+                      <Text style={styles.emailBtnText}>Email Inventory</Text>
+                    </TouchableOpacity>
+                  </View>
+                  <TouchableOpacity
+                    style={styles.bulkFacebookBtn}
+                    onPress={() => router.push("/facebook" as never)}
+                  >
+                    <Text style={styles.bulkFacebookBtnText}>
+                      Open Facebook Queue ({missingFacebookItems.length})
+                    </Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={styles.bulkFacebookSecondaryBtn}
+                    onPress={
+                      bulkFacebookQueue.length > 0
+                        ? continueBulkFacebookPosting
+                        : startBulkFacebookPosting
+                    }
+                  >
+                    <Text style={styles.bulkFacebookSecondaryBtnText}>
+                      {bulkFacebookQueue.length > 0
+                        ? `Continue Quick Posting (${bulkFacebookQueue.length} left)`
+                        : "Quick Open Next Facebook Draft"}
+                    </Text>
+                  </TouchableOpacity>
+                  {bulkFacebookQueue.length > 0 && (
+                    <TouchableOpacity
+                      style={styles.cancelBulkBtn}
+                      onPress={cancelBulkFacebookPosting}
+                    >
+                      <Text style={styles.cancelBulkBtnText}>
+                        Stop Facebook Posting
+                      </Text>
+                    </TouchableOpacity>
+                  )}
+                  <TouchableOpacity
+                    style={styles.bulkEbayBtn}
+                    onPress={
+                      bulkEbayQueue.length > 0
+                        ? continueBulkEbayPosting
+                        : startBulkEbayPosting
+                    }
+                  >
+                    <Text style={styles.bulkEbayBtnText}>
+                      {bulkEbayQueue.length > 0
+                        ? `Continue Mass eBay Posting (${bulkEbayQueue.length} left)`
+                        : `Post All Missing to eBay (${missingEbayItems.length})`}
+                    </Text>
+                  </TouchableOpacity>
+                  {bulkEbayQueue.length > 0 && (
+                    <TouchableOpacity
+                      style={styles.cancelBulkBtn}
+                      onPress={cancelBulkEbayPosting}
+                    >
+                      <Text style={styles.cancelBulkBtnText}>Stop Mass Posting</Text>
+                    </TouchableOpacity>
+                  )}
+                  {bundleCandidateItems.length >= 3 && (
+                    <TouchableOpacity
+                      style={styles.bundleBtn}
+                      onPress={() => {
+                        void suggestBundle();
+                      }}
+                    >
+                      <Text style={styles.bundleBtnText}>
+                        {bundleLoading ? "Suggesting Bundles..." : "Suggest Bundle"}
+                      </Text>
+                    </TouchableOpacity>
+                  )}
+                </>
+              ) : null}
             </>
           ) : null}
         </View>
