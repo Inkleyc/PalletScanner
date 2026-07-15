@@ -19,7 +19,7 @@ import { AppLayout, AppPalette } from "@/constants/app-palette";
 import {
   calculateInventoryTotals,
   calculatePalletMetrics,
-} from "@/packages/core/src/metrics";
+} from "@palletscanner/core";
 
 const currency = (value: number) => `$${value.toFixed(2)}`;
 

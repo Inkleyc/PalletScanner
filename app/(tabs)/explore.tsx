@@ -54,12 +54,12 @@ import {
   hasActiveInventoryFilters,
   type InventorySortMode,
   type ListingFilter,
-} from "@/packages/core/src/inventory-query";
+} from "@palletscanner/core";
 import {
   buildInventoryCsv,
   calculateInventoryValueSummary,
   createInventoryExportBasename,
-} from "@/packages/core/src/inventory-report";
+} from "@palletscanner/core";
 
 type BundleSuggestion = {
   title: string;

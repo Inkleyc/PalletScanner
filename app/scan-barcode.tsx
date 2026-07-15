@@ -46,7 +46,7 @@ import {
   parsePositiveInteger,
   parsePriceRange as parseCorePriceRange,
   sanitizeBarcodeValue,
-} from "@/packages/core/src/parsing";
+} from "@palletscanner/core";
 
 const API_KEY = process.env.EXPO_PUBLIC_ANTHROPIC_API_KEY;
 const LOADING_MESSAGES = [

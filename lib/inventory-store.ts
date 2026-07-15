@@ -6,7 +6,7 @@ import {
   readWebStorage,
   writeWebStorage,
 } from "@/lib/web-storage";
-import type { InventoryItem, PalletSession } from "@/packages/core/src/domain";
+import type { InventoryItem, PalletSession } from "@palletscanner/core";
 
 type ResetBackup = {
   items: InventoryItem[];
@@ -912,7 +912,7 @@ export const markInventoryItemEbayEnded = (id: number) => {
 export type {
   InventoryItem,
   PalletSession,
-} from "@/packages/core/src/domain";
+} from "@palletscanner/core";
 export type { ResetBackupSummary };
 
 void hydrateInventory();

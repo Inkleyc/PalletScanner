@@ -31,7 +31,7 @@ import {
   getFacebookMissingUrlItems,
   getItemsMissingPlatformListing,
   getItemPhotos,
-} from "@/packages/core/src/inventory-query";
+} from "@palletscanner/core";
 
 const facebookCopySteps = [
   "Title",

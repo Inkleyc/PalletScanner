@@ -3,7 +3,7 @@ import {
   getPostingReadiness as getCorePostingReadiness,
   getPostingReadinessMessage as getCorePostingReadinessMessage,
   type PostingReadiness,
-} from "@/packages/core/src/posting-readiness";
+} from "@palletscanner/core";
 
 export type PostingPlatform = "facebook" | "ebay";
 export type { PostingReadiness };
