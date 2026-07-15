@@ -171,11 +171,56 @@ button {
   margin-top: 14px;
 }
 
+.admin-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 14px;
+}
+
 .pallet-card {
   background: #f7f8f4;
   border: 1px solid #d9dfd2;
   border-radius: 8px;
   padding: 14px;
+}
+
+.admin-card {
+  background: #f7f8f4;
+  border: 1px solid #d9dfd2;
+  border-radius: 8px;
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.admin-card strong {
+  font-size: 17px;
+}
+
+.admin-card p {
+  color: #64705f;
+  font-size: 13px;
+  line-height: 1.45;
+  margin: 0;
+}
+
+.admin-card button {
+  margin-top: auto;
+  width: 100%;
+}
+
+.admin-kicker {
+  color: #697364;
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.danger-zone {
+  border-color: #efc0b9;
+  background: #fff5f2;
 }
 
 .card-row span,
@@ -278,7 +323,8 @@ th {
   }
 
   .metrics-grid,
-  .pallet-grid {
+  .pallet-grid,
+  .admin-grid {
     grid-template-columns: 1fr;
   }
 

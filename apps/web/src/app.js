@@ -181,6 +181,7 @@ const render = () => {
           <a href="#pallets">Pallets</a>
           <a href="#queue">Attention Queue</a>
           <a href="#inventory">Inventory</a>
+          <a href="#admin">Admin Settings</a>
         </nav>
       </aside>
 
@@ -294,6 +295,41 @@ const render = () => {
                 .join("")}
             </tbody>
           </table>
+        </section>
+
+        <section id="admin" class="panel">
+          <div class="panel-heading">
+            <div>
+              <p class="eyebrow">Admin Settings</p>
+              <h3>Controls that should stay out of the warehouse app</h3>
+            </div>
+          </div>
+          <div class="admin-grid">
+            <article class="admin-card">
+              <span class="admin-kicker">Usage & Billing</span>
+              <strong>Scan plan and monthly usage</strong>
+              <p>Put plan limits, billing status, and upgrade controls here instead of interrupting the phone capture flow.</p>
+              <button type="button">Review Plan</button>
+            </article>
+            <article class="admin-card">
+              <span class="admin-kicker">Marketplace Backend</span>
+              <strong>eBay server configuration</strong>
+              <p>Show API environment, OAuth callback status, policy IDs, and backend health checks for marketplace admins.</p>
+              <button type="button">Open Integration Status</button>
+            </article>
+            <article class="admin-card">
+              <span class="admin-kicker">Security</span>
+              <strong>Runtime auth and access policy</strong>
+              <p>Developer bearer tokens and production auth rules belong in web/admin tooling, not normal mobile Settings.</p>
+              <button type="button">Manage Access</button>
+            </article>
+            <article class="admin-card danger-zone">
+              <span class="admin-kicker">Danger Zone</span>
+              <strong>Data reset and restore</strong>
+              <p>Destructive actions should require a larger screen, clearer review, and stronger confirmation than a phone tab.</p>
+              <button type="button">Review Data Tools</button>
+            </article>
+          </div>
         </section>
       </main>
     </div>

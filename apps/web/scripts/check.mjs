@@ -25,7 +25,12 @@ for (const marker of ['id="app"', "./src/app.js", "./src/styles.css"]) {
   }
 }
 
-for (const marker of ["Business Dashboard", "Attention Queue", "Desktop-first review table"]) {
+for (const marker of [
+  "Business Dashboard",
+  "Attention Queue",
+  "Desktop-first review table",
+  "Admin Settings",
+]) {
   if (!app.includes(marker)) {
     throw new Error(`app.js is missing ${marker}`);
   }
