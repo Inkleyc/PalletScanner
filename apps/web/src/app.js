@@ -16,8 +16,18 @@ const ebaySettings = {
 };
 
 const inventorySort = {
-  column: "name",
-  direction: "asc",
+  column: localStorage.getItem("palletscanner.inventorySortColumn") ?? "name",
+  direction:
+    localStorage.getItem("palletscanner.inventorySortDirection") === "desc"
+      ? "desc"
+      : "asc",
+};
+
+const inventoryFilters = {
+  query: localStorage.getItem("palletscanner.inventorySearch") ?? "",
+  status: localStorage.getItem("palletscanner.inventoryStatusFilter") ?? "all",
+  platform:
+    localStorage.getItem("palletscanner.inventoryPlatformFilter") ?? "all",
 };
 
 const escapeHtml = (value) =>
@@ -59,6 +69,19 @@ const applyInventorySearch = () => {
   const selectedPlatform = platformFilter?.value ?? "all";
   let visibleCount = 0;
 
+  inventoryFilters.query = searchInput?.value ?? "";
+  inventoryFilters.status = selectedStatus;
+  inventoryFilters.platform = selectedPlatform;
+  localStorage.setItem("palletscanner.inventorySearch", inventoryFilters.query);
+  localStorage.setItem(
+    "palletscanner.inventoryStatusFilter",
+    selectedStatus,
+  );
+  localStorage.setItem(
+    "palletscanner.inventoryPlatformFilter",
+    selectedPlatform,
+  );
+
   for (const row of rows) {
     const matchesSearch = !query || row.dataset.searchText.includes(query);
     const matchesStatus =
@@ -80,6 +103,12 @@ const applyInventorySearch = () => {
   const emptyRow = document.querySelector("#inventory-empty-row");
   if (emptyRow) {
     emptyRow.hidden = visibleCount > 0;
+  }
+
+  const resetButton = document.querySelector("[data-action='reset-inventory']");
+  if (resetButton) {
+    resetButton.hidden =
+      !query && selectedStatus === "all" && selectedPlatform === "all";
   }
 };
 
@@ -135,12 +164,19 @@ const exportVisibleInventory = () => {
   ]);
 };
 
-const sortInventoryRows = (column) => {
-  inventorySort.direction =
-    inventorySort.column === column && inventorySort.direction === "asc"
-      ? "desc"
-      : "asc";
+const sortInventoryRows = (column, toggleDirection = true) => {
+  if (toggleDirection) {
+    inventorySort.direction =
+      inventorySort.column === column && inventorySort.direction === "asc"
+        ? "desc"
+        : "asc";
+  }
   inventorySort.column = column;
+  localStorage.setItem("palletscanner.inventorySortColumn", column);
+  localStorage.setItem(
+    "palletscanner.inventorySortDirection",
+    inventorySort.direction,
+  );
 
   const tbody = document.querySelector("#inventory-table-body");
   if (!tbody) {
@@ -169,6 +205,29 @@ const sortInventoryRows = (column) => {
     const isActive = button.dataset.sortColumn === column;
     button.dataset.sortDirection = isActive ? inventorySort.direction : "";
   });
+};
+
+const resetInventoryView = () => {
+  inventoryFilters.query = "";
+  inventoryFilters.status = "all";
+  inventoryFilters.platform = "all";
+  localStorage.removeItem("palletscanner.inventorySearch");
+  localStorage.removeItem("palletscanner.inventoryStatusFilter");
+  localStorage.removeItem("palletscanner.inventoryPlatformFilter");
+
+  const searchInput = document.querySelector("#inventory-search");
+  const statusFilter = document.querySelector("#inventory-status-filter");
+  const platformFilter = document.querySelector("#inventory-platform-filter");
+  if (searchInput) {
+    searchInput.value = "";
+  }
+  if (statusFilter) {
+    statusFilter.value = "all";
+  }
+  if (platformFilter) {
+    platformFilter.value = "all";
+  }
+  applyInventorySearch();
 };
 
 const renderSortButton = (column, label) => `
@@ -451,7 +510,7 @@ const render = () => {
                 ${Object.entries(statusLabel)
                   .map(
                     ([value, label]) =>
-                      `<option value="${escapeHtml(value)}">${escapeHtml(label)}</option>`,
+                      `<option value="${escapeHtml(value)}" ${inventoryFilters.status === value ? "selected" : ""}>${escapeHtml(label)}</option>`,
                   )
                   .join("")}
               </select>
@@ -460,11 +519,12 @@ const render = () => {
                 ${platformOptions
                   .map(
                     (platform) =>
-                      `<option value="${escapeHtml(platform)}">${escapeHtml(platform)}</option>`,
+                      `<option value="${escapeHtml(platform)}" ${inventoryFilters.platform === platform ? "selected" : ""}>${escapeHtml(platform)}</option>`,
                   )
                   .join("")}
               </select>
-              <input id="inventory-search" aria-label="Search inventory" placeholder="Search inventory" />
+              <input id="inventory-search" aria-label="Search inventory" placeholder="Search inventory" value="${escapeHtml(inventoryFilters.query)}" />
+              <button class="reset-filter-button" type="button" data-action="reset-inventory">Reset</button>
             </div>
           </div>
           <table>
@@ -569,6 +629,10 @@ const render = () => {
       sortInventoryRows(button.dataset.sortColumn);
     });
   });
+  document
+    .querySelector("[data-action='reset-inventory']")
+    ?.addEventListener("click", resetInventoryView);
+  sortInventoryRows(inventorySort.column, false);
   document
     .querySelector("#inventory-search")
     ?.addEventListener("input", applyInventorySearch);

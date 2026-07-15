@@ -35,6 +35,7 @@ for (const marker of [
   "data-action=\"export-inventory\"",
   "inventory-status-filter",
   "inventory-platform-filter",
+  "data-action=\"reset-inventory\"",
   "data-sort-column",
   "inventory-empty-row",
   "data-action=\"connect-ebay\"",
