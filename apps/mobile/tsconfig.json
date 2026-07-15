@@ -3,7 +3,7 @@
   "compilerOptions": {
     "strict": true,
     "paths": {
-      "@palletscanner/core": ["./packages/core/src/index.ts"],
+      "@palletscanner/core": ["../../packages/core/index.ts"],
       "@/*": ["./*"]
     }
   },

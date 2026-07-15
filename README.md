@@ -5,7 +5,7 @@ PalletScanner is evolving into a two-surface pallet resale operations system:
 - Mobile app: fast warehouse capture for pallets, barcodes, photos, item drafts, and next-item workflows.
 - Web app: business control for inventory review, listing queues, marketplace setup, pallet profitability, and reporting.
 
-The current app is an Expo app. The next architecture pass is happening on the `web-mobile-split` branch.
+The mobile app is an Expo app under `apps/mobile`. The architecture split is happening on the `web-mobile-split` branch.
 
 ## Product Direction
 
@@ -15,7 +15,7 @@ Read the detailed roadmap:
 - [Current Code Audit](docs/current-code-audit.md)
 - [Mobile Testing And Expo Strategy](docs/mobile-testing-and-expo-strategy.md)
 
-## Current App Commands
+## Workspace Commands
 
 Install dependencies:
 
@@ -23,19 +23,19 @@ Install dependencies:
 npm install
 ```
 
-Start the Expo app:
+Start the mobile Expo app:
 
 ```bash
 npm start
 ```
 
-Start web preview:
+Start mobile web preview:
 
 ```bash
 npm run web
 ```
 
-Export a static web build:
+Export a static mobile web build:
 
 ```bash
 npm run web:export
@@ -74,6 +74,6 @@ docs/          Product plans, setup guides, and runbooks
 
 ## Current Status
 
-The current root app still runs as a single Expo project. The first split work should extract shared domain logic into `packages/core`, then move the existing Expo app into `apps/mobile`, and then create `apps/web` for the business dashboard.
+The Expo app has moved to `apps/mobile`. Shared business logic lives in `packages/core`, and `packages/api-client` is scaffolded for the future shared backend client. `apps/web` is still a placeholder for the future business dashboard.
 
-The `apps/mobile`, `apps/web`, and `packages/api-client` folders are scaffolded as placeholders for the split. The root Expo app has not been moved yet.
+Local app environment values should live in `apps/mobile/.env` for Expo commands. The root `.env` can remain for backend/server workflows.
