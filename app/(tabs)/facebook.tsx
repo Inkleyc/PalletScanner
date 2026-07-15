@@ -26,6 +26,12 @@ import {
   openListingDraft,
 } from "@/lib/listing-posting";
 import { getPostingReadiness } from "@/lib/posting-validation";
+import {
+  getFacebookDraftItems,
+  getFacebookMissingUrlItems,
+  getItemsMissingPlatformListing,
+  getItemPhotos,
+} from "@/packages/core/src/inventory-query";
 
 const facebookCopySteps = [
   "Title",
@@ -49,27 +55,15 @@ export default function FacebookQueueScreen() {
   const isLargeLayout = width >= 900;
 
   const queueItems = useMemo(
-    () =>
-      items
-        .filter((item) => !item.listedPlatforms.includes("facebook"))
-        .sort((a, b) => b.id - a.id),
+    () => getItemsMissingPlatformListing(items, "facebook").sort((a, b) => b.id - a.id),
     [items],
   );
   const draftItems = useMemo(
-    () =>
-      items.filter(
-        (item) =>
-          item.facebookStatus === "opened" &&
-          !item.listedPlatforms.includes("facebook"),
-      ),
+    () => getFacebookDraftItems(items),
     [items],
   );
   const listedMissingUrlItems = useMemo(
-    () =>
-      items.filter(
-        (item) =>
-          item.listedPlatforms.includes("facebook") && !item.facebookListingUrl,
-      ),
+    () => getFacebookMissingUrlItems(items),
     [items],
   );
 
@@ -77,11 +71,7 @@ export default function FacebookQueueScreen() {
   const readiness = activeItem
     ? getPostingReadiness(activeItem, "facebook")
     : null;
-  const activePhotos = activeItem?.photos?.length
-    ? activeItem.photos
-    : activeItem?.photo
-      ? [activeItem.photo]
-      : [];
+  const activePhotos = activeItem ? getItemPhotos(activeItem) : [];
   const activeUrlDraft =
     activeItem ? facebookUrlDrafts[activeItem.id] ?? activeItem.facebookListingUrl ?? "" : "";
 

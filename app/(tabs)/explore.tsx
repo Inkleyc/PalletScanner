@@ -44,8 +44,17 @@ import {
   getPostingReadinessMessage,
 } from "@/lib/posting-validation";
 import { AppLayout, AppPalette } from "@/constants/app-palette";
-
-const API_KEY = process.env.EXPO_PUBLIC_ANTHROPIC_API_KEY;
+import {
+  filterInventoryItems,
+  getFacebookDraftItems,
+  getFacebookMissingUrlItems,
+  getItemsMissingPlatformListing,
+  getItemsWithoutPhotos,
+  getListingFilterLabel,
+  hasActiveInventoryFilters,
+  type InventorySortMode,
+  type ListingFilter,
+} from "@/packages/core/src/inventory-query";
 
 type BundleSuggestion = {
   title: string;
@@ -54,14 +63,7 @@ type BundleSuggestion = {
   reason: string;
 };
 
-type ListingFilter =
-  | "all"
-  | "needs-facebook"
-  | "facebook-drafts"
-  | "missing-facebook-url"
-  | "no-photos"
-  | "needs-ebay"
-  | "listed";
+const API_KEY = process.env.EXPO_PUBLIC_ANTHROPIC_API_KEY;
 
 export default function InventoryScreen() {
   const { width } = useWindowDimensions();
@@ -91,7 +93,7 @@ export default function InventoryScreen() {
     number | null
   >(null);
   const [searchQuery, setSearchQuery] = useState("");
-  const [sortMode, setSortMode] = useState<"date" | "high-desc" | "low-asc">("date");
+  const [sortMode, setSortMode] = useState<InventorySortMode>("date");
   const [listingFilter, setListingFilter] = useState<ListingFilter>("all");
   const [filtersExpanded, setFiltersExpanded] = useState(false);
   const [summaryExpanded, setSummaryExpanded] = useState(false);
@@ -100,20 +102,7 @@ export default function InventoryScreen() {
   const [bundleSuggestions, setBundleSuggestions] = useState<BundleSuggestion[]>([]);
   const isLargeLayout = width >= 900;
   const previousHasActiveFilters = useRef(false);
-  const listingFilterLabel =
-    listingFilter === "needs-facebook"
-      ? "Needs Facebook"
-      : listingFilter === "facebook-drafts"
-        ? "Facebook Drafts"
-        : listingFilter === "missing-facebook-url"
-          ? "Missing Facebook URL"
-          : listingFilter === "no-photos"
-            ? "No Photos"
-            : listingFilter === "needs-ebay"
-              ? "Needs eBay"
-              : listingFilter === "listed"
-                ? "Listed"
-                : "All Statuses";
+  const listingFilterLabel = getListingFilterLabel(listingFilter);
 
   const selectedPallet =
     selectedPalletId === "all"
@@ -121,59 +110,19 @@ export default function InventoryScreen() {
       : pallets.find((pallet) => pallet.id === selectedPalletId) ?? null;
   const activePallet =
     pallets.find((pallet) => pallet.id === activePalletId) ?? null;
-  const filteredItems = useMemo(() => {
-    const palletFiltered =
-      selectedPalletId === "all"
-        ? items
-        : items.filter((item: any) => item.palletId === selectedPalletId);
-    const normalizedQuery = searchQuery.trim().toLowerCase();
-    const searchFiltered = normalizedQuery
-      ? palletFiltered.filter((item: any) =>
-          item.name.toLowerCase().includes(normalizedQuery),
-        )
-      : palletFiltered;
-
-    const listingFiltered = searchFiltered.filter((item: any) => {
-      if (listingFilter === "needs-facebook") {
-        return !item.listedPlatforms.includes("facebook");
-      }
-      if (listingFilter === "facebook-drafts") {
-        return (
-          item.facebookStatus === "opened" &&
-          !item.listedPlatforms.includes("facebook")
-        );
-      }
-      if (listingFilter === "missing-facebook-url") {
-        return (
-          item.listedPlatforms.includes("facebook") && !item.facebookListingUrl
-        );
-      }
-      if (listingFilter === "no-photos") {
-        return (
-          !(Array.isArray(item.photos) && item.photos.length > 0) &&
-          !item.photo
-        );
-      }
-      if (listingFilter === "needs-ebay") {
-        return !item.listedPlatforms.includes("ebay");
-      }
-      if (listingFilter === "listed") {
-        return item.listedPlatforms.length > 0;
-      }
-      return true;
-    });
-
-    const sortedItems = [...listingFiltered];
-    if (sortMode === "high-desc") {
-      sortedItems.sort((a: any, b: any) => b.high_price - a.high_price);
-    } else if (sortMode === "low-asc") {
-      sortedItems.sort((a: any, b: any) => a.low_price - b.low_price);
-    } else {
-      sortedItems.sort((a: any, b: any) => b.id - a.id);
-    }
-
-    return sortedItems;
-  }, [items, listingFilter, searchQuery, selectedPalletId, sortMode]);
+  const filterOptions = useMemo(
+    () => ({
+      selectedPalletId,
+      searchQuery,
+      listingFilter,
+      sortMode,
+    }),
+    [listingFilter, searchQuery, selectedPalletId, sortMode],
+  );
+  const filteredItems = useMemo(
+    () => filterInventoryItems(items, filterOptions),
+    [filterOptions, items],
+  );
 
   const palletScopedItemCount =
     selectedPalletId === "all"
@@ -197,48 +146,26 @@ export default function InventoryScreen() {
     ? filteredItems
     : items.filter((item: any) => item.palletId === activePalletId);
   const missingEbayItems = useMemo(
-    () =>
-      filteredItems.filter((item: any) => !item.listedPlatforms.includes("ebay")),
+    () => getItemsMissingPlatformListing(filteredItems, "ebay"),
     [filteredItems],
   );
   const missingFacebookItems = useMemo(
-    () =>
-      filteredItems.filter(
-        (item: any) => !item.listedPlatforms.includes("facebook"),
-      ),
+    () => getItemsMissingPlatformListing(filteredItems, "facebook"),
     [filteredItems],
   );
   const facebookDraftItems = useMemo(
-    () =>
-      filteredItems.filter(
-        (item: any) =>
-          item.facebookStatus === "opened" &&
-          !item.listedPlatforms.includes("facebook"),
-      ),
+    () => getFacebookDraftItems(filteredItems),
     [filteredItems],
   );
   const facebookMissingUrlItems = useMemo(
-    () =>
-      filteredItems.filter(
-        (item: any) =>
-          item.listedPlatforms.includes("facebook") && !item.facebookListingUrl,
-      ),
+    () => getFacebookMissingUrlItems(filteredItems),
     [filteredItems],
   );
   const noPhotoItems = useMemo(
-    () =>
-      filteredItems.filter(
-        (item: any) =>
-          !(Array.isArray(item.photos) && item.photos.length > 0) &&
-          !item.photo,
-      ),
+    () => getItemsWithoutPhotos(filteredItems),
     [filteredItems],
   );
-  const hasActiveFilters =
-    selectedPalletId !== "all" ||
-    searchQuery.trim().length > 0 ||
-    sortMode !== "date" ||
-    listingFilter !== "all";
+  const hasActiveFilters = hasActiveInventoryFilters(filterOptions);
 
   useEffect(() => {
     if (hasActiveFilters && !previousHasActiveFilters.current) {

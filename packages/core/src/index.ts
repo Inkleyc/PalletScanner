@@ -1,4 +1,5 @@
 export * from "./domain";
+export * from "./inventory-query";
 export * from "./listing-drafts";
 export * from "./metrics";
 export * from "./parsing";
