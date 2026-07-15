@@ -45,6 +45,11 @@ await loadEnvFile(path.join(projectRoot, ".env"));
 await loadEnvFile(path.join(__dirname, ".env"));
 
 const EBAY_ENVIRONMENT = process.env.EBAY_ENVIRONMENT ?? "production";
+if (!["sandbox", "production"].includes(EBAY_ENVIRONMENT)) {
+  throw new Error(
+    "EBAY_ENVIRONMENT must be either \"sandbox\" or \"production\".",
+  );
+}
 const isSandbox = EBAY_ENVIRONMENT === "sandbox";
 const authBaseUrl = isSandbox
   ? "https://auth.sandbox.ebay.com"
