@@ -135,6 +135,8 @@ const applyInventorySearch = () => {
 
   if (!selectedItemIsVisible && firstVisibleItemId !== null) {
     selectInventoryItem(firstVisibleItemId);
+  } else if (visibleCount === 0) {
+    renderInventoryDetail(null);
   }
 };
 
@@ -294,10 +296,21 @@ const focusInventoryItem = (itemId) => {
   document.querySelector(`[data-inventory-row][data-item-id="${itemId}"]`)?.focus();
 };
 
-const renderInventoryDetail = () => {
+const renderInventoryDetail = (overrideItem = undefined) => {
   const detail = document.querySelector("#inventory-detail");
-  const item = getSelectedInventoryItem();
-  if (!detail || !item) {
+  const item = overrideItem === undefined ? getSelectedInventoryItem() : overrideItem;
+  if (!detail) {
+    return;
+  }
+
+  if (!item) {
+    detail.innerHTML = `
+      <div>
+        <p class="eyebrow">Selected Item</p>
+        <h3>No item selected</h3>
+      </div>
+      <p class="detail-ready">Clear filters or choose an inventory row.</p>
+    `;
     return;
   }
 
