@@ -695,7 +695,7 @@ ${JSON.stringify(promptItems, null, 2)}`,
                       <Text style={styles.makeActiveBtnText}>Make Active</Text>
                     </TouchableOpacity>
                   )}
-                  {selectedPallet && (
+                  {isLargeLayout && selectedPallet && (
                     <TouchableOpacity
                       style={styles.deletePalletBtn}
                       onPress={removeSelectedPallet}
