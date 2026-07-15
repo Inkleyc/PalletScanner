@@ -53,6 +53,15 @@ export default function HomeScreen() {
     closeCreatePalletModal();
   };
 
+  const openWorkflow = (route: "/scan-barcode" | "/capture") => {
+    if (!activePallet) {
+      openCreatePalletModal();
+      return;
+    }
+
+    router.push(route);
+  };
+
   const activePalletName = activePallet?.name ?? "No active pallet";
   const activePalletItems = activePallet
     ? items.filter((item) => item.palletId === activePallet.id)
@@ -96,21 +105,25 @@ export default function HomeScreen() {
           <View style={styles.actionsCard}>
             <TouchableOpacity
               style={[styles.workflowAction, styles.primaryWorkflowAction]}
-              onPress={() => router.push("/scan-barcode")}
+              onPress={() => openWorkflow("/scan-barcode")}
             >
               <Text style={styles.primaryWorkflowTitle}>Scan Barcode</Text>
               <Text style={styles.primaryWorkflowCopy}>
-                Fastest path when the item has a readable UPC or product code.
+                {activePallet
+                  ? "Fastest path when the item has a readable UPC or product code."
+                  : "Create a pallet first, then start scanning items into it."}
               </Text>
             </TouchableOpacity>
 
             <TouchableOpacity
               style={styles.workflowAction}
-              onPress={() => router.push("/capture")}
+              onPress={() => openWorkflow("/capture")}
             >
               <Text style={styles.workflowTitle}>Capture Photos</Text>
               <Text style={styles.workflowCopy}>
-                Use photos when there is no barcode or condition matters most.
+                {activePallet
+                  ? "Use photos when there is no barcode or condition matters most."
+                  : "Create a pallet first, then capture photos into it."}
               </Text>
             </TouchableOpacity>
 
