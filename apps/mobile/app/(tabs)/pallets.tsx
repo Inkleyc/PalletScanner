@@ -13,6 +13,7 @@ import {
   createPalletSession,
   deletePalletSession,
   getActivePalletId,
+  getInventory,
   getNextDefaultPalletName,
   getPallets,
   renamePalletSession,
@@ -34,6 +35,11 @@ export default function PalletsScreen() {
     subscribeInventory,
     getActivePalletId,
     getActivePalletId,
+  );
+  const items = useSyncExternalStore(
+    subscribeInventory,
+    getInventory,
+    getInventory,
   );
   const [newPalletName, setNewPalletName] = useState(getNextDefaultPalletName());
   const [renameDrafts, setRenameDrafts] = useState<Record<string, string>>({});
@@ -84,6 +90,10 @@ export default function PalletsScreen() {
 
         {pallets.map((pallet) => {
           const isActive = pallet.id === activePalletId;
+          const palletItems = items.filter((item) => item.palletId === pallet.id);
+          const soldCount = palletItems.filter(
+            (item) => item.soldPrice !== null,
+          ).length;
           return (
             <View key={pallet.id} style={styles.palletCard}>
             <View style={styles.cardHeader}>
@@ -94,6 +104,23 @@ export default function PalletsScreen() {
                 </Text>
               </View>
               {isActive && <Text style={styles.activeBadge}>Active</Text>}
+            </View>
+
+            <View style={styles.palletStatsRow}>
+              <View style={styles.palletStatBox}>
+                <Text style={styles.palletStatLabel}>Items</Text>
+                <Text style={styles.palletStatValue}>{palletItems.length}</Text>
+              </View>
+              <View style={styles.palletStatBox}>
+                <Text style={styles.palletStatLabel}>Sold</Text>
+                <Text style={styles.palletStatValue}>{soldCount}</Text>
+              </View>
+              <View style={styles.palletStatBox}>
+                <Text style={styles.palletStatLabel}>Cost</Text>
+                <Text style={styles.palletStatValue}>
+                  {pallet.palletCost === null ? "--" : `$${pallet.palletCost}`}
+                </Text>
+              </View>
             </View>
 
             <View style={styles.row}>
@@ -270,6 +297,30 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     overflow: "hidden",
     fontSize: 12,
+    fontWeight: "700",
+  },
+  palletStatsRow: {
+    flexDirection: "row",
+    gap: 8,
+    marginBottom: 12,
+  },
+  palletStatBox: {
+    flex: 1,
+    backgroundColor: AppPalette.surfaceMuted,
+    borderWidth: 1,
+    borderColor: AppPalette.border,
+    borderRadius: 8,
+    padding: 10,
+  },
+  palletStatLabel: {
+    color: AppPalette.textMuted,
+    fontSize: 11,
+    fontWeight: "700",
+    marginBottom: 3,
+  },
+  palletStatValue: {
+    color: AppPalette.text,
+    fontSize: 16,
     fontWeight: "700",
   },
   input: {
