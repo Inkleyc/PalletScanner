@@ -50,6 +50,7 @@ import {
   getFacebookMissingUrlItems,
   getItemsMissingPlatformListing,
   getItemsWithoutPhotos,
+  getInventoryWorkflowStatus,
   getListingFilterLabel,
   hasActiveInventoryFilters,
   type InventorySortMode,
@@ -178,6 +179,26 @@ export default function InventoryScreen() {
       ...current,
       [itemId]: !current[itemId],
     }));
+  };
+  const getWorkflowStatusStyle = (
+    status: ReturnType<typeof getInventoryWorkflowStatus>["status"],
+  ) => {
+    switch (status) {
+      case "sold":
+        return styles.workflowStatus_sold;
+      case "listed":
+        return styles.workflowStatus_listed;
+      case "listing_in_progress":
+        return styles.workflowStatus_listing_in_progress;
+      case "ready_to_list":
+        return styles.workflowStatus_ready_to_list;
+      case "needs_review":
+        return styles.workflowStatus_needs_review;
+      case "needs_photos":
+        return styles.workflowStatus_needs_photos;
+      default:
+        return styles.workflowStatus_captured;
+    }
   };
 
   useEffect(() => {
@@ -977,6 +998,21 @@ ${JSON.stringify(promptItems, null, 2)}`,
         {filteredItems.map((item: any) => (
           <View key={item.id} style={styles.itemCard}>
             {(() => {
+              const workflowStatus = getInventoryWorkflowStatus(item);
+              return (
+                <View
+                  style={[
+                    styles.workflowStatusBar,
+                    getWorkflowStatusStyle(workflowStatus.status),
+                  ]}
+                >
+                  <Text style={styles.workflowStatusText}>
+                    {workflowStatus.label}
+                  </Text>
+                </View>
+              );
+            })()}
+            {(() => {
               if (!showItemTools(item.id)) {
                 return null;
               }
@@ -1650,6 +1686,23 @@ const styles = StyleSheet.create({
     shadowRadius: 18,
     elevation: 2,
   },
+  workflowStatusBar: {
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+  },
+  workflowStatusText: {
+    color: AppPalette.text,
+    fontSize: 11,
+    fontWeight: "800",
+    textTransform: "uppercase",
+  },
+  workflowStatus_captured: { backgroundColor: AppPalette.surfaceMuted },
+  workflowStatus_needs_photos: { backgroundColor: AppPalette.warningSoft },
+  workflowStatus_needs_review: { backgroundColor: AppPalette.dangerSoft },
+  workflowStatus_ready_to_list: { backgroundColor: AppPalette.successSoft },
+  workflowStatus_listing_in_progress: { backgroundColor: AppPalette.infoSoft },
+  workflowStatus_listed: { backgroundColor: AppPalette.primarySoft },
+  workflowStatus_sold: { backgroundColor: AppPalette.successSoft },
   postingReadinessBox: {
     marginHorizontal: 12,
     marginTop: 12,
