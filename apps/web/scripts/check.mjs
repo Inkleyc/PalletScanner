@@ -1,4 +1,12 @@
 import { readFile } from "node:fs/promises";
+import { items, pallets } from "../src/mock-data.js";
+import {
+  getDisplayIssue,
+  getDisplayPlatform,
+  getQuantity,
+  summarizeInventory,
+  summarizePallet,
+} from "../src/dashboard-model.js";
 
 const requiredFiles = [
   "index.html",
@@ -48,6 +56,28 @@ for (const marker of [
   if (!app.includes(marker)) {
     throw new Error(`app.js is missing ${marker}`);
   }
+}
+
+const totals = summarizeInventory(items, pallets);
+if (totals.totalItems !== items.length) {
+  throw new Error("Inventory total item count is wrong.");
+}
+if (totals.remainingHigh <= totals.remainingLow) {
+  throw new Error("Inventory remaining high estimate should exceed low estimate.");
+}
+
+const palletSummaries = pallets.map((pallet) => summarizePallet(items, pallet));
+if (!palletSummaries.some((pallet) => pallet.unresolved > 0)) {
+  throw new Error("Expected at least one pallet with unresolved issues.");
+}
+if (getQuantity(items.find((item) => item.quantity === 3)) !== 3) {
+  throw new Error("Quantity helper did not preserve item quantity.");
+}
+if (getDisplayPlatform(items[0]) !== "Facebook") {
+  throw new Error("Display platform helper returned an unexpected value.");
+}
+if (!getDisplayIssue(items.find((item) => item.name === "Unknown Barcode Item"))) {
+  throw new Error("Display issue helper should identify mock cleanup work.");
 }
 
 console.log("Web dashboard scaffold check passed.");
