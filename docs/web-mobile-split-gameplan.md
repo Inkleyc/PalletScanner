@@ -236,6 +236,8 @@ Progress:
 - `packages/api-client` now owns the shared eBay backend client contract used by mobile and ready for future web use.
 - eBay status now separates backend configuration, seller account connection, and ready-to-list requirements.
 - Mobile Settings shows a short eBay readiness summary while web Admin Settings shows the fuller backend connection checklist.
+- The web inventory table now supports search, status/platform filters, sortable columns, filtered CSV export, and an empty-filter state.
+- The mobile first tab is labeled around the user's real action, Scan, instead of a generic Home label.
 - Keep marketplace posting limited to safe, guided actions.
 - Remove or de-emphasize dashboard-heavy screens from mobile.
 
