@@ -41,9 +41,14 @@ import {
   type ListingDraftPlatform,
 } from "@/lib/listing-drafts";
 import { openListingDraft } from "@/lib/listing-posting";
+import {
+  parseMoneyAmount,
+  parsePositiveInteger,
+  parsePriceRange as parseCorePriceRange,
+  sanitizeBarcodeValue,
+} from "@/packages/core/src/parsing";
 
 const API_KEY = process.env.EXPO_PUBLIC_ANTHROPIC_API_KEY;
-const sanitizeBarcodeValue = (value: string) => value.trim().replace(/[^0-9A-Za-z]/g, "");
 const LOADING_MESSAGES = [
   "Identifying item...",
   "Checking market prices...",
@@ -361,46 +366,9 @@ Barcode: ${barcode}
     void triggerCopyFeedback();
   };
 
-  const parsePriceRange = () => {
-    const matches = editablePrice.match(/\d+(?:\.\d+)?/g) ?? [];
-    if (matches.length < 2) {
-      return null;
-    }
-
-    const [low, high] = matches.slice(0, 2).map(Number);
-    if (Number.isNaN(low) || Number.isNaN(high)) {
-      return null;
-    }
-
-    return {
-      low: Math.min(low, high),
-      high: Math.max(low, high),
-    };
-  };
-
-  const parseFloorPrice = () => {
-    const match = editableFloorPrice.match(/\d+(?:\.\d+)?/);
-    if (!match) {
-      return null;
-    }
-
-    const value = Number(match[0]);
-    return Number.isNaN(value) ? null : value;
-  };
-
-  const parseQuantity = () => {
-    const match = editableQuantity.match(/\d+/);
-    if (!match) {
-      return null;
-    }
-
-    const value = Number(match[0]);
-    if (Number.isNaN(value) || value < 1) {
-      return null;
-    }
-
-    return Math.floor(value);
-  };
+  const parsePriceRange = () => parseCorePriceRange(editablePrice);
+  const parseFloorPrice = () => parseMoneyAmount(editableFloorPrice);
+  const parseQuantity = () => parsePositiveInteger(editableQuantity);
 
   const promptForListingDestination = (item: InventoryItem) => {
     Alert.alert("Post this listing now?", "Choose where you want to post it.", [

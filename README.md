@@ -1,50 +1,77 @@
-# Welcome to your Expo app 👋
+# PalletScanner
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+PalletScanner is evolving into a two-surface pallet resale operations system:
 
-## Get started
+- Mobile app: fast warehouse capture for pallets, barcodes, photos, item drafts, and next-item workflows.
+- Web app: business control for inventory review, listing queues, marketplace setup, pallet profitability, and reporting.
 
-1. Install dependencies
+The current app is an Expo app. The next architecture pass is happening on the `web-mobile-split` branch.
 
-   ```bash
-   npm install
-   ```
+## Product Direction
 
-2. Start the app
+Read the detailed roadmap:
 
-   ```bash
-   npx expo start
-   ```
+- [Web and Mobile Split Gameplan](docs/web-mobile-split-gameplan.md)
+- [Current Code Audit](docs/current-code-audit.md)
+- [Mobile Testing And Expo Strategy](docs/mobile-testing-and-expo-strategy.md)
 
-In the output, you'll find options to open the app in a
+## Current App Commands
 
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
-
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
-
-## Get a fresh project
-
-When you're ready, run:
+Install dependencies:
 
 ```bash
-npm run reset-project
+npm install
 ```
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+Start the Expo app:
 
-## Learn more
+```bash
+npm start
+```
 
-To learn more about developing your project with Expo, look at the following resources:
+Start web preview:
 
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
+```bash
+npm run web
+```
 
-## Join the community
+Export a static web build:
 
-Join our community of developers creating universal apps.
+```bash
+npm run web:export
+```
 
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+Create an Android preview build for testers:
+
+```bash
+npm run mobile:build:android-preview
+```
+
+Create an iOS preview build for registered test devices:
+
+```bash
+npm run mobile:build:ios-preview
+```
+
+Run lint:
+
+```bash
+npm run lint
+```
+
+## Planned Repo Shape
+
+```text
+apps/
+  mobile/      Expo warehouse app
+  web/         Web-first business dashboard
+packages/
+  core/        Shared pallet, item, listing, and metric logic
+  api-client/  Shared backend/API client
+server/        Marketplace auth, eBay helpers, and backend-only jobs
+docs/          Product plans, setup guides, and runbooks
+```
+
+## Current Status
+
+The current root app still runs as a single Expo project. The first split work should extract shared domain logic into `packages/core`, then move the existing Expo app into `apps/mobile`, and then create `apps/web` for the business dashboard.

@@ -16,6 +16,10 @@ import {
   updatePalletSessionCost,
 } from "@/lib/inventory-store";
 import { AppLayout, AppPalette } from "@/constants/app-palette";
+import {
+  calculateInventoryTotals,
+  calculatePalletMetrics,
+} from "@/packages/core/src/metrics";
 
 const currency = (value: number) => `$${value.toFixed(2)}`;
 
@@ -34,84 +38,13 @@ export default function AnalyticsScreen() {
   const [costDrafts, setCostDrafts] = useState<Record<string, string>>({});
   const isLargeLayout = width >= 900;
 
-  const totals = useMemo(() => {
-    const soldItems = items.filter((item) => item.soldPrice !== null);
-    const unsoldItems = items.filter((item) => item.soldPrice === null);
-    const soldRevenue = soldItems.reduce(
-      (sum, item) => sum + (item.soldPrice ?? 0),
-      0,
-    );
-    const estimatedRemainingLow = unsoldItems.reduce(
-      (sum, item) => sum + item.low_price,
-      0,
-    );
-    const estimatedRemainingHigh = unsoldItems.reduce(
-      (sum, item) => sum + item.high_price,
-      0,
-    );
-
-    return {
-      soldCount: soldItems.length,
-      unsoldCount: unsoldItems.length,
-      soldRevenue,
-      estimatedRemainingLow,
-      estimatedRemainingHigh,
-      totalCost: pallets.reduce(
-        (sum, pallet) => sum + (pallet.palletCost ?? 0),
-        0,
-      ),
-      sellThrough:
-        items.length > 0 ? (soldItems.length / items.length) * 100 : 0,
-    };
-  }, [items, pallets]);
+  const totals = useMemo(
+    () => calculateInventoryTotals(items, pallets),
+    [items, pallets],
+  );
 
   const palletMetrics = useMemo(
-    () =>
-      pallets.map((pallet) => {
-        const palletItems = items.filter((item) => item.palletId === pallet.id);
-        const soldItems = palletItems.filter((item) => item.soldPrice !== null);
-        const unsoldItems = palletItems.filter((item) => item.soldPrice === null);
-        const totalLow = palletItems.reduce((sum, item) => sum + item.low_price, 0);
-        const totalHigh = palletItems.reduce((sum, item) => sum + item.high_price, 0);
-        const totalFloor = palletItems.reduce(
-          (sum, item) => sum + item.floor_price,
-          0,
-        );
-        const soldRevenue = soldItems.reduce(
-          (sum, item) => sum + (item.soldPrice ?? 0),
-          0,
-        );
-        const remainingLow = unsoldItems.reduce(
-          (sum, item) => sum + item.low_price,
-          0,
-        );
-        const remainingHigh = unsoldItems.reduce(
-          (sum, item) => sum + item.high_price,
-          0,
-        );
-
-        return {
-          pallet,
-          itemCount: palletItems.length,
-          soldCount: soldItems.length,
-          unsoldCount: unsoldItems.length,
-          totalLow,
-          totalHigh,
-          totalFloor,
-          soldRevenue,
-          remainingLow,
-          remainingHigh,
-          grossProfit: soldRevenue - (pallet.palletCost ?? 0),
-          roi:
-            typeof pallet.palletCost === "number" && pallet.palletCost > 0
-              ? ((soldRevenue - pallet.palletCost) / pallet.palletCost) * 100
-              : 0,
-          averageSoldPrice:
-            soldItems.length > 0 ? soldRevenue / soldItems.length : 0,
-          sellThrough:
-            palletItems.length > 0 ? (soldItems.length / palletItems.length) * 100 : 0,
-        };
-      }),
+    () => calculatePalletMetrics(items, pallets),
     [items, pallets],
   );
 
