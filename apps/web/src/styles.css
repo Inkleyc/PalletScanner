@@ -225,6 +225,22 @@ button {
   padding: 14px;
 }
 
+.pallet-card[data-pallet-card-id] {
+  cursor: pointer;
+}
+
+.pallet-card[data-pallet-card-id]:hover,
+.pallet-card[data-pallet-card-id]:focus {
+  border-color: #789066;
+  box-shadow: 0 0 0 2px rgba(120, 144, 102, 0.16);
+  outline: none;
+}
+
+.pallet-card.selected-card {
+  background: #eef5ec;
+  border-color: #789066;
+}
+
 .admin-card {
   background: #f7f8f4;
   border: 1px solid #d9dfd2;

@@ -17,7 +17,7 @@ Current preview behavior:
 - Pallet health cards with cost, sold revenue, estimated value, and open issues.
 - Attention queue for items that need a business decision.
 - Listings queue for marketplace work across Facebook and eBay.
-- Inventory table with search, status filter, platform filter, quantity-aware sortable columns, no-results state, selected-item detail, clickable marketplace metrics, and filtered CSV export.
+- Inventory table with search, pallet/status/platform filters, clickable pallet and marketplace drill-ins, quantity-aware sortable columns, no-results state, selected-item detail, and filtered CSV export.
 - Inventory view preferences persist in the browser until the user resets them.
 - Admin Settings includes the eBay backend URL, session-only app auth token, seller connection, disconnect, and readiness checklist.
 

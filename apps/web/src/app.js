@@ -33,6 +33,7 @@ const inventoryFilters = {
   status: localStorage.getItem("palletscanner.inventoryStatusFilter") ?? "all",
   platform:
     localStorage.getItem("palletscanner.inventoryPlatformFilter") ?? "all",
+  pallet: localStorage.getItem("palletscanner.inventoryPalletFilter") ?? "all",
 };
 
 let selectedInventoryItemId = Number(
@@ -79,10 +80,12 @@ const applyInventorySearch = () => {
   const searchInput = document.querySelector("#inventory-search");
   const statusFilter = document.querySelector("#inventory-status-filter");
   const platformFilter = document.querySelector("#inventory-platform-filter");
+  const palletFilter = document.querySelector("#inventory-pallet-filter");
   const rows = [...document.querySelectorAll("[data-inventory-row]")];
   const query = searchInput?.value.trim().toLowerCase() ?? "";
   const selectedStatus = statusFilter?.value ?? "all";
   const selectedPlatform = platformFilter?.value ?? "all";
+  const selectedPallet = palletFilter?.value ?? "all";
   let visibleCount = 0;
   let firstVisibleItemId = null;
   let selectedItemIsVisible = false;
@@ -90,6 +93,7 @@ const applyInventorySearch = () => {
   inventoryFilters.query = searchInput?.value ?? "";
   inventoryFilters.status = selectedStatus;
   inventoryFilters.platform = selectedPlatform;
+  inventoryFilters.pallet = selectedPallet;
   localStorage.setItem("palletscanner.inventorySearch", inventoryFilters.query);
   localStorage.setItem(
     "palletscanner.inventoryStatusFilter",
@@ -99,6 +103,7 @@ const applyInventorySearch = () => {
     "palletscanner.inventoryPlatformFilter",
     selectedPlatform,
   );
+  localStorage.setItem("palletscanner.inventoryPalletFilter", selectedPallet);
 
   for (const row of rows) {
     const matchesSearch = !query || row.dataset.searchText.includes(query);
@@ -106,7 +111,10 @@ const applyInventorySearch = () => {
       selectedStatus === "all" || row.dataset.status === selectedStatus;
     const matchesPlatform =
       selectedPlatform === "all" || row.dataset.platform === selectedPlatform;
-    const isVisible = matchesSearch && matchesStatus && matchesPlatform;
+    const matchesPallet =
+      selectedPallet === "all" || row.dataset.palletId === selectedPallet;
+    const isVisible =
+      matchesSearch && matchesStatus && matchesPlatform && matchesPallet;
     row.hidden = !isVisible;
     if (isVisible) {
       visibleCount += 1;
@@ -131,8 +139,18 @@ const applyInventorySearch = () => {
   const resetButton = document.querySelector("[data-action='reset-inventory']");
   if (resetButton) {
     resetButton.hidden =
-      !query && selectedStatus === "all" && selectedPlatform === "all";
+      !query &&
+      selectedStatus === "all" &&
+      selectedPlatform === "all" &&
+      selectedPallet === "all";
   }
+
+  document.querySelectorAll("[data-pallet-card-id]").forEach((card) => {
+    card.classList.toggle(
+      "selected-card",
+      selectedPallet !== "all" && card.dataset.palletCardId === selectedPallet,
+    );
+  });
 
   if (!selectedItemIsVisible && firstVisibleItemId !== null) {
     selectInventoryItem(firstVisibleItemId);
@@ -242,13 +260,16 @@ const resetInventoryView = () => {
   inventoryFilters.query = "";
   inventoryFilters.status = "all";
   inventoryFilters.platform = "all";
+  inventoryFilters.pallet = "all";
   localStorage.removeItem("palletscanner.inventorySearch");
   localStorage.removeItem("palletscanner.inventoryStatusFilter");
   localStorage.removeItem("palletscanner.inventoryPlatformFilter");
+  localStorage.removeItem("palletscanner.inventoryPalletFilter");
 
   const searchInput = document.querySelector("#inventory-search");
   const statusFilter = document.querySelector("#inventory-status-filter");
   const platformFilter = document.querySelector("#inventory-platform-filter");
+  const palletFilter = document.querySelector("#inventory-pallet-filter");
   if (searchInput) {
     searchInput.value = "";
   }
@@ -258,6 +279,9 @@ const resetInventoryView = () => {
   if (platformFilter) {
     platformFilter.value = "all";
   }
+  if (palletFilter) {
+    palletFilter.value = "all";
+  }
   applyInventorySearch();
 };
 
@@ -265,6 +289,28 @@ const filterInventoryPlatform = (platform) => {
   const searchInput = document.querySelector("#inventory-search");
   const statusFilter = document.querySelector("#inventory-status-filter");
   const platformFilter = document.querySelector("#inventory-platform-filter");
+  const palletFilter = document.querySelector("#inventory-pallet-filter");
+  if (searchInput) {
+    searchInput.value = "";
+  }
+  if (statusFilter) {
+    statusFilter.value = "all";
+  }
+  if (palletFilter) {
+    palletFilter.value = "all";
+  }
+  if (platformFilter) {
+    platformFilter.value = platform;
+  }
+  applyInventorySearch();
+  document.querySelector("#inventory")?.scrollIntoView({ behavior: "smooth" });
+};
+
+const filterInventoryPallet = (palletId) => {
+  const searchInput = document.querySelector("#inventory-search");
+  const statusFilter = document.querySelector("#inventory-status-filter");
+  const platformFilter = document.querySelector("#inventory-platform-filter");
+  const palletFilter = document.querySelector("#inventory-pallet-filter");
   if (searchInput) {
     searchInput.value = "";
   }
@@ -272,7 +318,10 @@ const filterInventoryPlatform = (platform) => {
     statusFilter.value = "all";
   }
   if (platformFilter) {
-    platformFilter.value = platform;
+    platformFilter.value = "all";
+  }
+  if (palletFilter) {
+    palletFilter.value = String(palletId);
   }
   applyInventorySearch();
   document.querySelector("#inventory")?.scrollIntoView({ behavior: "smooth" });
@@ -567,7 +616,7 @@ const render = () => {
             ${palletRows
               .map(
                 (pallet) => `
-                  <article class="pallet-card">
+                  <article class="pallet-card" data-pallet-card-id="${pallet.id}" role="button" tabindex="0" aria-label="Filter inventory to ${escapeHtml(pallet.name)}">
                     <div class="card-row">
                       <strong>${escapeHtml(pallet.name)}</strong>
                       <span>${pallet.itemCount} items</span>
@@ -645,6 +694,15 @@ const render = () => {
             </div>
             <div class="inventory-tools">
               <span id="inventory-result-count">${items.length} items</span>
+              <select id="inventory-pallet-filter" aria-label="Filter inventory pallet">
+                <option value="all">All pallets</option>
+                ${pallets
+                  .map(
+                    (pallet) =>
+                      `<option value="${pallet.id}" ${inventoryFilters.pallet === String(pallet.id) ? "selected" : ""}>${escapeHtml(pallet.name)}</option>`,
+                  )
+                  .join("")}
+              </select>
               <select id="inventory-status-filter" aria-label="Filter inventory status">
                 <option value="all">All statuses</option>
                 ${Object.entries(statusLabel)
@@ -688,6 +746,7 @@ const render = () => {
                       data-inventory-row
                       tabindex="0"
                       data-item-id="${item.id}"
+                      data-pallet-id="${item.palletId}"
                       data-status="${escapeHtml(getDisplayStatus(item))}"
                       data-platform="${escapeHtml(getDisplayPlatform(item))}"
                       data-search-text="${escapeHtml(getInventorySearchText(item))}"
@@ -783,6 +842,18 @@ const render = () => {
   document
     .querySelector("[data-action='filter-ebay']")
     ?.addEventListener("click", () => filterInventoryPlatform("eBay"));
+  document.querySelectorAll("[data-pallet-card-id]").forEach((card) => {
+    const openPallet = () => {
+      filterInventoryPallet(card.dataset.palletCardId);
+    };
+    card.addEventListener("click", openPallet);
+    card.addEventListener("keydown", (event) => {
+      if (event.key === "Enter" || event.key === " ") {
+        event.preventDefault();
+        openPallet();
+      }
+    });
+  });
   document.querySelectorAll("[data-inventory-row]").forEach((row) => {
     row.addEventListener("click", () => {
       selectInventoryItem(Number(row.dataset.itemId));
@@ -815,6 +886,9 @@ const render = () => {
     ?.addEventListener("change", applyInventorySearch);
   document
     .querySelector("#inventory-platform-filter")
+    ?.addEventListener("change", applyInventorySearch);
+  document
+    .querySelector("#inventory-pallet-filter")
     ?.addEventListener("change", applyInventorySearch);
   applyInventorySearch();
   selectInventoryItem(getSelectedInventoryItem()?.id ?? items[0]?.id);
