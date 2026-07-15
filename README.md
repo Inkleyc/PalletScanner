@@ -88,6 +88,6 @@ docs/          Product plans, setup guides, and runbooks
 
 The Expo app has moved to `apps/mobile`. Shared business logic lives in `packages/core`, and `packages/api-client` owns the shared eBay backend client contract.
 
-`apps/web` is now a dependency-free dashboard preview with overview metrics, pallet health, attention and listings queues, searchable/filterable/sortable inventory, filtered CSV export, an item detail panel, and eBay Admin Settings readiness checks. It is still intentionally lightweight while we shape the desktop product, but it is no longer just a placeholder.
+`apps/web` is now a dependency-free dashboard preview with overview metrics, clickable pallet health drill-ins, attention and listings queues, searchable/filterable/sortable inventory, filtered CSV export, an item detail panel, and eBay Admin Settings readiness checks. It is still intentionally lightweight while we shape the desktop product, but it is no longer just a placeholder.
 
 Local app environment values should live in `apps/mobile/.env` for Expo commands. The root `.env` can remain for backend/server workflows.
