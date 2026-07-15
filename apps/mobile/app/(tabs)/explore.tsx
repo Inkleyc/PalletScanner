@@ -102,6 +102,9 @@ export default function InventoryScreen() {
   const [listingFilter, setListingFilter] = useState<ListingFilter>("all");
   const [filtersExpanded, setFiltersExpanded] = useState(false);
   const [summaryExpanded, setSummaryExpanded] = useState(false);
+  const [expandedItemTools, setExpandedItemTools] = useState<
+    Record<number, boolean>
+  >({});
   const [bundleLoading, setBundleLoading] = useState(false);
   const [bundleModalVisible, setBundleModalVisible] = useState(false);
   const [bundleSuggestions, setBundleSuggestions] = useState<BundleSuggestion[]>([]);
@@ -168,6 +171,14 @@ export default function InventoryScreen() {
     [filteredItems],
   );
   const hasActiveFilters = hasActiveInventoryFilters(filterOptions);
+  const showItemTools = (itemId: number) =>
+    isLargeLayout || expandedItemTools[itemId] === true;
+  const toggleItemTools = (itemId: number) => {
+    setExpandedItemTools((current) => ({
+      ...current,
+      [itemId]: !current[itemId],
+    }));
+  };
 
   useEffect(() => {
     if (hasActiveFilters && !previousHasActiveFilters.current) {
@@ -966,6 +977,10 @@ ${JSON.stringify(promptItems, null, 2)}`,
         {filteredItems.map((item: any) => (
           <View key={item.id} style={styles.itemCard}>
             {(() => {
+              if (!showItemTools(item.id)) {
+                return null;
+              }
+
               const facebookReadiness = getPostingReadiness(item, "facebook");
               const ebayReadiness = getPostingReadiness(item, "ebay");
               if (facebookReadiness.ready && ebayReadiness.ready) {
@@ -1048,179 +1063,193 @@ ${JSON.stringify(promptItems, null, 2)}`,
                 </View>
               </View>
             </View>
-            <View style={styles.itemActions}>
+            {!isLargeLayout ? (
               <TouchableOpacity
-                style={[styles.platformBtn, styles.facebookBtn]}
-                onPress={() => openListingDraft(item, "facebook")}
+                style={styles.listingToolsToggle}
+                onPress={() => toggleItemTools(item.id)}
               >
-                <Text style={styles.platformBtnText}>
-                  {item.facebookStatus === "opened" &&
-                  !item.listedPlatforms.includes("facebook")
-                    ? "Continue Facebook Draft"
-                    : item.listedPlatforms.includes("facebook")
-                      ? "Copy Facebook Details"
-                      : "Post to Facebook"}
-                </Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.platformBtn, styles.ebayBtn]}
-                onPress={() => openListingDraft(item, "ebay")}
-              >
-                <Text style={styles.platformBtnText}>
-                  {item.ebayStatus === "posting"
-                    ? "Posting..."
-                    : item.ebayListingUrl
-                      ? "Update eBay Listing"
-                      : "Post to eBay"}
-                </Text>
-              </TouchableOpacity>
-            </View>
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.facebookQuickCopyRow}
-            >
-              {[
-                "Title",
-                "Price",
-                "Description",
-                "Condition",
-                "Photo checklist",
-              ].map((label) => (
-                <TouchableOpacity
-                  key={label}
-                  style={styles.facebookQuickCopyBtn}
-                  onPress={() => {
-                    void copyFacebookListingValue(
-                      item,
-                      label as
-                        | "Title"
-                        | "Price"
-                        | "Description"
-                        | "Condition"
-                        | "Photo checklist",
-                    );
-                  }}
-                >
-                  <Text style={styles.facebookQuickCopyBtnText}>
-                    Copy {label}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
-            {item.facebookStatus === "opened" &&
-            !item.listedPlatforms.includes("facebook") ? (
-              <TouchableOpacity
-                style={styles.markFacebookListedBtn}
-                onPress={() =>
-                  {
-                    updateInventoryItemFacebookStatus(item.id, {
-                      status: "listed",
-                    });
-                    setEditingFacebookUrlItemId(item.id);
-                  }
-                }
-              >
-                <Text style={styles.markFacebookListedBtnText}>
-                  Mark Facebook Listed
+                <Text style={styles.listingToolsToggleText}>
+                  {showItemTools(item.id) ? "Hide listing tools" : "Listing tools"}
                 </Text>
               </TouchableOpacity>
             ) : null}
-            {(item.listedPlatforms.includes("facebook") ||
-              item.facebookStatus === "opened" ||
-              item.facebookListingUrl) ? (
-              <View style={styles.facebookUrlActions}>
-                {item.facebookListingUrl ? (
+            {showItemTools(item.id) ? (
+              <>
+                <View style={styles.itemActions}>
                   <TouchableOpacity
-                    style={styles.viewFacebookBtn}
-                    onPress={() => {
-                      void Linking.openURL(item.facebookListingUrl);
-                    }}
+                    style={[styles.platformBtn, styles.facebookBtn]}
+                    onPress={() => openListingDraft(item, "facebook")}
                   >
-                    <Text style={styles.viewFacebookBtnText}>
-                      View Facebook Listing
+                    <Text style={styles.platformBtnText}>
+                      {item.facebookStatus === "opened" &&
+                      !item.listedPlatforms.includes("facebook")
+                        ? "Continue Facebook Draft"
+                        : item.listedPlatforms.includes("facebook")
+                          ? "Copy Facebook Details"
+                          : "Post to Facebook"}
+                    </Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.platformBtn, styles.ebayBtn]}
+                    onPress={() => openListingDraft(item, "ebay")}
+                  >
+                    <Text style={styles.platformBtnText}>
+                      {item.ebayStatus === "posting"
+                        ? "Posting..."
+                        : item.ebayListingUrl
+                          ? "Update eBay Listing"
+                          : "Post to eBay"}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+                <ScrollView
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  contentContainerStyle={styles.facebookQuickCopyRow}
+                >
+                  {[
+                    "Title",
+                    "Price",
+                    "Description",
+                    "Condition",
+                    "Photo checklist",
+                  ].map((label) => (
+                    <TouchableOpacity
+                      key={label}
+                      style={styles.facebookQuickCopyBtn}
+                      onPress={() => {
+                        void copyFacebookListingValue(
+                          item,
+                          label as
+                            | "Title"
+                            | "Price"
+                            | "Description"
+                            | "Condition"
+                            | "Photo checklist",
+                        );
+                      }}
+                    >
+                      <Text style={styles.facebookQuickCopyBtnText}>
+                        Copy {label}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+                {item.facebookStatus === "opened" &&
+                !item.listedPlatforms.includes("facebook") ? (
+                  <TouchableOpacity
+                    style={styles.markFacebookListedBtn}
+                    onPress={() =>
+                      {
+                        updateInventoryItemFacebookStatus(item.id, {
+                          status: "listed",
+                        });
+                        setEditingFacebookUrlItemId(item.id);
+                      }
+                    }
+                  >
+                    <Text style={styles.markFacebookListedBtnText}>
+                      Mark Facebook Listed
                     </Text>
                   </TouchableOpacity>
                 ) : null}
-                <TouchableOpacity
-                  style={styles.facebookUrlBtn}
-                  onPress={() =>
-                    setEditingFacebookUrlItemId((current) =>
-                      current === item.id ? null : item.id,
-                    )
-                  }
-                >
-                  <Text style={styles.facebookUrlBtnText}>
-                    {item.facebookListingUrl
-                      ? "Edit Facebook URL"
-                      : "Add Facebook URL"}
+                {(item.listedPlatforms.includes("facebook") ||
+                  item.facebookStatus === "opened" ||
+                  item.facebookListingUrl) ? (
+                  <View style={styles.facebookUrlActions}>
+                    {item.facebookListingUrl ? (
+                      <TouchableOpacity
+                        style={styles.viewFacebookBtn}
+                        onPress={() => {
+                          void Linking.openURL(item.facebookListingUrl);
+                        }}
+                      >
+                        <Text style={styles.viewFacebookBtnText}>
+                          View Facebook Listing
+                        </Text>
+                      </TouchableOpacity>
+                    ) : null}
+                    <TouchableOpacity
+                      style={styles.facebookUrlBtn}
+                      onPress={() =>
+                        setEditingFacebookUrlItemId((current) =>
+                          current === item.id ? null : item.id,
+                        )
+                      }
+                    >
+                      <Text style={styles.facebookUrlBtnText}>
+                        {item.facebookListingUrl
+                          ? "Edit Facebook URL"
+                          : "Add Facebook URL"}
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+                ) : null}
+                {editingFacebookUrlItemId === item.id ? (
+                  <View style={styles.facebookUrlEditorCard}>
+                    <Text style={styles.soldEditorLabel}>Facebook Listing URL</Text>
+                    <TextInput
+                      style={styles.facebookUrlInput}
+                      value={getFacebookUrlDraftValue(item)}
+                      onChangeText={(value) =>
+                        setFacebookUrlDrafts((current) => ({
+                          ...current,
+                          [item.id]: value,
+                        }))
+                      }
+                      placeholder="https://www.facebook.com/marketplace/item/..."
+                      placeholderTextColor="#999"
+                      autoCapitalize="none"
+                      autoCorrect={false}
+                    />
+                    <View style={styles.facebookUrlEditorActions}>
+                      <TouchableOpacity
+                        style={styles.secondaryActionBtn}
+                        onPress={() => {
+                          void pasteFacebookUrl(item);
+                        }}
+                      >
+                        <Text style={styles.secondaryActionBtnText}>Paste</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={styles.saveSoldBtn}
+                        onPress={() => saveFacebookUrl(item)}
+                      >
+                        <Text style={styles.saveSoldBtnText}>Save</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={styles.clearSoldBtn}
+                        onPress={() => clearFacebookUrl(item)}
+                      >
+                        <Text style={styles.clearSoldBtnText}>Clear</Text>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                ) : null}
+                {item.facebookStatus === "error" && item.facebookLastError ? (
+                  <Text style={styles.facebookErrorText}>
+                    {item.facebookLastError}
                   </Text>
-                </TouchableOpacity>
-              </View>
-            ) : null}
-            {editingFacebookUrlItemId === item.id ? (
-              <View style={styles.facebookUrlEditorCard}>
-                <Text style={styles.soldEditorLabel}>Facebook Listing URL</Text>
-                <TextInput
-                  style={styles.facebookUrlInput}
-                  value={getFacebookUrlDraftValue(item)}
-                  onChangeText={(value) =>
-                    setFacebookUrlDrafts((current) => ({
-                      ...current,
-                      [item.id]: value,
-                    }))
-                  }
-                  placeholder="https://www.facebook.com/marketplace/item/..."
-                  placeholderTextColor="#999"
-                  autoCapitalize="none"
-                  autoCorrect={false}
-                />
-                <View style={styles.facebookUrlEditorActions}>
+                ) : null}
+                {item.ebayListingUrl ? (
                   <TouchableOpacity
-                    style={styles.secondaryActionBtn}
+                    style={styles.viewEbayBtn}
                     onPress={() => {
-                      void pasteFacebookUrl(item);
+                      void Linking.openURL(item.ebayListingUrl);
                     }}
                   >
-                    <Text style={styles.secondaryActionBtnText}>Paste</Text>
+                    <Text style={styles.viewEbayBtnText}>View on eBay</Text>
                   </TouchableOpacity>
-                  <TouchableOpacity
-                    style={styles.saveSoldBtn}
-                    onPress={() => saveFacebookUrl(item)}
-                  >
-                    <Text style={styles.saveSoldBtnText}>Save</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={styles.clearSoldBtn}
-                    onPress={() => clearFacebookUrl(item)}
-                  >
-                    <Text style={styles.clearSoldBtnText}>Clear</Text>
-                  </TouchableOpacity>
-                </View>
-              </View>
-            ) : null}
-            {item.facebookStatus === "error" && item.facebookLastError ? (
-              <Text style={styles.facebookErrorText}>
-                {item.facebookLastError}
-              </Text>
-            ) : null}
-            {item.ebayListingUrl ? (
-              <TouchableOpacity
-                style={styles.viewEbayBtn}
-                onPress={() => {
-                  void Linking.openURL(item.ebayListingUrl);
-                }}
-              >
-                <Text style={styles.viewEbayBtnText}>View on eBay</Text>
-              </TouchableOpacity>
-            ) : null}
-            {item.ebayStatus === "posting" ? (
-              <Text style={styles.ebayProgressText}>
-                {item.ebayProgress || "Posting to eBay..."}
-              </Text>
-            ) : null}
-            {item.ebayStatus === "error" && item.ebayLastError ? (
-              <Text style={styles.ebayErrorText}>{item.ebayLastError}</Text>
+                ) : null}
+                {item.ebayStatus === "posting" ? (
+                  <Text style={styles.ebayProgressText}>
+                    {item.ebayProgress || "Posting to eBay..."}
+                  </Text>
+                ) : null}
+                {item.ebayStatus === "error" && item.ebayLastError ? (
+                  <Text style={styles.ebayErrorText}>{item.ebayLastError}</Text>
+                ) : null}
+              </>
             ) : null}
             <View style={styles.itemSecondaryActions}>
               <TouchableOpacity
@@ -1775,6 +1804,21 @@ const styles = StyleSheet.create({
     borderRadius: 6,
   },
   platformText: { fontSize: 12, color: AppPalette.textMuted, fontWeight: "600" },
+  listingToolsToggle: {
+    marginHorizontal: 12,
+    marginTop: 10,
+    borderWidth: 1,
+    borderColor: AppPalette.border,
+    backgroundColor: AppPalette.surfaceMuted,
+    borderRadius: 8,
+    paddingVertical: 10,
+    alignItems: "center",
+  },
+  listingToolsToggleText: {
+    color: AppPalette.text,
+    fontSize: 13,
+    fontWeight: "700",
+  },
   itemActions: {
     borderTopWidth: 1,
     borderTopColor: AppPalette.border,
