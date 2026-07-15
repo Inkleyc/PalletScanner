@@ -109,11 +109,48 @@ Use:
 
 This gives us fast mobile development, real tester distribution, and a proper desktop business app.
 
+## Build Commands
+
+Run these from the repo root.
+
+Local browser preview:
+
+```bash
+npm run web -w @palletscanner/mobile
+```
+
+Android internal APK preview:
+
+```bash
+npm run mobile:build:android-preview
+```
+
+iOS internal preview:
+
+```bash
+npm run mobile:build:ios-preview
+```
+
+Development build:
+
+```bash
+npm run mobile:build:development
+```
+
+Before sharing a tester build, run:
+
+```bash
+npm run lint
+npm run web:export
+npm run supabase:app-check
+```
+
+For eBay posting tests, also verify the backend health and `/ebay/status` readiness checklist before inviting testers to connect accounts.
+
 ## Near-Term Action Items
 
 1. Keep the existing Expo app as the mobile app.
-2. Add clearer EAS scripts for preview/development builds.
-3. Document how to create Android preview builds.
+2. Use the existing EAS scripts for preview/development builds.
+3. Keep Android preview builds as the fastest tester path.
 4. Document iOS tester requirements before inviting iPhone testers.
 5. Move business dashboard work to the planned web app instead of expanding Expo web.
-
