@@ -15,6 +15,11 @@ const ebaySettings = {
   loading: false,
 };
 
+const inventorySort = {
+  column: "name",
+  direction: "asc",
+};
+
 const escapeHtml = (value) =>
   String(value ?? "")
     .replaceAll("&", "&amp;")
@@ -124,6 +129,48 @@ const exportVisibleInventory = () => {
     ]),
   ]);
 };
+
+const sortInventoryRows = (column) => {
+  inventorySort.direction =
+    inventorySort.column === column && inventorySort.direction === "asc"
+      ? "desc"
+      : "asc";
+  inventorySort.column = column;
+
+  const tbody = document.querySelector("#inventory-table-body");
+  if (!tbody) {
+    return;
+  }
+
+  const rows = [...tbody.querySelectorAll("[data-inventory-row]")];
+  rows
+    .sort((first, second) => {
+      const firstValue = first.dataset[`sort${column}`] ?? "";
+      const secondValue = second.dataset[`sort${column}`] ?? "";
+      const firstNumber = Number(firstValue);
+      const secondNumber = Number(secondValue);
+      const result =
+        Number.isFinite(firstNumber) && Number.isFinite(secondNumber)
+          ? firstNumber - secondNumber
+          : firstValue.localeCompare(secondValue, undefined, {
+              numeric: true,
+              sensitivity: "base",
+            });
+      return inventorySort.direction === "asc" ? result : -result;
+    })
+    .forEach((row) => tbody.append(row));
+
+  document.querySelectorAll("[data-sort-column]").forEach((button) => {
+    const isActive = button.dataset.sortColumn === column;
+    button.dataset.sortDirection = isActive ? inventorySort.direction : "";
+  });
+};
+
+const renderSortButton = (column, label) => `
+  <button class="sort-button" type="button" data-sort-column="${column}" data-sort-direction="${inventorySort.column === column ? inventorySort.direction : ""}">
+    ${label}
+  </button>
+`;
 
 const normalizeBaseUrl = (value) => value.trim().replace(/\/$/, "");
 
@@ -418,20 +465,32 @@ const render = () => {
           <table>
             <thead>
               <tr>
-                <th>Item</th>
-                <th>Pallet</th>
-                <th>Condition</th>
-                <th>Platform</th>
-                <th>Range</th>
-                <th>Status</th>
+                <th>${renderSortButton("name", "Item")}</th>
+                <th>${renderSortButton("pallet", "Pallet")}</th>
+                <th>${renderSortButton("condition", "Condition")}</th>
+                <th>${renderSortButton("platform", "Platform")}</th>
+                <th>${renderSortButton("range", "Range")}</th>
+                <th>${renderSortButton("status", "Status")}</th>
               </tr>
             </thead>
-            <tbody>
+            <tbody id="inventory-table-body">
               ${items
                 .map((item) => {
                   const palletName = getPalletName(item.palletId);
                   return `
-                    <tr data-inventory-row data-item-id="${item.id}" data-status="${escapeHtml(item.status)}" data-platform="${escapeHtml(item.platform)}" data-search-text="${escapeHtml(getInventorySearchText(item))}">
+                    <tr
+                      data-inventory-row
+                      data-item-id="${item.id}"
+                      data-status="${escapeHtml(item.status)}"
+                      data-platform="${escapeHtml(item.platform)}"
+                      data-search-text="${escapeHtml(getInventorySearchText(item))}"
+                      data-sortname="${escapeHtml(item.name)}"
+                      data-sortpallet="${escapeHtml(palletName)}"
+                      data-sortcondition="${escapeHtml(item.condition)}"
+                      data-sortplatform="${escapeHtml(item.platform)}"
+                      data-sortrange="${item.high}"
+                      data-sortstatus="${escapeHtml(statusLabel[item.status] ?? item.status)}"
+                    >
                       <td>${escapeHtml(item.name)}</td>
                       <td>${escapeHtml(palletName)}</td>
                       <td>${escapeHtml(item.condition)}</td>
@@ -497,6 +556,11 @@ const render = () => {
   document
     .querySelector("[data-action='export-inventory']")
     ?.addEventListener("click", exportVisibleInventory);
+  document.querySelectorAll("[data-sort-column]").forEach((button) => {
+    button.addEventListener("click", () => {
+      sortInventoryRows(button.dataset.sortColumn);
+    });
+  });
   document
     .querySelector("#inventory-search")
     ?.addEventListener("input", applyInventorySearch);
