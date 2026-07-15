@@ -6,49 +6,7 @@ import {
   readWebStorage,
   writeWebStorage,
 } from "@/lib/web-storage";
-
-type InventoryItem = {
-  id: number;
-  photo: string | null;
-  photos?: string[];
-  name: string;
-  condition: string;
-  quantity: number;
-  low_price: number;
-  high_price: number;
-  floor_price: number;
-  best_platform: string;
-  listing_title: string;
-  listing_description: string;
-  listing_title_facebook?: string;
-  listing_description_facebook?: string;
-  listing_title_ebay?: string;
-  listing_description_ebay?: string;
-  listedPlatforms: Array<"facebook" | "ebay">;
-  palletId: string;
-  soldPrice: number | null;
-  ebayListingId?: string;
-  ebayListingUrl?: string;
-  ebaySku?: string;
-  ebayOfferId?: string;
-  ebayCategoryId?: string;
-  ebayCategoryName?: string;
-  ebayStatus?: "idle" | "posting" | "active" | "error";
-  ebayProgress?: string;
-  ebayLastError?: string;
-  ebayUpdatedAt?: number;
-  facebookStatus?: "idle" | "opened" | "listed" | "error";
-  facebookListingUrl?: string;
-  facebookLastError?: string;
-  facebookUpdatedAt?: number;
-};
-
-type PalletSession = {
-  id: string;
-  name: string;
-  createdAt: number;
-  palletCost: number | null;
-};
+import type { InventoryItem, PalletSession } from "@/packages/core/src/domain";
 
 type ResetBackup = {
   items: InventoryItem[];
@@ -951,6 +909,10 @@ export const markInventoryItemEbayEnded = (id: number) => {
   );
 };
 
-export type { InventoryItem, PalletSession, ResetBackupSummary };
+export type {
+  InventoryItem,
+  PalletSession,
+} from "@/packages/core/src/domain";
+export type { ResetBackupSummary };
 
 void hydrateInventory();
