@@ -15,7 +15,7 @@ const settingsFile = `${FileSystem.documentDirectory}app-settings.json`;
 const settingsWebKey = "app-settings";
 
 let settingsState: AppSettings = {
-  promptToPostOnSave: true,
+  promptToPostOnSave: false,
   facebookSellerNote:
     "Local pickup. Message with any questions or to arrange a time.",
 };

@@ -91,6 +91,7 @@ export default function SettingsScreen() {
     getAppMeta,
   );
   const isLargeLayout = width >= 900;
+  const [postingToolsExpanded, setPostingToolsExpanded] = useState(isLargeLayout);
   const resetBackup = useSyncExternalStore(
     subscribeInventory,
     getResetBackupSummary,
@@ -309,8 +310,8 @@ export default function SettingsScreen() {
             <View style={styles.settingCopy}>
               <Text style={styles.settingTitle}>Prompt To Post After Save</Text>
               <Text style={styles.settingDescription}>
-                After saving a new inventory item, ask whether to open Facebook
-                Marketplace or eBay right away.
+                Ask whether to open Facebook Marketplace or eBay after saving a
+                new item. Leave this off for fast pallet scanning.
               </Text>
             </View>
             <Switch
@@ -323,10 +324,10 @@ export default function SettingsScreen() {
         </View>
 
         <View style={styles.card}>
-          <Text style={styles.settingTitle}>Facebook Seller Note</Text>
+          <Text style={styles.settingTitle}>Listing Defaults</Text>
           <Text style={styles.settingDescription}>
-            This note is added to Facebook Marketplace descriptions so pickup,
-            payment, or message preferences stay consistent.
+            This note is added to Facebook Marketplace descriptions when you use
+            listing tools.
           </Text>
           <TextInput
             style={styles.noteInput}
@@ -344,6 +345,25 @@ export default function SettingsScreen() {
           </TouchableOpacity>
         </View>
 
+        <View style={styles.card}>
+          <TouchableOpacity
+            style={styles.sectionHeaderButton}
+            onPress={() => setPostingToolsExpanded((current) => !current)}
+          >
+            <View style={styles.settingCopy}>
+              <Text style={styles.settingTitle}>Marketplace Connections</Text>
+              <Text style={styles.settingDescription}>
+                Account switching, eBay connection, and developer auth controls.
+              </Text>
+            </View>
+            <Text style={styles.sectionHeaderButtonText}>
+              {postingToolsExpanded ? "Hide" : "Show"}
+            </Text>
+          </TouchableOpacity>
+        </View>
+
+        {postingToolsExpanded ? (
+          <>
         <View style={styles.card}>
           <Text style={styles.settingTitle}>Facebook Account</Text>
           <Text style={styles.settingDescription}>
@@ -521,6 +541,8 @@ export default function SettingsScreen() {
             </TouchableOpacity>
           ) : null}
         </View>
+          </>
+        ) : null}
 
         <View style={styles.resetCard}>
           <Text style={styles.settingTitle}>Delete App Data</Text>
@@ -602,6 +624,17 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-between",
     gap: 16,
+  },
+  sectionHeaderButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 16,
+  },
+  sectionHeaderButtonText: {
+    color: AppPalette.primary,
+    fontSize: 14,
+    fontWeight: "700",
   },
   settingCopy: { flex: 1 },
   settingTitle: {
