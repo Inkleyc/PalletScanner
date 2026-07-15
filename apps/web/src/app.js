@@ -513,6 +513,8 @@ const render = () => {
           ${renderMetric("Gross Profit", currency(totals.grossProfit), totals.grossProfit >= 0 ? "success" : "danger")}
           ${renderMetric("Sell Through", `${totals.sellThrough.toFixed(0)}%`)}
           ${renderMetric("Needs Attention", attentionItems.length, "warning")}
+          ${renderMetric("Needs Facebook", totals.needsFacebook, "warning")}
+          ${renderMetric("Needs eBay", totals.needsEbay, "warning")}
         </section>
 
         <section id="pallets" class="panel">

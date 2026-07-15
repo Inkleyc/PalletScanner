@@ -78,6 +78,12 @@ export const getPalletCost = (pallet) =>
 export const summarizeInventory = (items, pallets) => {
   const soldItems = items.filter((item) => item.soldPrice !== null);
   const unsoldItems = items.filter((item) => item.soldPrice === null);
+  const needsFacebook = items.filter(
+    (item) => !item.listedPlatforms?.includes("facebook"),
+  ).length;
+  const needsEbay = items.filter(
+    (item) => !item.listedPlatforms?.includes("ebay"),
+  ).length;
   const soldRevenue = soldItems.reduce((sum, item) => sum + item.soldPrice, 0);
   const remainingLow = unsoldItems.reduce(
     (sum, item) => sum + item.low * getQuantity(item),
@@ -101,6 +107,8 @@ export const summarizeInventory = (items, pallets) => {
     totalCost,
     grossProfit: soldRevenue - totalCost,
     sellThrough: items.length > 0 ? (soldItems.length / items.length) * 100 : 0,
+    needsFacebook,
+    needsEbay,
   };
 };
 
@@ -118,7 +126,7 @@ export const summarizePallet = (items, pallet) => {
     (sum, item) => sum + item.high * getQuantity(item),
     0,
   );
-  const unresolved = palletItems.filter((item) => item.issue).length;
+  const unresolved = palletItems.filter((item) => getDisplayIssue(item)).length;
   const cost = getPalletCost(pallet);
 
   return {

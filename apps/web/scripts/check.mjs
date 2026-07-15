@@ -42,6 +42,8 @@ for (const marker of [
   "Desktop-first review table",
   "Admin Settings",
   "data-action=\"export-inventory\"",
+  "Needs Facebook",
+  "Needs eBay",
   "inventory-status-filter",
   "inventory-platform-filter",
   "data-action=\"reset-inventory\"",
@@ -64,6 +66,9 @@ if (totals.totalItems !== items.length) {
 }
 if (totals.remainingHigh <= totals.remainingLow) {
   throw new Error("Inventory remaining high estimate should exceed low estimate.");
+}
+if (totals.needsFacebook <= 0 || totals.needsEbay <= 0) {
+  throw new Error("Expected marketplace work counts in dashboard totals.");
 }
 
 const palletSummaries = pallets.map((pallet) => summarizePallet(items, pallet));
