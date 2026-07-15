@@ -55,6 +55,11 @@ import {
   type InventorySortMode,
   type ListingFilter,
 } from "@/packages/core/src/inventory-query";
+import {
+  buildInventoryCsv,
+  calculateInventoryValueSummary,
+  createInventoryExportBasename,
+} from "@/packages/core/src/inventory-report";
 
 type BundleSuggestion = {
   title: string;
@@ -129,19 +134,16 @@ export default function InventoryScreen() {
       ? items.length
       : items.filter((item: any) => item.palletId === selectedPalletId).length;
 
-  const totalLow = filteredItems.reduce(
-    (sum: number, item: any) => sum + item.low_price * (item.quantity ?? 1),
-    0,
+  const {
+    totalLow,
+    totalHigh,
+    totalPalletCost,
+    projectedProfitLow,
+    projectedProfitHigh,
+  } = useMemo(
+    () => calculateInventoryValueSummary(filteredItems, pallets, selectedPallet),
+    [filteredItems, pallets, selectedPallet],
   );
-  const totalHigh = filteredItems.reduce(
-    (sum: number, item: any) => sum + item.high_price * (item.quantity ?? 1),
-    0,
-  );
-  const totalPalletCost = selectedPallet
-    ? selectedPallet.palletCost ?? 0
-    : pallets.reduce((sum, pallet) => sum + (pallet.palletCost ?? 0), 0);
-  const projectedProfitLow = totalLow - totalPalletCost;
-  const projectedProfitHigh = totalHigh - totalPalletCost;
   const bundleCandidateItems = selectedPallet
     ? filteredItems
     : items.filter((item: any) => item.palletId === activePalletId);
@@ -209,9 +211,6 @@ export default function InventoryScreen() {
         },
       ]);
   };
-
-  const getPalletName = (palletId: string) =>
-    pallets.find((pallet) => pallet.id === palletId)?.name ?? "Unknown pallet";
 
   const getSoldDraftValue = (item: any) =>
     soldDrafts[item.id] ?? (item.soldPrice !== null ? String(item.soldPrice) : "");
@@ -308,33 +307,7 @@ export default function InventoryScreen() {
   };
 
   const getExportFilename = () => {
-    const suffix =
-      selectedPallet?.name.toLowerCase().replace(/[^a-z0-9]+/g, "-") ?? "all";
-    return FileSystem.documentDirectory + `pallet-inventory-${suffix}.csv`;
-  };
-
-  const buildCSV = () => {
-    const header =
-      "Pallet,Name,Qty,Condition,Pallet Cost,Low Price,High Price,Floor Price,Projected Profit Low,Projected Profit High,Sold Price,Platform,Listing Title,Listing Description";
-    const rows = filteredItems.map((item: any) =>
-      [
-        `"${getPalletName(item.palletId)}"`,
-        `"${item.name}"`,
-        item.quantity ?? 1,
-        `"${item.condition}"`,
-        pallets.find((pallet) => pallet.id === item.palletId)?.palletCost ?? "",
-        item.low_price * (item.quantity ?? 1),
-        item.high_price * (item.quantity ?? 1),
-        item.floor_price,
-        item.low_price * (item.quantity ?? 1) - (pallets.find((pallet) => pallet.id === item.palletId)?.palletCost ?? 0),
-        item.high_price * (item.quantity ?? 1) - (pallets.find((pallet) => pallet.id === item.palletId)?.palletCost ?? 0),
-        item.soldPrice ?? "",
-        `"${item.best_platform}"`,
-        `"${item.listing_title}"`,
-        `"${item.listing_description.replace(/"/g, "'")}"`,
-      ].join(","),
-    );
-    return [header, ...rows].join("\n");
+    return FileSystem.documentDirectory + createInventoryExportBasename(selectedPallet);
   };
 
   const exportCSV = async () => {
@@ -343,7 +316,7 @@ export default function InventoryScreen() {
       return;
     }
     try {
-      const csv = buildCSV();
+      const csv = buildInventoryCsv(filteredItems, pallets);
       if (Platform.OS === "web") {
         const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
         const url = URL.createObjectURL(blob);
@@ -375,7 +348,7 @@ export default function InventoryScreen() {
       return;
     }
     try {
-      const csv = buildCSV();
+      const csv = buildInventoryCsv(filteredItems, pallets);
       const filename = getExportFilename();
       await FileSystem.writeAsStringAsync(filename, csv, { encoding: "utf8" });
       const isAvailable = await MailComposer.isAvailableAsync();
