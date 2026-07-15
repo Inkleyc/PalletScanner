@@ -44,9 +44,10 @@ Important files:
 
 - `lib/ebay-integration.ts`: sends listing data to the backend.
 - `lib/listing-posting.ts`: decides whether to use real API posting or browser fallback.
-- `app/(tabs)/settings.tsx`: opens the eBay connect URL.
+- `app/(tabs)/settings.tsx`: opens the eBay connect URL and shows seller connection/readiness.
 - `app/(tabs)/explore.tsx`: includes the mass eBay posting flow.
 - `app/capture.tsx` and `app/scan-barcode.tsx`: create the eBay-specific title and description.
+- `apps/web/src/app.js`: shows the admin-facing backend URL, session-only auth token, OAuth connection, and readiness checklist.
 
 The app only needs one public eBay setting:
 
@@ -112,6 +113,20 @@ The connection flow is called OAuth. OAuth is eBay's way of asking the seller, "
 8. Future listing calls use that refresh token to get short-lived access tokens.
 
 The mobile app does not store eBay seller tokens. That is intentional.
+
+## Connection Status Versus Listing Readiness
+
+The backend separates three states:
+
+- `configured`: the PalletScanner backend has the eBay app credentials needed to start OAuth.
+- `connected`: the current app user has authorized an eBay seller account.
+- `readyToList`: the backend has app credentials, seller authorization, merchant location, payment policy, return policy, and fulfillment policy.
+
+This distinction matters because a seller can be connected but still blocked from publishing if business policies or location values are missing.
+
+Mobile Settings should stay simple: connect, reconnect, disconnect, refresh, and show a short "still needed" list.
+
+Web Admin Settings should be the richer setup surface: backend URL, session-only auth token, connection status, and the full readiness checklist.
 
 ## What Happens During Listing Creation
 
@@ -202,8 +217,9 @@ In the eBay developer portal:
    http://192.168.1.42:8787/ebay/status
    ```
 
-11. Connect from the app Settings screen.
-12. Try one listing.
+11. Connect from the app Settings screen or web Admin Settings.
+12. Confirm the status says ready to list.
+13. Try one listing.
 
 ### Local Limitations
 
@@ -247,6 +263,7 @@ The app still never talks directly to eBay with secrets. Every customer uses the
 - Tokens must be stored per user, not in one shared local file.
 - The backend must authenticate app users before creating listings.
 - The app should show connection status for the current user.
+- The web dashboard should show the full marketplace readiness checklist and admin-only configuration controls.
 - You need production eBay keys and likely eBay application review/approval depending on the APIs and scale.
 
 ### Production Token Storage

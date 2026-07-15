@@ -234,6 +234,8 @@ Progress:
 - Shared core now owns item/listing status helpers, metrics/report helpers, parsers, and capture analysis result typing.
 - `apps/web` now has a dependency-free dashboard scaffold for the future desktop operations app.
 - `packages/api-client` now owns the shared eBay backend client contract used by mobile and ready for future web use.
+- eBay status now separates backend configuration, seller account connection, and ready-to-list requirements.
+- Mobile Settings shows a short eBay readiness summary while web Admin Settings shows the fuller backend connection checklist.
 - Keep marketplace posting limited to safe, guided actions.
 - Remove or de-emphasize dashboard-heavy screens from mobile.
 

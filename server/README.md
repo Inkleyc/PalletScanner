@@ -7,7 +7,7 @@ For the full plain-English setup map, including local development versus distrib
 ## Endpoints
 
 - `GET /health`
-- `GET /ebay/status`
+- `GET /ebay/status` returns backend configuration, seller connection, and the ready-to-list checklist.
 - `GET /ebay/connect`
 - `GET /ebay/connect-url`
 - `GET /ebay/callback`
@@ -52,16 +52,18 @@ You can use [server/ebay.env.example](c:/Users/colto/PalletScanner/server/ebay.e
    - For local device testing, use your computer's LAN IP, not `localhost`.
 4. Add the merchant location key and the three business policy IDs to your `.env`.
 5. Start the server with `npm run ebay-server`.
-6. In the app Settings tab, use the eBay connect button to authorize the seller account.
+6. In mobile Settings or web Admin Settings, use the eBay connect button to authorize the seller account.
+7. Confirm `/ebay/status` reports `readyToList: true` before relying on direct posting.
 
 ## Fastest recovery plan when eBay is accessible again
 
 1. Fill the blank values in [server/ebay.env.example](c:/Users/colto/PalletScanner/server/ebay.env.example).
 2. Copy those values into your root `.env`.
 3. Start the backend with `npm run ebay-server`.
-4. Open `http://YOUR-IP:8787/ebay/status` and confirm the server reports configured credentials.
-5. In the app, tap `Settings -> Connect eBay Account`.
-6. Test creating one listing from an inventory item.
+4. Open `http://YOUR-IP:8787/ebay/status` or use web Admin Settings to check the readiness list.
+5. In the app or web dashboard, connect the eBay seller account.
+6. Confirm the status says ready to list.
+7. Test creating one listing from an inventory item.
 
 ## Important
 
