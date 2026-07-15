@@ -653,6 +653,7 @@ ${productSummary}
       void triggerInventorySaveFeedback();
       if (afterSave === "next") {
         clearAll();
+        void openBarcodeScanner();
       }
     } else {
       const itemsToSave = duplicateInventoryItemDraft(
@@ -666,6 +667,7 @@ ${productSummary}
       }
       if (afterSave === "next") {
         clearAll();
+        void openBarcodeScanner();
         return;
       }
       setCurrentItemId(baseInventoryItem.id);
