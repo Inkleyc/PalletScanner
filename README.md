@@ -68,11 +68,7 @@ npm run lint
 Run the main local checks:
 
 ```bash
-npm run lint
-npm run web:export
-npm run dashboard:check
-npm run core:typecheck
-npm run api-client:typecheck
+npm run check
 ```
 
 ## Planned Repo Shape
