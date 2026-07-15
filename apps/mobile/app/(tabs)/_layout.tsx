@@ -86,9 +86,9 @@ export default function TabLayout() {
       <Tabs.Screen
         name="index"
         options={{
-          title: "Home",
-          tabBarIcon: createTabIcon("house.fill", "HomeTabIcon"),
-          tabBarLabel: createTabLabel("Home", "HomeTabLabel"),
+          title: "Scan",
+          tabBarIcon: createTabIcon("barcode.viewfinder", "ScanTabIcon"),
+          tabBarLabel: createTabLabel("Scan", "ScanTabLabel"),
         }}
       />
       <Tabs.Screen
