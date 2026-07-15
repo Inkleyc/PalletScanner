@@ -38,7 +38,12 @@ export default function PalletsScreen() {
   const [newPalletName, setNewPalletName] = useState(getNextDefaultPalletName());
   const [renameDrafts, setRenameDrafts] = useState<Record<string, string>>({});
   const [costDrafts, setCostDrafts] = useState<Record<string, string>>({});
+  const [expandedCostTools, setExpandedCostTools] = useState<
+    Record<string, boolean>
+  >({});
   const isLargeLayout = width >= 900;
+  const showCostTools = (palletId: string) =>
+    isLargeLayout || expandedCostTools[palletId] === true;
 
   const handleCreatePallet = () => {
     const pallet = createPalletSession(newPalletName);
@@ -119,38 +124,57 @@ export default function PalletsScreen() {
               )}
             </View>
 
-            <TextInput
-              style={styles.input}
-              value={
-                costDrafts[pallet.id] ??
-                (pallet.palletCost !== null ? String(pallet.palletCost) : "")
-              }
-              onChangeText={(value) =>
-                setCostDrafts((current) => ({ ...current, [pallet.id]: value }))
-              }
-              placeholder="Pallet cost"
-              placeholderTextColor="#9ca3af"
-              keyboardType="decimal-pad"
-            />
-            <View style={styles.row}>
+            {!isLargeLayout ? (
               <TouchableOpacity
-                style={styles.secondaryBtn}
-                onPress={() => {
-                  const value = (costDrafts[pallet.id] ?? "").trim();
-                  if (!value) {
-                    updatePalletSessionCost(pallet.id, null);
-                    return;
-                  }
-                  const parsed = Number(value);
-                  if (Number.isNaN(parsed) || parsed < 0) {
-                    Alert.alert("Invalid cost", "Enter a valid pallet cost.");
-                    return;
-                  }
-                  updatePalletSessionCost(pallet.id, parsed);
-                }}
+                style={styles.costToggleBtn}
+                onPress={() =>
+                  setExpandedCostTools((current) => ({
+                    ...current,
+                    [pallet.id]: !current[pallet.id],
+                  }))
+                }
               >
-                <Text style={styles.secondaryBtnText}>Save Cost</Text>
+                <Text style={styles.costToggleBtnText}>
+                  {showCostTools(pallet.id) ? "Hide cost details" : "Cost details"}
+                </Text>
               </TouchableOpacity>
+            ) : null}
+            {showCostTools(pallet.id) ? (
+              <TextInput
+                style={styles.input}
+                value={
+                  costDrafts[pallet.id] ??
+                  (pallet.palletCost !== null ? String(pallet.palletCost) : "")
+                }
+                onChangeText={(value) =>
+                  setCostDrafts((current) => ({ ...current, [pallet.id]: value }))
+                }
+                placeholder="Pallet cost"
+                placeholderTextColor="#9ca3af"
+                keyboardType="decimal-pad"
+              />
+            ) : null}
+            <View style={styles.row}>
+              {showCostTools(pallet.id) ? (
+                <TouchableOpacity
+                  style={styles.secondaryBtn}
+                  onPress={() => {
+                    const value = (costDrafts[pallet.id] ?? "").trim();
+                    if (!value) {
+                      updatePalletSessionCost(pallet.id, null);
+                      return;
+                    }
+                    const parsed = Number(value);
+                    if (Number.isNaN(parsed) || parsed < 0) {
+                      Alert.alert("Invalid cost", "Enter a valid pallet cost.");
+                      return;
+                    }
+                    updatePalletSessionCost(pallet.id, parsed);
+                  }}
+                >
+                  <Text style={styles.secondaryBtnText}>Save Cost</Text>
+                </TouchableOpacity>
+              ) : null}
               <TouchableOpacity
                 style={styles.deleteBtn}
                 onPress={() => {
@@ -272,6 +296,20 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   secondaryBtnText: { color: AppPalette.text, fontWeight: "600", fontSize: 13 },
+  costToggleBtn: {
+    borderWidth: 1,
+    borderColor: AppPalette.border,
+    backgroundColor: AppPalette.surfaceMuted,
+    borderRadius: 8,
+    paddingVertical: 10,
+    alignItems: "center",
+    marginBottom: 10,
+  },
+  costToggleBtnText: {
+    color: AppPalette.text,
+    fontSize: 13,
+    fontWeight: "700",
+  },
   deleteBtn: {
     backgroundColor: AppPalette.dangerSoft,
     borderWidth: 1,
