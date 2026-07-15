@@ -112,6 +112,7 @@ export default function InventoryScreen() {
   const [bundleSuggestions, setBundleSuggestions] = useState<BundleSuggestion[]>([]);
   const isLargeLayout = width >= 900;
   const previousHasActiveFilters = useRef(false);
+  const previousActivePalletId = useRef<string | null>(activePalletId);
   const listingFilterLabel = getListingFilterLabel(listingFilter);
 
   const selectedPallet =
@@ -208,6 +209,20 @@ export default function InventoryScreen() {
     }
     previousHasActiveFilters.current = hasActiveFilters;
   }, [hasActiveFilters]);
+
+  useEffect(() => {
+    const previousActive = previousActivePalletId.current;
+
+    if (
+      !isLargeLayout &&
+      activePalletId &&
+      (selectedPalletId === "all" || selectedPalletId === previousActive)
+    ) {
+      setSelectedPalletId(activePalletId);
+    }
+
+    previousActivePalletId.current = activePalletId;
+  }, [activePalletId, isLargeLayout, selectedPalletId]);
 
   const endItemEbayListing = async (item: InventoryItem) => {
     if (!item.ebayOfferId) {
@@ -695,22 +710,24 @@ ${JSON.stringify(promptItems, null, 2)}`,
                 showsHorizontalScrollIndicator={false}
                 contentContainerStyle={styles.filterChipRow}
               >
-                <TouchableOpacity
-                  style={[
-                    styles.filterChip,
-                    selectedPalletId === "all" && styles.filterChipActive,
-                  ]}
-                  onPress={() => setSelectedPalletId("all")}
-                >
-                  <Text
+                {isLargeLayout ? (
+                  <TouchableOpacity
                     style={[
-                      styles.filterChipText,
-                      selectedPalletId === "all" && styles.filterChipTextActive,
+                      styles.filterChip,
+                      selectedPalletId === "all" && styles.filterChipActive,
                     ]}
+                    onPress={() => setSelectedPalletId("all")}
                   >
-                    All Inventory
-                  </Text>
-                </TouchableOpacity>
+                    <Text
+                      style={[
+                        styles.filterChipText,
+                        selectedPalletId === "all" && styles.filterChipTextActive,
+                      ]}
+                    >
+                      All Inventory
+                    </Text>
+                  </TouchableOpacity>
+                ) : null}
                 {pallets.map((pallet) => {
                   const isSelected = selectedPalletId === pallet.id;
                   const isActive = activePalletId === pallet.id;
