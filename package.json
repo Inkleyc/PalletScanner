@@ -23,7 +23,8 @@
     "mobile:build:android-preview": "eas build --platform android --profile preview",
     "mobile:build:ios-preview": "eas build --platform ios --profile preview",
     "mobile:build:development": "eas build --profile development",
-    "core:typecheck": "npm run typecheck -w @palletscanner/core"
+    "core:typecheck": "npm run typecheck -w @palletscanner/core",
+    "api-client:typecheck": "npm run typecheck -w @palletscanner/api-client"
   },
   "dependencies": {
     "@expo/vector-icons": "^15.0.3",

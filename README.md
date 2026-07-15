@@ -75,3 +75,5 @@ docs/          Product plans, setup guides, and runbooks
 ## Current Status
 
 The current root app still runs as a single Expo project. The first split work should extract shared domain logic into `packages/core`, then move the existing Expo app into `apps/mobile`, and then create `apps/web` for the business dashboard.
+
+The `apps/mobile`, `apps/web`, and `packages/api-client` folders are scaffolded as placeholders for the split. The root Expo app has not been moved yet.
