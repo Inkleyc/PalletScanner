@@ -76,6 +76,11 @@ const applyInventorySearch = () => {
   if (resultCount) {
     resultCount.textContent = `${visibleCount} item${visibleCount === 1 ? "" : "s"}`;
   }
+
+  const emptyRow = document.querySelector("#inventory-empty-row");
+  if (emptyRow) {
+    emptyRow.hidden = visibleCount > 0;
+  }
 };
 
 const downloadCsv = (filename, rows) => {
@@ -501,6 +506,9 @@ const render = () => {
                   `;
                 })
                 .join("")}
+              <tr id="inventory-empty-row" hidden>
+                <td class="empty-table-cell" colspan="6">No inventory matches these filters.</td>
+              </tr>
             </tbody>
           </table>
         </section>

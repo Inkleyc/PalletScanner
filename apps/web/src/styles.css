@@ -400,6 +400,13 @@ td {
   font-size: 14px;
 }
 
+.empty-table-cell {
+  color: #697364;
+  font-weight: 700;
+  padding: 22px 8px;
+  text-align: center;
+}
+
 th {
   color: #3a4436;
   font-size: 12px;
