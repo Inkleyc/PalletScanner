@@ -61,6 +61,18 @@ export default function SettingsScreen() {
     getSupabaseAuthSnapshot,
     getSupabaseAuthSnapshot,
   );
+  const missingEbayRequirements = ebayStatus?.missingRequirements ?? [];
+  const ebayStatusLabel = !isEbayApiConfigured()
+    ? "Backend not configured"
+    : ebayStatusError
+      ? "Backend unavailable"
+      : ebayStatus?.readyToList
+        ? "Ready to list"
+        : ebayStatus?.connected
+          ? "Connected, setup incomplete"
+          : isRefreshingEbay
+            ? "Checking..."
+            : "Seller account not connected";
 
   const refreshEbayStatus = useCallback(async () => {
     if (!isEbayApiConfigured()) {
@@ -217,22 +229,28 @@ export default function SettingsScreen() {
             Connect the seller account this phone should use when posting to eBay.
           </Text>
           <Text style={styles.integrationStatus}>
-            Status:{" "}
-            {!isEbayApiConfigured()
-              ? "Backend not configured"
-              : ebayStatusError
-                ? "Backend unavailable"
-                : ebayStatus?.connected
-                  ? "Seller account connected"
-                  : isRefreshingEbay
-                    ? "Checking..."
-                    : "Seller account not connected"}
+            Status: {ebayStatusLabel}
           </Text>
           {ebayStatus ? (
             <Text style={styles.integrationHint}>
               {ebayStatus.environment === "sandbox" ? "Sandbox" : "Production"}{" "}
               - {ebayStatus.marketplaceId}
             </Text>
+          ) : null}
+          {missingEbayRequirements.length > 0 ? (
+            <View style={styles.requirementsBox}>
+              <Text style={styles.requirementsTitle}>Still needed</Text>
+              {missingEbayRequirements.slice(0, 4).map((requirement) => (
+                <Text key={requirement} style={styles.requirementItem}>
+                  - {requirement}
+                </Text>
+              ))}
+              {missingEbayRequirements.length > 4 ? (
+                <Text style={styles.requirementItem}>
+                  - {missingEbayRequirements.length - 4} more in web settings
+                </Text>
+              ) : null}
+            </View>
           ) : null}
           {ebayStatusError ? (
             <Text style={styles.integrationError}>{ebayStatusError}</Text>
@@ -248,9 +266,11 @@ export default function SettingsScreen() {
             }}
           >
             <Text style={styles.primaryBtnText}>
-              {isEbayApiConfigured()
-                ? "Connect eBay Account"
-                : "eBay Backend Not Configured"}
+              {!isEbayApiConfigured()
+                ? "eBay Backend Not Configured"
+                : ebayStatus?.connected
+                  ? "Reconnect eBay Account"
+                  : "Connect eBay Account"}
             </Text>
           </TouchableOpacity>
           {isEbayApiConfigured() ? (
@@ -462,6 +482,25 @@ const styles = StyleSheet.create({
     color: AppPalette.dangerStrong,
     lineHeight: 18,
     marginTop: 8,
+  },
+  requirementsBox: {
+    backgroundColor: AppPalette.surfaceMuted,
+    borderColor: AppPalette.border,
+    borderRadius: 8,
+    borderWidth: 1,
+    marginTop: 12,
+    padding: 10,
+  },
+  requirementsTitle: {
+    color: AppPalette.text,
+    fontSize: 12,
+    fontWeight: "700",
+    marginBottom: 6,
+  },
+  requirementItem: {
+    color: AppPalette.textMuted,
+    fontSize: 12,
+    lineHeight: 18,
   },
   input: {
     marginTop: 12,

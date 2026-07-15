@@ -7,12 +7,194 @@ import {
   summarizePallet,
 } from "./dashboard-model.js";
 
+const ebaySettings = {
+  apiBaseUrl: localStorage.getItem("palletscanner.ebayApiBaseUrl") ?? "",
+  authToken: sessionStorage.getItem("palletscanner.authToken") ?? "",
+  status: null,
+  error: "",
+  loading: false,
+};
+
+const escapeHtml = (value) =>
+  String(value ?? "")
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#39;");
+
 const renderMetric = (label, value, tone = "") => `
   <section class="metric ${tone}">
     <span>${label}</span>
     <strong>${value}</strong>
   </section>
 `;
+
+const normalizeBaseUrl = (value) => value.trim().replace(/\/$/, "");
+
+const getEbayHeaders = () => ({
+  ...(ebaySettings.authToken.trim()
+    ? { Authorization: `Bearer ${ebaySettings.authToken.trim()}` }
+    : {}),
+});
+
+const requestEbayBackend = async (path, options = {}) => {
+  const baseUrl = normalizeBaseUrl(ebaySettings.apiBaseUrl);
+  if (!baseUrl) {
+    throw new Error("Enter the eBay backend URL first.");
+  }
+
+  const response = await fetch(`${baseUrl}${path}`, {
+    ...options,
+    headers: {
+      ...getEbayHeaders(),
+      ...(options.headers ?? {}),
+    },
+  });
+  if (!response.ok) {
+    let message = `eBay backend returned ${response.status}`;
+    try {
+      const payload = await response.json();
+      message = payload.error ?? message;
+    } catch {
+      message = (await response.text()) || message;
+    }
+    throw new Error(message);
+  }
+  return response;
+};
+
+const saveEbaySettings = () => {
+  ebaySettings.apiBaseUrl = document.querySelector("#ebay-api-base-url").value;
+  ebaySettings.authToken = document.querySelector("#ebay-auth-token").value;
+  localStorage.setItem(
+    "palletscanner.ebayApiBaseUrl",
+    normalizeBaseUrl(ebaySettings.apiBaseUrl),
+  );
+  sessionStorage.setItem(
+    "palletscanner.authToken",
+    ebaySettings.authToken.trim(),
+  );
+};
+
+const refreshEbayStatus = async () => {
+  saveEbaySettings();
+  ebaySettings.loading = true;
+  ebaySettings.error = "";
+  render();
+
+  try {
+    const response = await requestEbayBackend("/ebay/status");
+    ebaySettings.status = await response.json();
+  } catch (error) {
+    ebaySettings.status = null;
+    ebaySettings.error =
+      error instanceof Error ? error.message : "Unable to reach backend.";
+  } finally {
+    ebaySettings.loading = false;
+    render();
+  }
+};
+
+const connectEbay = async () => {
+  saveEbaySettings();
+  ebaySettings.loading = true;
+  ebaySettings.error = "";
+  render();
+
+  try {
+    const response = await requestEbayBackend("/ebay/connect-url");
+    const payload = await response.json();
+    window.open(payload.authorizationUrl, "_blank", "noopener,noreferrer");
+  } catch (error) {
+    ebaySettings.error =
+      error instanceof Error ? error.message : "Unable to start eBay OAuth.";
+  } finally {
+    ebaySettings.loading = false;
+    render();
+  }
+};
+
+const disconnectEbay = async () => {
+  saveEbaySettings();
+  ebaySettings.loading = true;
+  ebaySettings.error = "";
+  render();
+
+  try {
+    await requestEbayBackend("/ebay/disconnect", { method: "POST" });
+    await refreshEbayStatus();
+  } catch (error) {
+    ebaySettings.error =
+      error instanceof Error ? error.message : "Unable to disconnect eBay.";
+    ebaySettings.loading = false;
+    render();
+  }
+};
+
+const renderEbayStatus = () => {
+  const status = ebaySettings.status;
+  const statusText = !normalizeBaseUrl(ebaySettings.apiBaseUrl)
+    ? "Backend URL needed"
+    : ebaySettings.loading
+      ? "Checking..."
+      : ebaySettings.error
+        ? "Backend unavailable"
+        : status?.readyToList
+          ? "Ready to list"
+          : status?.connected
+            ? "Connected, setup incomplete"
+            : status
+              ? "Seller account not connected"
+              : "Not checked";
+  const checks = status?.readinessChecks ?? [];
+
+  return `
+    <article class="admin-card integration-card">
+      <span class="admin-kicker">Marketplace Backend</span>
+      <strong>eBay account connection</strong>
+      <p>Connect the seller account and confirm the backend has every policy needed before live posting.</p>
+      <label>
+        <span>Backend URL</span>
+        <input id="ebay-api-base-url" value="${escapeHtml(ebaySettings.apiBaseUrl)}" placeholder="http://localhost:8787" />
+      </label>
+      <label>
+        <span>App auth token</span>
+        <input id="ebay-auth-token" value="${escapeHtml(ebaySettings.authToken)}" placeholder="Saved for this browser session only" />
+      </label>
+      <div class="status-line">
+        <span class="badge ${status?.readyToList ? "success" : status?.connected ? "warning" : ""}">${escapeHtml(statusText)}</span>
+        ${status ? `<small>${escapeHtml(status.environment)} - ${escapeHtml(status.marketplaceId)}</small>` : ""}
+      </div>
+      ${
+        checks.length > 0
+          ? `<div class="check-list">
+              ${checks
+                .map(
+                  (check) => `
+                    <div class="check-row">
+                      <span class="check-dot ${check.ok ? "ok" : ""}"></span>
+                      <span>${escapeHtml(check.label)}</span>
+                    </div>
+                  `,
+                )
+                .join("")}
+            </div>`
+          : ""
+      }
+      ${ebaySettings.error ? `<p class="error-text">${escapeHtml(ebaySettings.error)}</p>` : ""}
+      <div class="button-row">
+        <button type="button" data-action="refresh-ebay" ${ebaySettings.loading ? "disabled" : ""}>Check Status</button>
+        <button type="button" data-action="connect-ebay" ${ebaySettings.loading ? "disabled" : ""}>${status?.connected ? "Reconnect eBay" : "Connect eBay"}</button>
+        ${
+          status?.connected
+            ? `<button class="danger-button" type="button" data-action="disconnect-ebay" ${ebaySettings.loading ? "disabled" : ""}>Disconnect</button>`
+            : ""
+        }
+      </div>
+    </article>
+  `;
+};
 
 const render = () => {
   const totals = summarizeInventory(items, pallets);
@@ -161,12 +343,7 @@ const render = () => {
               <p>Put plan limits, billing status, and upgrade controls here instead of interrupting the phone capture flow.</p>
               <button type="button">Review Plan</button>
             </article>
-            <article class="admin-card">
-              <span class="admin-kicker">Marketplace Backend</span>
-              <strong>eBay server configuration</strong>
-              <p>Show API environment, OAuth callback status, policy IDs, and backend health checks for marketplace admins.</p>
-              <button type="button">Open Integration Status</button>
-            </article>
+            ${renderEbayStatus()}
             <article class="admin-card">
               <span class="admin-kicker">Security</span>
               <strong>Runtime auth and access policy</strong>
@@ -184,6 +361,22 @@ const render = () => {
       </main>
     </div>
   `;
+
+  document
+    .querySelector("[data-action='refresh-ebay']")
+    ?.addEventListener("click", () => {
+      void refreshEbayStatus();
+    });
+  document
+    .querySelector("[data-action='connect-ebay']")
+    ?.addEventListener("click", () => {
+      void connectEbay();
+    });
+  document
+    .querySelector("[data-action='disconnect-ebay']")
+    ?.addEventListener("click", () => {
+      void disconnectEbay();
+    });
 };
 
 render();

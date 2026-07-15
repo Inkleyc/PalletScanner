@@ -15,9 +15,24 @@ export const createApiClient = (config: ApiClientConfig): ApiClient => ({
 export type EbayConnectionStatus = {
   configured: boolean;
   connected: boolean;
+  readyToList?: boolean;
+  readinessChecks?: {
+    key: string;
+    label: string;
+    ok: boolean;
+  }[];
+  missingRequirements?: string[];
   environment: string;
   marketplaceId: string;
   authMode: string;
+  locale?: string;
+  scopes?: string[];
+  callbackPath?: string;
+  categoryId?: string | null;
+  merchantLocationKey?: string | null;
+  paymentPolicyId?: string | null;
+  returnPolicyId?: string | null;
+  fulfillmentPolicyId?: string | null;
 };
 
 export type EbayListingPhotoPayload =

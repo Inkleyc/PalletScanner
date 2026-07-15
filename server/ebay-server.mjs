@@ -88,6 +88,87 @@ const requireEnv = (name) => {
   return value;
 };
 
+const getEbayReadiness = (stored) => {
+  const checks = [
+    {
+      key: "appCredentials",
+      label: "eBay app credentials",
+      ok: Boolean(
+        process.env.EBAY_CLIENT_ID &&
+          process.env.EBAY_CLIENT_SECRET &&
+          process.env.EBAY_RUNAME,
+      ),
+    },
+    {
+      key: "sellerAccount",
+      label: "Seller account authorization",
+      ok: Boolean(stored?.refresh_token),
+    },
+    {
+      key: "merchantLocation",
+      label: "Merchant location",
+      ok: Boolean(process.env.EBAY_MERCHANT_LOCATION_KEY),
+    },
+    {
+      key: "paymentPolicy",
+      label: "Payment policy",
+      ok: Boolean(process.env.EBAY_PAYMENT_POLICY_ID),
+    },
+    {
+      key: "returnPolicy",
+      label: "Return policy",
+      ok: Boolean(process.env.EBAY_RETURN_POLICY_ID),
+    },
+    {
+      key: "fulfillmentPolicy",
+      label: "Fulfillment policy",
+      ok: Boolean(process.env.EBAY_FULFILLMENT_POLICY_ID),
+    },
+  ];
+
+  return {
+    readyToList: checks.every((check) => check.ok),
+    checks,
+    missing: checks
+      .filter((check) => !check.ok)
+      .map((check) => check.label),
+  };
+};
+
+const escapeHtml = (value) =>
+  String(value)
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#39;");
+
+const renderConnectionPage = ({ title, message, tone = "success" }) => `<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>${escapeHtml(title)}</title>
+    <style>
+      :root { color-scheme: light; font-family: Inter, system-ui, sans-serif; background: #f4f5f0; color: #20251f; }
+      body { margin: 0; min-height: 100vh; display: grid; place-items: center; padding: 24px; }
+      main { width: min(480px, 100%); background: #fff; border: 1px solid #d9dfd2; border-radius: 8px; padding: 24px; }
+      .status { width: 48px; height: 48px; border-radius: 999px; display: grid; place-items: center; margin-bottom: 16px; font-weight: 900; }
+      .success { background: #e1f3e9; color: #207a45; }
+      .danger { background: #fff0ed; color: #b43b2f; }
+      h1 { margin: 0 0 10px; font-size: 24px; }
+      p { margin: 0; color: #64705f; line-height: 1.5; }
+    </style>
+  </head>
+  <body>
+    <main>
+      <div class="status ${tone}">${tone === "success" ? "OK" : "!"}</div>
+      <h1>${escapeHtml(title)}</h1>
+      <p>${escapeHtml(message)}</p>
+    </main>
+  </body>
+</html>`;
+
 const validateProductionConfiguration = () => {
   if (!isSandbox) {
     requireEnv("PALLETSCANNER_JWT_SECRET");
@@ -945,16 +1026,18 @@ const server = createServer(async (req, res) => {
     if (req.method === "GET" && url.pathname === "/ebay/status") {
       const { userId } = authenticateRequest(req);
       const stored = await tokenStore.load(userId);
+      const readiness = getEbayReadiness(stored);
       sendJson(req, res, 200, {
-        configured: Boolean(
-          process.env.EBAY_CLIENT_ID &&
-          process.env.EBAY_CLIENT_SECRET &&
-          process.env.EBAY_RUNAME,
-        ),
+        configured: readiness.checks[0].ok,
         connected: Boolean(stored?.refresh_token),
+        readyToList: readiness.readyToList,
+        readinessChecks: readiness.checks,
+        missingRequirements: readiness.missing,
         environment: EBAY_ENVIRONMENT,
         marketplaceId,
         locale,
+        scopes: ebayScopes.split(" ").filter(Boolean),
+        callbackPath: "/ebay/callback",
         categoryId: fallbackCategoryId || null,
         merchantLocationKey: process.env.EBAY_MERCHANT_LOCATION_KEY || null,
         paymentPolicyId: process.env.EBAY_PAYMENT_POLICY_ID || null,
@@ -998,7 +1081,11 @@ const server = createServer(async (req, res) => {
           req,
           res,
           400,
-          `<h1>eBay connection failed</h1><p>${error}</p>`,
+          renderConnectionPage({
+            title: "eBay connection failed",
+            message: error,
+            tone: "danger",
+          }),
         );
         return;
       }
@@ -1008,7 +1095,11 @@ const server = createServer(async (req, res) => {
           req,
           res,
           400,
-          "<h1>Missing code</h1><p>eBay did not return an authorization code.</p>",
+          renderConnectionPage({
+            title: "Missing code",
+            message: "eBay did not return an authorization code.",
+            tone: "danger",
+          }),
         );
         return;
       }
@@ -1019,7 +1110,12 @@ const server = createServer(async (req, res) => {
           req,
           res,
           400,
-          "<h1>Invalid state</h1><p>The OAuth state token did not match.</p>",
+          renderConnectionPage({
+            title: "Invalid state",
+            message:
+              "The OAuth state token did not match. Start the connection again from PalletScanner.",
+            tone: "danger",
+          }),
         );
         return;
       }
@@ -1030,7 +1126,10 @@ const server = createServer(async (req, res) => {
         req,
         res,
         200,
-        "<h1>eBay connected</h1><p>You can close this page and return to the app.</p>",
+        renderConnectionPage({
+          title: "eBay connected",
+          message: "You can close this page and return to PalletScanner.",
+        }),
       );
       return;
     }

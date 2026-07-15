@@ -21,6 +21,11 @@ input {
   font: inherit;
 }
 
+button:disabled {
+  cursor: wait;
+  opacity: 0.62;
+}
+
 .shell {
   display: grid;
   grid-template-columns: 260px minmax(0, 1fr);
@@ -195,6 +200,10 @@ button {
   gap: 10px;
 }
 
+.integration-card {
+  grid-column: span 2;
+}
+
 .admin-card strong {
   font-size: 17px;
 }
@@ -209,6 +218,78 @@ button {
 .admin-card button {
   margin-top: auto;
   width: 100%;
+}
+
+.admin-card label {
+  display: grid;
+  gap: 6px;
+}
+
+.admin-card label span,
+.status-line small {
+  color: #697364;
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.admin-card input {
+  min-width: 0;
+  width: 100%;
+}
+
+.status-line {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.check-list {
+  border: 1px solid #d9dfd2;
+  border-radius: 8px;
+  display: grid;
+  gap: 8px;
+  padding: 10px;
+}
+
+.check-row {
+  align-items: center;
+  color: #3a4436;
+  display: flex;
+  font-size: 13px;
+  gap: 8px;
+}
+
+.check-dot {
+  background: #c55b4e;
+  border-radius: 999px;
+  flex: 0 0 10px;
+  height: 10px;
+  width: 10px;
+}
+
+.check-dot.ok {
+  background: #207a45;
+}
+
+.button-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.button-row button {
+  flex: 1 1 130px;
+}
+
+.danger-button {
+  border-color: #d88c80;
+  color: #9f2f25;
+}
+
+.error-text {
+  color: #9f2f25;
 }
 
 .admin-kicker {
@@ -326,6 +407,10 @@ th {
   .pallet-grid,
   .admin-grid {
     grid-template-columns: 1fr;
+  }
+
+  .integration-card {
+    grid-column: auto;
   }
 
   .main {
