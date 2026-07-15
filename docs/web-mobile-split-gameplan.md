@@ -228,6 +228,7 @@ Progress:
 - Photo capture no longer carries the barcode scanner path.
 - Analytics, Facebook queue, and deeper listing tools are no longer primary mobile tab destinations.
 - Settings remains a primary mobile destination because tester login, eBay connection, account status, and posting preferences need to be reachable on the device.
+- Mobile Settings should stay limited to account connection and posting behavior. Usage/billing, developer tokens, destructive data controls, and organization/admin settings belong in the web dashboard or internal tooling.
 - Mobile Inventory follows the active pallet on phone layouts while large layouts can still use all-inventory review.
 - Pallet rename, cost, and delete controls are tucked behind "Manage pallet" on phone layouts.
 - Shared core now owns item/listing status helpers, metrics/report helpers, parsers, and capture analysis result typing.

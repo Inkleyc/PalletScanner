@@ -151,6 +151,8 @@ Those should move after shared core is stable.
 - The Expo app has been moved under `apps/mobile`.
 - Shared business types and helpers have started moving into `packages/core`.
 - The mobile tab bar is focused on field work while still keeping Settings visible for marketplace login, account status, and tester support.
+- Mobile Settings has been trimmed to device-relevant account and posting controls: eBay connection, app login, posting preference, Facebook account shortcuts, and Facebook note defaults.
+- Pro/usage messaging, runtime bearer token entry, and destructive delete-all-data controls should move to web/admin or internal tooling instead of the normal phone Settings surface.
 - Inventory now defaults phone users toward the active pallet instead of broad all-inventory review.
 - Pallet management details are secondary on phone layouts, with rename/cost/delete behind a manage toggle.
 - `apps/web` now contains an initial static dashboard scaffold for overview metrics, pallet health, an attention queue, and an inventory review table.
