@@ -240,6 +240,24 @@ button {
   width: 100%;
 }
 
+.planned-chip {
+  align-self: flex-start;
+  background: #eef1e9;
+  border: 1px solid #d9dfd2;
+  border-radius: 999px;
+  color: #52604c;
+  font-size: 12px;
+  font-weight: 800;
+  margin-top: auto;
+  padding: 7px 10px;
+}
+
+.danger-chip {
+  background: #fff0ed;
+  border-color: #efc0b9;
+  color: #9f2f25;
+}
+
 .admin-card label {
   display: grid;
   gap: 6px;

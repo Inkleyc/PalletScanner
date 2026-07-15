@@ -585,20 +585,20 @@ const render = () => {
               <span class="admin-kicker">Usage & Billing</span>
               <strong>Scan plan and monthly usage</strong>
               <p>Put plan limits, billing status, and upgrade controls here instead of interrupting the phone capture flow.</p>
-              <button type="button">Review Plan</button>
+              <span class="planned-chip">Planned for account setup</span>
             </article>
             ${renderEbayStatus()}
             <article class="admin-card">
               <span class="admin-kicker">Security</span>
               <strong>Runtime auth and access policy</strong>
               <p>Developer bearer tokens and production auth rules belong in web/admin tooling, not normal mobile Settings.</p>
-              <button type="button">Manage Access</button>
+              <span class="planned-chip">Requires user accounts</span>
             </article>
             <article class="admin-card danger-zone">
               <span class="admin-kicker">Danger Zone</span>
               <strong>Data reset and restore</strong>
               <p>Destructive actions should require a larger screen, clearer review, and stronger confirmation than a phone tab.</p>
-              <button type="button">Review Data Tools</button>
+              <span class="planned-chip danger-chip">Not enabled in preview</span>
             </article>
           </div>
         </section>

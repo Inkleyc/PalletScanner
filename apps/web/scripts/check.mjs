@@ -39,6 +39,8 @@ for (const marker of [
   "data-sort-column",
   "inventory-empty-row",
   "data-action=\"connect-ebay\"",
+  "Planned for account setup",
+  "Not enabled in preview",
 ]) {
   if (!app.includes(marker)) {
     throw new Error(`app.js is missing ${marker}`);
