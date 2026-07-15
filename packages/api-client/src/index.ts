@@ -120,7 +120,12 @@ export const createEbayApiClient = ({
   };
 
   const request = async (path: string, init: RequestInit = {}) => {
-    const response = await fetchImpl(`${getBaseUrl()}${path}`, init);
+    const normalizedBaseUrl = getBaseUrl();
+    if (!normalizedBaseUrl) {
+      throw new Error("eBay API backend URL is not configured.");
+    }
+
+    const response = await fetchImpl(`${normalizedBaseUrl}${path}`, init);
     if (!response.ok) {
       throw new Error(
         await parseEbayErrorMessage(
