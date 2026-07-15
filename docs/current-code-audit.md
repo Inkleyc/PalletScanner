@@ -145,3 +145,16 @@ Those should move after shared core is stable.
 3. Run lint/build after each extraction.
 4. Move the Expo app to `apps/mobile` only after imports are clean.
 5. Create `apps/web` after the shared model is usable.
+
+## Progress Notes
+
+- The Expo app has been moved under `apps/mobile`.
+- Shared business types and helpers have started moving into `packages/core`.
+- The mobile tab bar has been narrowed toward field work: Home, Inventory, and Pallets.
+- Settings remains available from Home, but is no longer a primary phone tab.
+- Inventory now defaults phone users toward the active pallet instead of broad all-inventory review.
+- Pallet management details are secondary on phone layouts, with rename/cost/delete behind a manage toggle.
+
+## Updated Near-Term Recommendation
+
+Continue reducing the mobile app to capture, active pallet review, quick status edits, and one-at-a-time listing support. Treat exports, profit analysis, marketplace setup, bulk posting, bundle suggestions, and account/admin controls as web-dashboard work unless there is a clear warehouse need for them on the phone.

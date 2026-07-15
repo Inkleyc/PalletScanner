@@ -218,6 +218,18 @@ Tasks:
 - Simplify mobile navigation around active workflows.
 - Add a fast "next item" loop.
 - Make item creation/editing efficient with minimal typing.
+- Keep the phone inventory view focused on the active pallet by default.
+- Hide business/admin tools behind secondary controls on phone layouts.
+
+Progress:
+
+- The repo now uses the `apps/mobile`, `apps/web`, and `packages/core` workspace shape.
+- Capture and barcode flows have a save-and-next loop for faster item intake.
+- Photo capture no longer carries the barcode scanner path.
+- Settings, analytics, Facebook queue, and deeper listing tools are no longer primary mobile tab destinations.
+- Mobile Inventory follows the active pallet on phone layouts while large layouts can still use all-inventory review.
+- Pallet rename, cost, and delete controls are tucked behind "Manage pallet" on phone layouts.
+- Shared core now owns item/listing status helpers, metrics/report helpers, parsers, and capture analysis result typing.
 - Keep marketplace posting limited to safe, guided actions.
 - Remove or de-emphasize dashboard-heavy screens from mobile.
 
@@ -391,4 +403,3 @@ Start with an architecture audit on a new branch. The audit should produce a fil
 - Delete or replace later.
 
 After that, extract shared core before building the new web app. That order keeps us from creating two separate products that only appear to share data.
-
