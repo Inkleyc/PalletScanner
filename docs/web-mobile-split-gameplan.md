@@ -237,7 +237,11 @@ Progress:
 - eBay status now separates backend configuration, seller account connection, and ready-to-list requirements.
 - Mobile Settings shows a short eBay readiness summary while web Admin Settings shows the fuller backend connection checklist.
 - The web inventory table now supports search, status/platform filters, sortable columns, filtered CSV export, and an empty-filter state.
+- The web inventory view persists filters/sort, has a reset control, supports keyboard-selectable rows, and includes a selected-item detail panel.
+- The web attention queue can drill into the selected inventory item.
 - The mobile first tab is labeled around the user's real action, Scan, instead of a generic Home label.
+- Mobile first-pallet creation can continue directly into the scan/capture workflow the user originally tapped.
+- Mobile pallet cards now show item count, sold count, and cost so users can choose the right active pallet faster.
 - Keep marketplace posting limited to safe, guided actions.
 - Remove or de-emphasize dashboard-heavy screens from mobile.
 
