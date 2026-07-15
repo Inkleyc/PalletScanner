@@ -226,7 +226,8 @@ Progress:
 - The repo now uses the `apps/mobile`, `apps/web`, and `packages/core` workspace shape.
 - Capture and barcode flows have a save-and-next loop for faster item intake.
 - Photo capture no longer carries the barcode scanner path.
-- Settings, analytics, Facebook queue, and deeper listing tools are no longer primary mobile tab destinations.
+- Analytics, Facebook queue, and deeper listing tools are no longer primary mobile tab destinations.
+- Settings remains a primary mobile destination because tester login, eBay connection, account status, and posting preferences need to be reachable on the device.
 - Mobile Inventory follows the active pallet on phone layouts while large layouts can still use all-inventory review.
 - Pallet rename, cost, and delete controls are tucked behind "Manage pallet" on phone layouts.
 - Shared core now owns item/listing status helpers, metrics/report helpers, parsers, and capture analysis result typing.

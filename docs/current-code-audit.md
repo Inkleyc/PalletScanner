@@ -150,8 +150,7 @@ Those should move after shared core is stable.
 
 - The Expo app has been moved under `apps/mobile`.
 - Shared business types and helpers have started moving into `packages/core`.
-- The mobile tab bar has been narrowed toward field work: Home, Inventory, and Pallets.
-- Settings remains available from Home, but is no longer a primary phone tab.
+- The mobile tab bar is focused on field work while still keeping Settings visible for marketplace login, account status, and tester support.
 - Inventory now defaults phone users toward the active pallet instead of broad all-inventory review.
 - Pallet management details are secondary on phone layouts, with rename/cost/delete behind a manage toggle.
 - `apps/web` now contains an initial static dashboard scaffold for overview metrics, pallet health, an attention queue, and an inventory review table.
