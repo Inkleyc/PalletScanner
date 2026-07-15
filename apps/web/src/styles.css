@@ -432,6 +432,11 @@ tbody tr[data-inventory-row]:hover {
   background: #f7f8f4;
 }
 
+tbody tr[data-inventory-row]:focus {
+  outline: 2px solid #789066;
+  outline-offset: -2px;
+}
+
 .selected-row {
   background: #eef5ec;
 }

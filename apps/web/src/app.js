@@ -600,6 +600,7 @@ const render = () => {
                   return `
                     <tr
                       data-inventory-row
+                      tabindex="0"
                       data-item-id="${item.id}"
                       data-status="${escapeHtml(item.status)}"
                       data-platform="${escapeHtml(item.platform)}"
@@ -691,6 +692,12 @@ const render = () => {
   document.querySelectorAll("[data-inventory-row]").forEach((row) => {
     row.addEventListener("click", () => {
       selectInventoryItem(Number(row.dataset.itemId));
+    });
+    row.addEventListener("keydown", (event) => {
+      if (event.key === "Enter" || event.key === " ") {
+        event.preventDefault();
+        selectInventoryItem(Number(row.dataset.itemId));
+      }
     });
   });
   sortInventoryRows(inventorySort.column, false);
