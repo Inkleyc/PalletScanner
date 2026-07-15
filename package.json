@@ -20,6 +20,8 @@
     "supabase:app-check": "npm run supabase:app-check -w @palletscanner/mobile",
     "web:export": "npm run web:export -w @palletscanner/mobile",
     "web:deploy": "npm run web:deploy -w @palletscanner/mobile",
+    "dashboard:dev": "npm run dev -w @palletscanner/web",
+    "dashboard:check": "npm run check -w @palletscanner/web",
     "mobile:build:android-preview": "npm run build:android-preview -w @palletscanner/mobile",
     "mobile:build:ios-preview": "npm run build:ios-preview -w @palletscanner/mobile",
     "mobile:build:development": "npm run build:development -w @palletscanner/mobile",

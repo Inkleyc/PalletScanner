@@ -230,6 +230,7 @@ Progress:
 - Mobile Inventory follows the active pallet on phone layouts while large layouts can still use all-inventory review.
 - Pallet rename, cost, and delete controls are tucked behind "Manage pallet" on phone layouts.
 - Shared core now owns item/listing status helpers, metrics/report helpers, parsers, and capture analysis result typing.
+- `apps/web` now has a dependency-free dashboard scaffold for the future desktop operations app.
 - Keep marketplace posting limited to safe, guided actions.
 - Remove or de-emphasize dashboard-heavy screens from mobile.
 
