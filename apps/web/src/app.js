@@ -258,6 +258,7 @@ const selectInventoryItem = (itemId) => {
 };
 
 const focusInventoryItem = (itemId) => {
+  resetInventoryView();
   selectInventoryItem(itemId);
   document.querySelector("#inventory")?.scrollIntoView({ behavior: "smooth" });
   document.querySelector(`[data-inventory-row][data-item-id="${itemId}"]`)?.focus();
