@@ -30,6 +30,10 @@ const inventoryFilters = {
     localStorage.getItem("palletscanner.inventoryPlatformFilter") ?? "all",
 };
 
+let selectedInventoryItemId = Number(
+  localStorage.getItem("palletscanner.selectedInventoryItemId") ?? items[0]?.id,
+);
+
 const escapeHtml = (value) =>
   String(value ?? "")
     .replaceAll("&", "&amp;")
@@ -228,6 +232,46 @@ const resetInventoryView = () => {
     platformFilter.value = "all";
   }
   applyInventorySearch();
+};
+
+const getSelectedInventoryItem = () =>
+  items.find((item) => item.id === selectedInventoryItemId) ?? items[0] ?? null;
+
+const selectInventoryItem = (itemId) => {
+  selectedInventoryItemId = itemId;
+  localStorage.setItem("palletscanner.selectedInventoryItemId", String(itemId));
+  renderInventoryDetail();
+  document.querySelectorAll("[data-inventory-row]").forEach((row) => {
+    row.classList.toggle("selected-row", Number(row.dataset.itemId) === itemId);
+  });
+};
+
+const renderInventoryDetail = () => {
+  const detail = document.querySelector("#inventory-detail");
+  const item = getSelectedInventoryItem();
+  if (!detail || !item) {
+    return;
+  }
+
+  detail.innerHTML = `
+    <div>
+      <p class="eyebrow">Selected Item</p>
+      <h3>${escapeHtml(item.name)}</h3>
+    </div>
+    <div class="detail-grid">
+      <div><span>Pallet</span><strong>${escapeHtml(getPalletName(item.palletId))}</strong></div>
+      <div><span>Condition</span><strong>${escapeHtml(item.condition)}</strong></div>
+      <div><span>Platform</span><strong>${escapeHtml(item.platform)}</strong></div>
+      <div><span>Range</span><strong>${currency(item.low)}-${currency(item.high)}</strong></div>
+      <div><span>Floor</span><strong>${currency(item.floor)}</strong></div>
+      <div><span>Sold</span><strong>${item.soldPrice === null ? "Not sold" : currency(item.soldPrice)}</strong></div>
+    </div>
+    ${
+      item.issue
+        ? `<p class="detail-issue">${escapeHtml(item.issue)}</p>`
+        : `<p class="detail-ready">No open issue on this item.</p>`
+    }
+  `;
 };
 
 const renderSortButton = (column, label) => `
@@ -571,6 +615,7 @@ const render = () => {
               </tr>
             </tbody>
           </table>
+          <aside id="inventory-detail" class="inventory-detail" aria-live="polite"></aside>
         </section>
 
         <section id="admin" class="panel">
@@ -632,6 +677,11 @@ const render = () => {
   document
     .querySelector("[data-action='reset-inventory']")
     ?.addEventListener("click", resetInventoryView);
+  document.querySelectorAll("[data-inventory-row]").forEach((row) => {
+    row.addEventListener("click", () => {
+      selectInventoryItem(Number(row.dataset.itemId));
+    });
+  });
   sortInventoryRows(inventorySort.column, false);
   document
     .querySelector("#inventory-search")
@@ -643,6 +693,7 @@ const render = () => {
     .querySelector("#inventory-platform-filter")
     ?.addEventListener("change", applyInventorySearch);
   applyInventorySearch();
+  selectInventoryItem(getSelectedInventoryItem()?.id ?? items[0]?.id);
 };
 
 render();

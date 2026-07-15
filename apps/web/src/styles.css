@@ -424,6 +424,18 @@ td {
   font-size: 14px;
 }
 
+tbody tr[data-inventory-row] {
+  cursor: pointer;
+}
+
+tbody tr[data-inventory-row]:hover {
+  background: #f7f8f4;
+}
+
+.selected-row {
+  background: #eef5ec;
+}
+
 .empty-table-cell {
   color: #697364;
   font-weight: 700;
@@ -468,6 +480,65 @@ th {
   display: inline-block;
 }
 
+.inventory-detail {
+  background: #f7f8f4;
+  border: 1px solid #d9dfd2;
+  border-radius: 8px;
+  display: grid;
+  gap: 14px;
+  margin-top: 14px;
+  padding: 14px;
+}
+
+.inventory-detail h3 {
+  font-size: 18px;
+}
+
+.detail-grid {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+}
+
+.detail-grid div {
+  min-width: 0;
+}
+
+.detail-grid span {
+  color: #697364;
+  display: block;
+  font-size: 11px;
+  font-weight: 800;
+  margin-bottom: 4px;
+  text-transform: uppercase;
+}
+
+.detail-grid strong {
+  color: #20251f;
+  display: block;
+  font-size: 14px;
+  overflow-wrap: anywhere;
+}
+
+.detail-issue,
+.detail-ready {
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 700;
+  margin: 0;
+  padding: 10px;
+}
+
+.detail-issue {
+  background: #fff7e6;
+  color: #986b14;
+}
+
+.detail-ready {
+  background: #eaf6ef;
+  color: #207a45;
+}
+
 @media (max-width: 920px) {
   .shell {
     grid-template-columns: 1fr;
@@ -507,5 +578,9 @@ th {
 
   .table-panel {
     overflow-x: auto;
+  }
+
+  .detail-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }

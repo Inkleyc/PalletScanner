@@ -38,6 +38,7 @@ for (const marker of [
   "data-action=\"reset-inventory\"",
   "data-sort-column",
   "inventory-empty-row",
+  "inventory-detail",
   "data-action=\"connect-ebay\"",
   "Planned for account setup",
   "Not enabled in preview",
