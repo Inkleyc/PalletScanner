@@ -247,7 +247,7 @@ export default function SettingsScreen() {
           {ebayStatus ? (
             <Text style={styles.integrationHint}>
               {ebayStatus.environment === "sandbox" ? "Sandbox" : "Production"}{" "}
-              - {ebayStatus.marketplaceId}
+              - {ebayStatus.marketplaceId} - App auth: {ebayStatus.authMode}
             </Text>
           ) : null}
           {missingEbayRequirements.length > 0 ? (
@@ -267,6 +267,12 @@ export default function SettingsScreen() {
           ) : null}
           {ebayStatusError ? (
             <Text style={styles.integrationError}>{ebayStatusError}</Text>
+          ) : null}
+          {supabaseAuth.configured && !supabaseAuth.signedIn ? (
+            <Text style={styles.integrationHint}>
+              Sign in below before connecting eBay when the backend is using
+              account auth.
+            </Text>
           ) : null}
           <TouchableOpacity
             style={[
@@ -315,7 +321,8 @@ export default function SettingsScreen() {
           <Text style={styles.settingTitle}>App Login</Text>
           <Text style={styles.settingDescription}>
             Sign in on this device so marketplace actions can use your saved
-            account.
+            account. The eBay backend uses this session when account auth is
+            enabled.
           </Text>
           <Text style={styles.integrationStatus}>
             {!isSupabaseConfigured()
