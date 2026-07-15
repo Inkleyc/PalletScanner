@@ -46,12 +46,21 @@ const getInventorySearchText = (item) =>
 
 const applyInventorySearch = () => {
   const searchInput = document.querySelector("#inventory-search");
+  const statusFilter = document.querySelector("#inventory-status-filter");
+  const platformFilter = document.querySelector("#inventory-platform-filter");
   const rows = [...document.querySelectorAll("[data-inventory-row]")];
   const query = searchInput?.value.trim().toLowerCase() ?? "";
+  const selectedStatus = statusFilter?.value ?? "all";
+  const selectedPlatform = platformFilter?.value ?? "all";
   let visibleCount = 0;
 
   for (const row of rows) {
-    const isVisible = !query || row.dataset.searchText.includes(query);
+    const matchesSearch = !query || row.dataset.searchText.includes(query);
+    const matchesStatus =
+      selectedStatus === "all" || row.dataset.status === selectedStatus;
+    const matchesPlatform =
+      selectedPlatform === "all" || row.dataset.platform === selectedPlatform;
+    const isVisible = matchesSearch && matchesStatus && matchesPlatform;
     row.hidden = !isVisible;
     if (isVisible) {
       visibleCount += 1;
@@ -234,6 +243,7 @@ const render = () => {
   const totals = summarizeInventory(items, pallets);
   const palletRows = pallets.map((pallet) => summarizePallet(items, pallet));
   const attentionItems = items.filter((item) => item.issue);
+  const platformOptions = [...new Set(items.map((item) => item.platform))].sort();
 
   document.querySelector("#app").innerHTML = `
     <div class="shell">
@@ -332,6 +342,24 @@ const render = () => {
             </div>
             <div class="inventory-tools">
               <span id="inventory-result-count">${items.length} items</span>
+              <select id="inventory-status-filter" aria-label="Filter inventory status">
+                <option value="all">All statuses</option>
+                ${Object.entries(statusLabel)
+                  .map(
+                    ([value, label]) =>
+                      `<option value="${escapeHtml(value)}">${escapeHtml(label)}</option>`,
+                  )
+                  .join("")}
+              </select>
+              <select id="inventory-platform-filter" aria-label="Filter inventory platform">
+                <option value="all">All platforms</option>
+                ${platformOptions
+                  .map(
+                    (platform) =>
+                      `<option value="${escapeHtml(platform)}">${escapeHtml(platform)}</option>`,
+                  )
+                  .join("")}
+              </select>
               <input id="inventory-search" aria-label="Search inventory" placeholder="Search inventory" />
             </div>
           </div>
@@ -351,7 +379,7 @@ const render = () => {
                 .map((item) => {
                   const palletName = getPalletName(item.palletId);
                   return `
-                    <tr data-inventory-row data-search-text="${escapeHtml(getInventorySearchText(item))}">
+                    <tr data-inventory-row data-status="${escapeHtml(item.status)}" data-platform="${escapeHtml(item.platform)}" data-search-text="${escapeHtml(getInventorySearchText(item))}">
                       <td>${escapeHtml(item.name)}</td>
                       <td>${escapeHtml(palletName)}</td>
                       <td>${escapeHtml(item.condition)}</td>
@@ -417,6 +445,12 @@ const render = () => {
   document
     .querySelector("#inventory-search")
     ?.addEventListener("input", applyInventorySearch);
+  document
+    .querySelector("#inventory-status-filter")
+    ?.addEventListener("change", applyInventorySearch);
+  document
+    .querySelector("#inventory-platform-filter")
+    ?.addEventListener("change", applyInventorySearch);
   applyInventorySearch();
 };
 
