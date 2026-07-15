@@ -40,6 +40,7 @@ for (const marker of [
   "data-sort-column",
   "inventory-empty-row",
   "inventory-detail",
+  "data-sortquantity",
   "data-action=\"connect-ebay\"",
   "Planned for account setup",
   "Not enabled in preview",
