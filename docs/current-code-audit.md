@@ -156,6 +156,7 @@ Those should move after shared core is stable.
 - Inventory now defaults phone users toward the active pallet instead of broad all-inventory review.
 - Pallet management details are secondary on phone layouts, with rename/cost/delete behind a manage toggle.
 - `apps/web` now contains an initial static dashboard scaffold for overview metrics, pallet health, an attention queue, and an inventory review table.
+- eBay backend HTTP routes and response parsing have started moving from mobile-only helpers into `packages/api-client`.
 
 ## Updated Near-Term Recommendation
 

@@ -233,6 +233,7 @@ Progress:
 - Pallet rename, cost, and delete controls are tucked behind "Manage pallet" on phone layouts.
 - Shared core now owns item/listing status helpers, metrics/report helpers, parsers, and capture analysis result typing.
 - `apps/web` now has a dependency-free dashboard scaffold for the future desktop operations app.
+- `packages/api-client` now owns the shared eBay backend client contract used by mobile and ready for future web use.
 - Keep marketplace posting limited to safe, guided actions.
 - Remove or de-emphasize dashboard-heavy screens from mobile.
 

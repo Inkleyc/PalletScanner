@@ -1,5 +1,10 @@
 import * as FileSystem from "expo-file-system/legacy";
 import { Platform } from "react-native";
+import {
+  createEbayApiClient,
+  type CreateEbayListingResponse,
+  type EbayConnectionStatus,
+} from "@palletscanner/api-client";
 
 import type { InventoryItem } from "@/lib/inventory-store";
 import { getRuntimeBearerToken } from "@/lib/app-auth";
@@ -8,84 +13,34 @@ import { browserUriToDataUri } from "@/lib/web-storage";
 const EBAY_API_BASE_URL = process.env.EXPO_PUBLIC_EBAY_API_BASE_URL ?? "";
 const APP_AUTH_TOKEN = process.env.EXPO_PUBLIC_PALLETSCANNER_AUTH_TOKEN ?? "";
 
-type CreateEbayListingResponse = {
-  listingId?: string;
-  listingUrl?: string;
-  sku?: string;
-  offerId?: string;
-  categoryId?: string;
-  categoryName?: string;
-  duplicateRecovered?: boolean;
-  updated?: boolean;
-};
-
-export type EbayConnectionStatus = {
-  configured: boolean;
-  connected: boolean;
-  environment: string;
-  marketplaceId: string;
-  authMode: string;
-};
-
-export const isEbayApiConfigured = () => Boolean(EBAY_API_BASE_URL.trim());
-
-export const getEbayApiBaseUrl = () => EBAY_API_BASE_URL.trim().replace(/\/$/, "");
-
-const getEbayRequestHeaders = async (): Promise<Record<string, string>> => {
+const getEbayAuthToken = async () => {
   const runtimeToken = await getRuntimeBearerToken();
-  const token = runtimeToken || APP_AUTH_TOKEN.trim();
-  return token ? { Authorization: `Bearer ${token}` } : {};
+  return runtimeToken || APP_AUTH_TOKEN.trim();
 };
 
-export const getEbayConnectUrl = async () => {
-  const response = await fetch(`${getEbayApiBaseUrl()}/ebay/connect-url`, {
-    headers: await getEbayRequestHeaders(),
-  });
-  if (!response.ok) {
-    throw new Error(await response.text());
-  }
-  const payload = (await response.json()) as { authorizationUrl: string };
-  return payload.authorizationUrl;
-};
+const ebayApi = createEbayApiClient({
+  baseUrl: EBAY_API_BASE_URL,
+  getAuthToken: getEbayAuthToken,
+});
 
-export const disconnectEbayAccount = async () => {
-  const response = await fetch(`${getEbayApiBaseUrl()}/ebay/disconnect`, {
-    method: "POST",
-    headers: await getEbayRequestHeaders(),
-  });
-  if (!response.ok) {
-    throw new Error(await response.text());
-  }
-};
+export const isEbayApiConfigured = () => ebayApi.isConfigured();
+
+export const getEbayApiBaseUrl = () => ebayApi.getBaseUrl();
+
+export const getEbayConnectUrl = () => ebayApi.getConnectUrl();
+
+export const disconnectEbayAccount = () => ebayApi.disconnectAccount();
 
 export const endEbayListing = async (offerId: string) => {
   if (!isEbayApiConfigured()) {
     throw new Error("eBay API backend is not configured.");
   }
 
-  const response = await fetch(`${getEbayApiBaseUrl()}/ebay/listings/end`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      ...(await getEbayRequestHeaders()),
-    },
-    body: JSON.stringify({ offerId }),
-  });
-  if (!response.ok) {
-    throw new Error((await response.text()) || "Unable to end eBay listing.");
-  }
+  await ebayApi.endListing(offerId);
 };
 
-export const getEbayConnectionStatus = async () => {
-  const response = await fetch(`${getEbayApiBaseUrl()}/ebay/status`, {
-    headers: await getEbayRequestHeaders(),
-  });
-  if (!response.ok) {
-    throw new Error(await response.text());
-  }
-
-  return (await response.json()) as EbayConnectionStatus;
-};
+export const getEbayConnectionStatus = (): Promise<EbayConnectionStatus> =>
+  ebayApi.getConnectionStatus();
 
 export const createEbayListing = async (
   item: InventoryItem,
@@ -139,51 +94,26 @@ export const createEbayListing = async (
     photos.length > 0 ? "Uploading photos to eBay" : "Creating eBay listing",
   );
 
-  const response = await fetch(`${getEbayApiBaseUrl()}/ebay/listings`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      ...(await getEbayRequestHeaders()),
+  const listingPayload = {
+    itemId: item.id,
+    offerId: item.ebayOfferId,
+    listingId: item.ebayListingId,
+    title,
+    description,
+    price: item.high_price,
+    floorPrice: item.floor_price,
+    condition: item.condition,
+    quantity: 1,
+    photos,
+    product: {
+      name: item.name,
     },
-    body: JSON.stringify({
-      itemId: item.id,
-      offerId: item.ebayOfferId,
-      listingId: item.ebayListingId,
-      title,
-      description,
-      price: item.high_price,
-      floorPrice: item.floor_price,
-      condition: item.condition,
-      quantity: 1,
-      photos,
-      product: {
-        name: item.name,
-      },
-    }),
-  });
-
-  if (!response.ok) {
-    const rawMessage = await response.text();
-    let message = rawMessage;
-    try {
-      const outer = JSON.parse(rawMessage);
-      const inner =
-        typeof outer.error === "string" ? JSON.parse(outer.error) : outer;
-      message =
-        inner?.errors?.[0]?.longMessage ||
-        inner?.errors?.[0]?.message ||
-        outer.error ||
-        rawMessage;
-    } catch {
-      // Keep the raw response when eBay did not return structured JSON.
-    }
-    throw new Error(
-      message || `eBay listing failed with status ${response.status}`,
-    );
-  }
+  };
 
   onProgress?.("Publishing listing");
-  return (await response.json()) as CreateEbayListingResponse;
+  return (await ebayApi.createListing(
+    listingPayload,
+  )) as CreateEbayListingResponse;
 };
 
 export const getEbayIntegrationStatusLabel = () =>
