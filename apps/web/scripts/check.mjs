@@ -30,6 +30,7 @@ for (const marker of ['id="app"', "./src/app.js", "./src/styles.css"]) {
 for (const marker of [
   "Business Dashboard",
   "Attention Queue",
+  "data-attention-item-id",
   "Desktop-first review table",
   "Admin Settings",
   "data-action=\"export-inventory\"",

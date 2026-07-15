@@ -257,6 +257,12 @@ const selectInventoryItem = (itemId) => {
   });
 };
 
+const focusInventoryItem = (itemId) => {
+  selectInventoryItem(itemId);
+  document.querySelector("#inventory")?.scrollIntoView({ behavior: "smooth" });
+  document.querySelector(`[data-inventory-row][data-item-id="${itemId}"]`)?.focus();
+};
+
 const renderInventoryDetail = () => {
   const detail = document.querySelector("#inventory-detail");
   const item = getSelectedInventoryItem();
@@ -539,7 +545,7 @@ const render = () => {
             ${attentionItems
               .map(
                 (item) => `
-                  <article class="queue-item">
+                  <article class="queue-item" data-attention-item-id="${item.id}" tabindex="0">
                     <div>
                       <strong>${escapeHtml(item.name)}</strong>
                       <span>${escapeHtml(item.issue)}</span>
@@ -697,6 +703,18 @@ const render = () => {
       if (event.key === "Enter" || event.key === " ") {
         event.preventDefault();
         selectInventoryItem(Number(row.dataset.itemId));
+      }
+    });
+  });
+  document.querySelectorAll("[data-attention-item-id]").forEach((row) => {
+    const openItem = () => {
+      focusInventoryItem(Number(row.dataset.attentionItemId));
+    };
+    row.addEventListener("click", openItem);
+    row.addEventListener("keydown", (event) => {
+      if (event.key === "Enter" || event.key === " ") {
+        event.preventDefault();
+        openItem();
       }
     });
   });
