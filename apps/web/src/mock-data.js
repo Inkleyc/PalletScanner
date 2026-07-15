@@ -75,7 +75,7 @@ export const items = [
   {
     id: 5,
     palletId: "pallet-3",
-    name: "Barcode capture placeholder",
+    name: "Unknown Barcode Item",
     condition: "Unknown",
     low: 10,
     high: 25,
