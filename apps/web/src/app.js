@@ -72,6 +72,8 @@ const applyInventorySearch = () => {
   const selectedStatus = statusFilter?.value ?? "all";
   const selectedPlatform = platformFilter?.value ?? "all";
   let visibleCount = 0;
+  let firstVisibleItemId = null;
+  let selectedItemIsVisible = false;
 
   inventoryFilters.query = searchInput?.value ?? "";
   inventoryFilters.status = selectedStatus;
@@ -96,6 +98,11 @@ const applyInventorySearch = () => {
     row.hidden = !isVisible;
     if (isVisible) {
       visibleCount += 1;
+      const itemId = Number(row.dataset.itemId);
+      firstVisibleItemId ??= itemId;
+      if (itemId === selectedInventoryItemId) {
+        selectedItemIsVisible = true;
+      }
     }
   }
 
@@ -113,6 +120,10 @@ const applyInventorySearch = () => {
   if (resetButton) {
     resetButton.hidden =
       !query && selectedStatus === "all" && selectedPlatform === "all";
+  }
+
+  if (!selectedItemIsVisible && firstVisibleItemId !== null) {
+    selectInventoryItem(firstVisibleItemId);
   }
 };
 
