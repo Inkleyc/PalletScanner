@@ -151,6 +151,7 @@ const applyInventorySearch = () => {
       selectedPallet !== "all" && card.dataset.palletCardId === selectedPallet,
     );
   });
+  renderInventoryContext(selectedPallet);
 
   if (!selectedItemIsVisible && firstVisibleItemId !== null) {
     selectInventoryItem(firstVisibleItemId);
@@ -325,6 +326,45 @@ const filterInventoryPallet = (palletId) => {
   }
   applyInventorySearch();
   document.querySelector("#inventory")?.scrollIntoView({ behavior: "smooth" });
+};
+
+const renderInventoryContext = (selectedPallet) => {
+  const context = document.querySelector("#inventory-context");
+  if (!context) {
+    return;
+  }
+
+  if (selectedPallet === "all") {
+    context.hidden = true;
+    context.innerHTML = "";
+    return;
+  }
+
+  const pallet = pallets.find((entry) => String(entry.id) === selectedPallet);
+  if (!pallet) {
+    context.hidden = true;
+    context.innerHTML = "";
+    return;
+  }
+
+  const summary = summarizePallet(items, pallet);
+  context.hidden = false;
+  context.innerHTML = `
+    <div>
+      <p class="eyebrow">Filtered Pallet</p>
+      <strong>${escapeHtml(summary.name)}</strong>
+    </div>
+    <dl>
+      <div><dt>Items</dt><dd>${summary.itemCount}</dd></div>
+      <div><dt>Cost</dt><dd>${currency(summary.cost)}</dd></div>
+      <div><dt>Sold</dt><dd>${currency(summary.soldRevenue)}</dd></div>
+      <div><dt>Open Issues</dt><dd>${summary.unresolved}</dd></div>
+    </dl>
+    <button class="reset-filter-button" type="button" data-action="clear-pallet-filter">All pallets</button>
+  `;
+  context
+    .querySelector("[data-action='clear-pallet-filter']")
+    ?.addEventListener("click", resetInventoryView);
 };
 
 const getSelectedInventoryItem = () =>
@@ -725,6 +765,7 @@ const render = () => {
               <button class="reset-filter-button" type="button" data-action="reset-inventory">Reset</button>
             </div>
           </div>
+          <aside id="inventory-context" class="inventory-context" hidden></aside>
           <table>
             <thead>
               <tr>

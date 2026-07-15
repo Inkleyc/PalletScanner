@@ -53,6 +53,8 @@ for (const marker of [
   "inventory-pallet-filter",
   "data-pallet-card-id",
   "data-pallet-id",
+  "inventory-context",
+  "Filtered Pallet",
   "data-action=\"reset-inventory\"",
   "data-sort-column",
   "inventory-empty-row",

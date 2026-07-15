@@ -501,6 +501,49 @@ tbody tr[data-inventory-row]:focus {
   text-align: center;
 }
 
+.inventory-context {
+  align-items: center;
+  background: #eef5ec;
+  border: 1px solid #c9d8bf;
+  border-radius: 8px;
+  display: flex;
+  gap: 18px;
+  justify-content: space-between;
+  margin-top: 14px;
+  padding: 12px 14px;
+}
+
+.inventory-context[hidden] {
+  display: none;
+}
+
+.inventory-context strong {
+  display: block;
+  font-size: 17px;
+}
+
+.inventory-context dl {
+  display: grid;
+  flex: 1;
+  gap: 10px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  margin: 0;
+  max-width: 520px;
+}
+
+.inventory-context dt {
+  color: #697364;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.inventory-context dd {
+  font-size: 14px;
+  font-weight: 800;
+  margin: 2px 0 0;
+}
+
 th {
   color: #3a4436;
   font-size: 12px;
@@ -636,6 +679,17 @@ th {
 
   .table-panel {
     overflow-x: auto;
+  }
+
+  .inventory-context {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .inventory-context dl {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    max-width: none;
+    width: 100%;
   }
 
   .detail-grid {
