@@ -4,6 +4,7 @@ import {
   getDisplayIssue,
   getDisplayPlatform,
   getDisplayStatus,
+  getMarketplaceQueueItems,
   statusClass,
   statusLabel,
   getQuantity,
@@ -527,6 +528,7 @@ const render = () => {
           <a class="active" href="#overview">Overview</a>
           <a href="#pallets">Pallets</a>
           <a href="#queue">Attention Queue</a>
+          <a href="#listings">Listings</a>
           <a href="#inventory">Inventory</a>
           <a href="#admin">Admin Settings</a>
         </nav>
@@ -603,6 +605,34 @@ const render = () => {
                   </article>
                 `,
               )
+              .join("")}
+          </div>
+        </section>
+
+        <section id="listings" class="panel">
+          <div class="panel-heading">
+            <div>
+              <p class="eyebrow">Listings</p>
+              <h3>Marketplace review queue</h3>
+            </div>
+          </div>
+          <div class="listing-queue">
+            ${getMarketplaceQueueItems(items)
+              .map((item) => {
+                const missingPlatforms = [
+                  !item.listedPlatforms?.includes("facebook") ? "Facebook" : null,
+                  !item.listedPlatforms?.includes("ebay") ? "eBay" : null,
+                ].filter(Boolean);
+                return `
+                  <article class="listing-queue-item" data-attention-item-id="${item.id}" tabindex="0">
+                    <div>
+                      <strong>${escapeHtml(item.name)}</strong>
+                      <span>${missingPlatforms.join(" and ")}</span>
+                    </div>
+                    <span class="badge ${statusClass[getDisplayStatus(item)]}">${statusLabel[getDisplayStatus(item)]}</span>
+                  </article>
+                `;
+              })
               .join("")}
           </div>
         </section>

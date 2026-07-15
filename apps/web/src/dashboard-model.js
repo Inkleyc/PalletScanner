@@ -67,6 +67,13 @@ export const getDisplayIssue = (item) => {
   return null;
 };
 
+export const getMarketplaceQueueItems = (items) =>
+  items.filter(
+    (item) =>
+      !item.listedPlatforms?.includes("facebook") ||
+      !item.listedPlatforms?.includes("ebay"),
+  );
+
 export const getQuantity = (item) =>
   typeof item.quantity === "number" && item.quantity > 0
     ? Math.floor(item.quantity)

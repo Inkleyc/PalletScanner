@@ -384,31 +384,43 @@ dd {
   font-weight: 800;
 }
 
-.queue-list {
+.queue-list,
+.listing-queue {
   display: grid;
   gap: 10px;
   margin-top: 14px;
 }
 
-.queue-item {
+.queue-item,
+.listing-queue-item {
   border: 1px solid #d9dfd2;
   border-radius: 8px;
   cursor: pointer;
   padding: 12px;
 }
 
-.queue-item:hover {
+.queue-item:hover,
+.listing-queue-item:hover {
   background: #f7f8f4;
 }
 
-.queue-item:focus {
+.queue-item:focus,
+.listing-queue-item:focus {
   outline: 2px solid #789066;
   outline-offset: 2px;
 }
 
-.queue-item span {
+.queue-item span,
+.listing-queue-item span {
   display: block;
   margin-top: 4px;
+}
+
+.listing-queue-item {
+  align-items: center;
+  display: flex;
+  gap: 16px;
+  justify-content: space-between;
 }
 
 .badge {

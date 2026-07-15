@@ -3,6 +3,7 @@ import { items, pallets } from "../src/mock-data.js";
 import {
   getDisplayIssue,
   getDisplayPlatform,
+  getMarketplaceQueueItems,
   getQuantity,
   summarizeInventory,
   summarizePallet,
@@ -39,6 +40,7 @@ for (const marker of [
   "Business Dashboard",
   "Attention Queue",
   "data-attention-item-id",
+  "Marketplace review queue",
   "Desktop-first review table",
   "Admin Settings",
   "data-action=\"export-inventory\"",
@@ -85,6 +87,9 @@ if (getDisplayPlatform(items[0]) !== "Facebook") {
 }
 if (!getDisplayIssue(items.find((item) => item.name === "Unknown Barcode Item"))) {
   throw new Error("Display issue helper should identify mock cleanup work.");
+}
+if (getMarketplaceQueueItems(items).length === 0) {
+  throw new Error("Expected marketplace queue items.");
 }
 
 console.log("Web dashboard scaffold check passed.");
