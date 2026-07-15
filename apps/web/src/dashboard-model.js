@@ -1,0 +1,69 @@
+export const currency = (value) =>
+  new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: "USD",
+    maximumFractionDigits: 0,
+  }).format(value);
+
+export const statusLabel = {
+  captured: "Captured",
+  needs_photos: "Needs Photos",
+  needs_research: "Needs Research",
+  ready: "Ready",
+  sold: "Sold",
+};
+
+export const statusClass = {
+  captured: "neutral",
+  needs_photos: "warning",
+  needs_research: "warning",
+  ready: "success",
+  sold: "primary",
+};
+
+const getQuantity = () => 1;
+
+export const summarizeInventory = (items, pallets) => {
+  const soldItems = items.filter((item) => item.soldPrice !== null);
+  const unsoldItems = items.filter((item) => item.soldPrice === null);
+  const soldRevenue = soldItems.reduce((sum, item) => sum + item.soldPrice, 0);
+  const remainingLow = unsoldItems.reduce(
+    (sum, item) => sum + item.low * getQuantity(item),
+    0,
+  );
+  const remainingHigh = unsoldItems.reduce(
+    (sum, item) => sum + item.high * getQuantity(item),
+    0,
+  );
+  const totalCost = pallets.reduce((sum, pallet) => sum + pallet.cost, 0);
+
+  return {
+    totalItems: items.length,
+    soldCount: soldItems.length,
+    soldRevenue,
+    remainingLow,
+    remainingHigh,
+    totalCost,
+    grossProfit: soldRevenue - totalCost,
+    sellThrough: items.length > 0 ? (soldItems.length / items.length) * 100 : 0,
+  };
+};
+
+export const summarizePallet = (items, pallet) => {
+  const palletItems = items.filter((item) => item.palletId === pallet.id);
+  const soldRevenue = palletItems.reduce(
+    (sum, item) => sum + (item.soldPrice ?? 0),
+    0,
+  );
+  const estimatedHigh = palletItems.reduce((sum, item) => sum + item.high, 0);
+  const unresolved = palletItems.filter((item) => item.issue).length;
+
+  return {
+    ...pallet,
+    itemCount: palletItems.length,
+    soldRevenue,
+    estimatedHigh,
+    unresolved,
+    margin: soldRevenue - pallet.cost,
+  };
+};

@@ -3,6 +3,7 @@ import { readFile } from "node:fs/promises";
 const requiredFiles = [
   "index.html",
   "src/app.js",
+  "src/dashboard-model.js",
   "src/mock-data.js",
   "src/styles.css",
   "scripts/serve.mjs",
