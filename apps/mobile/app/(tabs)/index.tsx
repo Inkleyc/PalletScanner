@@ -26,6 +26,9 @@ export default function HomeScreen() {
   const { width } = useWindowDimensions();
   const [createModalVisible, setCreateModalVisible] = useState(false);
   const [newPalletName, setNewPalletName] = useState("");
+  const [pendingWorkflowRoute, setPendingWorkflowRoute] = useState<
+    "/scan-barcode" | "/capture" | null
+  >(null);
   const isLargeLayout = width >= 900;
   const activePallet = useSyncExternalStore(
     subscribeInventory,
@@ -46,15 +49,21 @@ export default function HomeScreen() {
   const closeCreatePalletModal = () => {
     setCreateModalVisible(false);
     setNewPalletName("");
+    setPendingWorkflowRoute(null);
   };
 
   const createPallet = () => {
     createPalletSession(newPalletName);
+    const route = pendingWorkflowRoute;
     closeCreatePalletModal();
+    if (route) {
+      router.push(route);
+    }
   };
 
   const openWorkflow = (route: "/scan-barcode" | "/capture") => {
     if (!activePallet) {
+      setPendingWorkflowRoute(route);
       openCreatePalletModal();
       return;
     }
@@ -150,7 +159,9 @@ export default function HomeScreen() {
           <Pressable style={styles.modalCard}>
             <Text style={styles.modalTitle}>Create New Pallet</Text>
             <Text style={styles.modalCopy}>
-              Start with the default name or edit it before saving.
+              {pendingWorkflowRoute
+                ? "Create the pallet, then we will continue where you were headed."
+                : "Start with the default name or edit it before saving."}
             </Text>
             <TextInput
               style={styles.modalInput}
