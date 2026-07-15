@@ -21,7 +21,13 @@ export const statusClass = {
   sold: "primary",
 };
 
-const getQuantity = () => 1;
+export const getQuantity = (item) =>
+  typeof item.quantity === "number" && item.quantity > 0
+    ? Math.floor(item.quantity)
+    : 1;
+
+export const getPalletCost = (pallet) =>
+  typeof pallet.cost === "number" && pallet.cost > 0 ? pallet.cost : 0;
 
 export const summarizeInventory = (items, pallets) => {
   const soldItems = items.filter((item) => item.soldPrice !== null);
@@ -35,7 +41,10 @@ export const summarizeInventory = (items, pallets) => {
     (sum, item) => sum + item.high * getQuantity(item),
     0,
   );
-  const totalCost = pallets.reduce((sum, pallet) => sum + pallet.cost, 0);
+  const totalCost = pallets.reduce(
+    (sum, pallet) => sum + getPalletCost(pallet),
+    0,
+  );
 
   return {
     totalItems: items.length,
@@ -55,15 +64,25 @@ export const summarizePallet = (items, pallet) => {
     (sum, item) => sum + (item.soldPrice ?? 0),
     0,
   );
-  const estimatedHigh = palletItems.reduce((sum, item) => sum + item.high, 0);
+  const estimatedLow = palletItems.reduce(
+    (sum, item) => sum + item.low * getQuantity(item),
+    0,
+  );
+  const estimatedHigh = palletItems.reduce(
+    (sum, item) => sum + item.high * getQuantity(item),
+    0,
+  );
   const unresolved = palletItems.filter((item) => item.issue).length;
+  const cost = getPalletCost(pallet);
 
   return {
     ...pallet,
+    cost,
     itemCount: palletItems.length,
     soldRevenue,
+    estimatedLow,
     estimatedHigh,
     unresolved,
-    margin: soldRevenue - pallet.cost,
+    margin: soldRevenue - cost,
   };
 };

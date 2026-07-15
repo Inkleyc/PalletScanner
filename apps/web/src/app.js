@@ -3,6 +3,7 @@ import {
   currency,
   statusClass,
   statusLabel,
+  getQuantity,
   summarizeInventory,
   summarizePallet,
 } from "./dashboard-model.js";
@@ -156,6 +157,7 @@ const exportVisibleInventory = () => {
       "Item",
       "Pallet",
       "Condition",
+      "Quantity",
       "Platform",
       "Low Estimate",
       "High Estimate",
@@ -168,6 +170,7 @@ const exportVisibleInventory = () => {
       item.name,
       getPalletName(item.palletId),
       item.condition,
+      getQuantity(item),
       item.platform,
       item.low,
       item.high,
@@ -279,6 +282,7 @@ const renderInventoryDetail = () => {
     <div class="detail-grid">
       <div><span>Pallet</span><strong>${escapeHtml(getPalletName(item.palletId))}</strong></div>
       <div><span>Condition</span><strong>${escapeHtml(item.condition)}</strong></div>
+      <div><span>Quantity</span><strong>${getQuantity(item)}</strong></div>
       <div><span>Platform</span><strong>${escapeHtml(item.platform)}</strong></div>
       <div><span>Range</span><strong>${currency(item.low)}-${currency(item.high)}</strong></div>
       <div><span>Floor</span><strong>${currency(item.floor)}</strong></div>
@@ -595,6 +599,7 @@ const render = () => {
                 <th>${renderSortButton("name", "Item")}</th>
                 <th>${renderSortButton("pallet", "Pallet")}</th>
                 <th>${renderSortButton("condition", "Condition")}</th>
+                <th>${renderSortButton("quantity", "Qty")}</th>
                 <th>${renderSortButton("platform", "Platform")}</th>
                 <th>${renderSortButton("range", "Range")}</th>
                 <th>${renderSortButton("status", "Status")}</th>
@@ -615,6 +620,7 @@ const render = () => {
                       data-sortname="${escapeHtml(item.name)}"
                       data-sortpallet="${escapeHtml(palletName)}"
                       data-sortcondition="${escapeHtml(item.condition)}"
+                      data-sortquantity="${getQuantity(item)}"
                       data-sortplatform="${escapeHtml(item.platform)}"
                       data-sortrange="${item.high}"
                       data-sortstatus="${escapeHtml(statusLabel[item.status] ?? item.status)}"
@@ -622,6 +628,7 @@ const render = () => {
                       <td>${escapeHtml(item.name)}</td>
                       <td>${escapeHtml(palletName)}</td>
                       <td>${escapeHtml(item.condition)}</td>
+                      <td>${getQuantity(item)}</td>
                       <td>${escapeHtml(item.platform)}</td>
                       <td>${currency(item.low)}-${currency(item.high)}</td>
                       <td><span class="badge ${statusClass[item.status]}">${statusLabel[item.status]}</span></td>
@@ -630,7 +637,7 @@ const render = () => {
                 })
                 .join("")}
               <tr id="inventory-empty-row" hidden>
-                <td class="empty-table-cell" colspan="6">No inventory matches these filters.</td>
+                <td class="empty-table-cell" colspan="7">No inventory matches these filters.</td>
               </tr>
             </tbody>
           </table>
