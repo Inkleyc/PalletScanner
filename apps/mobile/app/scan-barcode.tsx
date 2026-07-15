@@ -724,7 +724,7 @@ ${productSummary}
               <Text style={styles.palletMeta}>
                 {activePallet
                   ? "Scans and saved drafts will go into this pallet."
-                  : "Choose a pallet on Home or in the Pallets tab before scanning."}
+                  : "Choose a pallet on Scan or in the Pallets tab before scanning."}
               </Text>
             </View>
           </View>

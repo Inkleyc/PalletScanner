@@ -999,16 +999,16 @@ ${JSON.stringify(promptItems, null, 2)}`,
             </Text>
             <Text style={styles.emptySubtext}>
               {selectedPallet
-                ? "Switch pallets or save more items on the Home tab."
+                ? "Switch pallets or save more items on the Scan tab."
                 : pallets.length === 0
-                  ? "Create a pallet first, then start saving items from Home."
-                  : "Scan items on the Home tab and tap Save to Inventory"}
+                  ? "Create a pallet first, then start saving items from Scan."
+                  : "Scan items on the Scan tab and tap Save to Inventory"}
             </Text>
             <TouchableOpacity
               style={styles.emptyAction}
               onPress={() => router.push("/(tabs)")}
             >
-              <Text style={styles.emptyActionText}>Go to Home</Text>
+              <Text style={styles.emptyActionText}>Go to Scan</Text>
             </TouchableOpacity>
           </View>
         )}

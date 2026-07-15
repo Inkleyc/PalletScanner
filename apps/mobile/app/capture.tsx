@@ -478,7 +478,7 @@ export default function HomeScreen() {
               <Text style={styles.palletMeta}>
                 {activePallet
                   ? "Photos and saved drafts will go into this pallet."
-                  : "Choose a pallet on Home or in the Pallets tab before taking photos."}
+                  : "Choose a pallet on Scan or in the Pallets tab before taking photos."}
               </Text>
             </View>
           </View>
