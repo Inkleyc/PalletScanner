@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState, useSyncExternalStore } from "react";
 import {
+  AppState,
   Linking,
   ScrollView,
   StyleSheet,
@@ -97,6 +98,18 @@ export default function SettingsScreen() {
 
   useEffect(() => {
     void refreshEbayStatus();
+  }, [refreshEbayStatus]);
+
+  useEffect(() => {
+    const subscription = AppState.addEventListener("change", (state) => {
+      if (state === "active") {
+        void refreshEbayStatus();
+      }
+    });
+
+    return () => {
+      subscription.remove();
+    };
   }, [refreshEbayStatus]);
 
   useEffect(() => {
