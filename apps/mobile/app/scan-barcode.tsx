@@ -46,6 +46,7 @@ import {
 } from "@/lib/listing-drafts";
 import { openListingDraft } from "@/lib/listing-posting";
 import {
+  type CaptureAnalysisResult,
   parseMoneyAmount,
   parsePositiveInteger,
   parsePriceRange as parseCorePriceRange,
@@ -65,7 +66,7 @@ export default function HomeScreen() {
   const router = useRouter();
   const [images, setImages] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
-  const [result, setResult] = useState<any>(null);
+  const [result, setResult] = useState<CaptureAnalysisResult | null>(null);
   const [activeListingPlatform, setActiveListingPlatform] =
     useState<ListingDraftPlatform>("general");
   const [listingDrafts, setListingDrafts] =
@@ -131,7 +132,9 @@ export default function HomeScreen() {
     };
   };
 
-  const buildFallbackBarcodeDraft = async (barcode: string) => {
+  const buildFallbackBarcodeDraft = async (
+    barcode: string,
+  ): Promise<CaptureAnalysisResult> => {
     const response = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
       headers: {
@@ -177,7 +180,9 @@ Barcode: ${barcode}
 
     const data = await response.json();
     const text = data.content[0].text;
-    return JSON.parse(text.replace(/```json|```/g, "").trim());
+    return JSON.parse(
+      text.replace(/```json|```/g, "").trim(),
+    ) as CaptureAnalysisResult;
   };
 
   const resetBarcodeScanState = () => {
@@ -270,7 +275,7 @@ Barcode: ${barcode}
     );
   };
 
-  const applyParsedListingDrafts = (parsed: any) => {
+  const applyParsedListingDrafts = (parsed: CaptureAnalysisResult) => {
     setListingDrafts(createListingDrafts(parsed));
     setActiveListingPlatform("general");
     setAdvancedListingExpanded(false);
@@ -349,7 +354,9 @@ Barcode: ${barcode}
       });
       const data = await response.json();
       const text = data.content[0].text;
-      const parsed = JSON.parse(text.replace(/```json|```/g, "").trim());
+      const parsed = JSON.parse(
+        text.replace(/```json|```/g, "").trim(),
+      ) as CaptureAnalysisResult;
       setResult(parsed);
       setProductImageUri(null);
       setBarcodeValue("");
@@ -464,7 +471,9 @@ ${productSummary}
       });
       const data = await response.json();
       const text = data.content[0].text;
-      const parsed = JSON.parse(text.replace(/```json|```/g, "").trim());
+      const parsed = JSON.parse(
+        text.replace(/```json|```/g, "").trim(),
+      ) as CaptureAnalysisResult;
       setImages([]);
       setBarcodeValue(normalizedBarcode);
       setProductImageUri(product.images?.[0] ?? null);

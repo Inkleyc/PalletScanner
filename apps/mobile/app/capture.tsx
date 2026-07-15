@@ -44,6 +44,7 @@ import {
 } from "@/lib/listing-drafts";
 import { openListingDraft } from "@/lib/listing-posting";
 import {
+  type CaptureAnalysisResult,
   parseMoneyAmount,
   parsePositiveInteger,
   parsePriceRange as parseCorePriceRange,
@@ -62,7 +63,7 @@ export default function HomeScreen() {
   const router = useRouter();
   const [images, setImages] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
-  const [result, setResult] = useState<any>(null);
+  const [result, setResult] = useState<CaptureAnalysisResult | null>(null);
   const [activeListingPlatform, setActiveListingPlatform] =
     useState<ListingDraftPlatform>("general");
   const [listingDrafts, setListingDrafts] =
@@ -235,7 +236,7 @@ export default function HomeScreen() {
     setCurrentItemPalletId(null);
   };
 
-  const applyParsedListingDrafts = (parsed: any) => {
+  const applyParsedListingDrafts = (parsed: CaptureAnalysisResult) => {
     setListingDrafts(createListingDrafts(parsed));
     setActiveListingPlatform("general");
     setAdvancedListingExpanded(false);
@@ -314,7 +315,9 @@ export default function HomeScreen() {
       });
       const data = await response.json();
       const text = data.content[0].text;
-      const parsed = JSON.parse(text.replace(/```json|```/g, "").trim());
+      const parsed = JSON.parse(
+        text.replace(/```json|```/g, "").trim(),
+      ) as CaptureAnalysisResult;
       setResult(parsed);
       applyParsedListingDrafts(parsed);
       setEditablePrice(`${parsed.low_price}-${parsed.high_price}`);

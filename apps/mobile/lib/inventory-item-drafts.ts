@@ -1,20 +1,14 @@
 import type { ListingDraftMap } from "@/lib/listing-drafts";
-import type { InventoryItem } from "@palletscanner/core";
+import type { CaptureAnalysisResult, InventoryItem } from "@palletscanner/core";
 
 type ImageAssetLike = {
   uri?: string | null;
 };
 
-export type CaptureAnalysisDraft = {
-  name?: string;
-  condition?: string;
-  best_platform?: string;
-};
-
 type BuildInventoryItemDraftInput = {
   currentItemId: number | null;
   palletId: string;
-  analysis: CaptureAnalysisDraft;
+  analysis: Pick<CaptureAnalysisResult, "name" | "condition" | "best_platform">;
   listingDrafts: ListingDraftMap;
   images: ImageAssetLike[];
   productImageUri: string | null;
