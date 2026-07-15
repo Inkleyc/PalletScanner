@@ -503,7 +503,7 @@ ${productSummary}
     void analyzeBarcode(data);
   };
 
-  const saveToInventory = async () => {
+  const saveToInventory = async (afterSave: "stay" | "next" = "stay") => {
     if (!result) {
       Alert.alert("Nothing to save", "Analyze an item before saving it.");
       return;
@@ -559,6 +559,9 @@ ${productSummary}
     if (currentItemId !== null) {
       await saveInventoryItem(baseInventoryItem);
       void triggerInventorySaveFeedback();
+      if (afterSave === "next") {
+        clearAll();
+      }
     } else {
       const itemsToSave = duplicateInventoryItemDraft(
         baseInventoryItem,
@@ -566,11 +569,15 @@ ${productSummary}
       );
       await Promise.all(itemsToSave.map((item) => saveInventoryItem(item)));
       void triggerInventorySaveFeedback();
-      setCurrentItemId(baseInventoryItem.id);
-      setCurrentItemPalletId(palletId);
       if (promptToPostOnSave) {
         promptForListingDestination(itemsToSave[0]);
       }
+      if (afterSave === "next") {
+        clearAll();
+        return;
+      }
+      setCurrentItemId(baseInventoryItem.id);
+      setCurrentItemPalletId(palletId);
     }
   };
 
@@ -781,15 +788,26 @@ ${productSummary}
               <TouchableOpacity
                 style={styles.saveBtn}
                 onPress={() => {
-                  void saveToInventory();
+                  void saveToInventory("next");
                 }}
               >
                 <Text style={styles.saveBtnText}>
                   {currentItemId !== null
-                    ? "Update Inventory"
+                    ? "Update & Next Item"
                     : parseQuantity() && parseQuantity()! > 1
-                      ? `Save ${parseQuantity()} Copies`
-                      : "Save to Inventory"}
+                      ? `Save ${parseQuantity()} Copies & Next`
+                      : "Save & Next Item"}
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.stayBtn}
+                onPress={() => {
+                  void saveToInventory("stay");
+                }}
+              >
+                <Text style={styles.stayBtnText}>
+                  {currentItemId !== null ? "Update and Stay" : "Save and Stay"}
                 </Text>
               </TouchableOpacity>
 
@@ -1197,6 +1215,16 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   saveBtnText: { color: "#fff", fontWeight: "600", fontSize: 14 },
+  stayBtn: {
+    borderWidth: 1,
+    borderColor: AppPalette.border,
+    backgroundColor: AppPalette.surface,
+    padding: 12,
+    borderRadius: 8,
+    alignItems: "center",
+    marginTop: 8,
+  },
+  stayBtnText: { color: AppPalette.text, fontWeight: "600", fontSize: 14 },
   addAnotherBtn: {
     borderWidth: 1,
     borderColor: AppPalette.border,
