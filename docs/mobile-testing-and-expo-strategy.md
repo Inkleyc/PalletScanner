@@ -140,8 +140,7 @@ npm run mobile:build:development
 Before sharing a tester build, run:
 
 ```bash
-npm run lint
-npm run web:export
+npm run check
 npm run supabase:app-check
 ```
 
