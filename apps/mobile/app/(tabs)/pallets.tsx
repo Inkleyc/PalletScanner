@@ -38,12 +38,12 @@ export default function PalletsScreen() {
   const [newPalletName, setNewPalletName] = useState(getNextDefaultPalletName());
   const [renameDrafts, setRenameDrafts] = useState<Record<string, string>>({});
   const [costDrafts, setCostDrafts] = useState<Record<string, string>>({});
-  const [expandedCostTools, setExpandedCostTools] = useState<
+  const [expandedPalletTools, setExpandedPalletTools] = useState<
     Record<string, boolean>
   >({});
   const isLargeLayout = width >= 900;
-  const showCostTools = (palletId: string) =>
-    isLargeLayout || expandedCostTools[palletId] === true;
+  const showPalletTools = (palletId: string) =>
+    isLargeLayout || expandedPalletTools[palletId] === true;
 
   const handleCreatePallet = () => {
     const pallet = createPalletSession(newPalletName);
@@ -56,7 +56,7 @@ export default function PalletsScreen() {
       <View style={[styles.innerContent, isLargeLayout && styles.innerContentWide]}>
         <Text style={styles.title}>Pallets</Text>
         <Text style={styles.subtitle}>
-          Create, rename, switch, cost, or delete pallets from one place.
+          Create pallets and choose which one new scans save into.
         </Text>
 
         <View style={styles.newCard}>
@@ -96,24 +96,7 @@ export default function PalletsScreen() {
               {isActive && <Text style={styles.activeBadge}>Active</Text>}
             </View>
 
-            <TextInput
-              style={styles.input}
-              value={renameDrafts[pallet.id] ?? pallet.name}
-              onChangeText={(value) =>
-                setRenameDrafts((current) => ({ ...current, [pallet.id]: value }))
-              }
-              placeholder="Rename pallet"
-              placeholderTextColor="#9ca3af"
-            />
             <View style={styles.row}>
-              <TouchableOpacity
-                style={styles.secondaryBtn}
-                onPress={() =>
-                  renamePalletSession(pallet.id, renameDrafts[pallet.id] ?? pallet.name)
-                }
-              >
-                <Text style={styles.secondaryBtnText}>Save Name</Text>
-              </TouchableOpacity>
               {!isActive && (
                 <TouchableOpacity
                   style={styles.secondaryBtn}
@@ -126,79 +109,101 @@ export default function PalletsScreen() {
 
             {!isLargeLayout ? (
               <TouchableOpacity
-                style={styles.costToggleBtn}
+                style={styles.manageToggleBtn}
                 onPress={() =>
-                  setExpandedCostTools((current) => ({
+                  setExpandedPalletTools((current) => ({
                     ...current,
                     [pallet.id]: !current[pallet.id],
                   }))
                 }
               >
-                <Text style={styles.costToggleBtnText}>
-                  {showCostTools(pallet.id) ? "Hide cost details" : "Cost details"}
+                <Text style={styles.manageToggleBtnText}>
+                  {showPalletTools(pallet.id) ? "Hide management" : "Manage pallet"}
                 </Text>
               </TouchableOpacity>
             ) : null}
-            {showCostTools(pallet.id) ? (
-              <TextInput
-                style={styles.input}
-                value={
-                  costDrafts[pallet.id] ??
-                  (pallet.palletCost !== null ? String(pallet.palletCost) : "")
-                }
-                onChangeText={(value) =>
-                  setCostDrafts((current) => ({ ...current, [pallet.id]: value }))
-                }
-                placeholder="Pallet cost"
-                placeholderTextColor="#9ca3af"
-                keyboardType="decimal-pad"
-              />
+            {showPalletTools(pallet.id) ? (
+              <View style={styles.managementPanel}>
+                <TextInput
+                  style={styles.input}
+                  value={renameDrafts[pallet.id] ?? pallet.name}
+                  onChangeText={(value) =>
+                    setRenameDrafts((current) => ({ ...current, [pallet.id]: value }))
+                  }
+                  placeholder="Rename pallet"
+                  placeholderTextColor="#9ca3af"
+                />
+                <View style={styles.row}>
+                  <TouchableOpacity
+                    style={styles.secondaryBtn}
+                    onPress={() =>
+                      renamePalletSession(
+                        pallet.id,
+                        renameDrafts[pallet.id] ?? pallet.name,
+                      )
+                    }
+                  >
+                    <Text style={styles.secondaryBtnText}>Save Name</Text>
+                  </TouchableOpacity>
+                </View>
+                <TextInput
+                  style={styles.input}
+                  value={
+                    costDrafts[pallet.id] ??
+                    (pallet.palletCost !== null ? String(pallet.palletCost) : "")
+                  }
+                  onChangeText={(value) =>
+                    setCostDrafts((current) => ({ ...current, [pallet.id]: value }))
+                  }
+                  placeholder="Pallet cost"
+                  placeholderTextColor="#9ca3af"
+                  keyboardType="decimal-pad"
+                />
+                <View style={styles.row}>
+                  <TouchableOpacity
+                    style={styles.secondaryBtn}
+                    onPress={() => {
+                      const value = (costDrafts[pallet.id] ?? "").trim();
+                      if (!value) {
+                        updatePalletSessionCost(pallet.id, null);
+                        return;
+                      }
+                      const parsed = Number(value);
+                      if (Number.isNaN(parsed) || parsed < 0) {
+                        Alert.alert("Invalid cost", "Enter a valid pallet cost.");
+                        return;
+                      }
+                      updatePalletSessionCost(pallet.id, parsed);
+                    }}
+                  >
+                    <Text style={styles.secondaryBtnText}>Save Cost</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={styles.deleteBtn}
+                    onPress={() => {
+                      Alert.alert(
+                        "Delete pallet",
+                        pallets.length === 1
+                          ? `Delete ${pallet.name}? This will leave you with no pallets until you create another one.`
+                          : `Delete ${pallet.name} and its items?`,
+                        [
+                          { text: "Cancel", style: "cancel" },
+                          {
+                            text: "Delete",
+                            style: "destructive",
+                            onPress: () => {
+                              deletePalletSession(pallet.id);
+                            },
+                          },
+                        ],
+                      );
+                    }}
+                  >
+                    <Text style={styles.deleteBtnText}>Delete</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
             ) : null}
-            <View style={styles.row}>
-              {showCostTools(pallet.id) ? (
-                <TouchableOpacity
-                  style={styles.secondaryBtn}
-                  onPress={() => {
-                    const value = (costDrafts[pallet.id] ?? "").trim();
-                    if (!value) {
-                      updatePalletSessionCost(pallet.id, null);
-                      return;
-                    }
-                    const parsed = Number(value);
-                    if (Number.isNaN(parsed) || parsed < 0) {
-                      Alert.alert("Invalid cost", "Enter a valid pallet cost.");
-                      return;
-                    }
-                    updatePalletSessionCost(pallet.id, parsed);
-                  }}
-                >
-                  <Text style={styles.secondaryBtnText}>Save Cost</Text>
-                </TouchableOpacity>
-              ) : null}
-              <TouchableOpacity
-                style={styles.deleteBtn}
-                onPress={() => {
-                  Alert.alert(
-                    "Delete pallet",
-                    pallets.length === 1
-                      ? `Delete ${pallet.name}? This will leave you with no pallets until you create another one.`
-                      : `Delete ${pallet.name} and its items?`,
-                    [
-                      { text: "Cancel", style: "cancel" },
-                      {
-                        text: "Delete",
-                        style: "destructive",
-                        onPress: () => {
-                          deletePalletSession(pallet.id);
-                        },
-                      },
-                    ],
-                  );
-                }}
-              >
-                <Text style={styles.deleteBtnText}>Delete</Text>
-              </TouchableOpacity>
-            </View>
             </View>
           );
         })}
@@ -296,7 +301,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   secondaryBtnText: { color: AppPalette.text, fontWeight: "600", fontSize: 13 },
-  costToggleBtn: {
+  manageToggleBtn: {
     borderWidth: 1,
     borderColor: AppPalette.border,
     backgroundColor: AppPalette.surfaceMuted,
@@ -305,10 +310,16 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginBottom: 10,
   },
-  costToggleBtnText: {
+  manageToggleBtnText: {
     color: AppPalette.text,
     fontSize: 13,
     fontWeight: "700",
+  },
+  managementPanel: {
+    borderTopWidth: 1,
+    borderTopColor: AppPalette.border,
+    paddingTop: 12,
+    marginTop: 2,
   },
   deleteBtn: {
     backgroundColor: AppPalette.dangerSoft,
