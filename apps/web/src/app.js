@@ -73,6 +73,58 @@ const applyInventorySearch = () => {
   }
 };
 
+const downloadCsv = (filename, rows) => {
+  const csv = rows
+    .map((row) =>
+      row
+        .map((value) => `"${String(value ?? "").replaceAll('"', '""')}"`)
+        .join(","),
+    )
+    .join("\n");
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  link.click();
+  URL.revokeObjectURL(url);
+};
+
+const exportVisibleInventory = () => {
+  const visibleRows = [...document.querySelectorAll("[data-inventory-row]")]
+    .filter((row) => !row.hidden)
+    .map((row) => Number(row.dataset.itemId))
+    .map((itemId) => items.find((item) => item.id === itemId))
+    .filter(Boolean);
+
+  downloadCsv("palletscanner-inventory.csv", [
+    [
+      "Item",
+      "Pallet",
+      "Condition",
+      "Platform",
+      "Low Estimate",
+      "High Estimate",
+      "Floor",
+      "Sold Price",
+      "Status",
+      "Issue",
+    ],
+    ...visibleRows.map((item) => [
+      item.name,
+      getPalletName(item.palletId),
+      item.condition,
+      item.platform,
+      item.low,
+      item.high,
+      item.floor,
+      item.soldPrice ?? "",
+      statusLabel[item.status] ?? item.status,
+      item.issue ?? "",
+    ]),
+  ]);
+};
+
 const normalizeBaseUrl = (value) => value.trim().replace(/\/$/, "");
 
 const getEbayHeaders = () => ({
@@ -267,7 +319,7 @@ const render = () => {
             <p class="eyebrow">Web Operations</p>
             <h2>Review value, listing readiness, and cleanup work.</h2>
           </div>
-          <button type="button">Export CSV</button>
+          <button type="button" data-action="export-inventory">Export CSV</button>
         </header>
 
         <section id="overview" class="metrics-grid">
@@ -379,7 +431,7 @@ const render = () => {
                 .map((item) => {
                   const palletName = getPalletName(item.palletId);
                   return `
-                    <tr data-inventory-row data-status="${escapeHtml(item.status)}" data-platform="${escapeHtml(item.platform)}" data-search-text="${escapeHtml(getInventorySearchText(item))}">
+                    <tr data-inventory-row data-item-id="${item.id}" data-status="${escapeHtml(item.status)}" data-platform="${escapeHtml(item.platform)}" data-search-text="${escapeHtml(getInventorySearchText(item))}">
                       <td>${escapeHtml(item.name)}</td>
                       <td>${escapeHtml(palletName)}</td>
                       <td>${escapeHtml(item.condition)}</td>
@@ -442,6 +494,9 @@ const render = () => {
     ?.addEventListener("click", () => {
       void disconnectEbay();
     });
+  document
+    .querySelector("[data-action='export-inventory']")
+    ?.addEventListener("click", exportVisibleInventory);
   document
     .querySelector("#inventory-search")
     ?.addEventListener("input", applyInventorySearch);
