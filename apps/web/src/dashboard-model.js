@@ -21,6 +21,52 @@ export const statusClass = {
   sold: "primary",
 };
 
+const workflowStatusByItemState = (item) => {
+  if (item.soldPrice !== null) {
+    return "sold";
+  }
+
+  if (item.listedPlatforms?.length > 0 || item.ebayStatus === "active") {
+    return "ready";
+  }
+
+  if (!item.photos?.length && !item.photo) {
+    return "needs_photos";
+  }
+
+  if (
+    !item.listing_title?.trim() ||
+    !item.listing_description?.trim() ||
+    item.low <= 0 ||
+    item.high <= 0
+  ) {
+    return "needs_research";
+  }
+
+  return "ready";
+};
+
+export const getDisplayStatus = (item) =>
+  item.status ?? workflowStatusByItemState(item);
+
+export const getDisplayPlatform = (item) =>
+  item.platform ?? item.best_platform ?? "Review";
+
+export const getDisplayIssue = (item) => {
+  if (item.issue) {
+    return item.issue;
+  }
+
+  const status = getDisplayStatus(item);
+  if (status === "needs_photos") {
+    return "Missing photos";
+  }
+  if (status === "needs_research") {
+    return "Needs listing review";
+  }
+  return null;
+};
+
 export const getQuantity = (item) =>
   typeof item.quantity === "number" && item.quantity > 0
     ? Math.floor(item.quantity)

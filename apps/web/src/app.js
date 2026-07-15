@@ -1,6 +1,9 @@
 import { items, pallets } from "./mock-data.js";
 import {
   currency,
+  getDisplayIssue,
+  getDisplayPlatform,
+  getDisplayStatus,
   statusClass,
   statusLabel,
   getQuantity,
@@ -58,8 +61,8 @@ const getInventorySearchText = (item) =>
     item.name,
     getPalletName(item.palletId),
     item.condition,
-    item.platform,
-    statusLabel[item.status],
+    getDisplayPlatform(item),
+    statusLabel[getDisplayStatus(item)],
   ]
     .join(" ")
     .toLowerCase();
@@ -171,13 +174,13 @@ const exportVisibleInventory = () => {
       getPalletName(item.palletId),
       item.condition,
       getQuantity(item),
-      item.platform,
+      getDisplayPlatform(item),
       item.low,
       item.high,
       item.floor,
       item.soldPrice ?? "",
-      statusLabel[item.status] ?? item.status,
-      item.issue ?? "",
+      statusLabel[getDisplayStatus(item)] ?? getDisplayStatus(item),
+      getDisplayIssue(item) ?? "",
     ]),
   ]);
 };
@@ -283,14 +286,14 @@ const renderInventoryDetail = () => {
       <div><span>Pallet</span><strong>${escapeHtml(getPalletName(item.palletId))}</strong></div>
       <div><span>Condition</span><strong>${escapeHtml(item.condition)}</strong></div>
       <div><span>Quantity</span><strong>${getQuantity(item)}</strong></div>
-      <div><span>Platform</span><strong>${escapeHtml(item.platform)}</strong></div>
+      <div><span>Platform</span><strong>${escapeHtml(getDisplayPlatform(item))}</strong></div>
       <div><span>Range</span><strong>${currency(item.low)}-${currency(item.high)}</strong></div>
       <div><span>Floor</span><strong>${currency(item.floor)}</strong></div>
       <div><span>Sold</span><strong>${item.soldPrice === null ? "Not sold" : currency(item.soldPrice)}</strong></div>
     </div>
     ${
-      item.issue
-        ? `<p class="detail-issue">${escapeHtml(item.issue)}</p>`
+      getDisplayIssue(item)
+        ? `<p class="detail-issue">${escapeHtml(getDisplayIssue(item))}</p>`
         : `<p class="detail-ready">No open issue on this item.</p>`
     }
   `;
@@ -471,8 +474,10 @@ const renderEbayStatus = () => {
 const render = () => {
   const totals = summarizeInventory(items, pallets);
   const palletRows = pallets.map((pallet) => summarizePallet(items, pallet));
-  const attentionItems = items.filter((item) => item.issue);
-  const platformOptions = [...new Set(items.map((item) => item.platform))].sort();
+  const attentionItems = items.filter((item) => getDisplayIssue(item));
+  const platformOptions = [
+    ...new Set(items.map((item) => getDisplayPlatform(item))),
+  ].sort();
 
   document.querySelector("#app").innerHTML = `
     <div class="shell">
@@ -553,9 +558,9 @@ const render = () => {
                   <article class="queue-item" data-attention-item-id="${item.id}" tabindex="0">
                     <div>
                       <strong>${escapeHtml(item.name)}</strong>
-                      <span>${escapeHtml(item.issue)}</span>
+                      <span>${escapeHtml(getDisplayIssue(item))}</span>
                     </div>
-                    <span class="badge ${statusClass[item.status]}">${statusLabel[item.status]}</span>
+                    <span class="badge ${statusClass[getDisplayStatus(item)]}">${statusLabel[getDisplayStatus(item)]}</span>
                   </article>
                 `,
               )
@@ -614,24 +619,24 @@ const render = () => {
                       data-inventory-row
                       tabindex="0"
                       data-item-id="${item.id}"
-                      data-status="${escapeHtml(item.status)}"
-                      data-platform="${escapeHtml(item.platform)}"
+                      data-status="${escapeHtml(getDisplayStatus(item))}"
+                      data-platform="${escapeHtml(getDisplayPlatform(item))}"
                       data-search-text="${escapeHtml(getInventorySearchText(item))}"
                       data-sortname="${escapeHtml(item.name)}"
                       data-sortpallet="${escapeHtml(palletName)}"
                       data-sortcondition="${escapeHtml(item.condition)}"
                       data-sortquantity="${getQuantity(item)}"
-                      data-sortplatform="${escapeHtml(item.platform)}"
+                      data-sortplatform="${escapeHtml(getDisplayPlatform(item))}"
                       data-sortrange="${item.high}"
-                      data-sortstatus="${escapeHtml(statusLabel[item.status] ?? item.status)}"
+                      data-sortstatus="${escapeHtml(statusLabel[getDisplayStatus(item)] ?? getDisplayStatus(item))}"
                     >
                       <td>${escapeHtml(item.name)}</td>
                       <td>${escapeHtml(palletName)}</td>
                       <td>${escapeHtml(item.condition)}</td>
                       <td>${getQuantity(item)}</td>
-                      <td>${escapeHtml(item.platform)}</td>
+                      <td>${escapeHtml(getDisplayPlatform(item))}</td>
                       <td>${currency(item.low)}-${currency(item.high)}</td>
-                      <td><span class="badge ${statusClass[item.status]}">${statusLabel[item.status]}</span></td>
+                      <td><span class="badge ${statusClass[getDisplayStatus(item)]}">${statusLabel[getDisplayStatus(item)]}</span></td>
                     </tr>
                   `;
                 })
