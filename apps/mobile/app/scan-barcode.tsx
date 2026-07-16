@@ -221,26 +221,6 @@ export default function HomeScreen() {
     }
   };
 
-  const promptForListingPhotos = (photoTips?: string) => {
-    const guidance = photoTips?.trim()
-      ? photoTips.trim()
-      : "Start with a clear front view, then photograph the back, included accessories, labels, and any visible wear.";
-
-    Alert.alert(
-      "Add listing photos",
-      `${guidance}\n\nTake 2-5 photos. Include at least one close-up that honestly shows the condition.`,
-      [
-        { text: "Later", style: "cancel" },
-        {
-          text: "Take Photo",
-          onPress: () => {
-            void addListingPhoto(guidance);
-          },
-        },
-      ],
-    );
-  };
-
   const applyParsedListingDrafts = (parsed: CaptureAnalysisResult) => {
     setListingDrafts(createListingDrafts(parsed));
     setActiveListingPlatform("general");
@@ -351,7 +331,6 @@ export default function HomeScreen() {
       setPhotoTipsExpanded(false);
       incrementScanCount();
       void triggerAnalysisCompleteFeedback();
-      promptForListingPhotos(parsed.photo_tips);
     } catch (error) {
       const fallbackDraft = createPhotoFallbackDraft();
       setResult(fallbackDraft);
@@ -441,7 +420,6 @@ export default function HomeScreen() {
         setPhotoTipsExpanded(false);
         incrementScanCount();
         void triggerAnalysisCompleteFeedback();
-        promptForListingPhotos(fallbackDraft.photo_tips);
         setLoading(false);
         return;
       }
@@ -506,7 +484,6 @@ ${productSummary}
       setPhotoTipsExpanded(false);
       incrementScanCount();
       void triggerAnalysisCompleteFeedback();
-      promptForListingPhotos(parsed.photo_tips);
     } catch {
       const fallbackDraft = createBarcodeFallbackDraft(normalizedBarcode);
       setImages([]);
