@@ -138,63 +138,6 @@ export default function HomeScreen() {
     };
   };
 
-  const buildFallbackBarcodeDraft = async (
-    barcode: string,
-  ): Promise<CaptureAnalysisResult> => {
-    if (!API_KEY?.trim()) {
-      return createBarcodeFallbackDraft(barcode);
-    }
-
-    const response = await fetch("https://api.anthropic.com/v1/messages", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-api-key": API_KEY ?? "",
-        "anthropic-version": "2023-06-01",
-      } as HeadersInit,
-      body: JSON.stringify({
-        model: "claude-sonnet-4-20250514",
-        max_tokens: 1000,
-        messages: [
-          {
-            role: "user",
-            content: [
-              {
-                type: "text",
-                text: `You are a resale expert. A barcode scan succeeded, but product lookup did not return a match. Build the best possible fallback resale draft using only the barcode value and the fact that the item was scanned in a pallet-scanning resale app. Be conservative when guessing. If the product is unknown, make that clear in the title and description and use broad, realistic placeholder pricing instead of overconfident specificity. Include practical photo tips, 2-3 short web image search queries that would help the user find example listing photos, and a sellability score based on effort versus likely value. Also write platform-specific listing copy for Facebook Marketplace and eBay. eBay titles should be keyword-heavy and concise; Facebook copy should sound a little more casual and local-buyer friendly. Respond ONLY with raw JSON, no markdown:
-
-Barcode: ${barcode}
-
-{
-  "name": "item name",
-  "description": "1-2 sentence description",
-  "condition": "New / Like New / Good / Fair",
-  "low_price": 10,
-  "high_price": 30,
-  "floor_price": 12,
-  "best_platform": "eBay",
-  "platform_reason": "one sentence why",
-  "listing_title": "SEO title under 80 chars",
-  "listing_description": "3-4 sentence listing description",
-  "photo_tips": "short practical photo advice",
-  "photo_example_queries": ["query one", "query two"],
-  "sellability_score": 5,
-  "sellability_reason": "one sentence why"
-}`,
-              },
-            ],
-          },
-        ],
-      }),
-    });
-
-    const data = await response.json();
-    const text = data.content[0].text;
-    return JSON.parse(
-      text.replace(/```json|```/g, "").trim(),
-    ) as CaptureAnalysisResult;
-  };
-
   const resetBarcodeScanState = () => {
     barcodeScanLock.current = false;
     setHasScannedBarcode(false);
@@ -564,59 +507,10 @@ ${productSummary}
       incrementScanCount();
       void triggerAnalysisCompleteFeedback();
       promptForListingPhotos(parsed.photo_tips);
-    } catch (error) {
-      resetBarcodeScanState();
-      setBarcodeValue("");
-      setProductImageUri(null);
-      setResult(null);
-      setLoading(false);
-      Alert.alert(
-        "Barcode lookup failed",
-        error instanceof Error
-          ? error.message
-          : "We couldn't pull product info from that barcode. Try scanning again with the code centered and well lit.",
-        [
-          { text: "OK", style: "cancel" },
-          {
-            text: "Use Barcode Anyway",
-            onPress: () => {
-              void continueWithBarcodeFallback(normalizedBarcode);
-            },
-          },
-          {
-            text: "Scan Again",
-            onPress: () => {
-              void openBarcodeScanner();
-            },
-          },
-        ],
-      );
-      return;
-    }
-
-    setLoading(false);
-  };
-
-  const continueWithBarcodeFallback = async (barcode: string) => {
-    setLoading(true);
-    setCurrentItemId(null);
-
-    try {
-      const parsed = await buildFallbackBarcodeDraft(barcode);
+    } catch {
+      const fallbackDraft = createBarcodeFallbackDraft(normalizedBarcode);
       setImages([]);
-      setBarcodeValue(barcode);
-      setProductImageUri(null);
-      setResult(parsed);
-      applyParsedListingDrafts(parsed);
-      setEditablePrice(`${parsed.low_price}-${parsed.high_price}`);
-      setEditableFloorPrice(`${parsed.floor_price ?? parsed.low_price}`);
-      setPhotoTipsExpanded(false);
-      incrementScanCount();
-      void triggerAnalysisCompleteFeedback();
-    } catch (error) {
-      const fallbackDraft = createBarcodeFallbackDraft(barcode);
-      setImages([]);
-      setBarcodeValue(barcode);
+      setBarcodeValue(normalizedBarcode);
       setProductImageUri(null);
       setResult(fallbackDraft);
       applyParsedListingDrafts(fallbackDraft);
@@ -628,10 +522,8 @@ ${productSummary}
       incrementScanCount();
       void triggerAnalysisCompleteFeedback();
       Alert.alert(
-        "Online barcode draft unavailable",
-        error instanceof Error
-          ? `${error.message}\n\nA basic editable draft was created so you can still save this item.`
-          : "A basic editable draft was created so you can still save this item.",
+        "Barcode saved as draft",
+        "Product lookup did not return details quickly, so a basic editable draft was created from the barcode.",
       );
     }
 
@@ -915,7 +807,7 @@ ${productSummary}
               </Text>
               <TouchableOpacity
                 style={styles.closeScannerBtn}
-                onPress={() => setScannerOpen(false)}
+                onPress={resetBarcodeScanState}
               >
                 <Text style={styles.closeScannerBtnText}>Cancel Scanner</Text>
               </TouchableOpacity>

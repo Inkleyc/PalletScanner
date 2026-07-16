@@ -8,6 +8,22 @@ type BarcodeLookupItem = {
 
 const UPCITEMDB_LOOKUP_URL = "https://api.upcitemdb.com/prod/trial/lookup";
 const OPEN_FOOD_FACTS_LOOKUP_URL = "https://world.openfoodfacts.org/api/v0/product";
+const LOOKUP_TIMEOUT_MS = 6000;
+
+const fetchWithTimeout = async (url: string) => {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), LOOKUP_TIMEOUT_MS);
+  try {
+    return await fetch(url, { signal: controller.signal });
+  } catch (error) {
+    if (error instanceof Error && error.name === "AbortError") {
+      throw new Error("Barcode lookup timed out.");
+    }
+    throw error;
+  } finally {
+    clearTimeout(timeout);
+  }
+};
 
 const normalizeBarcode = (barcode: string) => barcode.trim().replace(/[^0-9A-Za-z]/g, "");
 
@@ -27,7 +43,7 @@ const buildBarcodeCandidates = (barcode: string) => {
 };
 
 const lookupCandidate = async (barcode: string) => {
-  const response = await fetch(
+  const response = await fetchWithTimeout(
     `${UPCITEMDB_LOOKUP_URL}?upc=${encodeURIComponent(barcode)}`,
   );
 
@@ -52,7 +68,7 @@ const lookupCandidate = async (barcode: string) => {
 };
 
 const lookupOpenFoodFactsCandidate = async (barcode: string) => {
-  const response = await fetch(
+  const response = await fetchWithTimeout(
     `${OPEN_FOOD_FACTS_LOOKUP_URL}/${encodeURIComponent(barcode)}.json`,
   );
 
