@@ -415,6 +415,20 @@ dd {
   padding: 12px;
 }
 
+.empty-queue {
+  background: #f7f8f4;
+  border: 1px dashed #cbd3c2;
+  border-radius: 8px;
+  padding: 14px;
+}
+
+.empty-queue span {
+  color: #64705f;
+  display: block;
+  font-size: 13px;
+  margin-top: 4px;
+}
+
 .queue-item:hover,
 .listing-queue-item:hover {
   background: #f7f8f4;

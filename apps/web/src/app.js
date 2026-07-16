@@ -602,6 +602,7 @@ const render = () => {
   const totals = summarizeInventory(items, pallets);
   const palletRows = pallets.map((pallet) => summarizePallet(items, pallet));
   const attentionItems = items.filter((item) => getDisplayIssue(item));
+  const marketplaceQueueItems = getMarketplaceQueueItems(items);
   const platformOptions = [
     ...new Set(items.map((item) => getDisplayPlatform(item))),
   ].sort();
@@ -682,9 +683,12 @@ const render = () => {
             </div>
           </div>
           <div class="queue-list">
-            ${attentionItems
-              .map(
-                (item) => `
+            ${
+              attentionItems.length === 0
+                ? `<article class="empty-queue"><strong>Attention queue is clear</strong><span>No item needs cleanup or a business decision right now.</span></article>`
+                : attentionItems
+                    .map(
+                      (item) => `
                   <article class="queue-item" data-attention-item-id="${item.id}" tabindex="0">
                     <div>
                       <strong>${escapeHtml(item.name)}</strong>
@@ -693,8 +697,9 @@ const render = () => {
                     <span class="badge ${statusClass[getDisplayStatus(item)]}">${statusLabel[getDisplayStatus(item)]}</span>
                   </article>
                 `,
-              )
-              .join("")}
+                    )
+                    .join("")
+            }
           </div>
         </section>
 
@@ -706,13 +711,16 @@ const render = () => {
             </div>
           </div>
           <div class="listing-queue">
-            ${getMarketplaceQueueItems(items)
-              .map((item) => {
-                const missingPlatforms = [
-                  !item.listedPlatforms?.includes("facebook") ? "Facebook" : null,
-                  !item.listedPlatforms?.includes("ebay") ? "eBay" : null,
-                ].filter(Boolean);
-                return `
+            ${
+              marketplaceQueueItems.length === 0
+                ? `<article class="empty-queue"><strong>Marketplace queue is clear</strong><span>Every saved item is marked listed to Facebook and eBay.</span></article>`
+                : marketplaceQueueItems
+                    .map((item) => {
+                      const missingPlatforms = [
+                        !item.listedPlatforms?.includes("facebook") ? "Facebook" : null,
+                        !item.listedPlatforms?.includes("ebay") ? "eBay" : null,
+                      ].filter(Boolean);
+                      return `
                   <article class="listing-queue-item" data-attention-item-id="${item.id}" tabindex="0">
                     <div>
                       <strong>${escapeHtml(item.name)}</strong>
@@ -721,8 +729,9 @@ const render = () => {
                     <span class="badge ${statusClass[getDisplayStatus(item)]}">${statusLabel[getDisplayStatus(item)]}</span>
                   </article>
                 `;
-              })
-              .join("")}
+                    })
+                    .join("")
+            }
           </div>
         </section>
 
