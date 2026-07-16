@@ -31,7 +31,10 @@ import {
   buildInventoryItemDraft,
   duplicateInventoryItemDraft,
 } from "@/lib/inventory-item-drafts";
-import { createBarcodeFallbackDraft } from "@/lib/offline-drafts";
+import {
+  createBarcodeFallbackDraft,
+  createPhotoFallbackDraft,
+} from "@/lib/offline-drafts";
 import {
   getActivePallet,
   saveInventoryItem,
@@ -318,6 +321,25 @@ Barcode: ${barcode}
     if (images.length === 0) return;
     setLoading(true);
     setCurrentItemId(null);
+    if (!API_KEY?.trim()) {
+      const fallbackDraft = createPhotoFallbackDraft();
+      setResult(fallbackDraft);
+      setProductImageUri(null);
+      setBarcodeValue("");
+      applyParsedListingDrafts(fallbackDraft);
+      setEditablePrice(`${fallbackDraft.low_price}-${fallbackDraft.high_price}`);
+      setEditableFloorPrice(
+        `${fallbackDraft.floor_price ?? fallbackDraft.low_price}`,
+      );
+      setPhotoTipsExpanded(false);
+      setLoading(false);
+      Alert.alert(
+        "Online analysis not configured",
+        "A basic editable draft was created so you can still save this item.",
+      );
+      return;
+    }
+
     try {
       const imageContent = images.map((img) => ({
         type: "image",
@@ -387,8 +409,23 @@ Barcode: ${barcode}
       incrementScanCount();
       void triggerAnalysisCompleteFeedback();
       promptForListingPhotos(parsed.photo_tips);
-    } catch {
-      alert("Something went wrong. Please try again.");
+    } catch (error) {
+      const fallbackDraft = createPhotoFallbackDraft();
+      setResult(fallbackDraft);
+      setProductImageUri(null);
+      setBarcodeValue("");
+      applyParsedListingDrafts(fallbackDraft);
+      setEditablePrice(`${fallbackDraft.low_price}-${fallbackDraft.high_price}`);
+      setEditableFloorPrice(
+        `${fallbackDraft.floor_price ?? fallbackDraft.low_price}`,
+      );
+      setPhotoTipsExpanded(false);
+      Alert.alert(
+        "Online analysis unavailable",
+        error instanceof Error
+          ? `${error.message}\n\nA basic editable draft was created so you can still save this item.`
+          : "A basic editable draft was created so you can still save this item.",
+      );
     }
     setLoading(false);
   };
