@@ -81,6 +81,8 @@ export default function HomeScreen() {
   const [productImageUri, setProductImageUri] = useState<string | null>(null);
   const [scannerOpen, setScannerOpen] = useState(false);
   const [barcodeValue, setBarcodeValue] = useState("");
+  const [manualBarcodeDraft, setManualBarcodeDraft] = useState("");
+  const [manualBarcodeVisible, setManualBarcodeVisible] = useState(false);
   const [hasScannedBarcode, setHasScannedBarcode] = useState(false);
   const [cameraPermission, requestCameraPermission] = useCameraPermissions();
   const barcodeScanLock = useRef(false);
@@ -208,6 +210,8 @@ Barcode: ${barcode}
     setAdvancedListingExpanded(false);
     setProductImageUri(null);
     setBarcodeValue("");
+    setManualBarcodeDraft("");
+    setManualBarcodeVisible(false);
     resetBarcodeScanState();
     setCurrentItemId(null);
     setCurrentItemPalletId(null);
@@ -223,10 +227,21 @@ Barcode: ${barcode}
       return;
     }
 
-    const photo = await ImagePicker.launchCameraAsync({
-      base64: true,
-      quality: 0.7,
-    });
+    let photo: ImagePicker.ImagePickerResult;
+    try {
+      photo = await ImagePicker.launchCameraAsync({
+        base64: true,
+        quality: 0.7,
+      });
+    } catch (error) {
+      Alert.alert(
+        "Camera did not open",
+        error instanceof Error
+          ? error.message
+          : "Expo could not open the camera. Try again or use the photo capture flow.",
+      );
+      return;
+    }
     if (!photo.canceled) {
       const nextCount = Math.min(images.length + 1, MAX_LISTING_PHOTOS);
       setImages((current) =>
@@ -565,8 +580,31 @@ ${productSummary}
       return;
     }
 
+    try {
+      resetBarcodeScanState();
+      setManualBarcodeVisible(false);
+      setScannerOpen(true);
+    } catch (error) {
+      Alert.alert(
+        "Scanner did not open",
+        error instanceof Error
+          ? error.message
+          : "Expo could not open the barcode scanner. Type the barcode instead.",
+      );
+      setManualBarcodeVisible(true);
+    }
+  };
+
+  const submitManualBarcode = () => {
+    const normalizedBarcode = sanitizeBarcodeValue(manualBarcodeDraft);
+    if (!normalizedBarcode) {
+      Alert.alert("Enter a barcode", "Type the UPC or product code first.");
+      return;
+    }
+
     resetBarcodeScanState();
-    setScannerOpen(true);
+    setManualBarcodeVisible(false);
+    void analyzeBarcode(normalizedBarcode);
   };
 
   useEffect(() => {
@@ -736,6 +774,40 @@ ${productSummary}
         >
           <Text style={styles.barcodeBtnText}>Open Scanner</Text>
         </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.manualBarcodeToggle}
+          onPress={() => setManualBarcodeVisible((current) => !current)}
+        >
+          <Text style={styles.manualBarcodeToggleText}>
+            {manualBarcodeVisible ? "Hide Manual Entry" : "Type Barcode Instead"}
+          </Text>
+        </TouchableOpacity>
+
+        {manualBarcodeVisible ? (
+          <View style={styles.manualBarcodeCard}>
+            <Text style={styles.manualBarcodeTitle}>Manual barcode entry</Text>
+            <Text style={styles.manualBarcodeCopy}>
+              Type the UPC or product code when the camera cannot read the label.
+            </Text>
+            <TextInput
+              style={styles.manualBarcodeInput}
+              value={manualBarcodeDraft}
+              onChangeText={setManualBarcodeDraft}
+              placeholder="e.g. 012345678905"
+              placeholderTextColor={AppPalette.textSoft}
+              autoCapitalize="none"
+              autoCorrect={false}
+              keyboardType="numbers-and-punctuation"
+            />
+            <TouchableOpacity
+              style={styles.manualBarcodeSubmit}
+              onPress={submitManualBarcode}
+            >
+              <Text style={styles.manualBarcodeSubmitText}>Build Draft</Text>
+            </TouchableOpacity>
+          </View>
+        ) : null}
 
         {scannerOpen && (
           <View style={styles.scannerCard}>
@@ -1102,9 +1174,64 @@ const styles = StyleSheet.create({
     padding: 14,
     borderRadius: 10,
     alignItems: "center",
-    marginBottom: 16,
+    marginBottom: 10,
   },
   barcodeBtnText: { color: "#fff", fontWeight: "600", fontSize: 15 },
+  manualBarcodeToggle: {
+    alignItems: "center",
+    borderColor: AppPalette.border,
+    borderRadius: 10,
+    borderWidth: 1,
+    marginBottom: 16,
+    padding: 12,
+  },
+  manualBarcodeToggleText: {
+    color: AppPalette.primaryStrong,
+    fontSize: 14,
+    fontWeight: "700",
+  },
+  manualBarcodeCard: {
+    backgroundColor: AppPalette.surface,
+    borderColor: AppPalette.border,
+    borderRadius: 10,
+    borderWidth: 1,
+    marginBottom: 16,
+    padding: 14,
+  },
+  manualBarcodeTitle: {
+    color: AppPalette.text,
+    fontSize: 15,
+    fontWeight: "700",
+    marginBottom: 4,
+  },
+  manualBarcodeCopy: {
+    color: AppPalette.textMuted,
+    fontSize: 13,
+    lineHeight: 18,
+    marginBottom: 10,
+  },
+  manualBarcodeInput: {
+    backgroundColor: AppPalette.surface,
+    borderColor: AppPalette.borderStrong,
+    borderRadius: 10,
+    borderWidth: 1,
+    color: AppPalette.text,
+    fontSize: 15,
+    marginBottom: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+  },
+  manualBarcodeSubmit: {
+    alignItems: "center",
+    backgroundColor: AppPalette.primaryStrong,
+    borderRadius: 10,
+    padding: 12,
+  },
+  manualBarcodeSubmitText: {
+    color: AppPalette.primaryOn,
+    fontSize: 14,
+    fontWeight: "700",
+  },
   scannerCard: {
     borderRadius: 12,
     overflow: "hidden",

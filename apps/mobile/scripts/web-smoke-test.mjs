@@ -130,8 +130,8 @@ const routeChecks = [
   { path: "/(tabs)/pallets", text: "Pallets", label: "Pallets" },
   { path: "/(tabs)/analytics", text: "Pallet Stats", label: "Analytics" },
   { path: "/(tabs)/settings", text: "Settings", label: "Settings" },
-  { path: "/capture", text: "Capture Item", label: "Capture" },
-  { path: "/scan-barcode", text: "Open Scanner", label: "Barcode" },
+  { path: "/capture", text: "Take Photos", label: "Capture" },
+  { path: "/scan-barcode", text: "Type Barcode Instead", label: "Barcode" },
 ];
 
 const main = async () => {

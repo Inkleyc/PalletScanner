@@ -58,6 +58,13 @@
           "cameraPermission": "Allow PalletScanner to scan barcodes and take product photos."
         }
       ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Allow PalletScanner to attach product photos from your library.",
+          "cameraPermission": "Allow PalletScanner to take product photos."
+        }
+      ],
       "expo-mail-composer"
     ],
     "experiments": {

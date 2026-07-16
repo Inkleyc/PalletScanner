@@ -122,7 +122,7 @@ export default function HomeScreen() {
     };
   };
 
-  const requestPermissions = async () => {
+  const ensureActivePallet = () => {
     if (!activePallet) {
       Alert.alert(
         "Choose a pallet first",
@@ -131,9 +131,36 @@ export default function HomeScreen() {
       return false;
     }
 
+    return true;
+  };
+
+  const requestCameraPermissions = async () => {
+    if (!ensureActivePallet()) {
+      return false;
+    }
+
     const { status } = await ImagePicker.requestCameraPermissionsAsync();
     if (status !== "granted") {
-      alert("Camera permission is required to take photos.");
+      Alert.alert(
+        "Camera permission required",
+        "Allow camera access to take product photos.",
+      );
+      return false;
+    }
+    return true;
+  };
+
+  const requestPhotoLibraryPermissions = async () => {
+    if (!ensureActivePallet()) {
+      return false;
+    }
+
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== "granted") {
+      Alert.alert(
+        "Photo library permission required",
+        "Allow photo access to upload product photos.",
+      );
       return false;
     }
     return true;
@@ -144,7 +171,7 @@ export default function HomeScreen() {
     "Start with the full item in good light. Then add the back, labels or model number, included accessories, and any visible wear.";
 
   const addPhoto = async () => {
-    const canContinue = await requestPermissions();
+    const canContinue = await requestCameraPermissions();
     if (!canContinue) {
       return;
     }
@@ -168,10 +195,21 @@ export default function HomeScreen() {
   };
 
   const takePhoto = async (photoTips?: string) => {
-    let photo = await ImagePicker.launchCameraAsync({
-      base64: true,
-      quality: 0.7,
-    });
+    let photo: ImagePicker.ImagePickerResult;
+    try {
+      photo = await ImagePicker.launchCameraAsync({
+        base64: true,
+        quality: 0.7,
+      });
+    } catch (error) {
+      Alert.alert(
+        "Camera did not open",
+        error instanceof Error
+          ? error.message
+          : "Expo could not open the camera. Try again or upload photos from your library.",
+      );
+      return;
+    }
     if (!photo.canceled) {
       const nextCount = Math.min(images.length + 1, MAX_LISTING_PHOTOS);
       setImages((prev) => [...prev, photo.assets[0]].slice(0, MAX_LISTING_PHOTOS));
@@ -199,16 +237,27 @@ export default function HomeScreen() {
   };
 
   const pickImage = async () => {
-    const canContinue = await requestPermissions();
+    const canContinue = await requestPhotoLibraryPermissions();
     if (!canContinue) {
       return;
     }
-    let picked = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      base64: true,
-      quality: 0.7,
-      allowsMultipleSelection: true,
-    });
+    let picked: ImagePicker.ImagePickerResult;
+    try {
+      picked = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        base64: true,
+        quality: 0.7,
+        allowsMultipleSelection: true,
+      });
+    } catch (error) {
+      Alert.alert(
+        "Photo library did not open",
+        error instanceof Error
+          ? error.message
+          : "Expo could not open the photo library. Try again or take photos with the camera.",
+      );
+      return;
+    }
     if (!picked.canceled) {
       setImages((prev) =>
         [...prev, ...picked.assets].slice(0, MAX_LISTING_PHOTOS),
