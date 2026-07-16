@@ -648,7 +648,7 @@ const render = () => {
           ${renderMetric("Gross Profit", currency(totals.grossProfit), totals.grossProfit >= 0 ? "success" : "danger")}
           ${renderMetric("Sell Through", `${totals.sellThrough.toFixed(0)}%`)}
           ${renderMetric("Needs Attention", attentionItems.length, "warning")}
-          ${renderMetric("Stale Items", staleItems.length, staleItems.length > 0 ? "warning" : "success")}
+          ${renderActionMetric("Stale Items", staleItems.length, "jump-aging", staleItems.length > 0 ? "warning" : "success")}
           ${renderActionMetric("Needs Facebook", totals.needsFacebook, "filter-facebook", "warning")}
           ${renderActionMetric("Needs eBay", totals.needsEbay, "filter-ebay", "warning")}
         </section>
@@ -930,6 +930,11 @@ const render = () => {
   document
     .querySelector("[data-action='filter-ebay']")
     ?.addEventListener("click", () => filterInventoryPlatform("eBay"));
+  document
+    .querySelector("[data-action='jump-aging']")
+    ?.addEventListener("click", () => {
+      document.querySelector("#aging")?.scrollIntoView({ behavior: "smooth" });
+    });
   document.querySelectorAll("[data-pallet-card-id]").forEach((card) => {
     const openPallet = () => {
       filterInventoryPallet(card.dataset.palletCardId);

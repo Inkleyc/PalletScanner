@@ -48,6 +48,7 @@ for (const marker of [
   "Unsold items older than 14 days",
   "aging-queue-item",
   "Stale Items",
+  "jump-aging",
   "Desktop-first review table",
   "Admin Settings",
   "data-action=\"export-inventory\"",
