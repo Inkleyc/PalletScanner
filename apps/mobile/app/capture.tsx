@@ -76,6 +76,7 @@ export default function HomeScreen() {
   const [advancedListingExpanded, setAdvancedListingExpanded] = useState(false);
   const [currentItemId, setCurrentItemId] = useState<number | null>(null);
   const [currentItemPalletId, setCurrentItemPalletId] = useState<string | null>(null);
+  const [cameraActionStatus, setCameraActionStatus] = useState("");
   const activePallet = useSyncExternalStore(
     subscribeInventory,
     getActivePallet,
@@ -172,24 +173,10 @@ export default function HomeScreen() {
     "Start with the full item in good light. Then add the back, labels or model number, included accessories, and any visible wear.";
 
   const addPhoto = async () => {
+    setCameraActionStatus("Opening camera...");
     const canContinue = await requestCameraPermissions();
     if (!canContinue) {
-      return;
-    }
-    if (images.length === 0) {
-      Alert.alert(
-        "Photo checklist",
-        getPhotoGuidance(),
-        [
-          { text: "Cancel", style: "cancel" },
-          {
-            text: "Open Camera",
-            onPress: () => {
-              void takePhoto(getPhotoGuidance());
-            },
-          },
-        ],
-      );
+      setCameraActionStatus("");
       return;
     }
     await takePhoto(getPhotoGuidance());
@@ -209,6 +196,7 @@ export default function HomeScreen() {
           ? error.message
           : "Expo could not open the camera. Try again or upload photos from your library.",
       );
+      setCameraActionStatus("Camera could not open.");
       return;
     }
     if (!photo.canceled) {
@@ -234,12 +222,17 @@ export default function HomeScreen() {
           ],
         );
       }
+      setCameraActionStatus("Photo added.");
+    } else {
+      setCameraActionStatus("");
     }
   };
 
   const pickImage = async () => {
+    setCameraActionStatus("Opening photo library...");
     const canContinue = await requestPhotoLibraryPermissions();
     if (!canContinue) {
+      setCameraActionStatus("");
       return;
     }
     let picked: ImagePicker.ImagePickerResult;
@@ -257,6 +250,7 @@ export default function HomeScreen() {
           ? error.message
           : "Expo could not open the photo library. Try again or take photos with the camera.",
       );
+      setCameraActionStatus("Photo library could not open.");
       return;
     }
     if (!picked.canceled) {
@@ -264,6 +258,11 @@ export default function HomeScreen() {
         [...prev, ...picked.assets].slice(0, MAX_LISTING_PHOTOS),
       );
       setResult(null);
+      setCameraActionStatus(
+        `${picked.assets.length} photo${picked.assets.length === 1 ? "" : "s"} added.`,
+      );
+    } else {
+      setCameraActionStatus("");
     }
   };
 
@@ -284,6 +283,7 @@ export default function HomeScreen() {
     setAdvancedListingExpanded(false);
     setCurrentItemId(null);
     setCurrentItemPalletId(null);
+    setCameraActionStatus("");
   };
 
   const applyParsedListingDrafts = (parsed: CaptureAnalysisResult) => {
@@ -572,6 +572,9 @@ export default function HomeScreen() {
             <Text style={styles.btnText}>Upload Photos</Text>
           </TouchableOpacity>
         </View>
+        {cameraActionStatus ? (
+          <Text style={styles.actionStatus}>{cameraActionStatus}</Text>
+        ) : null}
 
         {images.length > 0 && (
           <View style={styles.photoStrip}>
@@ -881,6 +884,12 @@ const styles = StyleSheet.create({
     borderColor: AppPalette.border,
   },
   btnText: { color: AppPalette.text, fontWeight: "600", fontSize: 15 },
+  actionStatus: {
+    color: AppPalette.textMuted,
+    fontSize: 13,
+    fontWeight: "600",
+    marginBottom: 12,
+  },
   photoStrip: { marginBottom: 16 },
   thumbContainer: { position: "relative", marginRight: 8 },
   thumb: { width: 90, height: 90, borderRadius: 8, backgroundColor: "#f0f0f0" },
