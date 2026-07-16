@@ -173,12 +173,27 @@ export default function HomeScreen() {
     "Start with the full item in good light. Then add the back, labels or model number, included accessories, and any visible wear.";
 
   const addPhoto = async () => {
-    setCameraActionStatus("Opening camera...");
     const canContinue = await requestCameraPermissions();
     if (!canContinue) {
       setCameraActionStatus("");
       return;
     }
+
+    if (images.length === 0) {
+      Alert.alert("Photo checklist", getPhotoGuidance(), [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Open Camera",
+          onPress: () => {
+            setCameraActionStatus("Opening camera...");
+            void takePhoto(getPhotoGuidance());
+          },
+        },
+      ]);
+      return;
+    }
+
+    setCameraActionStatus("Opening camera...");
     await takePhoto(getPhotoGuidance());
   };
 

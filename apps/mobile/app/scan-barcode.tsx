@@ -85,6 +85,7 @@ export default function HomeScreen() {
   const [productImageUri, setProductImageUri] = useState<string | null>(null);
   const [scannerOpen, setScannerOpen] = useState(false);
   const [barcodeValue, setBarcodeValue] = useState("");
+  const [listingPhotoActionStatus, setListingPhotoActionStatus] = useState("");
   const [manualBarcodeDraft, setManualBarcodeDraft] = useState("");
   const [manualBarcodeVisible, setManualBarcodeVisible] = useState(false);
   const [hasScannedBarcode, setHasScannedBarcode] = useState(false);
@@ -161,6 +162,7 @@ export default function HomeScreen() {
     setAdvancedListingExpanded(false);
     setProductImageUri(null);
     setBarcodeValue("");
+    setListingPhotoActionStatus("");
     setManualBarcodeDraft("");
     setManualBarcodeVisible(false);
     resetBarcodeScanState();
@@ -169,12 +171,14 @@ export default function HomeScreen() {
   };
 
   const addListingPhoto = async (photoTips?: string) => {
+    setListingPhotoActionStatus("Opening camera...");
     const { status } = await ImagePicker.requestCameraPermissionsAsync();
     if (status !== "granted") {
       Alert.alert(
         "Camera permission required",
         "Allow camera access to take listing photos.",
       );
+      setListingPhotoActionStatus("");
       return;
     }
 
@@ -191,6 +195,7 @@ export default function HomeScreen() {
           ? error.message
           : "Expo could not open the camera. Try again or use the photo capture flow.",
       );
+      setListingPhotoActionStatus("Camera could not open.");
       return;
     }
     if (!photo.canceled) {
@@ -198,6 +203,7 @@ export default function HomeScreen() {
       setImages((current) =>
         [...current, photo.assets[0]].slice(0, MAX_LISTING_PHOTOS),
       );
+      setListingPhotoActionStatus("Listing photo added.");
       if (nextCount < RECOMMENDED_LISTING_PHOTOS) {
         const guidance = photoTips?.trim()
           ? `\n\nPhoto suggestion: ${photoTips.trim()}`
@@ -218,6 +224,8 @@ export default function HomeScreen() {
           ],
         );
       }
+    } else {
+      setListingPhotoActionStatus("");
     }
   };
 
@@ -797,16 +805,26 @@ ${productSummary}
         ) : null}
 
         {result && images.length < MAX_LISTING_PHOTOS ? (
-          <TouchableOpacity
-            style={styles.barcodeBtn}
-            onPress={() => {
-              void addListingPhoto(result.photo_tips);
-            }}
-          >
-            <Text style={styles.barcodeBtnText}>
-              {images.length === 0 ? "Take Listing Photos" : "Add Listing Photo"}
+          <View style={styles.nextStepCard}>
+            <Text style={styles.nextStepTitle}>Add listing photos</Text>
+            <Text style={styles.nextStepCopy}>
+              {result.photo_tips?.trim() ||
+                "Take 2-5 photos: front, back, label or model number, accessories, and any visible wear."}
             </Text>
-          </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.barcodeBtn}
+              onPress={() => {
+                void addListingPhoto(result.photo_tips);
+              }}
+            >
+              <Text style={styles.barcodeBtnText}>
+                {images.length === 0 ? "Take Listing Photos" : "Add Listing Photo"}
+              </Text>
+            </TouchableOpacity>
+            {listingPhotoActionStatus ? (
+              <Text style={styles.actionStatus}>{listingPhotoActionStatus}</Text>
+            ) : null}
+          </View>
         ) : null}
 
         {images.length > 0 && (
@@ -1216,6 +1234,32 @@ const styles = StyleSheet.create({
     color: AppPalette.info,
     marginBottom: 12,
     fontWeight: "500",
+  },
+  nextStepCard: {
+    backgroundColor: AppPalette.surface,
+    borderColor: AppPalette.border,
+    borderRadius: 10,
+    borderWidth: 1,
+    marginBottom: 16,
+    padding: 14,
+  },
+  nextStepTitle: {
+    color: AppPalette.text,
+    fontSize: 15,
+    fontWeight: "700",
+    marginBottom: 4,
+  },
+  nextStepCopy: {
+    color: AppPalette.textMuted,
+    fontSize: 13,
+    lineHeight: 18,
+    marginBottom: 12,
+  },
+  actionStatus: {
+    color: AppPalette.textMuted,
+    fontSize: 13,
+    fontWeight: "600",
+    marginTop: 2,
   },
   photoStrip: { marginBottom: 16 },
   thumbContainer: { position: "relative", marginRight: 8 },
