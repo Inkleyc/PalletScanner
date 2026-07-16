@@ -648,7 +648,7 @@ export default function CaptureScreen() {
           </View>
         )}
 
-        {images.length > 0 && !loading && (
+        {images.length > 0 && !loading && !isSaving && (
           <View style={styles.actionRow}>
             <TouchableOpacity style={styles.analyzeBtn} onPress={analyzeImage}>
               <Text style={styles.analyzeBtnText}>Analyze Item</Text>

@@ -112,6 +112,8 @@ export default function BarcodeScanScreen() {
       )
     : [];
   const currentListingDraft = listingDrafts[activeListingPlatform];
+  const canSubmitManualBarcode =
+    sanitizeBarcodeValue(manualBarcodeDraft).length > 0;
 
   const getSellabilityMeta = (score?: number) => {
     if (typeof score !== "number") {
@@ -783,9 +785,10 @@ ${productSummary}
             <TouchableOpacity
               style={[
                 styles.manualBarcodeSubmit,
-                (loading || isSaving) && styles.disabledAction,
+                (!canSubmitManualBarcode || loading || isSaving) &&
+                  styles.disabledAction,
               ]}
-              disabled={loading || isSaving}
+              disabled={!canSubmitManualBarcode || loading || isSaving}
               onPress={submitManualBarcode}
             >
               <Text style={styles.manualBarcodeSubmitText}>Build Draft</Text>
@@ -881,7 +884,7 @@ ${productSummary}
           </View>
         )}
 
-        {images.length > 0 && !loading && (
+        {images.length > 0 && !loading && !isSaving && (
           <View style={styles.actionRow}>
             <TouchableOpacity style={styles.analyzeBtn} onPress={analyzeImage}>
               <Text style={styles.analyzeBtnText}>Analyze Item</Text>

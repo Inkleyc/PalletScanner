@@ -175,9 +175,15 @@ export default function SettingsScreen() {
   }, [facebookSellerNote]);
 
   const sendLoginLink = async () => {
+    const email = loginEmail.trim();
+    if (!email) {
+      Alert.alert("Enter your email", "Type the email address you want to use.");
+      return;
+    }
+
     setIsSendingLoginLink(true);
     try {
-      await sendSupabaseMagicLink(loginEmail);
+      await sendSupabaseMagicLink(email);
       Alert.alert(
         "Check your email",
         "Open the magic link on this device to sign in.",
@@ -422,8 +428,11 @@ export default function SettingsScreen() {
                 keyboardType="email-address"
               />
               <TouchableOpacity
-                style={styles.primaryBtn}
-                disabled={isSendingLoginLink}
+                style={[
+                  styles.primaryBtn,
+                  (isSendingLoginLink || !loginEmail.trim()) && styles.disabledBtn,
+                ]}
+                disabled={isSendingLoginLink || !loginEmail.trim()}
                 onPress={() => {
                   void sendLoginLink();
                 }}
