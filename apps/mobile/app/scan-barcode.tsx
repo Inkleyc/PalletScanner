@@ -229,10 +229,26 @@ export default function HomeScreen() {
     }
   };
 
-  const applyParsedListingDrafts = (parsed: CaptureAnalysisResult) => {
+  const applyAnalysisResult = (
+    parsed: CaptureAnalysisResult,
+    options: {
+      barcode?: string;
+      productImageUri?: string | null;
+      clearImages?: boolean;
+    } = {},
+  ) => {
+    if (options.clearImages) {
+      setImages([]);
+    }
+    setBarcodeValue(options.barcode ?? "");
+    setProductImageUri(options.productImageUri ?? null);
+    setResult(parsed);
     setListingDrafts(createListingDrafts(parsed));
     setActiveListingPlatform("general");
     setAdvancedListingExpanded(false);
+    setEditablePrice(`${parsed.low_price}-${parsed.high_price}`);
+    setEditableFloorPrice(`${parsed.floor_price ?? parsed.low_price}`);
+    setPhotoTipsExpanded(false);
   };
 
   const updateListingDraft = (
@@ -254,15 +270,7 @@ export default function HomeScreen() {
     setCurrentItemId(null);
     if (!API_KEY?.trim()) {
       const fallbackDraft = createPhotoFallbackDraft();
-      setResult(fallbackDraft);
-      setProductImageUri(null);
-      setBarcodeValue("");
-      applyParsedListingDrafts(fallbackDraft);
-      setEditablePrice(`${fallbackDraft.low_price}-${fallbackDraft.high_price}`);
-      setEditableFloorPrice(
-        `${fallbackDraft.floor_price ?? fallbackDraft.low_price}`,
-      );
-      setPhotoTipsExpanded(false);
+      applyAnalysisResult(fallbackDraft);
       setLoading(false);
       Alert.alert(
         "Online analysis not configured",
@@ -330,26 +338,12 @@ export default function HomeScreen() {
       const parsed = JSON.parse(
         text.replace(/```json|```/g, "").trim(),
       ) as CaptureAnalysisResult;
-      setResult(parsed);
-      setProductImageUri(null);
-      setBarcodeValue("");
-      applyParsedListingDrafts(parsed);
-      setEditablePrice(`${parsed.low_price}-${parsed.high_price}`);
-      setEditableFloorPrice(`${parsed.floor_price ?? parsed.low_price}`);
-      setPhotoTipsExpanded(false);
+      applyAnalysisResult(parsed);
       incrementScanCount();
       void triggerAnalysisCompleteFeedback();
     } catch (error) {
       const fallbackDraft = createPhotoFallbackDraft();
-      setResult(fallbackDraft);
-      setProductImageUri(null);
-      setBarcodeValue("");
-      applyParsedListingDrafts(fallbackDraft);
-      setEditablePrice(`${fallbackDraft.low_price}-${fallbackDraft.high_price}`);
-      setEditableFloorPrice(
-        `${fallbackDraft.floor_price ?? fallbackDraft.low_price}`,
-      );
-      setPhotoTipsExpanded(false);
+      applyAnalysisResult(fallbackDraft);
       Alert.alert(
         "Online analysis unavailable",
         error instanceof Error
@@ -416,16 +410,11 @@ export default function HomeScreen() {
           normalizedBarcode,
           product,
         );
-        setImages([]);
-        setBarcodeValue(normalizedBarcode);
-        setProductImageUri(product.images?.[0] ?? null);
-        setResult(fallbackDraft);
-        applyParsedListingDrafts(fallbackDraft);
-        setEditablePrice(`${fallbackDraft.low_price}-${fallbackDraft.high_price}`);
-        setEditableFloorPrice(
-          `${fallbackDraft.floor_price ?? fallbackDraft.low_price}`,
-        );
-        setPhotoTipsExpanded(false);
+        applyAnalysisResult(fallbackDraft, {
+          barcode: normalizedBarcode,
+          productImageUri: product.images?.[0] ?? null,
+          clearImages: true,
+        });
         incrementScanCount();
         void triggerAnalysisCompleteFeedback();
         setLoading(false);
@@ -482,28 +471,19 @@ ${productSummary}
       const parsed = JSON.parse(
         text.replace(/```json|```/g, "").trim(),
       ) as CaptureAnalysisResult;
-      setImages([]);
-      setBarcodeValue(normalizedBarcode);
-      setProductImageUri(product.images?.[0] ?? null);
-      setResult(parsed);
-      applyParsedListingDrafts(parsed);
-      setEditablePrice(`${parsed.low_price}-${parsed.high_price}`);
-      setEditableFloorPrice(`${parsed.floor_price ?? parsed.low_price}`);
-      setPhotoTipsExpanded(false);
+      applyAnalysisResult(parsed, {
+        barcode: normalizedBarcode,
+        productImageUri: product.images?.[0] ?? null,
+        clearImages: true,
+      });
       incrementScanCount();
       void triggerAnalysisCompleteFeedback();
     } catch {
       const fallbackDraft = createBarcodeFallbackDraft(normalizedBarcode);
-      setImages([]);
-      setBarcodeValue(normalizedBarcode);
-      setProductImageUri(null);
-      setResult(fallbackDraft);
-      applyParsedListingDrafts(fallbackDraft);
-      setEditablePrice(`${fallbackDraft.low_price}-${fallbackDraft.high_price}`);
-      setEditableFloorPrice(
-        `${fallbackDraft.floor_price ?? fallbackDraft.low_price}`,
-      );
-      setPhotoTipsExpanded(false);
+      applyAnalysisResult(fallbackDraft, {
+        barcode: normalizedBarcode,
+        clearImages: true,
+      });
       incrementScanCount();
       void triggerAnalysisCompleteFeedback();
       Alert.alert(

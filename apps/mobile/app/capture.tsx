@@ -301,10 +301,14 @@ export default function HomeScreen() {
     setCameraActionStatus("");
   };
 
-  const applyParsedListingDrafts = (parsed: CaptureAnalysisResult) => {
+  const applyAnalysisResult = (parsed: CaptureAnalysisResult) => {
+    setResult(parsed);
     setListingDrafts(createListingDrafts(parsed));
     setActiveListingPlatform("general");
     setAdvancedListingExpanded(false);
+    setEditablePrice(`${parsed.low_price}-${parsed.high_price}`);
+    setEditableFloorPrice(`${parsed.floor_price ?? parsed.low_price}`);
+    setPhotoTipsExpanded(false);
   };
 
   const updateListingDraft = (
@@ -326,13 +330,7 @@ export default function HomeScreen() {
     setCurrentItemId(null);
     if (!API_KEY?.trim()) {
       const fallbackDraft = createPhotoFallbackDraft();
-      setResult(fallbackDraft);
-      applyParsedListingDrafts(fallbackDraft);
-      setEditablePrice(`${fallbackDraft.low_price}-${fallbackDraft.high_price}`);
-      setEditableFloorPrice(
-        `${fallbackDraft.floor_price ?? fallbackDraft.low_price}`,
-      );
-      setPhotoTipsExpanded(false);
+      applyAnalysisResult(fallbackDraft);
       setLoading(false);
       Alert.alert(
         "Online analysis not configured",
@@ -400,22 +398,12 @@ export default function HomeScreen() {
       const parsed = JSON.parse(
         text.replace(/```json|```/g, "").trim(),
       ) as CaptureAnalysisResult;
-      setResult(parsed);
-      applyParsedListingDrafts(parsed);
-      setEditablePrice(`${parsed.low_price}-${parsed.high_price}`);
-      setEditableFloorPrice(`${parsed.floor_price ?? parsed.low_price}`);
-      setPhotoTipsExpanded(false);
+      applyAnalysisResult(parsed);
       incrementScanCount();
       void triggerAnalysisCompleteFeedback();
     } catch (error) {
       const fallbackDraft = createPhotoFallbackDraft();
-      setResult(fallbackDraft);
-      applyParsedListingDrafts(fallbackDraft);
-      setEditablePrice(`${fallbackDraft.low_price}-${fallbackDraft.high_price}`);
-      setEditableFloorPrice(
-        `${fallbackDraft.floor_price ?? fallbackDraft.low_price}`,
-      );
-      setPhotoTipsExpanded(false);
+      applyAnalysisResult(fallbackDraft);
       Alert.alert(
         "Online analysis unavailable",
         error instanceof Error
