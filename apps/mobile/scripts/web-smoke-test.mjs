@@ -124,14 +124,26 @@ const clickByText = async (client, text) =>
   );
 
 const routeChecks = [
-  { path: "/onboarding", text: "Scan any item from a pallet or lot", label: "Onboarding" },
-  { path: "/(tabs)", text: "Pallet Scanner", label: "Scan" },
-  { path: "/(tabs)/explore", text: "Inventory", label: "Inventory" },
-  { path: "/(tabs)/pallets", text: "Pallets", label: "Pallets" },
-  { path: "/(tabs)/analytics", text: "Pallet Stats", label: "Analytics" },
-  { path: "/(tabs)/settings", text: "Settings", label: "Settings" },
-  { path: "/capture", text: "Take Photos", label: "Capture" },
-  { path: "/scan-barcode", text: "Type Barcode Instead", label: "Barcode" },
+  {
+    path: "/onboarding",
+    texts: ["Scan any item from a pallet or lot"],
+    label: "Onboarding",
+  },
+  { path: "/(tabs)", texts: ["Pallet Scanner", "Scan Barcode"], label: "Scan" },
+  { path: "/(tabs)/explore", texts: ["Inventory"], label: "Inventory" },
+  { path: "/(tabs)/pallets", texts: ["Pallets"], label: "Pallets" },
+  { path: "/(tabs)/analytics", texts: ["Pallet Stats"], label: "Analytics" },
+  {
+    path: "/(tabs)/settings",
+    texts: ["Settings", "Scan Usage", "eBay Account", "Delete App Data"],
+    label: "Settings",
+  },
+  { path: "/capture", texts: ["Take Photos", "Upload Photos"], label: "Capture" },
+  {
+    path: "/scan-barcode",
+    texts: ["Open Scanner", "Type Barcode Instead"],
+    label: "Barcode",
+  },
 ];
 
 const main = async () => {
@@ -148,7 +160,9 @@ const main = async () => {
       if (state.hasFatalError) {
         throw new Error(`${check.label} rendered a fatal error screen.`);
       }
-      assertIncludes(state, check.text, check.label);
+      for (const text of check.texts) {
+        assertIncludes(state, text, check.label);
+      }
       results.push(`${check.label}: OK`);
     }
 
