@@ -45,8 +45,24 @@ import {
   getResetBackupSummary,
   resetAllPalletSessions,
   restoreResetBackup,
+  type ResetBackupSummary,
   subscribeInventory,
 } from "@/lib/inventory-store";
+
+const getResetBackupTimeLabel = (resetBackup: ResetBackupSummary | null) => {
+  if (!resetBackup) {
+    return null;
+  }
+
+  const remainingMs = Math.max(resetBackup.expiresAt - Date.now(), 0);
+  const remainingHours = Math.ceil(remainingMs / (60 * 60 * 1000));
+  if (remainingHours >= 24) {
+    const remainingDays = Math.ceil(remainingHours / 24);
+    return `${remainingDays} day${remainingDays === 1 ? "" : "s"} left`;
+  }
+
+  return `${remainingHours} hour${remainingHours === 1 ? "" : "s"} left`;
+};
 
 export default function SettingsScreen() {
   const { width } = useWindowDimensions();
@@ -81,20 +97,7 @@ export default function SettingsScreen() {
   );
   const missingEbayRequirements = ebayStatus?.missingRequirements ?? [];
   const scanUsageProgress = Math.min(currentMonthScans / FREE_SCAN_LIMIT, 1);
-  const resetBackupTimeLabel = (() => {
-    if (!resetBackup) {
-      return null;
-    }
-
-    const remainingMs = Math.max(resetBackup.expiresAt - Date.now(), 0);
-    const remainingHours = Math.ceil(remainingMs / (60 * 60 * 1000));
-    if (remainingHours >= 24) {
-      const remainingDays = Math.ceil(remainingHours / 24);
-      return `${remainingDays} day${remainingDays === 1 ? "" : "s"} left`;
-    }
-
-    return `${remainingHours} hour${remainingHours === 1 ? "" : "s"} left`;
-  })();
+  const resetBackupTimeLabel = getResetBackupTimeLabel(resetBackup);
   const ebayStatusLabel = !isEbayApiConfigured()
     ? "Backend not configured"
     : ebayStatusError

@@ -28,6 +28,7 @@ import {
 import {
   buildInventoryItemDraft,
   duplicateInventoryItemDraft,
+  type ImageAssetLike,
 } from "@/lib/inventory-item-drafts";
 import { createPhotoFallbackDraft } from "@/lib/offline-drafts";
 import {
@@ -60,9 +61,9 @@ const LOADING_MESSAGES = [
 const MAX_LISTING_PHOTOS = 5;
 const RECOMMENDED_LISTING_PHOTOS = 3;
 
-export default function HomeScreen() {
+export default function CaptureScreen() {
   const router = useRouter();
-  const [images, setImages] = useState<any[]>([]);
+  const [images, setImages] = useState<ImageAssetLike[]>([]);
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<CaptureAnalysisResult | null>(null);
   const [activeListingPlatform, setActiveListingPlatform] =

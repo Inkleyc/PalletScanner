@@ -1,7 +1,7 @@
 import type { ListingDraftMap } from "@/lib/listing-drafts";
 import type { CaptureAnalysisResult, InventoryItem } from "@palletscanner/core";
 
-type ImageAssetLike = {
+export type ImageAssetLike = {
   uri?: string | null;
 };
 
