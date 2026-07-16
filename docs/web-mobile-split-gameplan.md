@@ -241,6 +241,7 @@ Progress:
 - The web inventory view persists filters/sort, has a reset control, supports keyboard-selectable rows, and includes a selected-item detail panel.
 - The web attention queue can drill into the selected inventory item.
 - The web attention and marketplace queues now show clear empty states when no work is waiting.
+- The web dashboard now has an aging queue for stale unsold inventory, an actionable stale-items metric, and an age column in inventory/export.
 - The mobile first tab is labeled around the user's real action, Scan, instead of a generic Home label.
 - Mobile first-pallet creation can continue directly into the scan/capture workflow the user originally tapped.
 - Mobile pallet cards now show item count, sold count, and cost so users can choose the right active pallet faster.
