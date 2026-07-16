@@ -74,6 +74,24 @@ export const getMarketplaceQueueItems = (items) =>
       !item.listedPlatforms?.includes("ebay"),
   );
 
+export const getItemAgeDays = (item, now = new Date()) => {
+  const capturedAt = Date.parse(item.capturedAt ?? "");
+  if (Number.isNaN(capturedAt)) {
+    return 0;
+  }
+
+  const ageMs = now.getTime() - capturedAt;
+  return Math.max(0, Math.floor(ageMs / 86_400_000));
+};
+
+export const getStaleInventoryItems = (items, now = new Date(), thresholdDays = 14) =>
+  items
+    .filter((item) => item.soldPrice === null)
+    .map((item) => ({ item, ageDays: getItemAgeDays(item, now) }))
+    .filter(({ ageDays }) => ageDays >= thresholdDays)
+    .sort((first, second) => second.ageDays - first.ageDays)
+    .map(({ item }) => item);
+
 export const getQuantity = (item) =>
   typeof item.quantity === "number" && item.quantity > 0
     ? Math.floor(item.quantity)

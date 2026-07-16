@@ -4,7 +4,9 @@ import {
   getDisplayIssue,
   getDisplayPlatform,
   getDisplayStatus,
+  getItemAgeDays,
   getMarketplaceQueueItems,
+  getStaleInventoryItems,
   statusClass,
   statusLabel,
   getQuantity,
@@ -603,6 +605,7 @@ const render = () => {
   const palletRows = pallets.map((pallet) => summarizePallet(items, pallet));
   const attentionItems = items.filter((item) => getDisplayIssue(item));
   const marketplaceQueueItems = getMarketplaceQueueItems(items);
+  const staleItems = getStaleInventoryItems(items);
   const platformOptions = [
     ...new Set(items.map((item) => getDisplayPlatform(item))),
   ].sort();
@@ -619,6 +622,7 @@ const render = () => {
           <a href="#pallets">Pallets</a>
           <a href="#queue">Attention Queue</a>
           <a href="#listings">Listings</a>
+          <a href="#aging">Aging</a>
           <a href="#inventory">Inventory</a>
           <a href="#admin">Admin Settings</a>
         </nav>
@@ -642,6 +646,7 @@ const render = () => {
           ${renderMetric("Gross Profit", currency(totals.grossProfit), totals.grossProfit >= 0 ? "success" : "danger")}
           ${renderMetric("Sell Through", `${totals.sellThrough.toFixed(0)}%`)}
           ${renderMetric("Needs Attention", attentionItems.length, "warning")}
+          ${renderMetric("Stale Items", staleItems.length, staleItems.length > 0 ? "warning" : "success")}
           ${renderActionMetric("Needs Facebook", totals.needsFacebook, "filter-facebook", "warning")}
           ${renderActionMetric("Needs eBay", totals.needsEbay, "filter-ebay", "warning")}
         </section>
@@ -730,6 +735,34 @@ const render = () => {
                   </article>
                 `;
                     })
+                    .join("")
+            }
+          </div>
+        </section>
+
+        <section id="aging" class="panel">
+          <div class="panel-heading">
+            <div>
+              <p class="eyebrow">Aging</p>
+              <h3>Unsold items older than 14 days</h3>
+            </div>
+          </div>
+          <div class="aging-queue">
+            ${
+              staleItems.length === 0
+                ? `<article class="empty-queue"><strong>No stale inventory</strong><span>Unsold items are still inside the normal review window.</span></article>`
+                : staleItems
+                    .map(
+                      (item) => `
+                  <article class="aging-queue-item" data-attention-item-id="${item.id}" tabindex="0">
+                    <div>
+                      <strong>${escapeHtml(item.name)}</strong>
+                      <span>${escapeHtml(getPalletName(item.palletId))} - ${getItemAgeDays(item)} days old</span>
+                    </div>
+                    <span class="badge warning">${currency(item.floor)} floor</span>
+                  </article>
+                `,
+                    )
                     .join("")
             }
           </div>

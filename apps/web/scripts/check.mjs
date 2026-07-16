@@ -4,6 +4,8 @@ import {
   getDisplayIssue,
   getDisplayPlatform,
   getMarketplaceQueueItems,
+  getItemAgeDays,
+  getStaleInventoryItems,
   getQuantity,
   summarizeInventory,
   summarizePallet,
@@ -43,6 +45,9 @@ for (const marker of [
   "Attention queue is clear",
   "Marketplace review queue",
   "Marketplace queue is clear",
+  "Unsold items older than 14 days",
+  "aging-queue-item",
+  "Stale Items",
   "Desktop-first review table",
   "Admin Settings",
   "data-action=\"export-inventory\"",
@@ -97,6 +102,12 @@ if (!getDisplayIssue(items.find((item) => item.name === "Unknown Barcode Item"))
 }
 if (getMarketplaceQueueItems(items).length === 0) {
   throw new Error("Expected marketplace queue items.");
+}
+if (getItemAgeDays(items[1], new Date("2026-07-15T12:00:00Z")) < 14) {
+  throw new Error("Expected mock item to be old enough for aging checks.");
+}
+if (getStaleInventoryItems(items, new Date("2026-07-15T12:00:00Z")).length === 0) {
+  throw new Error("Expected stale inventory queue items.");
 }
 
 console.log("Web dashboard scaffold check passed.");
