@@ -192,6 +192,7 @@ const exportVisibleInventory = () => {
       "Pallet",
       "Condition",
       "Quantity",
+      "Age Days",
       "Platform",
       "Low Estimate",
       "High Estimate",
@@ -205,6 +206,7 @@ const exportVisibleInventory = () => {
       getPalletName(item.palletId),
       item.condition,
       getQuantity(item),
+      getItemAgeDays(item),
       getDisplayPlatform(item),
       item.low,
       item.high,
@@ -815,6 +817,7 @@ const render = () => {
                 <th>${renderSortButton("pallet", "Pallet")}</th>
                 <th>${renderSortButton("condition", "Condition")}</th>
                 <th>${renderSortButton("quantity", "Qty")}</th>
+                <th>${renderSortButton("age", "Age")}</th>
                 <th>${renderSortButton("platform", "Platform")}</th>
                 <th>${renderSortButton("range", "Range")}</th>
                 <th>${renderSortButton("status", "Status")}</th>
@@ -837,6 +840,7 @@ const render = () => {
                       data-sortpallet="${escapeHtml(palletName)}"
                       data-sortcondition="${escapeHtml(item.condition)}"
                       data-sortquantity="${getQuantity(item)}"
+                      data-sortage="${getItemAgeDays(item)}"
                       data-sortplatform="${escapeHtml(getDisplayPlatform(item))}"
                       data-sortrange="${item.high}"
                       data-sortstatus="${escapeHtml(statusLabel[getDisplayStatus(item)] ?? getDisplayStatus(item))}"
@@ -845,6 +849,7 @@ const render = () => {
                       <td>${escapeHtml(palletName)}</td>
                       <td>${escapeHtml(item.condition)}</td>
                       <td>${getQuantity(item)}</td>
+                      <td>${getItemAgeDays(item)}d</td>
                       <td>${escapeHtml(getDisplayPlatform(item))}</td>
                       <td>${currency(item.low)}-${currency(item.high)}</td>
                       <td><span class="badge ${statusClass[getDisplayStatus(item)]}">${statusLabel[getDisplayStatus(item)]}</span></td>
@@ -853,7 +858,7 @@ const render = () => {
                 })
                 .join("")}
               <tr id="inventory-empty-row" hidden>
-                <td class="empty-table-cell" colspan="7">No inventory matches these filters.</td>
+                <td class="empty-table-cell" colspan="8">No inventory matches these filters.</td>
               </tr>
             </tbody>
           </table>

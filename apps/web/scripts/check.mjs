@@ -67,6 +67,8 @@ for (const marker of [
   "inventory-empty-row",
   "inventory-detail",
   "data-sortquantity",
+  "data-sortage",
+  "Age Days",
   "data-action=\"connect-ebay\"",
   "Planned for account setup",
   "Not enabled in preview",
