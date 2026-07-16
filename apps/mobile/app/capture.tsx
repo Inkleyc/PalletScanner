@@ -65,6 +65,7 @@ export default function CaptureScreen() {
   const router = useRouter();
   const [images, setImages] = useState<ImageAssetLike[]>([]);
   const [loading, setLoading] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
   const [result, setResult] = useState<CaptureAnalysisResult | null>(null);
   const [activeListingPlatform, setActiveListingPlatform] =
     useState<ListingDraftPlatform>("general");
@@ -445,6 +446,10 @@ export default function CaptureScreen() {
   };
 
   const saveToInventory = async (afterSave: "stay" | "next" = "stay") => {
+    if (isSaving) {
+      return;
+    }
+
     if (!result) {
       Alert.alert("Nothing to save", "Analyze an item before saving it.");
       return;
@@ -486,6 +491,8 @@ export default function CaptureScreen() {
     if (!palletId) {
       return;
     }
+
+    setIsSaving(true);
     const baseInventoryItem = buildInventoryItemDraft({
       currentItemId,
       palletId,
@@ -497,29 +504,60 @@ export default function CaptureScreen() {
       floorPrice: parsedFloorPrice,
     });
 
-    if (currentItemId !== null) {
-      await saveInventoryItem(baseInventoryItem);
-      void triggerInventorySaveFeedback();
-      if (afterSave === "next") {
-        clearAll();
+    try {
+      if (currentItemId !== null) {
+        await saveInventoryItem(baseInventoryItem);
+        void triggerInventorySaveFeedback();
+        if (afterSave === "next") {
+          clearAll();
+        }
+      } else {
+        const itemsToSave = duplicateInventoryItemDraft(
+          baseInventoryItem,
+          parsedQuantity,
+        );
+        await Promise.all(itemsToSave.map((item) => saveInventoryItem(item)));
+        void triggerInventorySaveFeedback();
+        if (promptToPostOnSave) {
+          promptForListingDestination(itemsToSave[0]);
+        }
+        if (afterSave === "next") {
+          clearAll();
+          return;
+        }
+        setCurrentItemId(baseInventoryItem.id);
+        setCurrentItemPalletId(palletId);
       }
-    } else {
-      const itemsToSave = duplicateInventoryItemDraft(
-        baseInventoryItem,
-        parsedQuantity,
+    } catch (error) {
+      Alert.alert(
+        "Save failed",
+        error instanceof Error
+          ? error.message
+          : "The item could not be saved. Try again before moving to the next item.",
       );
-      await Promise.all(itemsToSave.map((item) => saveInventoryItem(item)));
-      void triggerInventorySaveFeedback();
-      if (promptToPostOnSave) {
-        promptForListingDestination(itemsToSave[0]);
-      }
-      if (afterSave === "next") {
-        clearAll();
-        return;
-      }
-      setCurrentItemId(baseInventoryItem.id);
-      setCurrentItemPalletId(palletId);
+    } finally {
+      setIsSaving(false);
     }
+  };
+
+  const getSaveAndNextLabel = () => {
+    if (isSaving) {
+      return "Saving...";
+    }
+    if (currentItemId !== null) {
+      return "Update & Next Item";
+    }
+    const quantity = parseQuantity();
+    return quantity && quantity > 1
+      ? `Save ${quantity} Copies & Next`
+      : "Save & Next Item";
+  };
+
+  const getSaveAndStayLabel = () => {
+    if (isSaving) {
+      return "Saving...";
+    }
+    return currentItemId !== null ? "Update and Stay" : "Save and Stay";
   };
 
   const addAnother = () => {
@@ -569,10 +607,18 @@ export default function CaptureScreen() {
         </View>
 
         <View style={styles.buttonRow}>
-          <TouchableOpacity style={styles.btn} onPress={addPhoto}>
+          <TouchableOpacity
+            style={[styles.btn, (loading || isSaving) && styles.disabledAction]}
+            disabled={loading || isSaving}
+            onPress={addPhoto}
+          >
             <Text style={styles.btnText}>Take Photos</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.btn} onPress={pickImage}>
+          <TouchableOpacity
+            style={[styles.btn, (loading || isSaving) && styles.disabledAction]}
+            disabled={loading || isSaving}
+            onPress={pickImage}
+          >
             <Text style={styles.btnText}>Upload Photos</Text>
           </TouchableOpacity>
         </View>
@@ -588,6 +634,7 @@ export default function CaptureScreen() {
                   <Image source={{ uri: img.uri }} style={styles.thumb} />
                   <TouchableOpacity
                     style={styles.removeBtn}
+                    disabled={loading || isSaving}
                     onPress={() => removePhoto(index)}
                   >
                     <Text style={styles.removeBtnText}>x</Text>
@@ -691,29 +738,23 @@ export default function CaptureScreen() {
               </View>
 
               <TouchableOpacity
-                style={styles.saveBtn}
+                style={[styles.saveBtn, isSaving && styles.disabledAction]}
+                disabled={isSaving}
                 onPress={() => {
                   void saveToInventory("next");
                 }}
               >
-                <Text style={styles.saveBtnText}>
-                  {currentItemId !== null
-                    ? "Update & Next Item"
-                    : parseQuantity() && parseQuantity()! > 1
-                      ? `Save ${parseQuantity()} Copies & Next`
-                      : "Save & Next Item"}
-                </Text>
+                <Text style={styles.saveBtnText}>{getSaveAndNextLabel()}</Text>
               </TouchableOpacity>
 
               <TouchableOpacity
-                style={styles.stayBtn}
+                style={[styles.stayBtn, isSaving && styles.disabledAction]}
+                disabled={isSaving}
                 onPress={() => {
                   void saveToInventory("stay");
                 }}
               >
-                <Text style={styles.stayBtnText}>
-                  {currentItemId !== null ? "Update and Stay" : "Save and Stay"}
-                </Text>
+                <Text style={styles.stayBtnText}>{getSaveAndStayLabel()}</Text>
               </TouchableOpacity>
 
               {currentItemId !== null && (
@@ -1091,6 +1132,7 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   stayBtnText: { color: AppPalette.text, fontWeight: "600", fontSize: 14 },
+  disabledAction: { opacity: 0.62 },
   addAnotherBtn: {
     borderWidth: 1,
     borderColor: AppPalette.border,

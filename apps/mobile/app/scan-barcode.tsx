@@ -71,6 +71,7 @@ export default function BarcodeScanScreen() {
   const router = useRouter();
   const [images, setImages] = useState<ImageAssetLike[]>([]);
   const [loading, setLoading] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
   const [result, setResult] = useState<CaptureAnalysisResult | null>(null);
   const [activeListingPlatform, setActiveListingPlatform] =
     useState<ListingDraftPlatform>("general");
@@ -580,6 +581,10 @@ ${productSummary}
   };
 
   const saveToInventory = async (afterSave: "stay" | "next" = "stay") => {
+    if (isSaving) {
+      return;
+    }
+
     if (!result) {
       Alert.alert("Nothing to save", "Analyze an item before saving it.");
       return;
@@ -621,6 +626,8 @@ ${productSummary}
     if (!palletId) {
       return;
     }
+
+    setIsSaving(true);
     const baseInventoryItem = buildInventoryItemDraft({
       currentItemId,
       palletId,
@@ -632,31 +639,62 @@ ${productSummary}
       floorPrice: parsedFloorPrice,
     });
 
-    if (currentItemId !== null) {
-      await saveInventoryItem(baseInventoryItem);
-      void triggerInventorySaveFeedback();
-      if (afterSave === "next") {
-        clearAll();
-        void openBarcodeScanner();
+    try {
+      if (currentItemId !== null) {
+        await saveInventoryItem(baseInventoryItem);
+        void triggerInventorySaveFeedback();
+        if (afterSave === "next") {
+          clearAll();
+          void openBarcodeScanner();
+        }
+      } else {
+        const itemsToSave = duplicateInventoryItemDraft(
+          baseInventoryItem,
+          parsedQuantity,
+        );
+        await Promise.all(itemsToSave.map((item) => saveInventoryItem(item)));
+        void triggerInventorySaveFeedback();
+        if (promptToPostOnSave) {
+          promptForListingDestination(itemsToSave[0]);
+        }
+        if (afterSave === "next") {
+          clearAll();
+          void openBarcodeScanner();
+          return;
+        }
+        setCurrentItemId(baseInventoryItem.id);
+        setCurrentItemPalletId(palletId);
       }
-    } else {
-      const itemsToSave = duplicateInventoryItemDraft(
-        baseInventoryItem,
-        parsedQuantity,
+    } catch (error) {
+      Alert.alert(
+        "Save failed",
+        error instanceof Error
+          ? error.message
+          : "The item could not be saved. Try again before moving to the next item.",
       );
-      await Promise.all(itemsToSave.map((item) => saveInventoryItem(item)));
-      void triggerInventorySaveFeedback();
-      if (promptToPostOnSave) {
-        promptForListingDestination(itemsToSave[0]);
-      }
-      if (afterSave === "next") {
-        clearAll();
-        void openBarcodeScanner();
-        return;
-      }
-      setCurrentItemId(baseInventoryItem.id);
-      setCurrentItemPalletId(palletId);
+    } finally {
+      setIsSaving(false);
     }
+  };
+
+  const getSaveAndNextLabel = () => {
+    if (isSaving) {
+      return "Saving...";
+    }
+    if (currentItemId !== null) {
+      return "Update & Next Item";
+    }
+    const quantity = parseQuantity();
+    return quantity && quantity > 1
+      ? `Save ${quantity} Copies & Next`
+      : "Save & Next Item";
+  };
+
+  const getSaveAndStayLabel = () => {
+    if (isSaving) {
+      return "Saving...";
+    }
+    return currentItemId !== null ? "Update and Stay" : "Save and Stay";
   };
 
   const addAnother = () => {
@@ -706,14 +744,19 @@ ${productSummary}
         </View>
 
         <TouchableOpacity
-          style={styles.barcodeBtn}
+          style={[styles.barcodeBtn, (loading || isSaving) && styles.disabledAction]}
+          disabled={loading || isSaving}
           onPress={openBarcodeScanner}
         >
           <Text style={styles.barcodeBtnText}>Open Scanner</Text>
         </TouchableOpacity>
 
         <TouchableOpacity
-          style={styles.manualBarcodeToggle}
+          style={[
+            styles.manualBarcodeToggle,
+            (loading || isSaving) && styles.disabledAction,
+          ]}
+          disabled={loading || isSaving}
           onPress={() => setManualBarcodeVisible((current) => !current)}
         >
           <Text style={styles.manualBarcodeToggleText}>
@@ -738,7 +781,11 @@ ${productSummary}
               keyboardType="numbers-and-punctuation"
             />
             <TouchableOpacity
-              style={styles.manualBarcodeSubmit}
+              style={[
+                styles.manualBarcodeSubmit,
+                (loading || isSaving) && styles.disabledAction,
+              ]}
+              disabled={loading || isSaving}
               onPress={submitManualBarcode}
             >
               <Text style={styles.manualBarcodeSubmitText}>Build Draft</Text>
@@ -793,7 +840,11 @@ ${productSummary}
                 "Take 2-5 photos: front, back, label or model number, accessories, and any visible wear."}
             </Text>
             <TouchableOpacity
-              style={styles.barcodeBtn}
+              style={[
+                styles.barcodeBtn,
+                (loading || isSaving) && styles.disabledAction,
+              ]}
+              disabled={loading || isSaving}
               onPress={() => {
                 void addListingPhoto(result.photo_tips);
               }}
@@ -816,6 +867,7 @@ ${productSummary}
                   <Image source={{ uri: img.uri }} style={styles.thumb} />
                   <TouchableOpacity
                     style={styles.removeBtn}
+                    disabled={loading || isSaving}
                     onPress={() => removePhoto(index)}
                   >
                     <Text style={styles.removeBtnText}>x</Text>
@@ -919,29 +971,23 @@ ${productSummary}
               </View>
 
               <TouchableOpacity
-                style={styles.saveBtn}
+                style={[styles.saveBtn, isSaving && styles.disabledAction]}
+                disabled={isSaving}
                 onPress={() => {
                   void saveToInventory("next");
                 }}
               >
-                <Text style={styles.saveBtnText}>
-                  {currentItemId !== null
-                    ? "Update & Next Item"
-                    : parseQuantity() && parseQuantity()! > 1
-                      ? `Save ${parseQuantity()} Copies & Next`
-                      : "Save & Next Item"}
-                </Text>
+                <Text style={styles.saveBtnText}>{getSaveAndNextLabel()}</Text>
               </TouchableOpacity>
 
               <TouchableOpacity
-                style={styles.stayBtn}
+                style={[styles.stayBtn, isSaving && styles.disabledAction]}
+                disabled={isSaving}
                 onPress={() => {
                   void saveToInventory("stay");
                 }}
               >
-                <Text style={styles.stayBtnText}>
-                  {currentItemId !== null ? "Update and Stay" : "Save and Stay"}
-                </Text>
+                <Text style={styles.stayBtnText}>{getSaveAndStayLabel()}</Text>
               </TouchableOpacity>
 
               {currentItemId !== null && (
@@ -1439,6 +1485,7 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   stayBtnText: { color: AppPalette.text, fontWeight: "600", fontSize: 14 },
+  disabledAction: { opacity: 0.62 },
   addAnotherBtn: {
     borderWidth: 1,
     borderColor: AppPalette.border,
