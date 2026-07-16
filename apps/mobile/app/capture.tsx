@@ -29,6 +29,7 @@ import {
   buildInventoryItemDraft,
   duplicateInventoryItemDraft,
 } from "@/lib/inventory-item-drafts";
+import { createPhotoFallbackDraft } from "@/lib/offline-drafts";
 import {
   getActivePallet,
   saveInventoryItem,
@@ -308,6 +309,23 @@ export default function HomeScreen() {
     if (images.length === 0) return;
     setLoading(true);
     setCurrentItemId(null);
+    if (!API_KEY?.trim()) {
+      const fallbackDraft = createPhotoFallbackDraft();
+      setResult(fallbackDraft);
+      applyParsedListingDrafts(fallbackDraft);
+      setEditablePrice(`${fallbackDraft.low_price}-${fallbackDraft.high_price}`);
+      setEditableFloorPrice(
+        `${fallbackDraft.floor_price ?? fallbackDraft.low_price}`,
+      );
+      setPhotoTipsExpanded(false);
+      setLoading(false);
+      Alert.alert(
+        "Online analysis not configured",
+        "A basic editable draft was created so you can still save this item.",
+      );
+      return;
+    }
+
     try {
       const imageContent = images.map((img) => ({
         type: "image",
@@ -374,8 +392,21 @@ export default function HomeScreen() {
       setPhotoTipsExpanded(false);
       incrementScanCount();
       void triggerAnalysisCompleteFeedback();
-    } catch {
-      alert("Something went wrong. Please try again.");
+    } catch (error) {
+      const fallbackDraft = createPhotoFallbackDraft();
+      setResult(fallbackDraft);
+      applyParsedListingDrafts(fallbackDraft);
+      setEditablePrice(`${fallbackDraft.low_price}-${fallbackDraft.high_price}`);
+      setEditableFloorPrice(
+        `${fallbackDraft.floor_price ?? fallbackDraft.low_price}`,
+      );
+      setPhotoTipsExpanded(false);
+      Alert.alert(
+        "Online analysis unavailable",
+        error instanceof Error
+          ? `${error.message}\n\nA basic editable draft was created so you can still save this item.`
+          : "A basic editable draft was created so you can still save this item.",
+      );
     }
     setLoading(false);
   };

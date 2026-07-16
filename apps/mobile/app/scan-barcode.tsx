@@ -31,6 +31,7 @@ import {
   buildInventoryItemDraft,
   duplicateInventoryItemDraft,
 } from "@/lib/inventory-item-drafts";
+import { createBarcodeFallbackDraft } from "@/lib/offline-drafts";
 import {
   getActivePallet,
   saveInventoryItem,
@@ -137,6 +138,10 @@ export default function HomeScreen() {
   const buildFallbackBarcodeDraft = async (
     barcode: string,
   ): Promise<CaptureAnalysisResult> => {
+    if (!API_KEY?.trim()) {
+      return createBarcodeFallbackDraft(barcode);
+    }
+
     const response = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
       headers: {
@@ -439,6 +444,28 @@ Barcode: ${barcode}
         .filter(Boolean)
         .join("\n");
 
+      if (!API_KEY?.trim()) {
+        const fallbackDraft = createBarcodeFallbackDraft(
+          normalizedBarcode,
+          product,
+        );
+        setImages([]);
+        setBarcodeValue(normalizedBarcode);
+        setProductImageUri(product.images?.[0] ?? null);
+        setResult(fallbackDraft);
+        applyParsedListingDrafts(fallbackDraft);
+        setEditablePrice(`${fallbackDraft.low_price}-${fallbackDraft.high_price}`);
+        setEditableFloorPrice(
+          `${fallbackDraft.floor_price ?? fallbackDraft.low_price}`,
+        );
+        setPhotoTipsExpanded(false);
+        incrementScanCount();
+        void triggerAnalysisCompleteFeedback();
+        promptForListingPhotos(fallbackDraft.photo_tips);
+        setLoading(false);
+        return;
+      }
+
       const response = await fetch("https://api.anthropic.com/v1/messages", {
         method: "POST",
         headers: {
@@ -549,10 +576,25 @@ ${productSummary}
       setPhotoTipsExpanded(false);
       incrementScanCount();
       void triggerAnalysisCompleteFeedback();
-    } catch {
+    } catch (error) {
+      const fallbackDraft = createBarcodeFallbackDraft(barcode);
+      setImages([]);
+      setBarcodeValue(barcode);
+      setProductImageUri(null);
+      setResult(fallbackDraft);
+      applyParsedListingDrafts(fallbackDraft);
+      setEditablePrice(`${fallbackDraft.low_price}-${fallbackDraft.high_price}`);
+      setEditableFloorPrice(
+        `${fallbackDraft.floor_price ?? fallbackDraft.low_price}`,
+      );
+      setPhotoTipsExpanded(false);
+      incrementScanCount();
+      void triggerAnalysisCompleteFeedback();
       Alert.alert(
-        "Couldn't build draft",
-        "We couldn't build a fallback draft from that barcode. Try scanning again or switch to photo capture.",
+        "Online barcode draft unavailable",
+        error instanceof Error
+          ? `${error.message}\n\nA basic editable draft was created so you can still save this item.`
+          : "A basic editable draft was created so you can still save this item.",
       );
     }
 
