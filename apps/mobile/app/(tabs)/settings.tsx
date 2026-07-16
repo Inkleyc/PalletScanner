@@ -14,6 +14,7 @@ import {
 
 import { AppLayout, AppPalette } from "@/constants/app-palette";
 import { AppAlert as Alert } from "@/lib/app-alert";
+import { FREE_SCAN_LIMIT, getAppMeta, subscribeAppMeta } from "@/lib/app-meta";
 import {
   getAppSettings,
   setFacebookSellerNote,
@@ -40,6 +41,12 @@ import {
   openFacebookLogin,
   openFacebookSelling,
 } from "@/lib/facebook-integration";
+import {
+  getResetBackupSummary,
+  resetAllPalletSessions,
+  restoreResetBackup,
+  subscribeInventory,
+} from "@/lib/inventory-store";
 
 export default function SettingsScreen() {
   const { width } = useWindowDimensions();
@@ -62,7 +69,32 @@ export default function SettingsScreen() {
     getSupabaseAuthSnapshot,
     getSupabaseAuthSnapshot,
   );
+  const { lifetimeScans, currentMonthScans } = useSyncExternalStore(
+    subscribeAppMeta,
+    getAppMeta,
+    getAppMeta,
+  );
+  const resetBackup = useSyncExternalStore(
+    subscribeInventory,
+    getResetBackupSummary,
+    getResetBackupSummary,
+  );
   const missingEbayRequirements = ebayStatus?.missingRequirements ?? [];
+  const scanUsageProgress = Math.min(currentMonthScans / FREE_SCAN_LIMIT, 1);
+  const resetBackupTimeLabel = (() => {
+    if (!resetBackup) {
+      return null;
+    }
+
+    const remainingMs = Math.max(resetBackup.expiresAt - Date.now(), 0);
+    const remainingHours = Math.ceil(remainingMs / (60 * 60 * 1000));
+    if (remainingHours >= 24) {
+      const remainingDays = Math.ceil(remainingHours / 24);
+      return `${remainingDays} day${remainingDays === 1 ? "" : "s"} left`;
+    }
+
+    return `${remainingHours} hour${remainingHours === 1 ? "" : "s"} left`;
+  })();
   const ebayStatusLabel = !isEbayApiConfigured()
     ? "Backend not configured"
     : ebayStatusError
@@ -228,6 +260,30 @@ export default function SettingsScreen() {
     );
   };
 
+  const confirmDeleteAppData = () => {
+    Alert.alert(
+      "Delete all data",
+      "This deletes every pallet and inventory item. You can undo it from Settings for up to 3 days.",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Delete",
+          style: "destructive",
+          onPress: () => {
+            resetAllPalletSessions();
+          },
+        },
+      ],
+    );
+  };
+
+  const restoreDeletedAppData = () => {
+    const restored = restoreResetBackup();
+    if (restored) {
+      Alert.alert("Restore complete", "Your deleted pallets and inventory are back.");
+    }
+  };
+
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       <View style={[styles.innerContent, isLargeLayout && styles.innerContentWide]}>
@@ -235,6 +291,25 @@ export default function SettingsScreen() {
         <Text style={styles.subtitle}>
           Connect accounts and choose how posting should work on this device.
         </Text>
+
+        <View style={styles.card}>
+          <Text style={styles.settingTitle}>Scan Usage</Text>
+          <Text style={styles.settingDescription}>
+            Keep an eye on monthly usage while the Pro plan shell is in place.
+          </Text>
+          <Text style={styles.integrationStatus}>
+            {currentMonthScans} / {FREE_SCAN_LIMIT} scans used this month
+          </Text>
+          <View style={styles.progressTrack}>
+            <View
+              style={[
+                styles.progressFill,
+                { width: `${scanUsageProgress * 100}%` },
+              ]}
+            />
+          </View>
+          <Text style={styles.integrationHint}>Lifetime scans: {lifetimeScans}</Text>
+        </View>
 
         <View style={styles.card}>
           <Text style={styles.settingTitle}>eBay Account</Text>
@@ -432,6 +507,42 @@ export default function SettingsScreen() {
             <Text style={styles.primaryBtnText}>Save Facebook Note</Text>
           </TouchableOpacity>
         </View>
+
+        <View style={styles.resetCard}>
+          <Text style={styles.settingTitle}>Delete App Data</Text>
+          <Text style={styles.settingDescription}>
+            Delete all pallets and inventory items on this device. We keep one
+            undo snapshot for 3 days.
+          </Text>
+          {resetBackup ? (
+            <View style={styles.undoBox}>
+              <Text style={styles.undoTitle}>Undo available</Text>
+              <Text style={styles.undoText}>
+                {resetBackup.palletCount} pallet
+                {resetBackup.palletCount === 1 ? "" : "s"} and{" "}
+                {resetBackup.itemCount} item
+                {resetBackup.itemCount === 1 ? "" : "s"} can still be restored.
+              </Text>
+              <Text style={styles.undoMeta}>{resetBackupTimeLabel}</Text>
+              <TouchableOpacity
+                style={styles.secondaryBtn}
+                onPress={restoreDeletedAppData}
+              >
+                <Text style={styles.secondaryBtnText}>Undo Delete</Text>
+              </TouchableOpacity>
+            </View>
+          ) : (
+            <Text style={styles.resetHint}>
+              No delete snapshot is currently available.
+            </Text>
+          )}
+          <TouchableOpacity
+            style={styles.dangerBtn}
+            onPress={confirmDeleteAppData}
+          >
+            <Text style={styles.dangerBtnText}>Delete All Pallets and Items</Text>
+          </TouchableOpacity>
+        </View>
       </View>
     </ScrollView>
   );
@@ -502,6 +613,20 @@ const styles = StyleSheet.create({
     color: AppPalette.dangerStrong,
     lineHeight: 18,
     marginTop: 8,
+  },
+  progressTrack: {
+    marginTop: 12,
+    height: 10,
+    borderRadius: 999,
+    backgroundColor: AppPalette.surfaceMuted,
+    overflow: "hidden",
+    borderWidth: 1,
+    borderColor: AppPalette.border,
+  },
+  progressFill: {
+    height: "100%",
+    backgroundColor: AppPalette.primaryStrong,
+    borderRadius: 999,
   },
   requirementsBox: {
     backgroundColor: AppPalette.surfaceMuted,
@@ -587,6 +712,57 @@ const styles = StyleSheet.create({
   },
   dangerOutlineBtnText: {
     color: AppPalette.dangerStrong,
+    fontSize: 13,
+    fontWeight: "700",
+  },
+  resetCard: {
+    backgroundColor: AppPalette.dangerSoft,
+    borderColor: "#efc0b9",
+    borderRadius: 12,
+    borderWidth: 1,
+    marginBottom: 16,
+    padding: 16,
+  },
+  resetHint: {
+    color: AppPalette.dangerStrong,
+    fontSize: 12,
+    lineHeight: 18,
+    marginTop: 10,
+  },
+  undoBox: {
+    backgroundColor: AppPalette.surface,
+    borderColor: AppPalette.border,
+    borderRadius: 10,
+    borderWidth: 1,
+    marginTop: 12,
+    padding: 12,
+  },
+  undoTitle: {
+    color: AppPalette.text,
+    fontSize: 14,
+    fontWeight: "700",
+    marginBottom: 4,
+  },
+  undoText: {
+    color: AppPalette.textMuted,
+    fontSize: 12,
+    lineHeight: 18,
+  },
+  undoMeta: {
+    color: AppPalette.dangerStrong,
+    fontSize: 12,
+    fontWeight: "700",
+    marginTop: 8,
+  },
+  dangerBtn: {
+    alignItems: "center",
+    backgroundColor: AppPalette.dangerStrong,
+    borderRadius: 8,
+    marginTop: 14,
+    paddingVertical: 12,
+  },
+  dangerBtnText: {
+    color: AppPalette.primaryOn,
     fontSize: 13,
     fontWeight: "700",
   },
