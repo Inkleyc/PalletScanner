@@ -21,7 +21,10 @@ import { AppPalette } from "@/constants/app-palette";
 import { AppAlert as Alert } from "@/lib/app-alert";
 import { incrementScanCount } from "@/lib/app-meta";
 import { getAppSettings, subscribeAppSettings } from "@/lib/app-settings";
-import { lookupBarcodeProduct } from "@/lib/barcode-lookup";
+import {
+  lookupBarcodeProduct,
+  type BarcodeLookupItem,
+} from "@/lib/barcode-lookup";
 import {
   triggerAnalysisCompleteFeedback,
   triggerCopyFeedback,
@@ -397,34 +400,41 @@ export default function BarcodeScanScreen() {
     setLoading(true);
     setCurrentItemId(null);
 
+    let product: BarcodeLookupItem | null = null;
+
     try {
-      const product = await lookupBarcodeProduct(normalizedBarcode);
-      const productSummary = [
-        `Barcode: ${normalizedBarcode}`,
-        product.title ? `Title: ${product.title}` : null,
-        product.brand ? `Brand: ${product.brand}` : null,
-        product.category ? `Category: ${product.category}` : null,
-        product.description ? `Description: ${product.description}` : null,
-      ]
-        .filter(Boolean)
-        .join("\n");
+      product = await lookupBarcodeProduct(normalizedBarcode);
+    } catch {
+      product = null;
+    }
 
-      if (!API_KEY?.trim()) {
-        const fallbackDraft = createBarcodeFallbackDraft(
-          normalizedBarcode,
-          product,
-        );
-        applyAnalysisResult(fallbackDraft, {
-          barcode: normalizedBarcode,
-          productImageUri: product.images?.[0] ?? null,
-          clearImages: true,
-        });
-        incrementScanCount();
-        void triggerAnalysisCompleteFeedback();
-        setLoading(false);
-        return;
-      }
+    const productSummary = [
+      `Barcode: ${normalizedBarcode}`,
+      product?.title ? `Title: ${product.title}` : null,
+      product?.brand ? `Brand: ${product.brand}` : null,
+      product?.category ? `Category: ${product.category}` : null,
+      product?.description ? `Description: ${product.description}` : null,
+    ]
+      .filter(Boolean)
+      .join("\n");
 
+    if (!API_KEY?.trim()) {
+      const fallbackDraft = createBarcodeFallbackDraft(
+        normalizedBarcode,
+        product,
+      );
+      applyAnalysisResult(fallbackDraft, {
+        barcode: normalizedBarcode,
+        productImageUri: product?.images?.[0] ?? null,
+        clearImages: true,
+      });
+      incrementScanCount();
+      void triggerAnalysisCompleteFeedback();
+      setLoading(false);
+      return;
+    }
+
+    try {
       const response = await fetch("https://api.anthropic.com/v1/messages", {
         method: "POST",
         headers: {
@@ -477,22 +487,28 @@ ${productSummary}
       ) as CaptureAnalysisResult;
       applyAnalysisResult(parsed, {
         barcode: normalizedBarcode,
-        productImageUri: product.images?.[0] ?? null,
+        productImageUri: product?.images?.[0] ?? null,
         clearImages: true,
       });
       incrementScanCount();
       void triggerAnalysisCompleteFeedback();
     } catch {
-      const fallbackDraft = createBarcodeFallbackDraft(normalizedBarcode);
+      const fallbackDraft = createBarcodeFallbackDraft(
+        normalizedBarcode,
+        product,
+      );
       applyAnalysisResult(fallbackDraft, {
         barcode: normalizedBarcode,
+        productImageUri: product?.images?.[0] ?? null,
         clearImages: true,
       });
       incrementScanCount();
       void triggerAnalysisCompleteFeedback();
       Alert.alert(
         "Barcode saved as draft",
-        "Product lookup did not return details quickly, so a basic editable draft was created from the barcode.",
+        product
+          ? "AI drafting was unavailable, so a basic editable draft was created from the barcode lookup."
+          : "Product lookup did not return details, so a basic editable draft was created from the barcode.",
       );
     }
 
