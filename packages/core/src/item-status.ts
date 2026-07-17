@@ -35,7 +35,7 @@ const numericPrice = (value: unknown) =>
 export const getInventoryWorkflowStatus = (
   item: InventoryItem,
 ): InventoryWorkflowStatusMeta => {
-  if (item.soldPrice !== null) {
+  if (typeof item.soldPrice === "number" && !Number.isNaN(item.soldPrice)) {
     return { status: "sold", label: "Sold", priority: 70 };
   }
 

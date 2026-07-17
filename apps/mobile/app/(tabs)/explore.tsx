@@ -95,6 +95,24 @@ const displayText = (value: unknown, fallback: string) =>
 const displayNumber = (value: unknown, fallback = 0) =>
   typeof value === "number" && !Number.isNaN(value) ? value : fallback;
 
+const displayId = (value: unknown) =>
+  typeof value === "number" && !Number.isNaN(value)
+    ? value
+    : typeof value === "string" && value.trim().length > 0
+      ? value.trim()
+      : null;
+
+const displayPhotoUri = (value: unknown) =>
+  typeof value === "string" && value.trim().length > 0 ? value.trim() : null;
+
+const displayQuantity = (value: unknown) =>
+  typeof value === "number" && !Number.isNaN(value) && value > 0
+    ? Math.floor(value)
+    : 1;
+
+const displaySoldPrice = (value: unknown) =>
+  typeof value === "number" && !Number.isNaN(value) ? value : null;
+
 export default function InventoryScreen() {
   const { width } = useWindowDimensions();
   const router = useRouter();
@@ -1035,8 +1053,14 @@ ${JSON.stringify(promptItems, null, 2)}`,
           </View>
         )}
 
-        {filteredItems.map((item) => (
-          <View key={item.id} style={styles.itemCard}>
+        {filteredItems.map((item, index) => {
+          const itemKey = displayId(item.id) ?? `item-${index}`;
+          const itemPhotoUri = displayPhotoUri(item.photo);
+          const itemSoldPrice = displaySoldPrice(item.soldPrice);
+          const itemQuantity = displayQuantity(item.quantity);
+
+          return (
+          <View key={itemKey} style={styles.itemCard}>
             {(() => {
               const workflowStatus = getInventoryWorkflowStatus(item);
               return (
@@ -1115,9 +1139,9 @@ ${JSON.stringify(promptItems, null, 2)}`,
               </View>
             )}
             <View style={styles.itemTop}>
-              {item.photo && (
-                <Image source={{ uri: item.photo }} style={styles.itemPhoto} />
-              )}
+              {itemPhotoUri ? (
+                <Image source={{ uri: itemPhotoUri }} style={styles.itemPhoto} />
+              ) : null}
               <View style={styles.itemInfo}>
                 <Text style={styles.itemName}>{displayText(item.name, "Unnamed item")}</Text>
                 <Text style={styles.palletTag}>{getPalletName(item.palletId)}</Text>
@@ -1125,7 +1149,7 @@ ${JSON.stringify(promptItems, null, 2)}`,
                   <Text style={styles.priceBadge}>
                     ${displayNumber(item.low_price)}-${displayNumber(item.high_price)}
                   </Text>
-                  <Text style={styles.quantityBadge}>Qty {item.quantity ?? 1}</Text>
+                  <Text style={styles.quantityBadge}>Qty {itemQuantity}</Text>
                   <Text style={styles.floorBadge}>
                     Floor ${displayNumber(item.floor_price, displayNumber(item.low_price))}
                   </Text>
@@ -1137,8 +1161,8 @@ ${JSON.stringify(promptItems, null, 2)}`,
                   <Text style={styles.platformText}>
                     {displayText(item.best_platform, "Review needed")}
                   </Text>
-                  {typeof item.soldPrice === "number" && !Number.isNaN(item.soldPrice) ? (
-                    <Text style={styles.soldPill}>Sold for ${item.soldPrice}</Text>
+                  {itemSoldPrice !== null ? (
+                    <Text style={styles.soldPill}>Sold for ${itemSoldPrice}</Text>
                   ) : (
                     <Text style={styles.unsoldText}>Not marked sold</Text>
                   )}
@@ -1343,7 +1367,7 @@ ${JSON.stringify(promptItems, null, 2)}`,
                 }
               >
                 <Text style={styles.secondaryActionBtnText}>
-                  {typeof item.soldPrice === "number" && !Number.isNaN(item.soldPrice)
+                  {itemSoldPrice !== null
                     ? "Edit Sold Price"
                     : "Mark Sold"}
                 </Text>
@@ -1377,7 +1401,7 @@ ${JSON.stringify(promptItems, null, 2)}`,
                     onPress={() => saveSoldPrice(item)}
                   >
                     <Text style={styles.saveSoldBtnText}>
-                      {typeof item.soldPrice === "number" && !Number.isNaN(item.soldPrice)
+                      {itemSoldPrice !== null
                         ? "Update"
                         : "Save"}
                     </Text>
@@ -1392,7 +1416,8 @@ ${JSON.stringify(promptItems, null, 2)}`,
               </View>
             )}
           </View>
-        ))}
+          );
+        })}
         </View>
       </ScrollView>
       <Modal
