@@ -70,6 +70,24 @@ const LOADING_MESSAGES = [
 const MAX_LISTING_PHOTOS = 5;
 const RECOMMENDED_LISTING_PHOTOS = 3;
 
+const getAnalysisResponseText = async (response: Response) => {
+  const bodyText = await response.text();
+  if (!response.ok) {
+    const detail = bodyText.trim()
+      ? ` Claude returned ${response.status}: ${bodyText.slice(0, 240)}`
+      : ` Claude returned ${response.status}.`;
+    throw new Error(`Online analysis request failed.${detail}`);
+  }
+
+  const data = JSON.parse(bodyText);
+  const text = data?.content?.[0]?.text;
+  if (typeof text !== "string" || text.trim().length === 0) {
+    throw new Error("Claude returned an empty analysis response.");
+  }
+
+  return text;
+};
+
 export default function BarcodeScanScreen() {
   const router = useRouter();
   const [images, setImages] = useState<ImageAssetLike[]>([]);
@@ -154,7 +172,9 @@ export default function BarcodeScanScreen() {
 
   const removePhoto = (index: number) => {
     setImages((prev) => prev.filter((_, i) => i !== index));
-    setResult(null);
+    if (!barcodeValue) {
+      setResult(null);
+    }
   };
 
   const clearAll = () => {
@@ -287,7 +307,26 @@ export default function BarcodeScanScreen() {
     }
 
     try {
-      const imageContent = images.map((img) => ({
+      const imagesWithBase64 = images.filter(
+        (img) => typeof img.base64 === "string" && img.base64.trim().length > 0,
+      );
+      if (imagesWithBase64.length === 0) {
+        throw new Error(
+          "The selected photo did not include image data for analysis. Take the photo again or upload it from the library.",
+        );
+      }
+
+      const existingDraftContext = result
+        ? `Current barcode draft:
+Barcode: ${barcodeValue || "none"}
+Name: ${result.name}
+Description: ${result.description}
+Condition: ${result.condition}
+Price range: ${result.low_price}-${result.high_price}
+Platform: ${result.best_platform}`
+        : "No barcode draft exists yet. Use the photos as the primary source.";
+
+      const imageContent = imagesWithBase64.map((img) => ({
         type: "image",
         source: {
           type: "base64",
@@ -313,7 +352,11 @@ export default function BarcodeScanScreen() {
                 ...imageContent,
                 {
                   type: "text",
-                  text: `You are a resale expert. I am showing you ${images.length} photo(s) of the same item. Analyze it like a reseller preparing to list it online. For pricing, estimate a realistic low_price and high_price by checking the item against current eBay and Facebook Marketplace listings for identical or very similar items whenever that market context is available to you. Favor recent sold or active comparable listings, adjust for condition, brand, completeness, and visible wear, and make sure the suggested price range follows the real market rather than a generic guess. Also provide a floor_price, meaning the lowest reasonable price a seller should accept before walking away during negotiation. Include practical photo tips, 2-3 short web image search queries that would help the user find example listing photos, and a sellability score based on condition, estimated demand, and effort versus return. Also write platform-specific listing copy for Facebook Marketplace and eBay. eBay titles should be keyword-heavy and concise; Facebook copy should sound a little more casual and local-buyer friendly. Then respond ONLY with raw JSON, no markdown:
+                  text: `You are a resale expert. I am showing you ${images.length} photo(s) of the same item.
+
+${existingDraftContext}
+
+If a barcode draft exists, use it as product identity context and use the photos to improve condition, completeness, accessories, damage notes, pricing confidence, sellability, and listing copy. Do not replace a specific product name with a vague one unless the photos clearly contradict the barcode draft. If no barcode draft exists, analyze the photos like a reseller preparing to list the item online. For pricing, estimate a realistic low_price and high_price by checking the item against current eBay and Facebook Marketplace listings for identical or very similar items whenever that market context is available to you. Favor recent sold or active comparable listings, adjust for condition, brand, completeness, and visible wear, and make sure the suggested price range follows the real market rather than a generic guess. Also provide a floor_price, meaning the lowest reasonable price a seller should accept before walking away during negotiation. Include practical photo tips, 2-3 short web image search queries that would help the user find example listing photos, and a sellability score based on condition, estimated demand, and effort versus return. Also write platform-specific listing copy for Facebook Marketplace and eBay. eBay titles should be keyword-heavy and concise; Facebook copy should sound a little more casual and local-buyer friendly. Then respond ONLY with raw JSON, no markdown:
 {
   "name": "item name",
   "description": "1-2 sentence description",
@@ -340,22 +383,29 @@ export default function BarcodeScanScreen() {
           ],
         }),
       });
-      const data = await response.json();
-      const text = data.content[0].text;
+      const text = await getAnalysisResponseText(response);
       const parsed = JSON.parse(
         text.replace(/```json|```/g, "").trim(),
       ) as CaptureAnalysisResult;
-      applyAnalysisResult(parsed);
+      applyAnalysisResult(parsed, {
+        barcode: barcodeValue,
+        productImageUri,
+      });
       incrementScanCount();
       void triggerAnalysisCompleteFeedback();
     } catch (error) {
-      const fallbackDraft = createPhotoFallbackDraft();
-      applyAnalysisResult(fallbackDraft);
+      if (!result) {
+        const fallbackDraft = createPhotoFallbackDraft();
+        applyAnalysisResult(fallbackDraft, {
+          barcode: barcodeValue,
+          productImageUri,
+        });
+      }
       Alert.alert(
-        "Online analysis unavailable",
+        "Photo draft update unavailable",
         error instanceof Error
-          ? `${error.message}\n\nA basic editable draft was created so you can still save this item.`
-          : "A basic editable draft was created so you can still save this item.",
+          ? `${error.message}\n\nThe current draft is still editable, but the photos did not update it.`
+          : "The current draft is still editable, but the photos did not update it.",
       );
     }
     setLoading(false);
@@ -480,8 +530,7 @@ ${productSummary}
           ],
         }),
       });
-      const data = await response.json();
-      const text = data.content[0].text;
+      const text = await getAnalysisResponseText(response);
       const parsed = JSON.parse(
         text.replace(/```json|```/g, "").trim(),
       ) as CaptureAnalysisResult;
@@ -724,6 +773,13 @@ ${productSummary}
     clearAll();
   };
 
+  const getPhotoAnalysisLabel = () => {
+    if (result) {
+      return "Update Draft From Photos";
+    }
+    return barcodeValue ? "Analyze Photos" : "Analyze Item";
+  };
+
   const closeScannerFlow = () => {
     resetBarcodeScanState();
     if (router.canDismiss()) {
@@ -916,7 +972,7 @@ ${productSummary}
         {images.length > 0 && !loading && !isSaving && (
           <View style={styles.actionRow}>
             <TouchableOpacity style={styles.analyzeBtn} onPress={analyzeImage}>
-              <Text style={styles.analyzeBtnText}>Analyze Item</Text>
+              <Text style={styles.analyzeBtnText}>{getPhotoAnalysisLabel()}</Text>
             </TouchableOpacity>
             <TouchableOpacity style={styles.clearBtn} onPress={clearAll}>
               <Text style={styles.clearBtnText}>Clear</Text>
