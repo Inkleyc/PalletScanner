@@ -6,6 +6,7 @@ import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import {
   Image,
   KeyboardAvoidingView,
+  Modal,
   Platform,
   ScrollView,
   StyleSheet,
@@ -103,6 +104,7 @@ export default function BarcodeScanScreen() {
   const [manualBarcodeDraft, setManualBarcodeDraft] = useState("");
   const [manualBarcodeVisible, setManualBarcodeVisible] = useState(false);
   const [hasScannedBarcode, setHasScannedBarcode] = useState(false);
+  const [scannerTroubleVisible, setScannerTroubleVisible] = useState(false);
   const [cameraPermission, requestCameraPermission] = useCameraPermissions();
   const barcodeScanLock = useRef(false);
   const autoOpenedBarcodeMode = useRef(false);
@@ -183,6 +185,7 @@ export default function BarcodeScanScreen() {
     setListingPhotoActionStatus("");
     setManualBarcodeDraft("");
     setManualBarcodeVisible(false);
+    setScannerTroubleVisible(false);
     resetBarcodeScanState();
     setCurrentItemId(null);
     setCurrentItemPalletId(null);
@@ -476,26 +479,7 @@ If a barcode draft exists, use it as product identity context and use the photos
 
   const promptForScannerTrouble = () => {
     resetBarcodeScanState();
-    Alert.alert(
-      "Scanner had a hard time",
-      "The barcode was not captured. Try scanning again, or switch to photos so Claude can identify the item from the product and label.",
-      [
-        {
-          text: "Scan Again",
-          onPress: () => {
-            void openBarcodeScanner();
-          },
-        },
-        {
-          text: "Use Photos",
-          onPress: () => {
-            setManualBarcodeVisible(false);
-            void addListingPhoto();
-          },
-        },
-        { text: "Cancel", style: "cancel" },
-      ],
-    );
+    setScannerTroubleVisible(true);
   };
 
   const analyzeBarcode = async (barcode: string) => {
@@ -641,6 +625,7 @@ ${productSummary}
     }
 
     try {
+      setScannerTroubleVisible(false);
       resetBarcodeScanState();
       setManualBarcodeVisible(false);
       setScannerOpen(true);
@@ -664,6 +649,7 @@ ${productSummary}
 
     resetBarcodeScanState();
     setManualBarcodeVisible(false);
+    setScannerTroubleVisible(false);
     void analyzeBarcode(normalizedBarcode);
   };
 
@@ -699,6 +685,7 @@ ${productSummary}
     barcodeScanLock.current = true;
     setHasScannedBarcode(true);
     setScannerOpen(false);
+    setScannerTroubleVisible(false);
     void analyzeBarcode(data);
   };
 
@@ -974,6 +961,51 @@ ${productSummary}
         {barcodeValue ? (
           <Text style={styles.barcodeStatus}>Barcode: {barcodeValue}</Text>
         ) : null}
+
+        <Modal
+          visible={scannerTroubleVisible}
+          transparent
+          animationType="fade"
+          onRequestClose={() => setScannerTroubleVisible(false)}
+        >
+          <View style={styles.scannerTroubleBackdrop}>
+            <View style={styles.scannerTroubleDialog}>
+              <Text style={styles.scannerTroubleTitle}>
+                Scanner had a hard time
+              </Text>
+              <Text style={styles.scannerTroubleCopy}>
+                The barcode was not captured. Try scanning again, or switch to
+                photos so Claude can identify the item from the product and
+                label.
+              </Text>
+              <TouchableOpacity
+                style={styles.scannerTroublePrimary}
+                onPress={() => {
+                  setScannerTroubleVisible(false);
+                  void openBarcodeScanner();
+                }}
+              >
+                <Text style={styles.scannerTroublePrimaryText}>Scan Again</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.scannerTroubleSecondary}
+                onPress={() => {
+                  setScannerTroubleVisible(false);
+                  setManualBarcodeVisible(false);
+                  void addListingPhoto();
+                }}
+              >
+                <Text style={styles.scannerTroubleSecondaryText}>Use Photos</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.scannerTroubleCancel}
+                onPress={() => setScannerTroubleVisible(false)}
+              >
+                <Text style={styles.scannerTroubleCancelText}>Cancel</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </Modal>
 
         {result && images.length < MAX_LISTING_PHOTOS ? (
           <View style={styles.nextStepCard}>
@@ -1404,6 +1436,66 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   closeScannerBtnText: { color: AppPalette.text, fontWeight: "600", fontSize: 13 },
+  scannerTroubleBackdrop: {
+    flex: 1,
+    backgroundColor: AppPalette.modalBackdrop,
+    justifyContent: "center",
+    padding: 20,
+  },
+  scannerTroubleDialog: {
+    backgroundColor: AppPalette.surface,
+    borderColor: AppPalette.border,
+    borderRadius: 10,
+    borderWidth: 1,
+    padding: 18,
+  },
+  scannerTroubleTitle: {
+    color: AppPalette.text,
+    fontSize: 20,
+    fontWeight: "700",
+    marginBottom: 8,
+  },
+  scannerTroubleCopy: {
+    color: AppPalette.textMuted,
+    fontSize: 14,
+    lineHeight: 20,
+    marginBottom: 14,
+  },
+  scannerTroublePrimary: {
+    alignItems: "center",
+    backgroundColor: AppPalette.primaryStrong,
+    borderRadius: 10,
+    marginBottom: 8,
+    paddingVertical: 12,
+  },
+  scannerTroublePrimaryText: {
+    color: AppPalette.primaryOn,
+    fontSize: 14,
+    fontWeight: "700",
+  },
+  scannerTroubleSecondary: {
+    alignItems: "center",
+    backgroundColor: AppPalette.surfaceMuted,
+    borderColor: AppPalette.border,
+    borderRadius: 10,
+    borderWidth: 1,
+    marginBottom: 8,
+    paddingVertical: 12,
+  },
+  scannerTroubleSecondaryText: {
+    color: AppPalette.text,
+    fontSize: 14,
+    fontWeight: "700",
+  },
+  scannerTroubleCancel: {
+    alignItems: "center",
+    paddingVertical: 10,
+  },
+  scannerTroubleCancelText: {
+    color: AppPalette.textMuted,
+    fontSize: 14,
+    fontWeight: "700",
+  },
   barcodeStatus: {
     fontSize: 13,
     color: AppPalette.info,
