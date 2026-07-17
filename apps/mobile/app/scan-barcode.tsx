@@ -474,6 +474,30 @@ If a barcode draft exists, use it as product identity context and use the photos
     );
   };
 
+  const promptForScannerTrouble = () => {
+    resetBarcodeScanState();
+    Alert.alert(
+      "Scanner had a hard time",
+      "The barcode was not captured. Try scanning again, or switch to photos so Claude can identify the item from the product and label.",
+      [
+        {
+          text: "Scan Again",
+          onPress: () => {
+            void openBarcodeScanner();
+          },
+        },
+        {
+          text: "Use Photos",
+          onPress: () => {
+            setManualBarcodeVisible(false);
+            void addListingPhoto();
+          },
+        },
+        { text: "Cancel", style: "cancel" },
+      ],
+    );
+  };
+
   const analyzeBarcode = async (barcode: string) => {
     const normalizedBarcode = sanitizeBarcodeValue(barcode);
     if (!normalizedBarcode) {
@@ -939,7 +963,7 @@ ${productSummary}
               </Text>
               <TouchableOpacity
                 style={styles.closeScannerBtn}
-                onPress={resetBarcodeScanState}
+                onPress={promptForScannerTrouble}
               >
                 <Text style={styles.closeScannerBtnText}>Cancel Scanner</Text>
               </TouchableOpacity>
