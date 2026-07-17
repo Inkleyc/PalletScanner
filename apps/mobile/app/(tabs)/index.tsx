@@ -138,7 +138,7 @@ export default function HomeScreen() {
 
             <TouchableOpacity
               style={styles.workflowAction}
-              onPress={() => router.push("/(tabs)/explore")}
+              onPress={() => router.push("/explore")}
             >
               <Text style={styles.workflowTitle}>Review Inventory</Text>
               <Text style={styles.workflowCopy}>

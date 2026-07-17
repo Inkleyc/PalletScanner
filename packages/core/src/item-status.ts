@@ -17,7 +17,9 @@ export type InventoryWorkflowStatusMeta = {
 };
 
 const hasUsableListingCopy = (item: InventoryItem) =>
+  typeof item.listing_title === "string" &&
   item.listing_title.trim().length > 0 &&
+  typeof item.listing_description === "string" &&
   item.listing_description.trim().length > 0;
 
 export const getInventoryWorkflowStatus = (
@@ -47,7 +49,10 @@ export const getInventoryWorkflowStatus = (
     return { status: "needs_review", label: "Needs Review", priority: 30 };
   }
 
-  if (item.best_platform.trim().length === 0) {
+  if (
+    typeof item.best_platform !== "string" ||
+    item.best_platform.trim().length === 0
+  ) {
     return { status: "captured", label: "Captured", priority: 10 };
   }
 

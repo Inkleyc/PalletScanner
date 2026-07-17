@@ -45,8 +45,17 @@ const formatPalletName = (createdAt: number, sequence: number) => {
   return `P${palletNumber}-${month}/${year}`;
 };
 
+const coerceText = (value: unknown, fallback = "") =>
+  typeof value === "string" && value.trim().length > 0
+    ? value.trim()
+    : fallback;
+
+const coerceNumber = (value: unknown, fallback = 0) =>
+  typeof value === "number" && !Number.isNaN(value) ? value : fallback;
+
 const normalizeInventoryItem = (item: InventoryItem): InventoryItem => ({
   ...item,
+  photo: typeof item.photo === "string" && item.photo.trim() ? item.photo.trim() : null,
   photos: Array.isArray(item.photos)
     ? item.photos.filter(
         (photo): photo is string =>
@@ -59,11 +68,26 @@ const normalizeInventoryItem = (item: InventoryItem): InventoryItem => ({
     typeof item.quantity === "number" && !Number.isNaN(item.quantity) && item.quantity > 0
       ? Math.floor(item.quantity)
       : 1,
+  name: coerceText(item.name, "Unnamed item"),
+  condition: coerceText(item.condition, "Unknown"),
+  low_price: coerceNumber(item.low_price, 0),
+  high_price: coerceNumber(item.high_price, coerceNumber(item.low_price, 0)),
   floor_price:
     typeof item.floor_price === "number" && !Number.isNaN(item.floor_price)
       ? item.floor_price
-      : item.low_price,
-  listedPlatforms: Array.isArray(item.listedPlatforms) ? item.listedPlatforms : [],
+      : coerceNumber(item.low_price, 0),
+  best_platform: coerceText(item.best_platform, "Review needed"),
+  listing_title: coerceText(item.listing_title, coerceText(item.name, "Unnamed item")),
+  listing_description: coerceText(
+    item.listing_description,
+    "Review this saved inventory item before listing.",
+  ),
+  listedPlatforms: Array.isArray(item.listedPlatforms)
+    ? item.listedPlatforms.filter(
+        (platform): platform is "facebook" | "ebay" =>
+          platform === "facebook" || platform === "ebay",
+      )
+    : [],
   palletId:
     typeof item.palletId === "string" && item.palletId.trim()
       ? item.palletId.trim()
