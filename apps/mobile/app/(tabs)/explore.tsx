@@ -45,6 +45,10 @@ import {
 } from "@/lib/posting-validation";
 import { AppLayout, AppPalette } from "@/constants/app-palette";
 import {
+  ANTHROPIC_MODEL,
+  readAnthropicMessageText,
+} from "@/lib/anthropic";
+import {
   filterInventoryItems,
   getFacebookDraftItems,
   getFacebookMissingUrlItems,
@@ -624,7 +628,7 @@ export default function InventoryScreen() {
           "anthropic-version": "2023-06-01",
         } as HeadersInit,
         body: JSON.stringify({
-          model: "claude-sonnet-4-20250514",
+          model: ANTHROPIC_MODEL,
           max_tokens: 1000,
           messages: [
             {
@@ -653,8 +657,7 @@ ${JSON.stringify(promptItems, null, 2)}`,
         }),
       });
 
-      const data = await response.json();
-      const text = data.content[0].text;
+      const text = await readAnthropicMessageText(response);
       const parsed = JSON.parse(text.replace(/```json|```/g, "").trim());
       const bundles = Array.isArray(parsed.bundles) ? parsed.bundles : [];
       setBundleSuggestions(bundles);

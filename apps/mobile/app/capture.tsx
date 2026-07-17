@@ -17,6 +17,10 @@ import {
 import { LoadingStatus } from "@/components/loading-status";
 import { PhotoReferenceCards } from "@/components/photo-reference-cards";
 import { AppPalette } from "@/constants/app-palette";
+import {
+  ANTHROPIC_MODEL,
+  readAnthropicMessageText,
+} from "@/lib/anthropic";
 import { AppAlert as Alert } from "@/lib/app-alert";
 import { incrementScanCount } from "@/lib/app-meta";
 import { getAppSettings, subscribeAppSettings } from "@/lib/app-settings";
@@ -30,7 +34,6 @@ import {
   duplicateInventoryItemDraft,
   type ImageAssetLike,
 } from "@/lib/inventory-item-drafts";
-import { createPhotoFallbackDraft } from "@/lib/offline-drafts";
 import {
   getActivePallet,
   saveInventoryItem,
@@ -60,18 +63,6 @@ const LOADING_MESSAGES = [
 ];
 const MAX_LISTING_PHOTOS = 5;
 const RECOMMENDED_LISTING_PHOTOS = 3;
-
-const getAnalysisErrorMessage = async (response: Response) => {
-  const bodyText = await response.text();
-  if (response.ok) {
-    return bodyText;
-  }
-
-  const detail = bodyText.trim()
-    ? ` Claude returned ${response.status}: ${bodyText.slice(0, 240)}`
-    : ` Claude returned ${response.status}.`;
-  throw new Error(`Online analysis request failed.${detail}`);
-};
 
 export default function CaptureScreen() {
   const router = useRouter();
@@ -330,12 +321,10 @@ export default function CaptureScreen() {
     setLoading(true);
     setCurrentItemId(null);
     if (!API_KEY?.trim()) {
-      const fallbackDraft = createPhotoFallbackDraft();
-      applyAnalysisResult(fallbackDraft);
       setLoading(false);
       Alert.alert(
         "Online analysis not configured",
-        "A basic editable draft was created so you can still save this item.",
+        "Claude photo analysis needs EXPO_PUBLIC_ANTHROPIC_API_KEY. Your photos are still here, but no draft was created.",
       );
       return;
     }
@@ -367,7 +356,7 @@ export default function CaptureScreen() {
           "anthropic-version": "2023-06-01",
         } as HeadersInit,
         body: JSON.stringify({
-          model: "claude-sonnet-4-20250514",
+          model: ANTHROPIC_MODEL,
           max_tokens: 1000,
           messages: [
             {
@@ -403,12 +392,7 @@ export default function CaptureScreen() {
           ],
         }),
       });
-      const bodyText = await getAnalysisErrorMessage(response);
-      const data = JSON.parse(bodyText);
-      const text = data?.content?.[0]?.text;
-      if (typeof text !== "string" || text.trim().length === 0) {
-        throw new Error("Claude returned an empty analysis response.");
-      }
+      const text = await readAnthropicMessageText(response);
       const parsed = JSON.parse(
         text.replace(/```json|```/g, "").trim(),
       ) as CaptureAnalysisResult;
@@ -416,13 +400,11 @@ export default function CaptureScreen() {
       incrementScanCount();
       void triggerAnalysisCompleteFeedback();
     } catch (error) {
-      const fallbackDraft = createPhotoFallbackDraft();
-      applyAnalysisResult(fallbackDraft);
       Alert.alert(
         "Claude photo analysis unavailable",
         error instanceof Error
-          ? `${error.message}\n\nThe app created a basic editable draft, but this means the Claude photo analysis did not complete.`
-          : "The app created a basic editable draft, but this means the Claude photo analysis did not complete.",
+          ? `${error.message}\n\nYour photos are still here. Try again, or use barcode scan/manual entry for this item.`
+          : "Your photos are still here. Try again, or use barcode scan/manual entry for this item.",
       );
     }
     setLoading(false);

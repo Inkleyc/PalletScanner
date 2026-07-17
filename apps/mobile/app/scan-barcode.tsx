@@ -18,6 +18,10 @@ import {
 import { LoadingStatus } from "@/components/loading-status";
 import { PhotoReferenceCards } from "@/components/photo-reference-cards";
 import { AppPalette } from "@/constants/app-palette";
+import {
+  ANTHROPIC_MODEL,
+  readAnthropicMessageText,
+} from "@/lib/anthropic";
 import { AppAlert as Alert } from "@/lib/app-alert";
 import { incrementScanCount } from "@/lib/app-meta";
 import { getAppSettings, subscribeAppSettings } from "@/lib/app-settings";
@@ -69,24 +73,6 @@ const LOADING_MESSAGES = [
 ];
 const MAX_LISTING_PHOTOS = 5;
 const RECOMMENDED_LISTING_PHOTOS = 3;
-
-const getAnalysisResponseText = async (response: Response) => {
-  const bodyText = await response.text();
-  if (!response.ok) {
-    const detail = bodyText.trim()
-      ? ` Claude returned ${response.status}: ${bodyText.slice(0, 240)}`
-      : ` Claude returned ${response.status}.`;
-    throw new Error(`Online analysis request failed.${detail}`);
-  }
-
-  const data = JSON.parse(bodyText);
-  const text = data?.content?.[0]?.text;
-  if (typeof text !== "string" || text.trim().length === 0) {
-    throw new Error("Claude returned an empty analysis response.");
-  }
-
-  return text;
-};
 
 export default function BarcodeScanScreen() {
   const router = useRouter();
@@ -343,7 +329,7 @@ Platform: ${result.best_platform}`
           "anthropic-version": "2023-06-01",
         } as HeadersInit,
         body: JSON.stringify({
-          model: "claude-sonnet-4-20250514",
+          model: ANTHROPIC_MODEL,
           max_tokens: 1000,
           messages: [
             {
@@ -383,7 +369,7 @@ If a barcode draft exists, use it as product identity context and use the photos
           ],
         }),
       });
-      const text = await getAnalysisResponseText(response);
+      const text = await readAnthropicMessageText(response);
       const parsed = JSON.parse(
         text.replace(/```json|```/g, "").trim(),
       ) as CaptureAnalysisResult;
@@ -493,7 +479,7 @@ If a barcode draft exists, use it as product identity context and use the photos
           "anthropic-version": "2023-06-01",
         } as HeadersInit,
         body: JSON.stringify({
-          model: "claude-sonnet-4-20250514",
+          model: ANTHROPIC_MODEL,
           max_tokens: 1000,
           messages: [
             {
@@ -530,7 +516,7 @@ ${productSummary}
           ],
         }),
       });
-      const text = await getAnalysisResponseText(response);
+      const text = await readAnthropicMessageText(response);
       const parsed = JSON.parse(
         text.replace(/```json|```/g, "").trim(),
       ) as CaptureAnalysisResult;
