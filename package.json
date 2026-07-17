@@ -26,7 +26,8 @@
     "mobile:build:android-preview": "npm run build:android-preview -w @palletscanner/mobile",
     "mobile:build:ios-preview": "npm run build:ios-preview -w @palletscanner/mobile",
     "mobile:build:development": "npm run build:development -w @palletscanner/mobile",
-    "check": "npm run lint && npm run web:export && npm run dashboard:check && npm run server:check && npm run core:typecheck && npm run api-client:typecheck",
+    "check": "npm run lint && npm run mobile:typecheck && npm run web:export && npm run dashboard:check && npm run server:check && npm run core:typecheck && npm run api-client:typecheck",
+    "mobile:typecheck": "npm run typecheck -w @palletscanner/mobile",
     "core:typecheck": "npm run typecheck -w @palletscanner/core",
     "api-client:typecheck": "npm run typecheck -w @palletscanner/api-client"
   }

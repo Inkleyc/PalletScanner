@@ -10,6 +10,7 @@
     "ios": "expo start --ios",
     "web": "expo start --web",
     "lint": "expo lint",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
     "supabase:app-check": "node ./scripts/check-supabase-app-env.mjs",
     "web:export": "expo export --platform web",
     "web:deploy": "eas deploy --environment preview --non-interactive",

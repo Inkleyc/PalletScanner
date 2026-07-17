@@ -162,6 +162,8 @@ export default function InventoryScreen() {
       : pallets.find((pallet) => pallet.id === selectedPalletId) ?? null;
   const activePallet =
     pallets.find((pallet) => pallet.id === activePalletId) ?? null;
+  const getPalletName = (palletId: string) =>
+    pallets.find((pallet) => pallet.id === palletId)?.name ?? "Unknown pallet";
   const filterOptions = useMemo(
     () => ({
       selectedPalletId,
@@ -1058,6 +1060,8 @@ ${JSON.stringify(promptItems, null, 2)}`,
           const itemPhotoUri = displayPhotoUri(item.photo);
           const itemSoldPrice = displaySoldPrice(item.soldPrice);
           const itemQuantity = displayQuantity(item.quantity);
+          const facebookListingUrl = displayPhotoUri(item.facebookListingUrl);
+          const ebayListingUrl = displayPhotoUri(item.ebayListingUrl);
 
           return (
           <View key={itemKey} style={styles.itemCard}>
@@ -1261,13 +1265,13 @@ ${JSON.stringify(promptItems, null, 2)}`,
                 ) : null}
                 {(hasListedPlatform(item, "facebook") ||
                   item.facebookStatus === "opened" ||
-                  item.facebookListingUrl) ? (
+                  facebookListingUrl) ? (
                   <View style={styles.facebookUrlActions}>
-                    {item.facebookListingUrl ? (
+                    {facebookListingUrl ? (
                       <TouchableOpacity
                         style={styles.viewFacebookBtn}
                         onPress={() => {
-                          void Linking.openURL(item.facebookListingUrl);
+                          void Linking.openURL(facebookListingUrl);
                         }}
                       >
                         <Text style={styles.viewFacebookBtnText}>
@@ -1284,7 +1288,7 @@ ${JSON.stringify(promptItems, null, 2)}`,
                       }
                     >
                       <Text style={styles.facebookUrlBtnText}>
-                        {item.facebookListingUrl
+                        {facebookListingUrl
                           ? "Edit Facebook URL"
                           : "Add Facebook URL"}
                       </Text>
@@ -1337,11 +1341,11 @@ ${JSON.stringify(promptItems, null, 2)}`,
                     {item.facebookLastError}
                   </Text>
                 ) : null}
-                {item.ebayListingUrl ? (
+                {ebayListingUrl ? (
                   <TouchableOpacity
                     style={styles.viewEbayBtn}
                     onPress={() => {
-                      void Linking.openURL(item.ebayListingUrl);
+                      void Linking.openURL(ebayListingUrl);
                     }}
                   >
                     <Text style={styles.viewEbayBtnText}>View on eBay</Text>

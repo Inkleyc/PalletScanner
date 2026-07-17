@@ -74,6 +74,11 @@ const LOADING_MESSAGES = [
 const MAX_LISTING_PHOTOS = 5;
 const RECOMMENDED_LISTING_PHOTOS = 3;
 
+const getImageUri = (image: ImageAssetLike) =>
+  typeof image.uri === "string" && image.uri.trim().length > 0
+    ? image.uri
+    : null;
+
 export default function BarcodeScanScreen() {
   const router = useRouter();
   const [images, setImages] = useState<ImageAssetLike[]>([]);
@@ -936,18 +941,23 @@ ${productSummary}
         {images.length > 0 && (
           <View style={styles.photoStrip}>
             <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-              {images.map((img, index) => (
-                <View key={index} style={styles.thumbContainer}>
-                  <Image source={{ uri: img.uri }} style={styles.thumb} />
-                  <TouchableOpacity
-                    style={styles.removeBtn}
-                    disabled={loading || isSaving}
-                    onPress={() => removePhoto(index)}
-                  >
-                    <Text style={styles.removeBtnText}>x</Text>
-                  </TouchableOpacity>
-                </View>
-              ))}
+              {images.map((img, index) => {
+                const imageUri = getImageUri(img);
+                return (
+                  <View key={index} style={styles.thumbContainer}>
+                    {imageUri ? (
+                      <Image source={{ uri: imageUri }} style={styles.thumb} />
+                    ) : null}
+                    <TouchableOpacity
+                      style={styles.removeBtn}
+                      disabled={loading || isSaving}
+                      onPress={() => removePhoto(index)}
+                    >
+                      <Text style={styles.removeBtnText}>x</Text>
+                    </TouchableOpacity>
+                  </View>
+                );
+              })}
             </ScrollView>
             <Text style={styles.photoCount}>
               {images.length} of {MAX_LISTING_PHOTOS} photos added

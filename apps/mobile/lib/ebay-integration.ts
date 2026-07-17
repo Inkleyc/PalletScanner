@@ -10,6 +10,8 @@ import type { InventoryItem } from "@/lib/inventory-store";
 import { getRuntimeBearerToken } from "@/lib/app-auth";
 import { browserUriToDataUri } from "@/lib/web-storage";
 
+export type { EbayConnectionStatus } from "@palletscanner/api-client";
+
 const EBAY_API_BASE_URL = process.env.EXPO_PUBLIC_EBAY_API_BASE_URL ?? "";
 const APP_AUTH_TOKEN = process.env.EXPO_PUBLIC_PALLETSCANNER_AUTH_TOKEN ?? "";
 
