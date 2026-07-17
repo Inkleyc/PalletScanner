@@ -19,14 +19,8 @@ export default function RootLayout() {
         <Stack.Screen name="index" options={{ headerShown: false }} />
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
         <Stack.Screen name="onboarding" options={{ headerShown: false }} />
-        <Stack.Screen
-          name="capture"
-          options={{ presentation: "modal", headerShown: false }}
-        />
-        <Stack.Screen
-          name="scan-barcode"
-          options={{ presentation: "modal", headerShown: false }}
-        />
+        <Stack.Screen name="capture" options={{ headerShown: false }} />
+        <Stack.Screen name="scan-barcode" options={{ headerShown: false }} />
         <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
       </Stack>
       <AppAlertHost />

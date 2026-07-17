@@ -824,11 +824,8 @@ ${productSummary}
 
   const closeScannerFlow = () => {
     resetBarcodeScanState();
-    if (router.canDismiss()) {
-      router.dismiss();
-      return;
-    }
-    router.replace("/");
+    setScannerTroubleVisible(false);
+    router.replace("/(tabs)");
   };
 
   return (

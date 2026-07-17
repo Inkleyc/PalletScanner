@@ -570,11 +570,7 @@ export default function CaptureScreen() {
 
   const closeCapture = () => {
     setCameraActionStatus("");
-    if (router.canDismiss()) {
-      router.dismiss();
-      return;
-    }
-    router.replace("/");
+    router.replace("/(tabs)");
   };
 
   return (
