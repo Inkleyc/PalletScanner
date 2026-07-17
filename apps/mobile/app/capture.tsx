@@ -61,6 +61,18 @@ const LOADING_MESSAGES = [
 const MAX_LISTING_PHOTOS = 5;
 const RECOMMENDED_LISTING_PHOTOS = 3;
 
+const getAnalysisErrorMessage = async (response: Response) => {
+  const bodyText = await response.text();
+  if (response.ok) {
+    return bodyText;
+  }
+
+  const detail = bodyText.trim()
+    ? ` Claude returned ${response.status}: ${bodyText.slice(0, 240)}`
+    : ` Claude returned ${response.status}.`;
+  throw new Error(`Online analysis request failed.${detail}`);
+};
+
 export default function CaptureScreen() {
   const router = useRouter();
   const [images, setImages] = useState<ImageAssetLike[]>([]);
@@ -329,7 +341,16 @@ export default function CaptureScreen() {
     }
 
     try {
-      const imageContent = images.map((img) => ({
+      const imagesWithBase64 = images.filter(
+        (img) => typeof img.base64 === "string" && img.base64.trim().length > 0,
+      );
+      if (imagesWithBase64.length === 0) {
+        throw new Error(
+          "The selected photo did not include image data for analysis. Take the photo again or upload it from the library.",
+        );
+      }
+
+      const imageContent = imagesWithBase64.map((img) => ({
         type: "image",
         source: {
           type: "base64",
@@ -382,8 +403,12 @@ export default function CaptureScreen() {
           ],
         }),
       });
-      const data = await response.json();
-      const text = data.content[0].text;
+      const bodyText = await getAnalysisErrorMessage(response);
+      const data = JSON.parse(bodyText);
+      const text = data?.content?.[0]?.text;
+      if (typeof text !== "string" || text.trim().length === 0) {
+        throw new Error("Claude returned an empty analysis response.");
+      }
       const parsed = JSON.parse(
         text.replace(/```json|```/g, "").trim(),
       ) as CaptureAnalysisResult;
@@ -394,10 +419,10 @@ export default function CaptureScreen() {
       const fallbackDraft = createPhotoFallbackDraft();
       applyAnalysisResult(fallbackDraft);
       Alert.alert(
-        "Online analysis unavailable",
+        "Claude photo analysis unavailable",
         error instanceof Error
-          ? `${error.message}\n\nA basic editable draft was created so you can still save this item.`
-          : "A basic editable draft was created so you can still save this item.",
+          ? `${error.message}\n\nThe app created a basic editable draft, but this means the Claude photo analysis did not complete.`
+          : "The app created a basic editable draft, but this means the Claude photo analysis did not complete.",
       );
     }
     setLoading(false);
@@ -558,7 +583,11 @@ export default function CaptureScreen() {
 
   const closeCapture = () => {
     setCameraActionStatus("");
-    router.replace("/(tabs)");
+    if (router.canDismiss()) {
+      router.dismiss();
+      return;
+    }
+    router.replace("/");
   };
 
   return (
@@ -608,7 +637,9 @@ export default function CaptureScreen() {
             disabled={loading || isSaving}
             onPress={addPhoto}
           >
-            <Text style={styles.btnText}>Take Photos</Text>
+            <Text style={styles.btnText}>
+              {images.length > 0 ? "Take Another Photo" : "Take Photos"}
+            </Text>
           </TouchableOpacity>
           <TouchableOpacity
             style={[styles.btn, (loading || isSaving) && styles.disabledAction]}
@@ -773,7 +804,7 @@ export default function CaptureScreen() {
 
                   <TouchableOpacity
                     style={styles.finishedBtn}
-                    onPress={() => router.replace("/(tabs)")}
+                    onPress={closeCapture}
                   >
                     <Text style={styles.finishedBtnText}>Finished</Text>
                   </TouchableOpacity>

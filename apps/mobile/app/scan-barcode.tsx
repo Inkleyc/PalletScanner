@@ -726,7 +726,11 @@ ${productSummary}
 
   const closeScannerFlow = () => {
     resetBarcodeScanState();
-    router.replace("/(tabs)");
+    if (router.canDismiss()) {
+      router.dismiss();
+      return;
+    }
+    router.replace("/");
   };
 
   return (
@@ -1038,7 +1042,7 @@ ${productSummary}
 
                   <TouchableOpacity
                     style={styles.finishedBtn}
-                    onPress={() => router.replace("/(tabs)")}
+                    onPress={closeScannerFlow}
                   >
                     <Text style={styles.finishedBtnText}>Finished</Text>
                   </TouchableOpacity>
