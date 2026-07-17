@@ -556,6 +556,11 @@ export default function CaptureScreen() {
     clearAll();
   };
 
+  const closeCapture = () => {
+    setCameraActionStatus("");
+    router.replace("/(tabs)");
+  };
+
   return (
     <KeyboardAvoidingView
       style={styles.container}
@@ -574,7 +579,11 @@ export default function CaptureScreen() {
               Use photos to build a draft, then save it back to your active pallet.
             </Text>
           </View>
-          <TouchableOpacity style={styles.closeCaptureBtn} onPress={() => router.back()}>
+          <TouchableOpacity
+            style={[styles.closeCaptureBtn, (loading || isSaving) && styles.disabledAction]}
+            disabled={loading || isSaving}
+            onPress={closeCapture}
+          >
             <Text style={styles.closeCaptureBtnText}>Done</Text>
           </TouchableOpacity>
         </View>

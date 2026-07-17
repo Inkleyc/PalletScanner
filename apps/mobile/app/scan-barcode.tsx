@@ -724,6 +724,11 @@ ${productSummary}
     clearAll();
   };
 
+  const closeScannerFlow = () => {
+    resetBarcodeScanState();
+    router.replace("/(tabs)");
+  };
+
   return (
     <KeyboardAvoidingView
       style={styles.container}
@@ -742,7 +747,11 @@ ${productSummary}
               Scan a barcode and build a draft from product data.
             </Text>
           </View>
-          <TouchableOpacity style={styles.closeCaptureBtn} onPress={() => router.back()}>
+          <TouchableOpacity
+            style={[styles.closeCaptureBtn, (loading || isSaving) && styles.disabledAction]}
+            disabled={loading || isSaving}
+            onPress={closeScannerFlow}
+          >
             <Text style={styles.closeCaptureBtnText}>Done</Text>
           </TouchableOpacity>
         </View>
