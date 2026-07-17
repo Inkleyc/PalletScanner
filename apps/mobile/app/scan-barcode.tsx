@@ -431,6 +431,49 @@ If a barcode draft exists, use it as product identity context and use the photos
     ]);
   };
 
+  const promptForBarcodeFallback = (
+    fallbackDraft: CaptureAnalysisResult,
+    options: {
+      barcode: string;
+      productImageUri?: string | null;
+      message: string;
+    },
+  ) => {
+    const applyFallbackDraft = () => {
+      applyAnalysisResult(fallbackDraft, {
+        barcode: options.barcode,
+        productImageUri: options.productImageUri ?? null,
+        clearImages: true,
+      });
+      incrementScanCount();
+    };
+
+    Alert.alert(
+      "Barcode needs review",
+      options.message,
+      [
+        {
+          text: "Scan Again",
+          onPress: () => {
+            clearAll();
+            void openBarcodeScanner();
+          },
+        },
+        {
+          text: "Take Photos",
+          onPress: () => {
+            applyFallbackDraft();
+            void addListingPhoto(fallbackDraft.photo_tips);
+          },
+        },
+        {
+          text: "Use Basic Draft",
+          onPress: applyFallbackDraft,
+        },
+      ],
+    );
+  };
+
   const analyzeBarcode = async (barcode: string) => {
     const normalizedBarcode = sanitizeBarcodeValue(barcode);
     if (!normalizedBarcode) {
@@ -464,14 +507,13 @@ If a barcode draft exists, use it as product identity context and use the photos
         normalizedBarcode,
         product,
       );
-      applyAnalysisResult(fallbackDraft, {
+      setLoading(false);
+      promptForBarcodeFallback(fallbackDraft, {
         barcode: normalizedBarcode,
         productImageUri: product?.images?.[0] ?? null,
-        clearImages: true,
+        message:
+          "Claude drafting is not configured, so this scan is only a basic barcode lookup. Scan again, add photos for analysis, or choose to use the basic draft.",
       });
-      incrementScanCount();
-      void triggerAnalysisCompleteFeedback();
-      setLoading(false);
       return;
     }
 
@@ -532,24 +574,22 @@ ${productSummary}
       });
       incrementScanCount();
       void triggerAnalysisCompleteFeedback();
-    } catch {
+    } catch (error) {
       const fallbackDraft = createBarcodeFallbackDraft(
         normalizedBarcode,
         product,
       );
-      applyAnalysisResult(fallbackDraft, {
+      promptForBarcodeFallback(fallbackDraft, {
         barcode: normalizedBarcode,
         productImageUri: product?.images?.[0] ?? null,
-        clearImages: true,
+        message: product
+          ? `Claude could not turn this barcode lookup into a full resale draft.${
+              error instanceof Error ? `\n\n${error.message}` : ""
+            }\n\nScan again, add photos for analysis, or choose to use the basic barcode draft.`
+          : `The barcode lookup did not return enough product detail.${
+              error instanceof Error ? `\n\n${error.message}` : ""
+            }\n\nScan again, add photos for analysis, or choose to use the basic barcode draft.`,
       });
-      incrementScanCount();
-      void triggerAnalysisCompleteFeedback();
-      Alert.alert(
-        "Barcode saved as draft",
-        product
-          ? "AI drafting was unavailable, so a basic editable draft was created from the barcode lookup."
-          : "Product lookup did not return details, so a basic editable draft was created from the barcode.",
-      );
     }
 
     setLoading(false);
