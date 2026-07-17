@@ -22,6 +22,16 @@ const hasUsableListingCopy = (item: InventoryItem) =>
   typeof item.listing_description === "string" &&
   item.listing_description.trim().length > 0;
 
+const listedPlatformCount = (item: InventoryItem) =>
+  Array.isArray(item.listedPlatforms)
+    ? item.listedPlatforms.filter(
+        (platform) => platform === "facebook" || platform === "ebay",
+      ).length
+    : 0;
+
+const numericPrice = (value: unknown) =>
+  typeof value === "number" && !Number.isNaN(value) ? value : 0;
+
 export const getInventoryWorkflowStatus = (
   item: InventoryItem,
 ): InventoryWorkflowStatusMeta => {
@@ -29,7 +39,7 @@ export const getInventoryWorkflowStatus = (
     return { status: "sold", label: "Sold", priority: 70 };
   }
 
-  if (item.listedPlatforms.length > 0 || item.ebayStatus === "active") {
+  if (listedPlatformCount(item) > 0 || item.ebayStatus === "active") {
     return { status: "listed", label: "Listed", priority: 60 };
   }
 
@@ -45,7 +55,11 @@ export const getInventoryWorkflowStatus = (
     return { status: "needs_photos", label: "Needs Photos", priority: 20 };
   }
 
-  if (!hasUsableListingCopy(item) || item.low_price <= 0 || item.high_price <= 0) {
+  if (
+    !hasUsableListingCopy(item) ||
+    numericPrice(item.low_price) <= 0 ||
+    numericPrice(item.high_price) <= 0
+  ) {
     return { status: "needs_review", label: "Needs Review", priority: 30 };
   }
 

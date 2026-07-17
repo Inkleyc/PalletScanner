@@ -18,6 +18,17 @@ export type InventoryFilterOptions = {
   sortMode: InventorySortMode;
 };
 
+const itemName = (item: InventoryItem) =>
+  typeof item.name === "string" ? item.name : "";
+
+const listedPlatforms = (item: InventoryItem): MarketplacePlatform[] =>
+  Array.isArray(item.listedPlatforms)
+    ? item.listedPlatforms.filter(
+        (platform): platform is MarketplacePlatform =>
+          platform === "facebook" || platform === "ebay",
+      )
+    : [];
+
 export const getListingFilterLabel = (listingFilter: ListingFilter) => {
   switch (listingFilter) {
     case "needs-facebook":
@@ -46,17 +57,17 @@ export const hasListingPhoto = (item: InventoryItem) =>
 export const isMissingPlatformListing = (
   item: InventoryItem,
   platform: MarketplacePlatform,
-) => !item.listedPlatforms.includes(platform);
+) => !listedPlatforms(item).includes(platform);
 
 export const isFacebookDraftOpen = (item: InventoryItem) =>
   item.facebookStatus === "opened" &&
   isMissingPlatformListing(item, "facebook");
 
 export const isMissingFacebookListingUrl = (item: InventoryItem) =>
-  item.listedPlatforms.includes("facebook") && !item.facebookListingUrl;
+  listedPlatforms(item).includes("facebook") && !item.facebookListingUrl;
 
 export const isListedAnywhere = (item: InventoryItem) =>
-  item.listedPlatforms.length > 0;
+  listedPlatforms(item).length > 0;
 
 export const matchesListingFilter = (
   item: InventoryItem,
@@ -95,7 +106,7 @@ export const filterInventoryItems = (
 
     if (
       normalizedQuery &&
-      !item.name.toLowerCase().includes(normalizedQuery)
+      !itemName(item).toLowerCase().includes(normalizedQuery)
     ) {
       return false;
     }

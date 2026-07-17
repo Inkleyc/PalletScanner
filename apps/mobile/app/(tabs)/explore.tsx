@@ -72,6 +72,25 @@ type BundleSuggestion = {
 
 const API_KEY = process.env.EXPO_PUBLIC_ANTHROPIC_API_KEY;
 
+const getListedPlatforms = (item: InventoryItem) =>
+  Array.isArray(item.listedPlatforms)
+    ? item.listedPlatforms.filter(
+        (platform): platform is "facebook" | "ebay" =>
+          platform === "facebook" || platform === "ebay",
+      )
+    : [];
+
+const hasListedPlatform = (item: InventoryItem, platform: "facebook" | "ebay") =>
+  getListedPlatforms(item).includes(platform);
+
+const displayText = (value: unknown, fallback: string) =>
+  typeof value === "string" && value.trim().length > 0
+    ? value.trim()
+    : fallback;
+
+const displayNumber = (value: unknown, fallback = 0) =>
+  typeof value === "number" && !Number.isNaN(value) ? value : fallback;
+
 export default function InventoryScreen() {
   const { width } = useWindowDimensions();
   const router = useRouter();
@@ -1059,11 +1078,11 @@ ${JSON.stringify(promptItems, null, 2)}`,
                 </View>
               );
             })()}
-            {(item.listedPlatforms.length > 0 ||
+            {(getListedPlatforms(item).length > 0 ||
               (item.facebookStatus === "opened" &&
-                !item.listedPlatforms.includes("facebook"))) && (
+                !hasListedPlatform(item, "facebook"))) && (
               <View style={styles.listedBannerRow}>
-                {item.listedPlatforms.map((platform: "facebook" | "ebay") => (
+                {getListedPlatforms(item).map((platform: "facebook" | "ebay") => (
                   <View
                     key={platform}
                     style={[
@@ -1085,7 +1104,7 @@ ${JSON.stringify(promptItems, null, 2)}`,
                   </View>
                 ))}
                 {item.facebookStatus === "opened" &&
-                !item.listedPlatforms.includes("facebook") ? (
+                !hasListedPlatform(item, "facebook") ? (
                   <View style={[styles.listedBanner, styles.facebookDraftBanner]}>
                     <Text style={styles.listedBannerText}>Facebook draft opened</Text>
                   </View>
@@ -1097,19 +1116,25 @@ ${JSON.stringify(promptItems, null, 2)}`,
                 <Image source={{ uri: item.photo }} style={styles.itemPhoto} />
               )}
               <View style={styles.itemInfo}>
-                <Text style={styles.itemName}>{item.name}</Text>
+                <Text style={styles.itemName}>{displayText(item.name, "Unnamed item")}</Text>
                 <Text style={styles.palletTag}>{getPalletName(item.palletId)}</Text>
                 <View style={styles.badgeRow}>
                   <Text style={styles.priceBadge}>
-                    ${item.low_price}-${item.high_price}
+                    ${displayNumber(item.low_price)}-${displayNumber(item.high_price)}
                   </Text>
                   <Text style={styles.quantityBadge}>Qty {item.quantity ?? 1}</Text>
-                  <Text style={styles.floorBadge}>Floor ${item.floor_price}</Text>
-                  <Text style={styles.conditionBadge}>{item.condition}</Text>
+                  <Text style={styles.floorBadge}>
+                    Floor ${displayNumber(item.floor_price, displayNumber(item.low_price))}
+                  </Text>
+                  <Text style={styles.conditionBadge}>
+                    {displayText(item.condition, "Unknown")}
+                  </Text>
                 </View>
                 <View style={styles.metaRow}>
-                  <Text style={styles.platformText}>{item.best_platform}</Text>
-                  {item.soldPrice !== null ? (
+                  <Text style={styles.platformText}>
+                    {displayText(item.best_platform, "Review needed")}
+                  </Text>
+                  {typeof item.soldPrice === "number" && !Number.isNaN(item.soldPrice) ? (
                     <Text style={styles.soldPill}>Sold for ${item.soldPrice}</Text>
                   ) : (
                     <Text style={styles.unsoldText}>Not marked sold</Text>
@@ -1136,9 +1161,9 @@ ${JSON.stringify(promptItems, null, 2)}`,
                   >
                     <Text style={styles.platformBtnText}>
                       {item.facebookStatus === "opened" &&
-                      !item.listedPlatforms.includes("facebook")
+                      !hasListedPlatform(item, "facebook")
                         ? "Continue Facebook Draft"
-                        : item.listedPlatforms.includes("facebook")
+                        : hasListedPlatform(item, "facebook")
                           ? "Copy Facebook Details"
                           : "Post to Facebook"}
                     </Text>
@@ -1190,7 +1215,7 @@ ${JSON.stringify(promptItems, null, 2)}`,
                   ))}
                 </ScrollView>
                 {item.facebookStatus === "opened" &&
-                !item.listedPlatforms.includes("facebook") ? (
+                !hasListedPlatform(item, "facebook") ? (
                   <TouchableOpacity
                     style={styles.markFacebookListedBtn}
                     onPress={() =>
@@ -1207,7 +1232,7 @@ ${JSON.stringify(promptItems, null, 2)}`,
                     </Text>
                   </TouchableOpacity>
                 ) : null}
-                {(item.listedPlatforms.includes("facebook") ||
+                {(hasListedPlatform(item, "facebook") ||
                   item.facebookStatus === "opened" ||
                   item.facebookListingUrl) ? (
                   <View style={styles.facebookUrlActions}>
@@ -1315,7 +1340,9 @@ ${JSON.stringify(promptItems, null, 2)}`,
                 }
               >
                 <Text style={styles.secondaryActionBtnText}>
-                  {item.soldPrice !== null ? "Edit Sold Price" : "Mark Sold"}
+                  {typeof item.soldPrice === "number" && !Number.isNaN(item.soldPrice)
+                    ? "Edit Sold Price"
+                    : "Mark Sold"}
                 </Text>
               </TouchableOpacity>
               <TouchableOpacity
@@ -1347,7 +1374,9 @@ ${JSON.stringify(promptItems, null, 2)}`,
                     onPress={() => saveSoldPrice(item)}
                   >
                     <Text style={styles.saveSoldBtnText}>
-                      {item.soldPrice !== null ? "Update" : "Save"}
+                      {typeof item.soldPrice === "number" && !Number.isNaN(item.soldPrice)
+                        ? "Update"
+                        : "Save"}
                     </Text>
                   </TouchableOpacity>
                   <TouchableOpacity
