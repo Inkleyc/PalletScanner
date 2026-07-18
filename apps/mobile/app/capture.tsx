@@ -215,26 +215,13 @@ export default function CaptureScreen() {
       const nextCount = Math.min(images.length + 1, MAX_LISTING_PHOTOS);
       setImages((prev) => [...prev, photo.assets[0]].slice(0, MAX_LISTING_PHOTOS));
       setResult(null);
-      if (nextCount < RECOMMENDED_LISTING_PHOTOS) {
-        Alert.alert(
-          "Add another angle",
-          `${nextCount} photo${nextCount === 1 ? "" : "s"} added. Add ${
-            RECOMMENDED_LISTING_PHOTOS - nextCount
-          } more for a stronger listing.\n\nPhoto suggestion: ${
-            photoTips?.trim() || getPhotoGuidance()
-          }`,
-          [
-            { text: "Done", style: "cancel" },
-            {
-              text: "Take Another",
-              onPress: () => {
-                void takePhoto(photoTips);
-              },
-            },
-          ],
-        );
-      }
-      setCameraActionStatus("Photo added.");
+      setCameraActionStatus(
+        nextCount < RECOMMENDED_LISTING_PHOTOS
+          ? `Photo added. Add ${
+              RECOMMENDED_LISTING_PHOTOS - nextCount
+            } more angle${RECOMMENDED_LISTING_PHOTOS - nextCount === 1 ? "" : "s"} for a stronger listing.`
+          : "Photo added.",
+      );
     } else {
       setCameraActionStatus("");
     }

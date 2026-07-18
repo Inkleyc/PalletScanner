@@ -74,6 +74,21 @@ const LOADING_MESSAGES = [
 ];
 const MAX_LISTING_PHOTOS = 5;
 const RECOMMENDED_LISTING_PHOTOS = 3;
+const BARCODE_TYPES = [
+  "aztec",
+  "ean13",
+  "ean8",
+  "qr",
+  "pdf417",
+  "upc_e",
+  "datamatrix",
+  "code39",
+  "code93",
+  "itf14",
+  "codabar",
+  "code128",
+  "upc_a",
+] as const;
 
 const getImageUri = (image: ImageAssetLike) =>
   typeof image.uri === "string" && image.uri.trim().length > 0
@@ -224,27 +239,13 @@ export default function BarcodeScanScreen() {
       setImages((current) =>
         [...current, photo.assets[0]].slice(0, MAX_LISTING_PHOTOS),
       );
-      setListingPhotoActionStatus("Listing photo added.");
-      if (nextCount < RECOMMENDED_LISTING_PHOTOS) {
-        const guidance = photoTips?.trim()
-          ? `\n\nPhoto suggestion: ${photoTips.trim()}`
-          : "\n\nPhoto suggestion: Add the back, labels or model number, included accessories, and any visible wear.";
-        Alert.alert(
-          "Add another angle",
-          `${nextCount} photo${nextCount === 1 ? "" : "s"} added. Add ${
-            RECOMMENDED_LISTING_PHOTOS - nextCount
-          } more for a stronger listing.${guidance}`,
-          [
-            { text: "Done", style: "cancel" },
-            {
-              text: "Take Another",
-              onPress: () => {
-                void addListingPhoto(photoTips);
-              },
-            },
-          ],
-        );
-      }
+      setListingPhotoActionStatus(
+        nextCount < RECOMMENDED_LISTING_PHOTOS
+          ? `Listing photo added. Add ${
+              RECOMMENDED_LISTING_PHOTOS - nextCount
+            } more angle${RECOMMENDED_LISTING_PHOTOS - nextCount === 1 ? "" : "s"} for a stronger listing.`
+          : "Listing photo added.",
+      );
     } else {
       setListingPhotoActionStatus("");
     }
@@ -479,6 +480,7 @@ If a barcode draft exists, use it as product identity context and use the photos
 
   const promptForScannerTrouble = () => {
     resetBarcodeScanState();
+    setListingPhotoActionStatus("");
     setScannerTroubleVisible(true);
   };
 
@@ -628,6 +630,7 @@ ${productSummary}
       setScannerTroubleVisible(false);
       resetBarcodeScanState();
       setManualBarcodeVisible(false);
+      setListingPhotoActionStatus("Scanner open. Hold the barcode steady inside the frame.");
       setScannerOpen(true);
     } catch (error) {
       Alert.alert(
@@ -686,6 +689,7 @@ ${productSummary}
     setHasScannedBarcode(true);
     setScannerOpen(false);
     setScannerTroubleVisible(false);
+    setListingPhotoActionStatus("Barcode captured. Building draft...");
     void analyzeBarcode(data);
   };
 
@@ -927,14 +931,7 @@ ${productSummary}
               facing="back"
               onBarcodeScanned={handleBarcodeScanned}
               barcodeScannerSettings={{
-                barcodeTypes: [
-                  "upc_a",
-                  "upc_e",
-                  "ean13",
-                  "ean8",
-                  "code128",
-                  "code39",
-                ],
+                barcodeTypes: [...BARCODE_TYPES],
               }}
             />
             <View style={styles.scannerOverlay}>
