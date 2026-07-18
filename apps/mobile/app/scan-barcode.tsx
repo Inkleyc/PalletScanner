@@ -452,6 +452,23 @@ If a barcode draft exists, use it as product identity context and use the photos
       incrementScanCount();
     };
 
+    const startPhotoAnalysis = () => {
+      setBarcodeValue(options.barcode);
+      setProductImageUri(options.productImageUri ?? null);
+      setImages([]);
+      setResult(null);
+      setListingDrafts(createEmptyListingDrafts());
+      setActiveListingPlatform("general");
+      setAdvancedListingExpanded(false);
+      setEditablePrice("");
+      setEditableFloorPrice("");
+      setPhotoTipsExpanded(false);
+      setListingPhotoActionStatus("Opening camera for photo analysis...");
+      setTimeout(() => {
+        void addListingPhoto(fallbackDraft.photo_tips);
+      }, 250);
+    };
+
     Alert.alert(
       "Barcode needs review",
       options.message,
@@ -466,8 +483,7 @@ If a barcode draft exists, use it as product identity context and use the photos
         {
           text: "Take Photos",
           onPress: () => {
-            applyFallbackDraft();
-            void addListingPhoto(fallbackDraft.photo_tips);
+            startPhotoAnalysis();
           },
         },
         {
@@ -482,6 +498,15 @@ If a barcode draft exists, use it as product identity context and use the photos
     resetBarcodeScanState();
     setListingPhotoActionStatus("");
     setScannerTroubleVisible(true);
+  };
+
+  const startScannerTroublePhotoAnalysis = () => {
+    setScannerTroubleVisible(false);
+    setManualBarcodeVisible(false);
+    setListingPhotoActionStatus("Opening camera for photo analysis...");
+    setTimeout(() => {
+      void addListingPhoto();
+    }, 250);
   };
 
   const analyzeBarcode = async (barcode: string) => {
@@ -823,7 +848,7 @@ ${productSummary}
     if (result) {
       return "Update Draft From Photos";
     }
-    return barcodeValue ? "Analyze Photos" : "Analyze Item";
+    return "Analyze Photos";
   };
 
   const closeScannerFlow = () => {
@@ -873,13 +898,15 @@ ${productSummary}
           </View>
         </View>
 
-        <TouchableOpacity
-          style={[styles.barcodeBtn, (loading || isSaving) && styles.disabledAction]}
-          disabled={loading || isSaving}
-          onPress={openBarcodeScanner}
-        >
-          <Text style={styles.barcodeBtnText}>Open Scanner</Text>
-        </TouchableOpacity>
+        {!scannerOpen ? (
+          <TouchableOpacity
+            style={[styles.barcodeBtn, (loading || isSaving) && styles.disabledAction]}
+            disabled={loading || isSaving}
+            onPress={openBarcodeScanner}
+          >
+            <Text style={styles.barcodeBtnText}>Open Scanner</Text>
+          </TouchableOpacity>
+        ) : null}
 
         <TouchableOpacity
           style={[
@@ -983,11 +1010,7 @@ ${productSummary}
               </TouchableOpacity>
               <TouchableOpacity
                 style={styles.scannerTroubleSecondary}
-                onPress={() => {
-                  setScannerTroubleVisible(false);
-                  setManualBarcodeVisible(false);
-                  void addListingPhoto();
-                }}
+                onPress={startScannerTroublePhotoAnalysis}
               >
                 <Text style={styles.scannerTroubleSecondaryText}>Use Photos</Text>
               </TouchableOpacity>
