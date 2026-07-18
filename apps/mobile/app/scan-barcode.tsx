@@ -483,6 +483,24 @@ If a barcode draft exists, use it as product identity context and use the photos
     router.replace("/capture");
   };
 
+  const applyBarcodeLookupDraft = (
+    fallbackDraft: CaptureAnalysisResult,
+    options: {
+      barcode: string;
+      productImageUri?: string | null;
+      status: string;
+    },
+  ) => {
+    applyAnalysisResult(fallbackDraft, {
+      barcode: options.barcode,
+      productImageUri: options.productImageUri ?? null,
+      clearImages: true,
+    });
+    setListingPhotoActionStatus(options.status);
+    incrementScanCount();
+    void triggerAnalysisCompleteFeedback();
+  };
+
   const analyzeBarcode = async (barcode: string) => {
     const normalizedBarcode = sanitizeBarcodeValue(barcode);
     if (!normalizedBarcode) {
@@ -501,6 +519,23 @@ If a barcode draft exists, use it as product identity context and use the photos
       product = null;
     }
 
+    const fallbackDraft = createBarcodeFallbackDraft(
+      normalizedBarcode,
+      product,
+    );
+    const productImage = product?.images?.[0] ?? null;
+
+    if (!product) {
+      setLoading(false);
+      promptForBarcodeFallback(fallbackDraft, {
+        barcode: normalizedBarcode,
+        productImageUri: null,
+        message:
+          "The barcode lookup did not return enough product detail. Scan again, add photos for analysis, or choose to use a basic barcode draft.",
+      });
+      return;
+    }
+
     const productSummary = [
       `Barcode: ${normalizedBarcode}`,
       product?.title ? `Title: ${product.title}` : null,
@@ -512,17 +547,13 @@ If a barcode draft exists, use it as product identity context and use the photos
       .join("\n");
 
     if (!API_KEY?.trim()) {
-      const fallbackDraft = createBarcodeFallbackDraft(
-        normalizedBarcode,
-        product,
-      );
-      setLoading(false);
-      promptForBarcodeFallback(fallbackDraft, {
+      applyBarcodeLookupDraft(fallbackDraft, {
         barcode: normalizedBarcode,
-        productImageUri: product?.images?.[0] ?? null,
-        message:
-          "Claude drafting is not configured, so this scan is only a basic barcode lookup. Scan again, add photos for analysis, or choose to use the basic draft.",
+        productImageUri: productImage,
+        status:
+          "Barcode matched. Review the draft or add photos for better condition and pricing.",
       });
+      setLoading(false);
       return;
     }
 
@@ -578,27 +609,25 @@ ${productSummary}
       ) as CaptureAnalysisResult;
       applyAnalysisResult(parsed, {
         barcode: normalizedBarcode,
-        productImageUri: product?.images?.[0] ?? null,
+        productImageUri: productImage,
         clearImages: true,
       });
+      setListingPhotoActionStatus("Barcode matched and draft was enhanced.");
       incrementScanCount();
       void triggerAnalysisCompleteFeedback();
     } catch (error) {
-      const fallbackDraft = createBarcodeFallbackDraft(
-        normalizedBarcode,
-        product,
-      );
-      promptForBarcodeFallback(fallbackDraft, {
+      applyBarcodeLookupDraft(fallbackDraft, {
         barcode: normalizedBarcode,
-        productImageUri: product?.images?.[0] ?? null,
-        message: product
-          ? `Claude could not turn this barcode lookup into a full resale draft.${
-              error instanceof Error ? `\n\n${error.message}` : ""
-            }\n\nScan again, add photos for analysis, or choose to use the basic barcode draft.`
-          : `The barcode lookup did not return enough product detail.${
-              error instanceof Error ? `\n\n${error.message}` : ""
-            }\n\nScan again, add photos for analysis, or choose to use the basic barcode draft.`,
+        productImageUri: productImage,
+        status:
+          "Barcode matched. Claude could not enhance it, so review or add photos.",
       });
+      Alert.alert(
+        "Barcode draft created",
+        error instanceof Error
+          ? `Found ${product.title ?? "the product"} from the barcode. Claude could not enhance the draft yet.\n\n${error.message}`
+          : `Found ${product.title ?? "the product"} from the barcode. Claude could not enhance the draft yet.`,
+      );
     }
 
     setLoading(false);
