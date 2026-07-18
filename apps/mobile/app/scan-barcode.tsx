@@ -120,6 +120,7 @@ export default function BarcodeScanScreen() {
   const [manualBarcodeVisible, setManualBarcodeVisible] = useState(false);
   const [hasScannedBarcode, setHasScannedBarcode] = useState(false);
   const [scannerTroubleVisible, setScannerTroubleVisible] = useState(false);
+  const [photoAnalysisMode, setPhotoAnalysisMode] = useState(false);
   const [cameraPermission, requestCameraPermission] = useCameraPermissions();
   const barcodeScanLock = useRef(false);
   const autoOpenedBarcodeMode = useRef(false);
@@ -201,6 +202,7 @@ export default function BarcodeScanScreen() {
     setManualBarcodeDraft("");
     setManualBarcodeVisible(false);
     setScannerTroubleVisible(false);
+    setPhotoAnalysisMode(false);
     resetBarcodeScanState();
     setCurrentItemId(null);
     setCurrentItemPalletId(null);
@@ -236,6 +238,7 @@ export default function BarcodeScanScreen() {
     }
     if (!photo.canceled) {
       const nextCount = Math.min(images.length + 1, MAX_LISTING_PHOTOS);
+      setPhotoAnalysisMode(true);
       setImages((current) =>
         [...current, photo.assets[0]].slice(0, MAX_LISTING_PHOTOS),
       );
@@ -264,6 +267,7 @@ export default function BarcodeScanScreen() {
     }
     setBarcodeValue(options.barcode ?? "");
     setProductImageUri(options.productImageUri ?? null);
+    setPhotoAnalysisMode(false);
     setResult(parsed);
     setListingDrafts(createListingDrafts(parsed));
     setActiveListingPlatform("general");
@@ -463,10 +467,8 @@ If a barcode draft exists, use it as product identity context and use the photos
       setEditablePrice("");
       setEditableFloorPrice("");
       setPhotoTipsExpanded(false);
-      setListingPhotoActionStatus("Opening camera for photo analysis...");
-      setTimeout(() => {
-        void addListingPhoto(fallbackDraft.photo_tips);
-      }, 250);
+      setPhotoAnalysisMode(true);
+      setListingPhotoActionStatus("Use photos to identify this item.");
     };
 
     Alert.alert(
@@ -503,10 +505,8 @@ If a barcode draft exists, use it as product identity context and use the photos
   const startScannerTroublePhotoAnalysis = () => {
     setScannerTroubleVisible(false);
     setManualBarcodeVisible(false);
-    setListingPhotoActionStatus("Opening camera for photo analysis...");
-    setTimeout(() => {
-      void addListingPhoto();
-    }, 250);
+    setPhotoAnalysisMode(true);
+    setListingPhotoActionStatus("Use photos to identify this item.");
   };
 
   const analyzeBarcode = async (barcode: string) => {
@@ -653,6 +653,7 @@ ${productSummary}
 
     try {
       setScannerTroubleVisible(false);
+      setPhotoAnalysisMode(false);
       resetBarcodeScanState();
       setManualBarcodeVisible(false);
       setListingPhotoActionStatus("Scanner open. Hold the barcode steady inside the frame.");
@@ -714,6 +715,7 @@ ${productSummary}
     setHasScannedBarcode(true);
     setScannerOpen(false);
     setScannerTroubleVisible(false);
+    setPhotoAnalysisMode(false);
     setListingPhotoActionStatus("Barcode captured. Building draft...");
     void analyzeBarcode(data);
   };
@@ -981,6 +983,34 @@ ${productSummary}
 
         {barcodeValue ? (
           <Text style={styles.barcodeStatus}>Barcode: {barcodeValue}</Text>
+        ) : null}
+
+        {photoAnalysisMode && !result ? (
+          <View style={styles.nextStepCard}>
+            <Text style={styles.nextStepTitle}>Use photos to identify item</Text>
+            <Text style={styles.nextStepCopy}>
+              Take clear photos of the product, label, model number, accessories,
+              and condition. Then analyze the photos to build the draft.
+            </Text>
+            <TouchableOpacity
+              style={[
+                styles.barcodeBtn,
+                (loading || isSaving || images.length >= MAX_LISTING_PHOTOS) &&
+                  styles.disabledAction,
+              ]}
+              disabled={loading || isSaving || images.length >= MAX_LISTING_PHOTOS}
+              onPress={() => {
+                void addListingPhoto();
+              }}
+            >
+              <Text style={styles.barcodeBtnText}>
+                {images.length > 0 ? "Add Another Photo" : "Open Camera for Photos"}
+              </Text>
+            </TouchableOpacity>
+            {listingPhotoActionStatus ? (
+              <Text style={styles.actionStatus}>{listingPhotoActionStatus}</Text>
+            ) : null}
+          </View>
         ) : null}
 
         <Modal
