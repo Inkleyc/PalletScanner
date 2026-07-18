@@ -75,19 +75,12 @@ const LOADING_MESSAGES = [
 const MAX_LISTING_PHOTOS = 5;
 const RECOMMENDED_LISTING_PHOTOS = 3;
 const BARCODE_TYPES = [
-  "aztec",
+  "upc_a",
+  "upc_e",
   "ean13",
   "ean8",
-  "qr",
-  "pdf417",
-  "upc_e",
-  "datamatrix",
-  "code39",
-  "code93",
-  "itf14",
-  "codabar",
   "code128",
-  "upc_a",
+  "code39",
 ] as const;
 
 const getImageUri = (image: ImageAssetLike) =>
@@ -936,8 +929,25 @@ ${productSummary}
           <View style={styles.scannerCard}>
             <CameraView
               style={styles.scannerView}
+              active={scannerOpen}
+              autofocus="on"
               facing="back"
-              onBarcodeScanned={handleBarcodeScanned}
+              onBarcodeScanned={
+                hasScannedBarcode ? undefined : handleBarcodeScanned
+              }
+              onCameraReady={() => {
+                setListingPhotoActionStatus(
+                  "Scanner ready. Hold the barcode steady inside the frame.",
+                );
+              }}
+              onMountError={(event) => {
+                setScannerOpen(false);
+                setListingPhotoActionStatus("Scanner could not start.");
+                Alert.alert(
+                  "Scanner could not start",
+                  event.message || "Close and reopen the scanner, then try again.",
+                );
+              }}
               barcodeScannerSettings={{
                 barcodeTypes: [...BARCODE_TYPES],
               }}
