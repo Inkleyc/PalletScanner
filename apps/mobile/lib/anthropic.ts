@@ -18,3 +18,68 @@ export const readAnthropicMessageText = async (response: Response) => {
 
   return text;
 };
+
+const stripMarkdownFence = (text: string) =>
+  text.replace(/```json|```/gi, "").trim();
+
+const extractFirstJsonObject = (text: string) => {
+  let depth = 0;
+  let startIndex = -1;
+  let inString = false;
+  let escaped = false;
+
+  for (let index = 0; index < text.length; index += 1) {
+    const char = text[index];
+
+    if (escaped) {
+      escaped = false;
+      continue;
+    }
+
+    if (char === "\\") {
+      escaped = inString;
+      continue;
+    }
+
+    if (char === '"') {
+      inString = !inString;
+      continue;
+    }
+
+    if (inString) {
+      continue;
+    }
+
+    if (char === "{") {
+      if (depth === 0) {
+        startIndex = index;
+      }
+      depth += 1;
+      continue;
+    }
+
+    if (char === "}" && depth > 0) {
+      depth -= 1;
+      if (depth === 0 && startIndex >= 0) {
+        return text.slice(startIndex, index + 1);
+      }
+    }
+  }
+
+  return null;
+};
+
+export const parseAnthropicJsonObject = <T>(text: string): T => {
+  const cleaned = stripMarkdownFence(text);
+
+  try {
+    return JSON.parse(cleaned) as T;
+  } catch {
+    const jsonObject = extractFirstJsonObject(cleaned);
+    if (!jsonObject) {
+      throw new Error("Claude did not return a JSON draft.");
+    }
+
+    return JSON.parse(jsonObject) as T;
+  }
+};

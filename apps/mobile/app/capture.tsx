@@ -19,6 +19,7 @@ import { PhotoReferenceCards } from "@/components/photo-reference-cards";
 import { AppPalette } from "@/constants/app-palette";
 import {
   ANTHROPIC_MODEL,
+  parseAnthropicJsonObject,
   readAnthropicMessageText,
 } from "@/lib/anthropic";
 import { AppAlert as Alert } from "@/lib/app-alert";
@@ -385,9 +386,7 @@ export default function CaptureScreen() {
         }),
       });
       const text = await readAnthropicMessageText(response);
-      const parsed = JSON.parse(
-        text.replace(/```json|```/g, "").trim(),
-      ) as CaptureAnalysisResult;
+      const parsed = parseAnthropicJsonObject<CaptureAnalysisResult>(text);
       applyAnalysisResult(parsed);
       incrementScanCount();
       void triggerAnalysisCompleteFeedback();

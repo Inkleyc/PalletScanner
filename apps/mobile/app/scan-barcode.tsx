@@ -21,6 +21,7 @@ import { PhotoReferenceCards } from "@/components/photo-reference-cards";
 import { AppPalette } from "@/constants/app-palette";
 import {
   ANTHROPIC_MODEL,
+  parseAnthropicJsonObject,
   readAnthropicMessageText,
 } from "@/lib/anthropic";
 import { AppAlert as Alert } from "@/lib/app-alert";
@@ -87,6 +88,102 @@ const getImageUri = (image: ImageAssetLike) =>
   typeof image.uri === "string" && image.uri.trim().length > 0
     ? image.uri
     : null;
+
+const coerceText = (value: unknown, fallback: string) =>
+  typeof value === "string" && value.trim().length > 0
+    ? value.trim()
+    : fallback;
+
+const coerceNumber = (value: unknown, fallback: number) => {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return value;
+  }
+
+  if (typeof value === "string") {
+    const match = value.match(/\d+(?:\.\d+)?/);
+    if (match) {
+      const parsed = Number(match[0]);
+      if (Number.isFinite(parsed)) {
+        return parsed;
+      }
+    }
+  }
+
+  return fallback;
+};
+
+const mergeClaudeDraft = (
+  base: CaptureAnalysisResult,
+  claudeDraft: Partial<CaptureAnalysisResult>,
+): CaptureAnalysisResult => {
+  const lowPrice = coerceNumber(claudeDraft.low_price, base.low_price);
+  const highPrice = Math.max(
+    lowPrice,
+    coerceNumber(claudeDraft.high_price, base.high_price),
+  );
+
+  return {
+    ...base,
+    ...claudeDraft,
+    name: coerceText(claudeDraft.name, base.name),
+    description: coerceText(claudeDraft.description, base.description),
+    condition: coerceText(claudeDraft.condition, base.condition),
+    low_price: lowPrice,
+    high_price: highPrice,
+    floor_price: Math.min(
+      coerceNumber(claudeDraft.floor_price, base.floor_price ?? lowPrice),
+      highPrice,
+    ),
+    best_platform: coerceText(claudeDraft.best_platform, base.best_platform),
+    platform_reason: coerceText(
+      claudeDraft.platform_reason,
+      base.platform_reason ?? "",
+    ),
+    listing_title: coerceText(
+      claudeDraft.listing_title,
+      base.listing_title ?? base.name,
+    ),
+    listing_description: coerceText(
+      claudeDraft.listing_description,
+      base.listing_description ?? base.description,
+    ),
+    listing_title_facebook: coerceText(
+      claudeDraft.listing_title_facebook,
+      base.listing_title_facebook ?? base.listing_title ?? base.name,
+    ),
+    listing_description_facebook: coerceText(
+      claudeDraft.listing_description_facebook,
+      base.listing_description_facebook ??
+        base.listing_description ??
+        base.description,
+    ),
+    listing_title_ebay: coerceText(
+      claudeDraft.listing_title_ebay,
+      base.listing_title_ebay ?? base.listing_title ?? base.name,
+    ),
+    listing_description_ebay: coerceText(
+      claudeDraft.listing_description_ebay,
+      base.listing_description_ebay ??
+        base.listing_description ??
+        base.description,
+    ),
+    photo_tips: coerceText(claudeDraft.photo_tips, base.photo_tips ?? ""),
+    photo_example_queries: Array.isArray(claudeDraft.photo_example_queries)
+      ? claudeDraft.photo_example_queries.filter(
+          (query): query is string =>
+            typeof query === "string" && query.trim().length > 0,
+        )
+      : base.photo_example_queries,
+    sellability_score: coerceNumber(
+      claudeDraft.sellability_score,
+      base.sellability_score ?? 5,
+    ),
+    sellability_reason: coerceText(
+      claudeDraft.sellability_reason,
+      base.sellability_reason ?? "",
+    ),
+  };
+};
 
 export default function BarcodeScanScreen() {
   const router = useRouter();
@@ -372,9 +469,7 @@ If a barcode draft exists, use it as product identity context and use the photos
         }),
       });
       const text = await readAnthropicMessageText(response);
-      const parsed = JSON.parse(
-        text.replace(/```json|```/g, "").trim(),
-      ) as CaptureAnalysisResult;
+      const parsed = parseAnthropicJsonObject<CaptureAnalysisResult>(text);
       applyAnalysisResult(parsed, {
         barcode: barcodeValue,
         productImageUri,
@@ -561,6 +656,9 @@ If a barcode draft exists, use it as product identity context and use the photos
     }
 
     try {
+      setListingPhotoActionStatus(
+        "Barcode matched. Claude is writing the listing draft...",
+      );
       const response = await fetch("https://api.anthropic.com/v1/messages", {
         method: "POST",
         headers: {
@@ -577,7 +675,15 @@ If a barcode draft exists, use it as product identity context and use the photos
               content: [
                 {
                   type: "text",
-                  text: `You are a resale expert. Use this barcode lookup result to identify the product instead of analyzing photos. Create a resale-ready summary and pricing estimate. For pricing, estimate a realistic low_price and high_price by checking the item against current eBay and Facebook Marketplace listings for identical or very similar items whenever that market context is available to you. Favor recent sold or active comparable listings, adjust for condition, brand, completeness, and visible wear, and make sure the suggested price range follows the real market rather than a generic guess. Also provide a floor_price, meaning the lowest reasonable price a seller should accept before walking away during negotiation. Assume a typical secondhand condition unless the barcode data clearly suggests new sealed merchandise. Include practical photo tips, 2-3 short web image search queries that would help the user find example listing photos, and a sellability score based on condition, demand, and effort versus return. Also write platform-specific listing copy for Facebook Marketplace and eBay. eBay titles should be keyword-heavy and concise; Facebook copy should sound a little more casual and local-buyer friendly. Respond ONLY with raw JSON, no markdown:
+                  text: `You are a resale expert. Use this barcode lookup result to identify the product instead of analyzing photos. Create a resale-ready summary, practical pricing estimate, and listing draft.
+
+Important:
+- Do not refuse because live marketplace browsing is unavailable.
+- Use the product data below plus general resale judgment.
+- Estimate prices conservatively and mark condition as "Used - needs review" unless the lookup clearly indicates new sealed merchandise.
+- Respond ONLY with raw JSON, no markdown or surrounding text.
+
+Barcode lookup:
 ${productSummary}
 
 {
@@ -607,9 +713,10 @@ ${productSummary}
         }),
       });
       const text = await readAnthropicMessageText(response);
-      const parsed = JSON.parse(
-        text.replace(/```json|```/g, "").trim(),
-      ) as CaptureAnalysisResult;
+      const parsed = mergeClaudeDraft(
+        fallbackDraft,
+        parseAnthropicJsonObject<Partial<CaptureAnalysisResult>>(text),
+      );
       applyAnalysisResult(parsed, {
         barcode: normalizedBarcode,
         productImageUri: productImage,
