@@ -15,7 +15,7 @@ export const createPhotoFallbackDraft = (): CaptureAnalysisResult => ({
   name: "Unidentified pallet item",
   description:
     "Photo draft created without online analysis. Review the item name, condition, and price before listing.",
-  condition: "Used - needs review",
+  condition: "Details need review",
   low_price: 10,
   high_price: 30,
   floor_price: 8,
@@ -51,7 +51,7 @@ export const createBarcodeFallbackDraft = (
     description:
       productDetails ||
       `Barcode ${barcode} did not return enough online detail. Review the item before listing.`,
-    condition: "Used - needs review",
+    condition: "Details need review",
     low_price: 10,
     high_price: 30,
     floor_price: 8,

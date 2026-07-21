@@ -680,7 +680,7 @@ If a barcode draft exists, use it as product identity context and use the photos
 Important:
 - Do not refuse because live marketplace browsing is unavailable.
 - Use the product data below plus general resale judgment.
-- Estimate prices conservatively and mark condition as "Used - needs review" unless the lookup clearly indicates new sealed merchandise.
+- Estimate prices conservatively and mark condition as "Details need review" unless the lookup clearly indicates new sealed merchandise.
 - Respond ONLY with raw JSON, no markdown or surrounding text.
 
 Barcode lookup:
