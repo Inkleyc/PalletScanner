@@ -143,6 +143,7 @@ export default function InventoryScreen() {
   const [searchQuery, setSearchQuery] = useState("");
   const [sortMode, setSortMode] = useState<InventorySortMode>("date");
   const [listingFilter, setListingFilter] = useState<ListingFilter>("all");
+  const [filterModalVisible, setFilterModalVisible] = useState(false);
   const [filtersExpanded, setFiltersExpanded] = useState(false);
   const [summaryExpanded, setSummaryExpanded] = useState(false);
   const [bundleLoading, setBundleLoading] = useState(false);
@@ -732,7 +733,13 @@ ${JSON.stringify(promptItems, null, 2)}`,
         <View style={styles.filterCard}>
           <TouchableOpacity
             style={styles.sectionHeader}
-            onPress={() => setFiltersExpanded((current) => !current)}
+            onPress={() => {
+              if (isLargeLayout) {
+                setFiltersExpanded((current) => !current);
+                return;
+              }
+              setFilterModalVisible(true);
+            }}
           >
             <View>
               <Text style={styles.filterLabel}>FILTERS</Text>
@@ -745,11 +752,11 @@ ${JSON.stringify(promptItems, null, 2)}`,
               </Text>
             </View>
             <Text style={styles.sectionToggleText}>
-              {filtersExpanded ? "Hide" : "Show"}
+              {isLargeLayout ? (filtersExpanded ? "Hide" : "Show") : "Edit"}
             </Text>
           </TouchableOpacity>
 
-          {filtersExpanded ? (
+          {isLargeLayout && filtersExpanded ? (
             <>
               <View style={styles.filterHeader}>
                 <View>
@@ -895,6 +902,167 @@ ${JSON.stringify(promptItems, null, 2)}`,
             </>
           ) : null}
         </View>
+
+        {!isLargeLayout ? (
+          <Modal
+            visible={filterModalVisible}
+            transparent
+            animationType="fade"
+            onRequestClose={() => setFilterModalVisible(false)}
+          >
+            <View style={styles.filterModalBackdrop}>
+              <View style={styles.filterModalCard}>
+                <View style={styles.filterModalHeader}>
+                  <View>
+                    <Text style={styles.filterLabel}>FILTERS</Text>
+                    <Text style={styles.filterModalTitle}>
+                      Find inventory
+                    </Text>
+                  </View>
+                  <TouchableOpacity
+                    style={styles.filterModalCloseBtn}
+                    onPress={() => setFilterModalVisible(false)}
+                  >
+                    <Text style={styles.filterModalCloseText}>Done</Text>
+                  </TouchableOpacity>
+                </View>
+                <ScrollView showsVerticalScrollIndicator={false}>
+                <Text style={styles.filterActiveText}>
+                  Active save target: {activePallet?.name ?? "None yet"}
+                </Text>
+                <ScrollView
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  contentContainerStyle={styles.filterChipRow}
+                >
+                  <TouchableOpacity
+                    style={[
+                      styles.filterChip,
+                      selectedPalletId === "all" && styles.filterChipActive,
+                    ]}
+                    onPress={() => setSelectedPalletId("all")}
+                  >
+                    <Text
+                      style={[
+                        styles.filterChipText,
+                        selectedPalletId === "all" && styles.filterChipTextActive,
+                      ]}
+                    >
+                      All Inventory
+                    </Text>
+                  </TouchableOpacity>
+                  {pallets.map((pallet) => {
+                    const isSelected = selectedPalletId === pallet.id;
+                    const isActive = activePalletId === pallet.id;
+                    return (
+                      <TouchableOpacity
+                        key={pallet.id}
+                        style={[
+                          styles.filterChip,
+                          isSelected && styles.filterChipActive,
+                        ]}
+                        onPress={() => setSelectedPalletId(pallet.id)}
+                      >
+                        <Text
+                          style={[
+                            styles.filterChipText,
+                            isSelected && styles.filterChipTextActive,
+                          ]}
+                        >
+                          {pallet.name}
+                          {isActive ? " Active" : ""}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </ScrollView>
+                {(selectedPallet || pallets.length > 1) && (
+                  <View style={styles.filterActions}>
+                    {selectedPallet && selectedPallet.id !== activePalletId && (
+                      <TouchableOpacity
+                        style={styles.makeActiveBtn}
+                        onPress={makeSelectedPalletActive}
+                      >
+                        <Text style={styles.makeActiveBtnText}>Make Active</Text>
+                      </TouchableOpacity>
+                    )}
+                  </View>
+                )}
+                <TextInput
+                  style={styles.searchInput}
+                  value={searchQuery}
+                  onChangeText={setSearchQuery}
+                  placeholder="Search inventory by item name"
+                  placeholderTextColor={AppPalette.textSoft}
+                />
+                <Text style={styles.filterModalSectionLabel}>Sort</Text>
+                <View style={styles.sortRow}>
+                  {[
+                    { key: "date", label: "Newest" },
+                    { key: "high-desc", label: "High to Low" },
+                    { key: "low-asc", label: "Low to High" },
+                  ].map((option) => {
+                    const isActive = sortMode === option.key;
+                    return (
+                      <TouchableOpacity
+                        key={option.key}
+                        style={[styles.sortChip, isActive && styles.sortChipActive]}
+                        onPress={() =>
+                          setSortMode(
+                            option.key as "date" | "high-desc" | "low-asc",
+                          )
+                        }
+                      >
+                        <Text
+                          style={[
+                            styles.sortChipText,
+                            isActive && styles.sortChipTextActive,
+                          ]}
+                        >
+                          {option.label}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+                <Text style={styles.filterModalSectionLabel}>Status</Text>
+                <View style={styles.sortRow}>
+                  {[
+                    { key: "all", label: "All Statuses" },
+                    { key: "needs-facebook", label: "Needs Facebook" },
+                    { key: "facebook-drafts", label: "Facebook Drafts" },
+                    { key: "missing-facebook-url", label: "Missing FB URL" },
+                    { key: "no-photos", label: "No Photos" },
+                    { key: "needs-ebay", label: "Needs eBay" },
+                    { key: "listed", label: "Listed" },
+                  ].map((option) => {
+                    const isActive = listingFilter === option.key;
+                    return (
+                      <TouchableOpacity
+                        key={option.key}
+                        style={[styles.sortChip, isActive && styles.sortChipActive]}
+                        onPress={() => setListingFilter(option.key as ListingFilter)}
+                      >
+                        <Text
+                          style={[
+                            styles.sortChipText,
+                            isActive && styles.sortChipTextActive,
+                          ]}
+                        >
+                          {option.label}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+                <Text style={styles.resultCount}>
+                  Showing {filteredItems.length} of {palletScopedItemCount} items
+                </Text>
+                </ScrollView>
+              </View>
+            </View>
+          </Modal>
+        ) : null}
 
         <View style={styles.totalCard}>
           <TouchableOpacity
@@ -1618,6 +1786,53 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: AppPalette.textSoft,
     fontWeight: "600",
+  },
+  filterModalBackdrop: {
+    flex: 1,
+    backgroundColor: AppPalette.modalBackdrop,
+    justifyContent: "center",
+    padding: 20,
+  },
+  filterModalCard: {
+    backgroundColor: AppPalette.surface,
+    borderColor: AppPalette.border,
+    borderRadius: 12,
+    borderWidth: 1,
+    maxHeight: "86%",
+    padding: 18,
+  },
+  filterModalHeader: {
+    alignItems: "flex-start",
+    flexDirection: "row",
+    gap: 12,
+    justifyContent: "space-between",
+    marginBottom: 10,
+  },
+  filterModalTitle: {
+    color: AppPalette.text,
+    fontSize: 22,
+    fontWeight: "800",
+    marginTop: 2,
+  },
+  filterModalCloseBtn: {
+    backgroundColor: AppPalette.surfaceMuted,
+    borderColor: AppPalette.border,
+    borderRadius: 8,
+    borderWidth: 1,
+    paddingHorizontal: 12,
+    paddingVertical: 9,
+  },
+  filterModalCloseText: {
+    color: AppPalette.text,
+    fontSize: 13,
+    fontWeight: "700",
+  },
+  filterModalSectionLabel: {
+    color: AppPalette.textSoft,
+    fontSize: 11,
+    fontWeight: "800",
+    marginTop: 14,
+    textTransform: "uppercase",
   },
   totalCard: {
     backgroundColor: AppPalette.surface,
