@@ -1235,7 +1235,9 @@ ${productSummary}
                 {editableFloorPrice || result.floor_price || result.low_price}
               </Text>
               <Text style={styles.conditionBadge}>{result.condition}</Text>
-              <Text style={styles.platformBadge}>{result.best_platform}</Text>
+              <Text style={styles.platformBadge}>
+                Sell Platform: {result.best_platform}
+              </Text>
             </View>
             {getSellabilityMeta(result.sellability_score) ? (
               <View
