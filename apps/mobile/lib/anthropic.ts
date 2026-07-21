@@ -1,5 +1,32 @@
 export const ANTHROPIC_MODEL = "claude-sonnet-5";
 
+const readTextBlock = (block: unknown) => {
+  if (!block || typeof block !== "object") {
+    return "";
+  }
+
+  const text = (block as { text?: unknown }).text;
+  if (typeof text === "string") {
+    return text.trim();
+  }
+
+  if (Array.isArray(text)) {
+    return text
+      .map((part) =>
+        typeof part === "string"
+          ? part
+          : typeof part?.text === "string"
+            ? part.text
+            : "",
+      )
+      .filter(Boolean)
+      .join("\n")
+      .trim();
+  }
+
+  return "";
+};
+
 export const readAnthropicMessageText = async (response: Response) => {
   const bodyText = await response.text();
 
@@ -11,9 +38,14 @@ export const readAnthropicMessageText = async (response: Response) => {
   }
 
   const data = JSON.parse(bodyText);
-  const text = data?.content?.[0]?.text;
-  if (typeof text !== "string" || text.trim().length === 0) {
-    throw new Error("Claude returned an empty analysis response.");
+  const text = Array.isArray(data?.content)
+    ? data.content.map(readTextBlock).filter(Boolean).join("\n").trim()
+    : "";
+
+  if (text.length === 0) {
+    const stopReason =
+      typeof data?.stop_reason === "string" ? ` Stop reason: ${data.stop_reason}.` : "";
+    throw new Error(`Claude returned an empty analysis response.${stopReason}`);
   }
 
   return text;
