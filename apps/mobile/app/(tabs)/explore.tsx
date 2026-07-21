@@ -145,9 +145,6 @@ export default function InventoryScreen() {
   const [listingFilter, setListingFilter] = useState<ListingFilter>("all");
   const [filtersExpanded, setFiltersExpanded] = useState(false);
   const [summaryExpanded, setSummaryExpanded] = useState(false);
-  const [expandedItemTools, setExpandedItemTools] = useState<
-    Record<number, boolean>
-  >({});
   const [bundleLoading, setBundleLoading] = useState(false);
   const [bundleModalVisible, setBundleModalVisible] = useState(false);
   const [bundleSuggestions, setBundleSuggestions] = useState<BundleSuggestion[]>([]);
@@ -217,14 +214,7 @@ export default function InventoryScreen() {
     [filteredItems],
   );
   const hasActiveFilters = hasActiveInventoryFilters(filterOptions);
-  const showItemTools = (itemId: number) =>
-    isLargeLayout || expandedItemTools[itemId] === true;
-  const toggleItemTools = (itemId: number) => {
-    setExpandedItemTools((current) => ({
-      ...current,
-      [itemId]: !current[itemId],
-    }));
-  };
+  const showItemTools = () => isLargeLayout;
   const getWorkflowStatusStyle = (
     status: ReturnType<typeof getInventoryWorkflowStatus>["status"],
   ) => {
@@ -247,11 +237,11 @@ export default function InventoryScreen() {
   };
 
   useEffect(() => {
-    if (hasActiveFilters && !previousHasActiveFilters.current) {
+    if (isLargeLayout && hasActiveFilters && !previousHasActiveFilters.current) {
       setFiltersExpanded(true);
     }
     previousHasActiveFilters.current = hasActiveFilters;
-  }, [hasActiveFilters]);
+  }, [hasActiveFilters, isLargeLayout]);
 
   useEffect(() => {
     const previousActive = previousActivePalletId.current;
@@ -353,6 +343,47 @@ export default function InventoryScreen() {
     if (editingSoldItemId === item.id) {
       setEditingSoldItemId(null);
     }
+  };
+
+  const showItemActionMenu = (item: InventoryItem) => {
+    const itemSoldPrice = displaySoldPrice(item.soldPrice);
+    const facebookLabel =
+      item.facebookStatus === "opened" && !hasListedPlatform(item, "facebook")
+        ? "Continue Facebook Draft"
+        : hasListedPlatform(item, "facebook")
+          ? "Copy Facebook Details"
+          : "Post to Facebook";
+    const ebayLabel =
+      item.ebayStatus === "posting"
+        ? "Posting to eBay..."
+        : item.ebayListingUrl
+          ? "Update eBay Listing"
+          : "Post to eBay";
+
+    Alert.alert("Item actions", displayText(item.name, "Inventory item"), [
+      {
+        text: facebookLabel,
+        onPress: () => {
+          void openListingDraft(item, "facebook");
+        },
+      },
+      {
+        text: ebayLabel,
+        onPress: () => {
+          void openListingDraft(item, "ebay");
+        },
+      },
+      {
+        text: itemSoldPrice !== null ? "Edit Sold Price" : "Mark Sold",
+        onPress: () => setEditingSoldItemId(item.id),
+      },
+      {
+        text: "Remove",
+        style: "destructive",
+        onPress: () => removeItem(item),
+      },
+      { text: "Cancel", style: "cancel" },
+    ]);
   };
 
   const pasteFacebookUrl = async (item: InventoryItem) => {
@@ -1081,7 +1112,7 @@ ${JSON.stringify(promptItems, null, 2)}`,
               );
             })()}
             {(() => {
-              if (!showItemTools(item.id)) {
+              if (!showItemTools()) {
                 return null;
               }
 
@@ -1176,14 +1207,14 @@ ${JSON.stringify(promptItems, null, 2)}`,
             {!isLargeLayout ? (
               <TouchableOpacity
                 style={styles.listingToolsToggle}
-                onPress={() => toggleItemTools(item.id)}
+                onPress={() => showItemActionMenu(item)}
               >
                 <Text style={styles.listingToolsToggleText}>
-                  {showItemTools(item.id) ? "Hide listing tools" : "Listing tools"}
+                  Actions
                 </Text>
               </TouchableOpacity>
             ) : null}
-            {showItemTools(item.id) ? (
+            {showItemTools() ? (
               <>
                 <View style={styles.itemActions}>
                   <TouchableOpacity
@@ -1361,6 +1392,7 @@ ${JSON.stringify(promptItems, null, 2)}`,
                 ) : null}
               </>
             ) : null}
+            {isLargeLayout ? (
             <View style={styles.itemSecondaryActions}>
               <TouchableOpacity
                 style={styles.secondaryActionBtn}
@@ -1383,6 +1415,7 @@ ${JSON.stringify(promptItems, null, 2)}`,
                 <Text style={styles.removeBtnText}>Remove</Text>
               </TouchableOpacity>
             </View>
+            ) : null}
             {editingSoldItemId === item.id && (
               <View style={styles.soldEditorCard}>
                 <Text style={styles.soldEditorLabel}>Sold Price</Text>
@@ -1847,10 +1880,16 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     backgroundColor: AppPalette.surfaceMuted,
   },
-  itemInfo: { flex: 1 },
-  itemName: { fontSize: 16, fontWeight: "700", color: AppPalette.text, marginBottom: 4 },
+  itemInfo: { flex: 1, minWidth: 0 },
+  itemName: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: AppPalette.text,
+    lineHeight: 21,
+    marginBottom: 4,
+  },
   palletTag: { fontSize: 12, color: AppPalette.textMuted, marginBottom: 6 },
-  badgeRow: { flexDirection: "row", gap: 6, marginBottom: 4 },
+  badgeRow: { flexDirection: "row", flexWrap: "wrap", gap: 6, marginBottom: 4 },
   metaRow: {
     flexDirection: "row",
     justifyContent: "space-between",
