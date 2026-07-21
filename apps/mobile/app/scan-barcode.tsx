@@ -4,6 +4,7 @@ import * as Clipboard from "expo-clipboard";
 import * as ImagePicker from "expo-image-picker";
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import {
+  ActivityIndicator,
   Image,
   KeyboardAvoidingView,
   Modal,
@@ -206,6 +207,7 @@ export default function BarcodeScanScreen() {
   const [scannerOpen, setScannerOpen] = useState(false);
   const [barcodeValue, setBarcodeValue] = useState("");
   const [listingPhotoActionStatus, setListingPhotoActionStatus] = useState("");
+  const [postingProgressMessage, setPostingProgressMessage] = useState("");
   const [manualBarcodeDraft, setManualBarcodeDraft] = useState("");
   const [manualBarcodeVisible, setManualBarcodeVisible] = useState(false);
   const [hasScannedBarcode, setHasScannedBarcode] = useState(false);
@@ -505,6 +507,17 @@ If a barcode draft exists, use it as product identity context and use the photos
   const parseFloorPrice = () => parseMoneyAmount(editableFloorPrice);
   const parseQuantity = () => parsePositiveInteger(editableQuantity);
 
+  const postItemToEbay = async (item: InventoryItem) => {
+    setPostingProgressMessage("Preparing eBay listing...");
+    try {
+      await openListingDraft(item, "ebay", {
+        onProgress: setPostingProgressMessage,
+      });
+    } finally {
+      setPostingProgressMessage("");
+    }
+  };
+
   const promptForListingDestination = (item: InventoryItem) => {
     Alert.alert("Post this listing now?", "Choose where you want to post it.", [
       {
@@ -516,7 +529,7 @@ If a barcode draft exists, use it as product identity context and use the photos
       {
         text: "eBay",
         onPress: () => {
-          void openListingDraft(item, "ebay");
+          void postItemToEbay(item);
         },
       },
       { text: "Not now", style: "cancel" },
@@ -1154,6 +1167,28 @@ ${productSummary}
           </View>
         </Modal>
 
+        <Modal
+          visible={Boolean(postingProgressMessage)}
+          transparent
+          animationType="fade"
+          onRequestClose={() => undefined}
+        >
+          <View style={styles.postingProgressBackdrop}>
+            <View style={styles.postingProgressDialog}>
+              <ActivityIndicator size="large" color={AppPalette.primary} />
+              <Text style={styles.postingProgressTitle}>
+                Posting to eBay
+              </Text>
+              <Text style={styles.postingProgressCopy}>
+                {postingProgressMessage || "Preparing listing..."}
+              </Text>
+              <View style={styles.postingProgressTrack}>
+                <View style={styles.postingProgressFill} />
+              </View>
+            </View>
+          </View>
+        </Modal>
+
         {result && images.length < MAX_LISTING_PHOTOS ? (
           <View style={styles.nextStepCard}>
             <Text style={styles.nextStepTitle}>Add listing photos</Text>
@@ -1644,6 +1679,48 @@ const styles = StyleSheet.create({
     color: AppPalette.textMuted,
     fontSize: 14,
     fontWeight: "700",
+  },
+  postingProgressBackdrop: {
+    flex: 1,
+    backgroundColor: AppPalette.modalBackdrop,
+    justifyContent: "center",
+    padding: 20,
+  },
+  postingProgressDialog: {
+    alignItems: "center",
+    backgroundColor: AppPalette.surface,
+    borderColor: AppPalette.border,
+    borderRadius: 10,
+    borderWidth: 1,
+    padding: 20,
+  },
+  postingProgressTitle: {
+    color: AppPalette.text,
+    fontSize: 20,
+    fontWeight: "700",
+    marginTop: 14,
+    marginBottom: 6,
+  },
+  postingProgressCopy: {
+    color: AppPalette.textMuted,
+    fontSize: 14,
+    fontWeight: "600",
+    lineHeight: 20,
+    marginBottom: 16,
+    textAlign: "center",
+  },
+  postingProgressTrack: {
+    backgroundColor: AppPalette.surfaceMuted,
+    borderRadius: 999,
+    height: 8,
+    overflow: "hidden",
+    width: "100%",
+  },
+  postingProgressFill: {
+    backgroundColor: AppPalette.primary,
+    borderRadius: 999,
+    height: "100%",
+    width: "64%",
   },
   barcodeStatus: {
     fontSize: 13,
