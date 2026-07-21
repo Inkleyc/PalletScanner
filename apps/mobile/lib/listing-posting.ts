@@ -19,6 +19,13 @@ const FACEBOOK_LISTING_URLS = [
   "https://www.facebook.com/marketplace/create/item",
 ] as const;
 
+export type ListingDraftOutcome = {
+  status: "blocked" | "posted" | "failed" | "opened";
+  title: string;
+  message: string;
+  listingUrl?: string;
+};
+
 const getListingContentForPlatform = (
   item: InventoryItem,
   platform: "facebook" | "ebay",
@@ -220,15 +227,16 @@ export const openListingDraft = async (
     showSuccessAlert?: boolean;
     onProgress?: (message: string) => void;
   },
-) => {
+): Promise<ListingDraftOutcome> => {
   const readiness = getPostingReadiness(item, platform);
   if (!readiness.ready) {
     const platformLabel = platform === "facebook" ? "Facebook" : "eBay";
-    Alert.alert(
-      `${platformLabel} needs more details`,
-      readiness.errors.join("\n"),
-    );
-    return;
+    const title = `${platformLabel} needs more details`;
+    const message = readiness.errors.join("\n");
+    if (options?.showSuccessAlert !== false) {
+      Alert.alert(title, message);
+    }
+    return { status: "blocked", title, message };
   }
 
   if (platform === "ebay" && isEbayApiConfigured()) {
@@ -255,19 +263,22 @@ export const openListingDraft = async (
         categoryName: result.categoryName,
       });
 
+      const message = result.categoryName
+        ? `Published in ${result.categoryName}.`
+        : "Your eBay listing was created successfully.";
+      const title = result.updated ? "eBay listing updated" : "eBay listing created";
+      const detail = result.listingId
+        ? `${
+            result.updated
+              ? "Your existing eBay listing was updated."
+              : message
+          }\n\nListing ID: ${result.listingId}`
+        : message;
+
       if (options?.showSuccessAlert !== false) {
-        const message = result.categoryName
-          ? `Published in ${result.categoryName}.`
-          : "Your eBay listing was created successfully.";
         Alert.alert(
-          result.updated ? "eBay listing updated" : "eBay listing created",
-          result.listingId
-            ? `${
-                result.updated
-                  ? "Your existing eBay listing was updated."
-                  : message
-              }\n\nListing ID: ${result.listingId}`
-            : message,
+          title,
+          detail,
           result.listingUrl
             ? [
                 { text: "Done", style: "cancel" },
@@ -281,7 +292,12 @@ export const openListingDraft = async (
             : undefined,
         );
       }
-      return;
+      return {
+        status: "posted",
+        title,
+        message: detail,
+        listingUrl: result.listingUrl,
+      };
     } catch (error) {
       const errorMessage =
         error instanceof Error ? error.message : "Unknown eBay listing error.";
@@ -289,13 +305,15 @@ export const openListingDraft = async (
         status: "error",
         error: errorMessage,
       });
-      Alert.alert(
-        "eBay API listing failed",
+      const title = "eBay API listing failed";
+      const message =
         error instanceof Error
           ? `${error.message}\n\nThe item was not marked as listed. Fix the issue and try again.`
-          : "The item was not marked as listed. Fix the issue and try again.",
-      );
-      return;
+          : "The item was not marked as listed. Fix the issue and try again.";
+      if (options?.showSuccessAlert !== false) {
+        Alert.alert(title, message);
+      }
+      return { status: "failed", title, message };
     }
   }
 
@@ -329,23 +347,33 @@ export const openListingDraft = async (
           "Link unavailable",
           "Facebook Marketplace could not be opened, but the listing text is copied and ready to paste.",
         );
-        return;
+        return {
+          status: "failed",
+          title: "Link unavailable",
+          message:
+            "Facebook Marketplace could not be opened, but the listing text is copied and ready to paste.",
+        };
       }
 
       updateInventoryItemFacebookStatus(item.id, { status: "opened" });
       if (options?.showSuccessAlert !== false) {
         showFacebookPostingGuide(item);
       }
-      return;
+      return {
+        status: "opened",
+        title: "Facebook Marketplace opened",
+        message: "The listing details were copied and Facebook was opened.",
+      };
     } else {
       const supported = await Linking.canOpenURL(ebayUrl);
 
       if (!supported) {
-        Alert.alert(
-          "Link unavailable",
-          `${platformLabel} could not be opened, but the listing text is copied and ready to paste.`,
-        );
-        return;
+        const title = "Link unavailable";
+        const message = `${platformLabel} could not be opened, but the listing text is copied and ready to paste.`;
+        if (options?.showSuccessAlert !== false) {
+          Alert.alert(title, message);
+        }
+        return { status: "failed", title, message };
       }
 
       await Linking.openURL(ebayUrl);
@@ -358,6 +386,12 @@ export const openListingDraft = async (
         "The listing details were copied to your clipboard so you can paste them into the new listing.",
       );
     }
+    return {
+      status: "opened",
+      title: `${platformLabel} opened`,
+      message:
+        "The listing details were copied to your clipboard so you can paste them into the new listing.",
+    };
   } catch (error) {
     if (platform === "facebook") {
       updateInventoryItemFacebookStatus(item.id, {
@@ -368,9 +402,11 @@ export const openListingDraft = async (
             : "Unable to open Facebook listing flow.",
       });
     }
-    Alert.alert(
-      "Unable to open listing flow",
-      `I copied the listing details, but couldn't open ${platformLabel}.`,
-    );
+    const title = "Unable to open listing flow";
+    const message = `I copied the listing details, but couldn't open ${platformLabel}.`;
+    if (options?.showSuccessAlert !== false) {
+      Alert.alert(title, message);
+    }
+    return { status: "failed", title, message };
   }
 };

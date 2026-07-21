@@ -510,9 +510,14 @@ If a barcode draft exists, use it as product identity context and use the photos
   const postItemToEbay = async (item: InventoryItem) => {
     setPostingProgressMessage("Preparing eBay listing...");
     try {
-      await openListingDraft(item, "ebay", {
+      const outcome = await openListingDraft(item, "ebay", {
+        showSuccessAlert: false,
         onProgress: setPostingProgressMessage,
       });
+      setPostingProgressMessage("");
+      setTimeout(() => {
+        Alert.alert(outcome.title, outcome.message);
+      }, 150);
     } finally {
       setPostingProgressMessage("");
     }
