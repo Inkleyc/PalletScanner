@@ -512,10 +512,12 @@ If a barcode draft exists, use it as product identity context and use the photos
     setCurrentItemId(null);
 
     let product: BarcodeLookupItem | null = null;
+    let lookupError: Error | null = null;
 
     try {
       product = await lookupBarcodeProduct(normalizedBarcode);
-    } catch {
+    } catch (error) {
+      lookupError = error instanceof Error ? error : new Error(String(error));
       product = null;
     }
 
@@ -530,8 +532,9 @@ If a barcode draft exists, use it as product identity context and use the photos
       promptForBarcodeFallback(fallbackDraft, {
         barcode: normalizedBarcode,
         productImageUri: null,
-        message:
-          "The barcode lookup did not return enough product detail. Scan again, add photos for analysis, or choose to use a basic barcode draft.",
+        message: `Scanned barcode: ${normalizedBarcode}\n\nThe barcode lookup did not return enough product detail.${
+          lookupError ? `\n\n${lookupError.message}` : ""
+        }\n\nScan again, add photos for analysis, or choose to use a basic barcode draft.`,
       });
       return;
     }

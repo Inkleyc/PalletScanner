@@ -10,6 +10,7 @@ const UPCITEMDB_LOOKUP_URL = "https://api.upcitemdb.com/prod/trial/lookup";
 const OPEN_FOOD_FACTS_LOOKUP_URL = "https://world.openfoodfacts.org/api/v0/product";
 const OPEN_FACTS_ALL_LOOKUP_URL =
   "https://world.openfoodfacts.org/api/v3/product";
+const GTINHUB_LOOKUP_URL = "https://gtinhub.com/api/v1/product";
 
 const normalizeBarcode = (barcode: string) => barcode.trim().replace(/[^0-9A-Za-z]/g, "");
 
@@ -137,6 +138,42 @@ const lookupOpenFoodFactsCandidate = async (barcode: string) => {
   return normalizeOpenFactsProduct(payload.product);
 };
 
+const lookupGtinHubCandidate = async (barcode: string) => {
+  const response = await fetch(
+    `${GTINHUB_LOOKUP_URL}/${encodeURIComponent(barcode)}`,
+  );
+
+  if (!response.ok) {
+    throw new Error(`Fallback lookup failed with status ${response.status}`);
+  }
+
+  const payload = (await response.json()) as {
+    found?: boolean;
+    message?: string | null;
+    product?: {
+      name?: string;
+      brand?: string;
+      description?: string;
+      category?: string;
+      image_url?: string;
+    };
+  };
+
+  if (!payload.found || !payload.product?.name) {
+    throw new Error(payload.message ?? "No product found for that barcode.");
+  }
+
+  return {
+    title: payload.product.name,
+    description: firstText(payload.product.description),
+    brand: firstText(payload.product.brand),
+    category: firstText(payload.product.category),
+    images: [payload.product.image_url].filter(
+      (value): value is string => Boolean(value),
+    ),
+  } satisfies BarcodeLookupItem;
+};
+
 export const lookupBarcodeProduct = async (barcode: string) => {
   const candidates = buildBarcodeCandidates(barcode);
   let lastError: Error | null = null;
@@ -162,6 +199,15 @@ export const lookupBarcodeProduct = async (barcode: string) => {
 
       try {
         return await lookupOpenFoodFactsCandidate(candidate);
+      } catch (fallbackError) {
+        lastError =
+          fallbackError instanceof Error
+            ? fallbackError
+            : new Error(String(fallbackError));
+      }
+
+      try {
+        return await lookupGtinHubCandidate(candidate);
       } catch (fallbackError) {
         lastError =
           fallbackError instanceof Error
