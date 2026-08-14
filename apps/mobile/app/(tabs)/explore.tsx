@@ -651,7 +651,7 @@ export default function InventoryScreen() {
     }
 
     setActivePalletSession(selectedPallet.id);
-    Alert.alert("Active pallet updated", `${selectedPallet.name} is now active.`);
+    setFilterModalVisible(false);
   };
 
   const removeSelectedPallet = () => {
