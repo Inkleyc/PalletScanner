@@ -2193,6 +2193,7 @@ const styles = StyleSheet.create({
   listingToolsToggle: {
     marginHorizontal: 12,
     marginTop: 10,
+    marginBottom: 12,
     borderWidth: 1,
     borderColor: AppPalette.border,
     backgroundColor: AppPalette.surfaceMuted,

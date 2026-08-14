@@ -1194,33 +1194,6 @@ ${productSummary}
           </View>
         </Modal>
 
-        {result && images.length < MAX_LISTING_PHOTOS ? (
-          <View style={styles.nextStepCard}>
-            <Text style={styles.nextStepTitle}>Add listing photos</Text>
-            <Text style={styles.nextStepCopy}>
-              {result.photo_tips?.trim() ||
-                "Take 2-5 photos: front, back, label or model number, accessories, and any visible wear."}
-            </Text>
-            <TouchableOpacity
-              style={[
-                styles.barcodeBtn,
-                (loading || isSaving) && styles.disabledAction,
-              ]}
-              disabled={loading || isSaving}
-              onPress={() => {
-                void addListingPhoto(result.photo_tips);
-              }}
-            >
-              <Text style={styles.barcodeBtnText}>
-                {images.length === 0 ? "Take Listing Photos" : "Add Listing Photo"}
-              </Text>
-            </TouchableOpacity>
-            {listingPhotoActionStatus ? (
-              <Text style={styles.actionStatus}>{listingPhotoActionStatus}</Text>
-            ) : null}
-          </View>
-        ) : null}
-
         {images.length > 0 && (
           <View style={styles.photoStrip}>
             <ScrollView horizontal showsHorizontalScrollIndicator={false}>
@@ -1471,6 +1444,33 @@ ${productSummary}
             ) : null}
           </View>
         )}
+
+        {result && images.length < MAX_LISTING_PHOTOS ? (
+          <View style={styles.nextStepCard}>
+            <Text style={styles.nextStepTitle}>Add listing photos</Text>
+            <Text style={styles.nextStepCopy}>
+              {result.photo_tips?.trim() ||
+                "Take 2-5 photos: front, back, label or model number, accessories, and any visible wear."}
+            </Text>
+            <TouchableOpacity
+              style={[
+                styles.barcodeBtn,
+                (loading || isSaving) && styles.disabledAction,
+              ]}
+              disabled={loading || isSaving}
+              onPress={() => {
+                void addListingPhoto(result.photo_tips);
+              }}
+            >
+              <Text style={styles.barcodeBtnText}>
+                {images.length === 0 ? "Take Listing Photos" : "Add Listing Photo"}
+              </Text>
+            </TouchableOpacity>
+            {listingPhotoActionStatus ? (
+              <Text style={styles.actionStatus}>{listingPhotoActionStatus}</Text>
+            ) : null}
+          </View>
+        ) : null}
       </ScrollView>
     </KeyboardAvoidingView>
   );

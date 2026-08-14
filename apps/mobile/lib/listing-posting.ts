@@ -1,4 +1,5 @@
 import * as Clipboard from "expo-clipboard";
+import * as WebBrowser from "expo-web-browser";
 import { Linking } from "react-native";
 
 import { AppAlert as Alert } from "@/lib/app-alert";
@@ -13,10 +14,13 @@ import {
 } from "@/lib/inventory-store";
 import { getPostingReadiness } from "@/lib/posting-validation";
 
+const FACEBOOK_MARKETPLACE_CREATE_URL =
+  "https://m.facebook.com/marketplace/create/item";
+
 const FACEBOOK_LISTING_URLS = [
+  `fb://facewebmodal/f?href=${encodeURIComponent(FACEBOOK_MARKETPLACE_CREATE_URL)}`,
   "fb://marketplace/create/item",
-  "fb://facewebmodal/f?href=https://www.facebook.com/marketplace/create/item",
-  "https://www.facebook.com/marketplace/create/item",
+  FACEBOOK_MARKETPLACE_CREATE_URL,
 ] as const;
 
 export type ListingDraftOutcome = {
@@ -108,6 +112,26 @@ const copyFacebookValue = async (
   await Clipboard.setStringAsync(value);
   void triggerCopyFeedback();
   showFacebookPostingGuide(item, `${label} copied.`);
+};
+
+const openFacebookMarketplaceCreate = async () => {
+  try {
+    await WebBrowser.openBrowserAsync(FACEBOOK_MARKETPLACE_CREATE_URL);
+    return true;
+  } catch {
+    // Fall back to Facebook app routes below.
+  }
+
+  for (const candidateUrl of FACEBOOK_LISTING_URLS) {
+    try {
+      await Linking.openURL(candidateUrl);
+      return true;
+    } catch {
+      // Try the next Marketplace route.
+    }
+  }
+
+  return false;
 };
 
 export const copyFacebookListingValue = async (
@@ -326,17 +350,7 @@ export const openListingDraft = async (
     await Clipboard.setStringAsync(listingText);
     void triggerCopyFeedback();
     if (platform === "facebook") {
-      let opened = false;
-
-      for (const candidateUrl of FACEBOOK_LISTING_URLS) {
-        try {
-          await Linking.openURL(candidateUrl);
-          opened = true;
-          break;
-        } catch {
-          // Try the next Marketplace route.
-        }
-      }
+      const opened = await openFacebookMarketplaceCreate();
 
       if (!opened) {
         updateInventoryItemFacebookStatus(item.id, {
