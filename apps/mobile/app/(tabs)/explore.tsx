@@ -33,7 +33,7 @@ import {
   updateInventoryItemFacebookListingUrl,
   updateInventoryItemFacebookStatus,
 } from "@/lib/inventory-store";
-import { AppAlert as Alert } from "@/lib/app-alert";
+import { AppAlert as Alert, type AppAlertButton } from "@/lib/app-alert";
 import { endEbayListing } from "@/lib/ebay-integration";
 import {
   copyFacebookListingValue,
@@ -346,6 +346,25 @@ export default function InventoryScreen() {
     }
   };
 
+  const confirmUnmarkListed = (
+    item: InventoryItem,
+    platform: "facebook" | "ebay",
+  ) => {
+    const platformLabel = platform === "facebook" ? "Facebook" : "eBay";
+    Alert.alert(
+      `Unmark ${platformLabel} posted?`,
+      "This only updates the item in Pallet Scanner. It will not remove or end anything on the marketplace.",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: `Unmark ${platformLabel}`,
+          style: "destructive",
+          onPress: () => unmarkInventoryItemListed(item.id, platform),
+        },
+      ],
+    );
+  };
+
   const showItemActionMenu = (item: InventoryItem) => {
     const itemSoldPrice = displaySoldPrice(item.soldPrice);
     const facebookLabel =
@@ -360,8 +379,7 @@ export default function InventoryScreen() {
         : item.ebayListingUrl
           ? "Update eBay Listing"
           : "Post to eBay";
-
-    Alert.alert("Item actions", displayText(item.name, "Inventory item"), [
+    const actions: AppAlertButton[] = [
       {
         text: facebookLabel,
         onPress: () => {
@@ -374,6 +392,27 @@ export default function InventoryScreen() {
           void openListingDraft(item, "ebay");
         },
       },
+    ];
+
+    if (hasListedPlatform(item, "facebook")) {
+      actions.push({
+        text: "Unmark Facebook Posted",
+        onPress: () => confirmUnmarkListed(item, "facebook"),
+      });
+    }
+
+    if (
+      hasListedPlatform(item, "ebay") ||
+      item.ebayStatus === "active" ||
+      item.ebayListingUrl
+    ) {
+      actions.push({
+        text: "Unmark eBay Posted",
+        onPress: () => confirmUnmarkListed(item, "ebay"),
+      });
+    }
+
+    actions.push(
       {
         text: itemSoldPrice !== null ? "Edit Sold Price" : "Mark Sold",
         onPress: () => setEditingSoldItemId(item.id),
@@ -384,7 +423,9 @@ export default function InventoryScreen() {
         onPress: () => removeItem(item),
       },
       { text: "Cancel", style: "cancel" },
-    ]);
+    );
+
+    Alert.alert("Item actions", displayText(item.name, "Inventory item"), actions);
   };
 
   const pasteFacebookUrl = async (item: InventoryItem) => {
@@ -1327,7 +1368,7 @@ ${JSON.stringify(promptItems, null, 2)}`,
                     </Text>
                     <TouchableOpacity
                       style={styles.listedBannerClose}
-                      onPress={() => unmarkInventoryItemListed(item.id, platform)}
+                      onPress={() => confirmUnmarkListed(item, platform)}
                     >
                       <Text style={styles.listedBannerCloseText}>x</Text>
                     </TouchableOpacity>

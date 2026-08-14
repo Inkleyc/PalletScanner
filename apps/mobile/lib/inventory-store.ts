@@ -804,6 +804,22 @@ export const unmarkInventoryItemListed = (
             ),
             facebookStatus:
               platform === "facebook" ? "idle" : item.facebookStatus,
+            ebayStatus:
+              platform === "ebay" ? "idle" : item.ebayStatus,
+            ebayProgress:
+              platform === "ebay" ? undefined : item.ebayProgress,
+            ebayLastError:
+              platform === "ebay" ? undefined : item.ebayLastError,
+            ebayListingId:
+              platform === "ebay" ? undefined : item.ebayListingId,
+            ebayListingUrl:
+              platform === "ebay" ? undefined : item.ebayListingUrl,
+            ebayOfferId:
+              platform === "ebay" ? undefined : item.ebayOfferId,
+            ebayUpdatedAt:
+              platform === "ebay" ? Date.now() : item.ebayUpdatedAt,
+            facebookListingUrl:
+              platform === "facebook" ? undefined : item.facebookListingUrl,
             facebookLastError:
               platform === "facebook" ? undefined : item.facebookLastError,
             facebookUpdatedAt:
