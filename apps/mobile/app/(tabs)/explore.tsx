@@ -151,7 +151,6 @@ export default function InventoryScreen() {
   const [bundleSuggestions, setBundleSuggestions] = useState<BundleSuggestion[]>([]);
   const isLargeLayout = width >= 900;
   const previousHasActiveFilters = useRef(false);
-  const previousActivePalletId = useRef<string | null>(activePalletId);
   const listingFilterLabel = getListingFilterLabel(listingFilter);
 
   const selectedPallet =
@@ -243,20 +242,6 @@ export default function InventoryScreen() {
     }
     previousHasActiveFilters.current = hasActiveFilters;
   }, [hasActiveFilters, isLargeLayout]);
-
-  useEffect(() => {
-    const previousActive = previousActivePalletId.current;
-
-    if (
-      !isLargeLayout &&
-      activePalletId &&
-      (selectedPalletId === "all" || selectedPalletId === previousActive)
-    ) {
-      setSelectedPalletId(activePalletId);
-    }
-
-    previousActivePalletId.current = activePalletId;
-  }, [activePalletId, isLargeLayout, selectedPalletId]);
 
   const endItemEbayListing = async (item: InventoryItem) => {
     if (!item.ebayOfferId) {

@@ -32,8 +32,10 @@ type InventoryListener = () => void;
 
 const inventoryListeners = new Set<InventoryListener>();
 const inventoryFile = `${FileSystem.documentDirectory}inventory.json`;
+const activePalletFile = `${FileSystem.documentDirectory}active-pallet.txt`;
 const photosDirectory = `${FileSystem.documentDirectory}photos/`;
 const inventoryWebKey = "inventory";
+const activePalletWebKey = "active-pallet-id";
 const legacyPalletId = "pallet-1";
 const threeDaysMs = 3 * 24 * 60 * 60 * 1000;
 
@@ -302,6 +304,43 @@ const persistInventory = async () => {
   }
 };
 
+const persistActivePalletId = async () => {
+  try {
+    const value = activePalletId ?? "";
+    if (Platform.OS === "web") {
+      await writeWebStorage(activePalletWebKey, value);
+      return;
+    }
+    await FileSystem.writeAsStringAsync(activePalletFile, value, {
+      encoding: "utf8",
+    });
+  } catch {
+    // Best-effort persistence; the full inventory file still has a fallback.
+  }
+};
+
+const hydrateActivePalletId = async () => {
+  try {
+    const raw =
+      Platform.OS === "web"
+        ? await readWebStorage(activePalletWebKey)
+        : (await FileSystem.getInfoAsync(activePalletFile)).exists
+          ? await FileSystem.readAsStringAsync(activePalletFile, {
+              encoding: "utf8",
+            })
+          : null;
+    const persistedActivePalletId = raw?.trim() || null;
+    if (
+      persistedActivePalletId &&
+      palletState.some((pallet) => pallet.id === persistedActivePalletId)
+    ) {
+      activePalletId = persistedActivePalletId;
+    }
+  } catch {
+    // Fall back to the active pallet stored in the main inventory payload.
+  }
+};
+
 const ensurePhotosDirectory = async () => {
   if (Platform.OS === "web") {
     return;
@@ -399,6 +438,7 @@ const commitState = (pallets: PalletSession[], nextActivePalletId?: string | nul
   activePalletId = normalizedState.activePalletId;
   notifyInventoryListeners();
   void persistInventory();
+  void persistActivePalletId();
 };
 
 const clearExpiredResetBackup = () => {
@@ -510,6 +550,7 @@ export const hydrateInventory = async () => {
           activePalletId = normalizedState.activePalletId;
           setResetBackupState(parsed.resetBackup ?? null);
         }
+        await hydrateActivePalletId();
         notifyInventoryListeners();
         return;
       }
@@ -551,6 +592,7 @@ export const hydrateInventory = async () => {
       }
 
       clearExpiredResetBackup();
+      await hydrateActivePalletId();
       notifyInventoryListeners();
     } catch {
       // Ignore invalid or missing persisted inventory.
@@ -680,7 +722,7 @@ export const setActivePalletSession = (palletId: string) => {
 
   activePalletId = palletId;
   notifyInventoryListeners();
-  void persistInventory();
+  void persistActivePalletId();
 };
 
 export const deletePalletSession = (palletId: string) => {
