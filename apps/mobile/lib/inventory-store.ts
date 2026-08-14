@@ -674,7 +674,13 @@ export const setActivePalletSession = (palletId: string) => {
     return;
   }
 
-  commitState(palletState, palletId);
+  if (activePalletId === palletId) {
+    return;
+  }
+
+  activePalletId = palletId;
+  notifyInventoryListeners();
+  void persistInventory();
 };
 
 export const deletePalletSession = (palletId: string) => {
