@@ -444,6 +444,49 @@ button {
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
+.print-only {
+  display: none;
+}
+
+.analysis-controls {
+  display: grid;
+  gap: 14px;
+}
+
+.analysis-filter-grid {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(6, minmax(130px, 1fr));
+}
+
+.analysis-filter-grid label {
+  display: grid;
+  gap: 5px;
+}
+
+.analysis-filter-grid label > span {
+  color: #697364;
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.analysis-filter-grid input,
+.analysis-filter-grid select {
+  border: 1px solid #bdc8b3;
+  border-radius: 8px;
+  min-width: 0;
+  padding: 9px 10px;
+  width: 100%;
+}
+
+.active-filter-summary {
+  color: #566451;
+  font-size: 13px;
+  font-weight: 700;
+  margin: 0;
+}
+
 .analysis-table {
   min-width: 0;
 }
@@ -1159,6 +1202,10 @@ th {
     flex-direction: column;
   }
 
+  .analysis-filter-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
   .integration-card {
     grid-column: auto;
   }
@@ -1210,5 +1257,72 @@ th {
   .inline-editor {
     align-items: stretch;
     grid-template-columns: 1fr;
+  }
+}
+
+@media print {
+  @page {
+    margin: 0.45in;
+    size: landscape;
+  }
+
+  :root,
+  body {
+    background: #fff;
+  }
+
+  .sidebar,
+  .topbar,
+  .no-print,
+  .toast,
+  .settings-mount {
+    display: none !important;
+  }
+
+  .shell,
+  .main,
+  .analysis-grid {
+    display: block;
+  }
+
+  .main {
+    padding: 0;
+  }
+
+  .print-only {
+    display: block;
+  }
+
+  .report-heading {
+    border-bottom: 2px solid #315f3b;
+    margin-bottom: 14px;
+    padding-bottom: 10px;
+  }
+
+  .report-heading h1,
+  .report-heading p {
+    margin: 0 0 5px;
+  }
+
+  .metrics-grid {
+    grid-template-columns: repeat(5, 1fr);
+    margin-bottom: 12px;
+  }
+
+  .metric,
+  .panel,
+  .analysis-note {
+    break-inside: avoid;
+    box-shadow: none;
+    margin-bottom: 12px;
+  }
+
+  .analysis-table .table-scroll {
+    max-height: none;
+    overflow: visible;
+  }
+
+  .analysis-table table {
+    min-width: 0;
   }
 }

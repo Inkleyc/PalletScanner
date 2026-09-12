@@ -93,6 +93,10 @@ for (const marker of [
   "Condition performance",
   "Marketplace performance",
   "Record sale",
+  "Report filters",
+  "Category / item type",
+  "Export CSV report",
+  "Print / Save PDF",
 ]) {
   if (!app.includes(marker)) {
     throw new Error(`app.js is missing ${marker}`);
