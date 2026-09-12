@@ -6,6 +6,7 @@ globalThis.localStorage = {
 };
 const { items, pallets, repository } = await import("../src/inventory-repository.js");
 const { createSupabaseInventoryRepository } = await import("../src/supabase-inventory-repository.js");
+const { buildAnalytics } = await import("../src/analytics-model.js");
 if (typeof createSupabaseInventoryRepository !== "function") {
   throw new Error("Supabase inventory repository factory is unavailable.");
 }
@@ -30,6 +31,7 @@ const requiredFiles = [
   "src/supabase.js",
   "src/supabase-inventory-repository.js",
   "src/repository-router.js",
+  "src/analytics-model.js",
   "src/styles.css",
   "scripts/serve.mjs",
 ];
@@ -86,6 +88,11 @@ for (const marker of [
   "Backend configuration",
   "Download JSON backup",
   "Restore local backup",
+  "Data / Analysis",
+  "Category performance",
+  "Condition performance",
+  "Marketplace performance",
+  "Record sale",
 ]) {
   if (!app.includes(marker)) {
     throw new Error(`app.js is missing ${marker}`);
@@ -194,6 +201,15 @@ try {
 }
 if (!invalidBackupRejected) {
   throw new Error("Local repository accepted an invalid backup snapshot.");
+}
+
+const analysis = buildAnalytics(
+  [{ id: 1, category: "Tools", condition: "New", palletId: "p1", capturedAt: "2026-09-01T12:00:00Z" }, { id: 2, category: "Tools", condition: "Used", palletId: "p1", capturedAt: "2026-09-02T12:00:00Z" }],
+  [{ id: "p1", name: "Test pallet", palletCost: 50 }],
+  [{ id: "s1", itemId: 1, marketplace: "ebay", soldPrice: 100, fees: 10, shippingCost: 5, soldAt: Date.parse("2026-09-05T12:00:00Z") }],
+);
+if (analysis.summary.netProceeds !== 85 || analysis.byCategory[0].sellThrough !== 50 || analysis.byPlatform[0].label !== "eBay" || analysis.byPallet[0].profit !== 35) {
+  throw new Error("Analysis model returned incorrect sale performance results.");
 }
 
 console.log("Web dashboard scaffold check passed.");

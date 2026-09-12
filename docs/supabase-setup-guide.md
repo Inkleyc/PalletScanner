@@ -160,5 +160,15 @@ security schema is checked in at:
 supabase/migrations/202609110001_initial_inventory.sql
 ```
 
-Review [backend-data-contract.md](./backend-data-contract.md) before applying it.
-No migration has been run against a remote project yet.
+The item-category field used by Data / Analysis is added by the follow-up
+migration:
+
+```text
+supabase/migrations/202609120001_add_inventory_category.sql
+```
+
+Apply migrations in filename order. Each follow-up migration is written so it
+can safely be run once against an existing project.
+
+Review [backend-data-contract.md](./backend-data-contract.md) before applying a
+migration.

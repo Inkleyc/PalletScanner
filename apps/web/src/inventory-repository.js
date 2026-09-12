@@ -12,6 +12,7 @@ const normalizeItem = (item) => ({
   high: Number.isFinite(item.high) ? item.high : item.high_price ?? 0,
   floor: Number.isFinite(item.floor) ? item.floor : item.floor_price ?? 0,
   listedPlatforms: Array.isArray(item.listedPlatforms) ? item.listedPlatforms : [],
+  category: item.category?.trim() || "Uncategorized",
 });
 const normalizePallet = (pallet) => ({
   ...pallet,
@@ -28,6 +29,7 @@ const load = () => {
         items: saved.items.map(normalizeItem),
         pallets: saved.pallets.map(normalizePallet),
         activity: Array.isArray(saved.activity) ? saved.activity : [],
+        sales: Array.isArray(saved.sales) ? saved.sales : [],
       };
     }
   } catch {
@@ -38,6 +40,7 @@ const load = () => {
     pallets: clone(seedPallets).map(normalizePallet),
     activePalletId: seedPallets[0]?.id ?? null,
     activity: [],
+    sales: [],
   };
 };
 
@@ -130,8 +133,9 @@ export const repository = {
     return photos.map((uri, index) => ({ id: `${itemId}-${index}`, itemId, uri, createdAt: itemId }));
   },
   async listSales(itemId) {
-    return items
-      .filter((item) => item.soldPrice != null && (itemId === undefined || item.id === itemId))
+    const recordedItemIds = new Set(state.sales.map((sale) => sale.itemId));
+    const legacySales = items
+      .filter((item) => item.soldPrice != null && !recordedItemIds.has(item.id) && (itemId === undefined || item.id === itemId))
       .map((item) => ({
         id: `preview-sale-${item.id}`,
         itemId: item.id,
@@ -141,6 +145,19 @@ export const repository = {
         shippingCost: 0,
         soldAt: item.id,
       }));
+    return [...state.sales.filter((sale) => itemId === undefined || sale.itemId === itemId), ...legacySales]
+      .sort((first, second) => second.soldAt - first.soldAt);
+  },
+  async recordSale(sale) {
+    const item = items.find((entry) => entry.id === sale.itemId);
+    if (!item) throw new Error("The item could not be found.");
+    const recorded = { ...clone(sale), id: sale.id ?? `sale-${Date.now()}-${Math.random().toString(36).slice(2, 8)}` };
+    state.sales.push(recorded);
+    item.soldPrice = recorded.soldPrice;
+    item.status = "sold";
+    recordActivity("sale.recorded", item.id, { name: item.name, marketplace: recorded.marketplace, soldPrice: recorded.soldPrice });
+    persist();
+    return clone(recorded);
   },
   async listActivity(entityId) {
     return clone(state.activity)
@@ -164,6 +181,7 @@ export const repository = {
     pallets.splice(0, pallets.length, ...restoredPallets);
     state.activePalletId = palletIds.has(snapshot.activePalletId) ? snapshot.activePalletId : restoredPallets[0]?.id ?? null;
     state.activity = Array.isArray(snapshot.activity) ? clone(snapshot.activity) : [];
+    state.sales = Array.isArray(snapshot.sales) ? clone(snapshot.sales) : [];
     recordActivity("data.restored", "repository", { itemCount: items.length, palletCount: pallets.length });
     persist();
   },

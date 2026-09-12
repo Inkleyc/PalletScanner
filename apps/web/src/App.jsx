@@ -16,6 +16,7 @@ import {
 } from "./dashboard-model.js";
 import { getRepositoryMode, repository, useCloudRepository, useLocalRepository } from "./repository-router.js";
 import { isSupabaseConfigured, supabase } from "./supabase.js";
+import { buildAnalytics } from "./analytics-model.js";
 
 const readPreference = (key, fallback) => localStorage.getItem(key) ?? fallback;
 const price = (item, field) => item[field] ?? item[`${field}_price`] ?? 0;
@@ -100,7 +101,7 @@ function PalletManager({ pallets, summaries, activePalletId, selectedPalletId, o
 }
 
 function NewItemForm({ pallets, defaultPalletId, onCreated, onCancel }) {
-  const [draft, setDraft] = useState({ name: "", condition: "Unknown", palletId: defaultPalletId, quantity: "1", low: "0", high: "0", floor: "0", platform: "Review" });
+  const [draft, setDraft] = useState({ name: "", category: "Uncategorized", condition: "Unknown", palletId: defaultPalletId, quantity: "1", low: "0", high: "0", floor: "0", platform: "Review" });
   const [error, setError] = useState("");
   const update = (field) => (event) => setDraft((current) => ({ ...current, [field]: event.target.value }));
   const save = async (event) => {
@@ -110,14 +111,15 @@ function NewItemForm({ pallets, defaultPalletId, onCreated, onCancel }) {
     if (!Number.isInteger(quantity) || quantity < 1) return setError("Quantity must be a whole number of at least 1.");
     if (![low, high, floor].every((value) => Number.isFinite(value) && value >= 0) || high < low) return setError("Enter a valid price range with the high price at or above the low price.");
     const id = Date.now();
-    await repository.saveItem({ id, photo: null, photos: [], name: draft.name.trim(), condition: draft.condition.trim(), quantity, low, high, floor, low_price: low, high_price: high, floor_price: floor, best_platform: draft.platform, platform: draft.platform, listing_title: draft.name.trim(), listing_description: "", listedPlatforms: [], palletId: draft.palletId, soldPrice: null, status: "captured" });
+    await repository.saveItem({ id, photo: null, photos: [], name: draft.name.trim(), category: draft.category.trim() || "Uncategorized", condition: draft.condition.trim(), quantity, low, high, floor, low_price: low, high_price: high, floor_price: floor, best_platform: draft.platform, platform: draft.platform, listing_title: draft.name.trim(), listing_description: "", listedPlatforms: [], palletId: draft.palletId, soldPrice: null, status: "captured", capturedAt: new Date().toISOString() });
     onCreated(id);
   };
-  return <form className="inventory-detail edit-form" onSubmit={save}><div className="panel-heading"><h3>New inventory item</h3><div className="button-row"><button type="button" onClick={onCancel}>Cancel</button><button type="submit">Create item</button></div></div><div className="edit-grid"><label><span>Name</span><input autoFocus value={draft.name} onChange={update("name")} /></label><label><span>Condition</span><input value={draft.condition} onChange={update("condition")} /></label><label><span>Pallet</span><select value={draft.palletId} onChange={update("palletId")}>{pallets.map((pallet) => <option key={pallet.id} value={pallet.id}>{pallet.name}</option>)}</select></label><label><span>Quantity</span><input type="number" min="1" step="1" value={draft.quantity} onChange={update("quantity")} /></label><label><span>Platform</span><select value={draft.platform} onChange={update("platform")}><option>Facebook</option><option>eBay</option><option>Review</option></select></label><label><span>Low price</span><input type="number" min="0" step="0.01" value={draft.low} onChange={update("low")} /></label><label><span>High price</span><input type="number" min="0" step="0.01" value={draft.high} onChange={update("high")} /></label><label><span>Floor price</span><input type="number" min="0" step="0.01" value={draft.floor} onChange={update("floor")} /></label></div>{error && <p className="error-text">{error}</p>}</form>;
+  return <form className="inventory-detail edit-form" onSubmit={save}><div className="panel-heading"><h3>New inventory item</h3><div className="button-row"><button type="button" onClick={onCancel}>Cancel</button><button type="submit">Create item</button></div></div><div className="edit-grid"><label><span>Name</span><input autoFocus value={draft.name} onChange={update("name")} /></label><label><span>Category</span><input value={draft.category} onChange={update("category")} placeholder="Tools, Electronics, Furniture…" /></label><label><span>Condition</span><input value={draft.condition} onChange={update("condition")} /></label><label><span>Pallet</span><select value={draft.palletId} onChange={update("palletId")}>{pallets.map((pallet) => <option key={pallet.id} value={pallet.id}>{pallet.name}</option>)}</select></label><label><span>Quantity</span><input type="number" min="1" step="1" value={draft.quantity} onChange={update("quantity")} /></label><label><span>Platform</span><select value={draft.platform} onChange={update("platform")}><option>Facebook</option><option>eBay</option><option>Review</option></select></label><label><span>Low price</span><input type="number" min="0" step="0.01" value={draft.low} onChange={update("low")} /></label><label><span>High price</span><input type="number" min="0" step="0.01" value={draft.high} onChange={update("high")} /></label><label><span>Floor price</span><input type="number" min="0" step="0.01" value={draft.floor} onChange={update("floor")} /></label></div>{error && <p className="error-text">{error}</p>}</form>;
 }
 
 const itemDraft = (item) => ({
   name: item.name ?? "",
+  category: item.category ?? "Uncategorized",
   condition: item.condition ?? "",
   palletId: item.palletId ?? "",
   quantity: String(getQuantity(item)),
@@ -154,7 +156,36 @@ function ListingReview({ item, onSave }) {
   return <section className="photo-review"><div className="card-row"><div><strong>Marketplace review</strong><span>Confirm where this item is currently listed.</span></div></div><div className="button-row"><button disabled={savingPlatform !== null} onClick={() => updatePlatform("facebook")}>{savingPlatform === "facebook" ? "Saving…" : item.listedPlatforms.includes("facebook") ? "Remove Facebook listed mark" : "Mark listed on Facebook"}</button><button disabled={savingPlatform !== null} onClick={() => updatePlatform("ebay")}>{savingPlatform === "ebay" ? "Saving…" : item.listedPlatforms.includes("ebay") ? "Remove eBay listed mark" : "Mark listed on eBay"}</button></div>{error && <p className="error-text">{error}</p>}{item.ebayLastError && <p className="error-text">eBay: {item.ebayLastError}</p>}{item.facebookLastError && <p className="error-text">Facebook: {item.facebookLastError}</p>}</section>;
 }
 
-function InventoryDetail({ item, palletName, pallets, onSave, onRemove }) {
+function RecordSale({ item, onRecorded }) {
+  const [open, setOpen] = useState(false);
+  const [recordedSales, setRecordedSales] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [draft, setDraft] = useState({ marketplace: "facebook", soldPrice: item.soldPrice == null ? "" : String(item.soldPrice), fees: "0", shippingCost: "0", soldAt: new Date().toISOString().slice(0, 10) });
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+  useEffect(() => { let active = true; setLoading(true); repository.listSales(item.id).then((sales) => { if (active) setRecordedSales(sales); }).catch(() => { if (active) setRecordedSales([]); }).finally(() => { if (active) setLoading(false); }); return () => { active = false; }; }, [item.id, item.soldPrice]);
+  const update = (field) => (event) => setDraft((current) => ({ ...current, [field]: event.target.value }));
+  const save = async (event) => {
+    event.preventDefault();
+    const soldPrice = Number(draft.soldPrice); const fees = Number(draft.fees); const shippingCost = Number(draft.shippingCost); const soldAt = Date.parse(`${draft.soldAt}T12:00:00`);
+    if (![soldPrice, fees, shippingCost].every((value) => Number.isFinite(value) && value >= 0) || !Number.isFinite(soldAt)) return setError("Enter a valid sale price, costs, and date.");
+    setSaving(true); setError("");
+    try {
+      await repository.recordSale({ itemId: item.id, marketplace: draft.marketplace, soldPrice, fees, shippingCost, soldAt });
+      setRecordedSales(await repository.listSales(item.id));
+      setOpen(false);
+      onRecorded();
+    } catch (saleError) { setError(saleError instanceof Error ? saleError.message : "Could not record the sale."); }
+    finally { setSaving(false); }
+  };
+  const hasDetailedSale = recordedSales.some((sale) => !sale.id.startsWith("preview-sale-") && !sale.id.startsWith("legacy-sale-"));
+  if (loading) return <section className="sale-card"><div><strong>Checking sale details…</strong></div></section>;
+  if (item.soldPrice !== null && hasDetailedSale) return <section className="sale-card"><div><strong>Sold for {currency(item.soldPrice)}</strong><span>The complete sale appears in Analysis.</span></div></section>;
+  if (!open) return <section className="sale-card"><div><strong>{item.soldPrice === null ? "Did this item sell?" : `Sold for ${currency(item.soldPrice)}`}</strong><span>{item.soldPrice === null ? "Record the marketplace and costs to improve your analysis." : "Add the missing marketplace, costs, and date so this sale can be analyzed accurately."}</span></div><button className="primary-button" onClick={() => setOpen(true)}>{item.soldPrice === null ? "Record sale" : "Complete sale details"}</button></section>;
+  return <form className="sale-form" onSubmit={save}><div className="card-row"><div><strong>Record sale</strong><span>Gross price minus fees and shipping becomes net proceeds.</span></div><button type="button" onClick={() => setOpen(false)}>Cancel</button></div><div className="edit-grid"><label><span>Marketplace</span><select value={draft.marketplace} onChange={update("marketplace")}><option value="facebook">Facebook</option><option value="ebay">eBay</option><option value="other">Other</option></select></label><label><span>Sold price</span><input autoFocus required type="number" min="0" step="0.01" value={draft.soldPrice} onChange={update("soldPrice")} /></label><label><span>Marketplace fees</span><input type="number" min="0" step="0.01" value={draft.fees} onChange={update("fees")} /></label><label><span>Shipping cost</span><input type="number" min="0" step="0.01" value={draft.shippingCost} onChange={update("shippingCost")} /></label><label><span>Sold date</span><input required type="date" value={draft.soldAt} onChange={update("soldAt")} /></label></div><button className="primary-button" type="submit" disabled={saving}>{saving ? "Recording…" : "Save sale"}</button>{error && <p className="error-text">{error}</p>}</form>;
+}
+
+function InventoryDetail({ item, palletName, pallets, onSave, onRemove, onSaleRecorded }) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(() => item ? itemDraft(item) : null);
   const [error, setError] = useState("");
@@ -185,6 +216,7 @@ function InventoryDetail({ item, palletName, pallets, onSave, onRemove }) {
       await onSave({
         ...item,
         name: draft.name.trim(),
+        category: draft.category.trim() || "Uncategorized",
         condition: draft.condition.trim(),
         palletId: draft.palletId,
         quantity,
@@ -221,6 +253,7 @@ function InventoryDetail({ item, palletName, pallets, onSave, onRemove }) {
       <div className="panel-heading"><h3>Edit item</h3><div className="button-row"><button type="button" onClick={() => { setDraft(itemDraft(item)); setEditing(false); setError(""); }}>Cancel</button><button type="submit" disabled={saving}>{saving ? "Saving…" : "Save item"}</button></div></div>
       <div className="edit-grid">
         <label><span>Name</span><input value={draft.name} onChange={update("name")} /></label>
+        <label><span>Category</span><input value={draft.category} onChange={update("category")} placeholder="Tools, Electronics, Furniture…" /></label>
         <label><span>Condition</span><input value={draft.condition} onChange={update("condition")} /></label>
         <label><span>Pallet</span><select value={draft.palletId} onChange={update("palletId")}>{pallets.map((pallet) => <option key={pallet.id} value={pallet.id}>{pallet.name}</option>)}</select></label>
         <label><span>Quantity</span><input type="number" min="1" step="1" value={draft.quantity} onChange={update("quantity")} /></label>
@@ -229,7 +262,6 @@ function InventoryDetail({ item, palletName, pallets, onSave, onRemove }) {
         <label><span>Floor price</span><input type="number" min="0" step="0.01" value={draft.floor} onChange={update("floor")} /></label>
         <label><span>Status</span><select value={draft.status} onChange={update("status")}>{Object.entries(statusLabel).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
         <label><span>Platform</span><select value={draft.platform} onChange={update("platform")}><option>Facebook</option><option>eBay</option><option>Review</option></select></label>
-        <label><span>Sold price</span><input type="number" min="0" step="0.01" value={draft.soldPrice} onChange={update("soldPrice")} placeholder="Not sold" /></label>
         <label className="wide-field"><span>Listing title</span><input value={draft.listing_title} onChange={update("listing_title")} /></label>
         <label className="wide-field"><span>Listing description</span><textarea rows="4" value={draft.listing_description} onChange={update("listing_description")} /></label>
       </div>
@@ -242,6 +274,7 @@ function InventoryDetail({ item, palletName, pallets, onSave, onRemove }) {
       <div className="detail-grid">
         <div><span>Pallet</span><strong>{palletName}</strong></div>
         <div><span>Condition</span><strong>{item.condition}</strong></div>
+        <div><span>Category</span><strong>{item.category ?? "Uncategorized"}</strong></div>
         <div><span>Quantity</span><strong>{getQuantity(item)}</strong></div>
         <div><span>Low</span><strong>{currency(price(item, "low"))}</strong></div>
         <div><span>High</span><strong>{currency(price(item, "high"))}</strong></div>
@@ -253,7 +286,8 @@ function InventoryDetail({ item, palletName, pallets, onSave, onRemove }) {
       </p>
       <PhotoReview item={item} />
       <ListingReview item={item} onSave={onSave} />
-      <div className="button-row workflow-actions">{item.soldPrice === null ? <><button onClick={() => setWorkflowStatus("needs_photos")}>Needs photos</button><button onClick={() => setWorkflowStatus("needs_research")}>Needs research</button><button onClick={() => setWorkflowStatus("ready")}>Mark ready</button></> : <button onClick={() => setWorkflowStatus("ready")}>Clear sold status</button>}<button className="danger-button" onClick={remove}>Remove item</button></div>
+      <RecordSale item={item} onRecorded={onSaleRecorded} />
+      <div className="button-row workflow-actions">{item.soldPrice === null && <><button onClick={() => setWorkflowStatus("needs_photos")}>Needs photos</button><button onClick={() => setWorkflowStatus("needs_research")}>Needs research</button><button onClick={() => setWorkflowStatus("ready")}>Mark ready</button></>}<button className="danger-button" onClick={remove}>Remove item</button></div>
       {error && <p className="error-text">{error}</p>}
     </section>
   );
@@ -443,6 +477,7 @@ const activityLabels = {
   "item.updated": "Item updated",
   "item.deleted": "Item removed",
   "listing.updated": "Marketplace status updated",
+  "sale.recorded": "Sale recorded",
   "data.restored": "Local backup restored",
 };
 
@@ -450,6 +485,24 @@ function ActivityPanel({ snapshot }) {
   const [events, setEvents] = useState([]);
   useEffect(() => { repository.listActivity().then(setEvents).catch(() => setEvents([])); }, [snapshot]);
   return <section className="panel"><div className="panel-heading"><div><h3>Recent activity</h3><span>Shared history of important inventory and listing changes.</span></div></div><div className="activity-list">{events.length === 0 ? <div className="empty-queue"><strong>No changes yet</strong><span>Item, pallet, and listing changes will appear here.</span></div> : events.slice(0, 10).map((event) => <div className="activity-row" key={event.id}><div><strong>{activityLabels[event.type] ?? event.type}</strong><span>{event.details?.name ?? event.entityId}</span></div><time dateTime={new Date(event.occurredAt).toISOString()}>{new Date(event.occurredAt).toLocaleString()}</time></div>)}</div></section>;
+}
+
+function PerformanceTable({ title, subtitle, rows, kind = "group" }) {
+  return <section className="panel analysis-table"><div className="panel-heading"><div><h3>{title}</h3><span>{subtitle}</span></div></div>{rows.length === 0 ? <div className="empty-queue"><strong>No results yet</strong><span>Record sales to build this comparison.</span></div> : <div className="table-scroll"><table><thead><tr><th>{title.replace(" performance", "")}</th>{kind === "platform" ? <><th>Sales</th><th>Gross</th><th>Costs</th><th>Net</th><th>Avg sale</th></> : <><th>Inventory</th><th>Sold</th><th>Sell-through</th><th>Net</th><th>Avg sale</th>{kind === "pallet" && <th>Profit</th>}</>}</tr></thead><tbody>{rows.map((row) => <tr key={row.label}><td><strong>{row.label}</strong></td>{kind === "platform" ? <><td>{row.sales}</td><td>{currency(row.gross)}</td><td>{currency(row.costs)}</td><td>{currency(row.net)}</td><td>{currency(row.averageSale)}</td></> : <><td>{row.inventory}</td><td>{row.sold}</td><td><div className="rate-cell"><span>{row.sellThrough.toFixed(0)}%</span><i style={{ width: `${Math.min(100, row.sellThrough)}%` }} /></div></td><td>{currency(row.net)}</td><td>{currency(row.averageSale)}</td>{kind === "pallet" && <td className={row.profit >= 0 ? "positive-value" : "negative-value"}>{currency(row.profit)}</td>}</>}</tr>)}</tbody></table></div>}</section>;
+}
+
+function AnalysisPanel({ snapshot }) {
+  const [sales, setSales] = useState([]);
+  const [loading, setLoading] = useState(true);
+  useEffect(() => { let active = true; setLoading(true); repository.listSales().then((rows) => { if (active) setSales(rows); }).catch(() => { if (active) setSales([]); }).finally(() => { if (active) setLoading(false); }); return () => { active = false; }; }, [snapshot]);
+  const analysis = useMemo(() => buildAnalytics(snapshot.items, snapshot.pallets, sales), [snapshot, sales]);
+  if (loading) return <section className="panel"><strong>Loading analysis…</strong></section>;
+  return <div className="view-stack"><section className="metrics-grid"><Metric label="Recorded sales" value={analysis.summary.sales} /><Metric label="Sell-through" value={`${analysis.summary.sellThrough.toFixed(0)}%`} tone="success" /><Metric label="Gross revenue" value={currency(analysis.summary.grossRevenue)} /><Metric label="Selling costs" value={currency(analysis.summary.expenses)} /><Metric label="Net proceeds" value={currency(analysis.summary.netProceeds)} tone="success" /></section>
+    {!analysis.hasRecordedSales && <section className="panel getting-started"><span className="admin-kicker">Build your baseline</span><h3>Record the next sale from Inventory</h3><p>Add its marketplace, fees, shipping, and date. As sales accumulate, PalletFlip will show which categories, conditions, marketplaces, and pallets perform best.</p></section>}
+    {analysis.uncategorizedCount > 0 && <section className="analysis-note"><strong>{analysis.uncategorizedCount} item{analysis.uncategorizedCount === 1 ? " is" : "s are"} uncategorized.</strong><span>Add categories while reviewing Inventory to improve item-type comparisons.</span></section>}
+    <div className="analysis-grid"><PerformanceTable title="Category performance" subtitle="Which item types sell through and return the most net proceeds." rows={analysis.byCategory} /><PerformanceTable title="Condition performance" subtitle="Compare actual outcomes by recorded item condition." rows={analysis.byCondition} /><PerformanceTable title="Marketplace performance" subtitle="Gross sales, direct selling costs, and net proceeds by channel." rows={analysis.byPlatform} kind="platform" /><PerformanceTable title="Pallet performance" subtitle="Net proceeds less pallet purchase cost. Unsold inventory remains open." rows={analysis.byPallet} kind="pallet" /></div>
+    <p className="analysis-disclaimer">These are descriptive results from your recorded inventory and sales. They show patterns, but do not prove that condition or marketplace caused an item to sell.</p>
+  </div>;
 }
 
 function ListingPipeline({ items, onSelect }) {
@@ -463,16 +516,17 @@ function ListingPipeline({ items, onSelect }) {
   return <section className="pipeline" aria-label="Listing pipeline">{stages.map((stage) => <article className="pipeline-stage" key={stage.id}><div className="pipeline-heading"><strong>{stage.title}</strong><span className={`badge ${stage.tone}`}>{stage.items.length}</span></div><div className="pipeline-items">{stage.items.length === 0 ? <small>Nothing here</small> : stage.items.slice(0, 12).map((item) => <button key={item.id} onClick={() => onSelect(item.id)}><strong>{item.name}</strong><span>{getDisplayPlatform(item)}</span></button>)}</div></article>)}</section>;
 }
 
-const dashboardViews = ["overview", "pallets", "inventory", "listings", "activity", "settings"];
+const dashboardViews = ["overview", "pallets", "inventory", "listings", "analysis", "activity", "settings"];
 const viewCopy = {
   overview: ["Business overview", "Know what is selling, what is stuck, and what needs your decision."],
   pallets: ["Pallets", "Track the cost, recovery, and health of each purchase."],
   inventory: ["Inventory", "Search, review, and update every item in one focused workspace."],
   listings: ["Listings", "Move ready inventory onto marketplaces and catch aging items."],
+  analysis: ["Data & Analysis", "Learn what sells, where it sells, and what actually returns a profit."],
   activity: ["Activity", "Review the shared audit trail across your operation."],
   settings: ["Settings", "Manage cloud access, marketplace connections, and backups."],
 };
-const navItems = dashboardViews.map((id) => [id, id[0].toUpperCase() + id.slice(1)]);
+const navItems = dashboardViews.map((id) => [id, id === "analysis" ? "Data / Analysis" : id[0].toUpperCase() + id.slice(1)]);
 
 export function App() {
   const initialView = window.location.hash.slice(1);
@@ -531,7 +585,7 @@ export function App() {
   const visibleItems = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase();
     const filtered = items.filter((item) => {
-      const text = [item.name, palletName(item.palletId), item.condition, getDisplayPlatform(item), statusLabel[getDisplayStatus(item)]].join(" ").toLowerCase();
+      const text = [item.name, item.category, palletName(item.palletId), item.condition, getDisplayPlatform(item), statusLabel[getDisplayStatus(item)]].join(" ").toLowerCase();
       return (!normalizedQuery || text.includes(normalizedQuery)) &&
         (statusFilter === "all" || getDisplayStatus(item) === statusFilter) &&
         (platformFilter === "all" || getDisplayPlatform(item).toLowerCase() === platformFilter.toLowerCase()) &&
@@ -577,7 +631,7 @@ export function App() {
   const changeSort = (column) => setSort((current) => ({ column, direction: current.column === column && current.direction === "asc" ? "desc" : "asc" }));
   const resetFilters = () => { setQuery(""); setStatusFilter("all"); setPlatformFilter("all"); setPalletFilter("all"); };
   const exportCsv = () => {
-    const rows = [["Name", "Pallet", "Status", "Platform", "Quantity", "Low", "High", "Sold", "Age Days"], ...visibleItems.map((item) => [item.name, palletName(item.palletId), statusLabel[getDisplayStatus(item)], getDisplayPlatform(item), getQuantity(item), price(item, "low"), price(item, "high"), item.soldPrice ?? "", getItemAgeDays(item)])];
+    const rows = [["Name", "Category", "Pallet", "Status", "Platform", "Quantity", "Low", "High", "Sold", "Age Days"], ...visibleItems.map((item) => [item.name, item.category ?? "Uncategorized", palletName(item.palletId), statusLabel[getDisplayStatus(item)], getDisplayPlatform(item), getQuantity(item), price(item, "low"), price(item, "high"), item.soldPrice ?? "", getItemAgeDays(item)])];
     const csv = rows.map((row) => row.map((cell) => `"${String(cell).replaceAll('"', '""')}"`).join(",")).join("\n");
     const url = URL.createObjectURL(new Blob([csv], { type: "text/csv" }));
     const link = document.createElement("a"); link.href = url; link.download = "palletscanner-inventory.csv"; link.click(); URL.revokeObjectURL(url);
@@ -601,6 +655,7 @@ export function App() {
         {view === "listings" && <div className="view-stack"><ListingPipeline items={items} onSelect={selectItem} />
         <Queue title="Aging inventory" subtitle="Unsold items older than 14 days." items={stale} empty="No stale inventory" onSelect={selectItem} renderMeta={(item) => `${getItemAgeDays(item)} days`} />
         </div>}
+        {view === "analysis" && <AnalysisPanel snapshot={snapshot} />}
         {view === "inventory" && <section className="panel table-panel" id="inventory">
           <div className="panel-heading"><div><h3>Inventory</h3><span>{visibleItems.length} of {items.length} items shown</span></div><button className="reset-filter-button" onClick={resetFilters}>Clear filters</button></div>
           <div className="saved-views"><button onClick={resetFilters}>All inventory</button><button onClick={() => { resetFilters(); setStatusFilter("needs_photos"); }}>Missing photos</button><button onClick={() => { resetFilters(); setStatusFilter("ready"); }}>Ready</button><button onClick={() => { resetFilters(); setPlatformFilter("Facebook"); }}>Facebook focus</button><button onClick={() => { resetFilters(); setPlatformFilter("eBay"); }}>eBay focus</button></div>
@@ -608,7 +663,7 @@ export function App() {
           {selectedIds.size > 0 && <div className="bulk-bar"><strong>{selectedIds.size} selected</strong><button disabled={bulkSaving} onClick={() => bulkUpdate("marked ready", (item) => ({ ...item, status: "ready", soldPrice: null }))}>Mark ready</button><button disabled={bulkSaving} onClick={() => bulkUpdate("marked listed on Facebook", (item) => ({ ...item, facebookStatus: "listed", facebookUpdatedAt: Date.now(), listedPlatforms: [...new Set([...(item.listedPlatforms ?? []), "facebook"])] }))}>Mark Facebook listed</button><button disabled={bulkSaving} onClick={() => bulkUpdate("marked listed on eBay", (item) => ({ ...item, ebayStatus: "active", ebayUpdatedAt: Date.now(), listedPlatforms: [...new Set([...(item.listedPlatforms ?? []), "ebay"])] }))}>Mark eBay listed</button><button disabled={bulkSaving} onClick={() => setSelectedIds(new Set())}>Clear</button></div>}
           {palletFilter !== "all" && <div className="inventory-context"><strong>Filtered Pallet: {palletName(palletFilter)}</strong><button onClick={() => setPalletFilter("all")}>Show all</button></div>}
           <div className="inventory-workspace"><div className="table-scroll"><table><thead><tr><th><input type="checkbox" aria-label="Select all visible items" checked={visibleItems.length > 0 && visibleItems.every((item) => selectedIds.has(item.id))} onChange={(event) => setSelectedIds((current) => { const next = new Set(current); visibleItems.forEach((item) => event.target.checked ? next.add(item.id) : next.delete(item.id)); return next; })} /></th><th><SortButton column="name">Item</SortButton></th><th><SortButton column="pallet">Pallet</SortButton></th><th>Status</th><th>Platform</th><th><SortButton column="quantity">Qty</SortButton></th><th><SortButton column="low">Low</SortButton></th><th><SortButton column="high">High</SortButton></th><th><SortButton column="age">Age</SortButton></th></tr></thead><tbody>{visibleItems.length === 0 ? <tr><td className="empty-table-cell" colSpan="9">No inventory matches these filters.</td></tr> : visibleItems.map((item) => <tr tabIndex="0" className={selected?.id === item.id ? "selected-row" : ""} key={item.id} onClick={() => selectItem(item.id)} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") selectItem(item.id); }}><td><input type="checkbox" aria-label={`Select ${item.name}`} checked={selectedIds.has(item.id)} onClick={(event) => event.stopPropagation()} onChange={() => toggleSelected(item.id)} /></td><td><strong>{item.name}</strong></td><td>{palletName(item.palletId)}</td><td><span className={`badge ${statusClass[getDisplayStatus(item)]}`}>{statusLabel[getDisplayStatus(item)]}</span></td><td>{getDisplayPlatform(item)}</td><td>{getQuantity(item)}</td><td>{currency(price(item, "low"))}</td><td>{currency(price(item, "high"))}</td><td>{getItemAgeDays(item)}d</td></tr>)}</tbody></table></div>
-          <div className="detail-pane">{creatingItem ? <NewItemForm pallets={pallets} defaultPalletId={palletFilter !== "all" ? palletFilter : snapshot.activePalletId ?? pallets[0]?.id ?? ""} onCancel={() => setCreatingItem(false)} onCreated={(id) => { setCreatingItem(false); resetFilters(); selectItem(id); notify("Inventory item created."); }} /> : <InventoryDetail item={selected} palletName={selected ? palletName(selected.palletId) : ""} pallets={pallets} onSave={async (item) => { await repository.saveItem(item); notify("Changes saved."); }} onRemove={async (id) => { await repository.removeItem(id); notify("Inventory item removed."); }} />}</div></div>
+          <div className="detail-pane">{creatingItem ? <NewItemForm pallets={pallets} defaultPalletId={palletFilter !== "all" ? palletFilter : snapshot.activePalletId ?? pallets[0]?.id ?? ""} onCancel={() => setCreatingItem(false)} onCreated={(id) => { setCreatingItem(false); resetFilters(); selectItem(id); notify("Inventory item created."); }} /> : <InventoryDetail item={selected} palletName={selected ? palletName(selected.palletId) : ""} pallets={pallets} onSave={async (item) => { await repository.saveItem(item); notify("Changes saved."); }} onRemove={async (id) => { await repository.removeItem(id); notify("Inventory item removed."); }} onSaleRecorded={() => notify("Sale recorded. Analysis is updated.")} />}</div></div>
         </section>}
         <div className="settings-mount" hidden={view !== "settings"}><EbaySettings /></div>
         {view === "activity" && <ActivityPanel snapshot={snapshot} />}

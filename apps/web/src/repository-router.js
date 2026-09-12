@@ -51,6 +51,7 @@ export const repository = {
   setActivePallet: (...args) => activeRepository.setActivePallet(...args),
   listPhotos: (...args) => activeRepository.listPhotos(...args),
   listSales: (...args) => activeRepository.listSales(...args),
+  recordSale: (...args) => activeRepository.recordSale(...args),
   listActivity: (...args) => activeRepository.listActivity(...args),
   replaceSnapshot: (...args) => {
     if (typeof activeRepository.replaceSnapshot !== "function") {

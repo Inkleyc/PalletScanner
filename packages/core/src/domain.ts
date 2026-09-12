@@ -30,6 +30,7 @@ export type InventoryItem = {
   photo: string | null;
   photos?: string[];
   name: string;
+  category?: string;
   condition: string;
   quantity: number;
   low_price: number;
@@ -59,6 +60,7 @@ export type InventoryItem = {
   facebookListingUrl?: string;
   facebookLastError?: string;
   facebookUpdatedAt?: number;
+  capturedAt?: string;
 };
 
 export type PalletSession = {

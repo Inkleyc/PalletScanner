@@ -1,8 +1,14 @@
 # Backend Data Contract
 
-The initial backend schema is prepared in
-`supabase/migrations/202609110001_initial_inventory.sql`. It is not applied to a
-remote project yet.
+The backend schema begins in
+`supabase/migrations/202609110001_initial_inventory.sql`. Later changes are
+separate, ordered files in the same directory so an existing remote project can
+be upgraded without recreating its tables.
+
+`202609120001_add_inventory_category.sql` adds the normalized item category used
+for category sell-through and profitability analysis. Sale outcomes remain in
+the dedicated `sales` table so marketplace, fees, shipping, and sale dates are
+not inferred from inventory fields.
 
 ## Ownership
 

@@ -398,6 +398,93 @@ button {
   z-index: 20;
 }
 
+.sale-card,
+.sale-form,
+.analysis-note {
+  background: #eef5ec;
+  border: 1px solid #c9d8bf;
+  border-radius: 9px;
+  padding: 13px;
+}
+
+.sale-card {
+  align-items: center;
+  display: flex;
+  gap: 14px;
+  justify-content: space-between;
+}
+
+.sale-card div,
+.sale-form > div:first-child,
+.analysis-note {
+  display: grid;
+  gap: 4px;
+}
+
+.sale-card span,
+.sale-form span,
+.analysis-note span,
+.analysis-disclaimer {
+  color: #697364;
+  font-size: 13px;
+}
+
+.sale-form {
+  display: grid;
+  gap: 12px;
+}
+
+.sale-form .primary-button {
+  justify-self: start;
+}
+
+.analysis-grid {
+  display: grid;
+  gap: 18px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.analysis-table {
+  min-width: 0;
+}
+
+.analysis-table .table-scroll {
+  max-height: 430px;
+  margin-top: 12px;
+}
+
+.analysis-table table {
+  min-width: 620px;
+  width: 100%;
+}
+
+.rate-cell {
+  display: grid;
+  gap: 4px;
+  min-width: 85px;
+}
+
+.rate-cell i {
+  background: #4f7b50;
+  border-radius: 999px;
+  display: block;
+  height: 5px;
+}
+
+.positive-value {
+  color: #207a45;
+  font-weight: 800;
+}
+
+.negative-value {
+  color: #b43b2f;
+  font-weight: 800;
+}
+
+.analysis-disclaimer {
+  margin: 0 2px;
+}
+
 .inventory-tools span {
   color: #697364;
   font-size: 12px;
@@ -1062,8 +1149,14 @@ th {
 
   .metrics-grid,
   .pallet-grid,
-  .admin-grid {
+  .admin-grid,
+  .analysis-grid {
     grid-template-columns: 1fr;
+  }
+
+  .sale-card {
+    align-items: stretch;
+    flex-direction: column;
   }
 
   .integration-card {
