@@ -79,22 +79,32 @@ nav {
   gap: 8px;
 }
 
-nav a {
+nav button {
+  background: transparent;
   color: #dbe8cf;
-  text-decoration: none;
   border: 1px solid rgba(219, 232, 207, 0.16);
   border-radius: 8px;
   padding: 11px 12px;
   font-weight: 700;
+  text-align: left;
 }
 
-nav a.active {
+nav button:hover {
+  background: rgba(219, 232, 207, 0.1);
+}
+
+nav button.active {
   background: #dbe8cf;
   color: #17221b;
 }
 
 .main {
   padding: 28px;
+  display: grid;
+  gap: 18px;
+}
+
+.view-stack {
   display: grid;
   gap: 18px;
 }
@@ -844,7 +854,15 @@ th {
   }
 
   nav {
-    display: none;
+    display: flex;
+    gap: 8px;
+    overflow-x: auto;
+    padding-bottom: 4px;
+  }
+
+  nav button {
+    flex: 0 0 auto;
+    text-align: center;
   }
 
   .panel-heading,
