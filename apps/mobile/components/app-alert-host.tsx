@@ -27,9 +27,9 @@ export function AppAlertHost() {
       transparent
       visible={Boolean(alert)}
       animationType="fade"
-      onRequestClose={dismissAppAlert}
+      onRequestClose={() => dismissAppAlert()}
     >
-      <Pressable style={styles.backdrop} onPress={dismissAppAlert}>
+      <Pressable style={styles.backdrop} onPress={() => dismissAppAlert()}>
         <Pressable
           accessibilityRole="alert"
           style={styles.dialog}
@@ -49,7 +49,7 @@ export function AppAlertHost() {
                   button.style === "cancel" && styles.cancelButton,
                 ]}
                 onPress={() => {
-                  dismissAppAlert();
+                  dismissAppAlert(false);
                   button.onPress?.();
                 }}
               >

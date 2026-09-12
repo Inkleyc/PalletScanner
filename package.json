@@ -15,6 +15,7 @@
     "lint": "npm run lint -w @palletscanner/mobile",
     "ebay-server": "node ./server/ebay-server.mjs",
     "server:check": "node --check ./server/auth.mjs && node --check ./server/ebay-token-store.mjs && node --check ./server/ebay-server.mjs && node --check ./server/production-check.mjs && node --check ./server/generate-production-secrets.mjs && node --check ./server/generate-test-jwt.mjs",
+    "schema:check": "node ./scripts/check-backend-schema.mjs",
     "ebay:production-check": "node ./server/production-check.mjs",
     "ebay:generate-secrets": "node ./server/generate-production-secrets.mjs",
     "ebay:generate-test-jwt": "node ./server/generate-test-jwt.mjs",
@@ -26,8 +27,9 @@
     "mobile:build:android-preview": "npm run build:android-preview -w @palletscanner/mobile",
     "mobile:build:ios-preview": "npm run build:ios-preview -w @palletscanner/mobile",
     "mobile:build:development": "npm run build:development -w @palletscanner/mobile",
-    "check": "npm run lint && npm run mobile:typecheck && npm run web:export && npm run dashboard:check && npm run server:check && npm run core:typecheck && npm run api-client:typecheck",
+    "check": "npm run lint && npm run mobile:typecheck && npm run mobile:sync:test && npm run web:export && npm run dashboard:check && npm run server:check && npm run schema:check && npm run core:typecheck && npm run api-client:typecheck",
     "mobile:typecheck": "npm run typecheck -w @palletscanner/mobile",
+    "mobile:sync:test": "npm run sync:test -w @palletscanner/mobile",
     "core:typecheck": "npm run typecheck -w @palletscanner/core",
     "api-client:typecheck": "npm run typecheck -w @palletscanner/api-client"
   }

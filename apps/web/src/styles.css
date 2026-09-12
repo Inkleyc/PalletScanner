@@ -16,9 +16,21 @@ body {
   min-width: 320px;
 }
 
+.visually-hidden {
+  height: 1px;
+  margin: -1px;
+  overflow: hidden;
+  padding: 0;
+  position: absolute;
+  width: 1px;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
 button,
 input,
-select {
+select,
+textarea {
   font: inherit;
 }
 
@@ -241,6 +253,51 @@ button {
   border-color: #789066;
 }
 
+.card-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.card-actions button {
+  flex: 1;
+  padding: 8px;
+}
+
+.inline-editor {
+  align-items: end;
+  background: #f7f8f4;
+  border: 1px solid #d9dfd2;
+  border-radius: 8px;
+  display: grid;
+  gap: 12px;
+  grid-template-columns: minmax(180px, 2fr) minmax(140px, 1fr) auto;
+  margin-top: 14px;
+  padding: 14px;
+}
+
+.inline-editor label {
+  display: grid;
+  gap: 6px;
+}
+
+.inline-editor label span {
+  color: #697364;
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.inline-editor input {
+  min-width: 0;
+  width: 100%;
+}
+
+.inline-editor .error-text {
+  grid-column: 1 / -1;
+  margin: 0;
+}
+
 .admin-card {
   background: #f7f8f4;
   border: 1px solid #d9dfd2;
@@ -292,6 +349,11 @@ button {
 .admin-card label {
   display: grid;
   gap: 6px;
+}
+
+.admin-card form {
+  display: grid;
+  gap: 10px;
 }
 
 .admin-card label span,
@@ -474,13 +536,121 @@ dd {
 }
 
 input,
-select {
+select,
+textarea {
   min-width: 240px;
   border: 1px solid #cbd3c2;
   border-radius: 8px;
   padding: 10px 12px;
   background: #ffffff;
   color: #20251f;
+}
+
+textarea {
+  resize: vertical;
+}
+
+.edit-form label {
+  display: grid;
+  gap: 6px;
+}
+
+.edit-form label > span {
+  color: #697364;
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.edit-grid {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+
+.edit-grid input,
+.edit-grid select,
+.edit-grid textarea {
+  min-width: 0;
+  width: 100%;
+}
+
+.wide-field {
+  grid-column: 1 / -1;
+}
+
+.workflow-actions {
+  justify-content: flex-start;
+}
+
+.workflow-actions button {
+  flex: 0 1 auto;
+}
+
+.photo-review {
+  border-top: 1px solid #d9dfd2;
+  display: grid;
+  gap: 10px;
+  padding-top: 14px;
+}
+
+.photo-review > small,
+.photo-review .card-row span {
+  color: #64705f;
+  display: block;
+  font-size: 12px;
+  margin-top: 3px;
+}
+
+.photo-grid {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(5, minmax(80px, 1fr));
+}
+
+.photo-grid img,
+.photo-placeholder {
+  aspect-ratio: 1;
+  border: 1px solid #d9dfd2;
+  border-radius: 8px;
+  object-fit: cover;
+  width: 100%;
+}
+
+.photo-placeholder {
+  align-items: center;
+  background: #eef1e9;
+  color: #52604c;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.photo-placeholder small {
+  font-size: 10px;
+  margin-top: 4px;
+}
+
+.activity-list {
+  display: grid;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.activity-row {
+  align-items: center;
+  border-bottom: 1px solid #e3e8dd;
+  display: flex;
+  justify-content: space-between;
+  padding: 10px 0;
+}
+
+.activity-row span,
+.activity-row time {
+  color: #64705f;
+  display: block;
+  font-size: 12px;
+  margin-top: 3px;
 }
 
 table {
@@ -714,5 +884,18 @@ th {
 
   .detail-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .edit-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .photo-grid {
+    grid-template-columns: repeat(2, minmax(100px, 1fr));
+  }
+
+  .inline-editor {
+    align-items: stretch;
+    grid-template-columns: 1fr;
   }
 }

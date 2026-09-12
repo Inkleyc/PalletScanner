@@ -2,6 +2,11 @@
 
 ## Already Implemented
 
+- Supabase authentication, user-owned schema, row-level security, and private
+  item-photo storage.
+- Shared cloud inventory for web and mobile, including restart-safe offline
+  reconciliation and marketplace status synchronization.
+- Authenticated cloud create/read/update/delete self-test in web Settings.
 - eBay backend production guardrails.
 - JWT-protected eBay backend endpoints.
 - Encrypted per-user eBay token storage.
@@ -25,8 +30,8 @@
    - `palletscanner://settings`
    - Your production web app Settings URL, such as
      `https://YOUR_WEB_APP_HOST/settings`
-   - Your local web test URL, if needed, such as
-     `http://localhost:8081/settings`
+   - Your local Vite web test URL, if needed:
+     `http://localhost:5173`
 
 4. Add the public values to Expo/EAS app environments:
 

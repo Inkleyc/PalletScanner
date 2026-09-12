@@ -67,3 +67,40 @@ export type PalletSession = {
   createdAt: number;
   palletCost: number | null;
 };
+
+export type ItemPhoto = {
+  id: string;
+  itemId: number;
+  uri: string;
+  createdAt: number;
+};
+
+export type Sale = {
+  id: string;
+  itemId: number;
+  marketplace: MarketplacePlatform | "other";
+  soldPrice: number;
+  fees: number;
+  shippingCost: number;
+  soldAt: number;
+};
+
+export type ActivityEventType =
+  | "pallet.created"
+  | "pallet.updated"
+  | "pallet.deleted"
+  | "item.created"
+  | "item.updated"
+  | "item.deleted"
+  | "listing.updated"
+  | "sale.recorded"
+  | "data.restored";
+
+export type ActivityEvent = {
+  id: string;
+  type: ActivityEventType;
+  entityId: string;
+  occurredAt: number;
+  actorId?: string;
+  details?: Record<string, string | number | boolean | null>;
+};

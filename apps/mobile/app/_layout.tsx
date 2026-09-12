@@ -4,6 +4,7 @@ import { StatusBar } from 'expo-status-bar';
 import 'react-native-reanimated';
 
 import { AppAlertHost } from '@/components/app-alert-host';
+import { startCloudInventorySync } from '@/lib/cloud-inventory-sync';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 
 export const unstable_settings = {
@@ -11,6 +12,7 @@ export const unstable_settings = {
 };
 
 export default function RootLayout() {
+  void startCloudInventorySync();
   const colorScheme = useColorScheme();
 
   return (

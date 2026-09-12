@@ -11,6 +11,7 @@
     "web": "expo start --web",
     "lint": "expo lint",
     "typecheck": "tsc -p tsconfig.json --noEmit",
+    "sync:test": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --test ./scripts/cloud-sync-policy.test.mjs",
     "supabase:app-check": "node ./scripts/check-supabase-app-env.mjs",
     "web:export": "expo export --platform web",
     "web:deploy": "eas deploy --environment preview --non-interactive",

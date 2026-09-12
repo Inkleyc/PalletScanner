@@ -37,8 +37,8 @@ const workflowStatusByItemState = (item) => {
   if (
     !item.listing_title?.trim() ||
     !item.listing_description?.trim() ||
-    item.low <= 0 ||
-    item.high <= 0
+    (item.low ?? item.low_price) <= 0 ||
+    (item.high ?? item.high_price) <= 0
   ) {
     return "needs_research";
   }
@@ -98,7 +98,10 @@ export const getQuantity = (item) =>
     : 1;
 
 export const getPalletCost = (pallet) =>
-  typeof pallet.cost === "number" && pallet.cost > 0 ? pallet.cost : 0;
+  typeof (pallet.cost ?? pallet.palletCost) === "number" &&
+  (pallet.cost ?? pallet.palletCost) > 0
+    ? pallet.cost ?? pallet.palletCost
+    : 0;
 
 export const summarizeInventory = (items, pallets) => {
   const soldItems = items.filter((item) => item.soldPrice !== null);
@@ -111,11 +114,11 @@ export const summarizeInventory = (items, pallets) => {
   ).length;
   const soldRevenue = soldItems.reduce((sum, item) => sum + item.soldPrice, 0);
   const remainingLow = unsoldItems.reduce(
-    (sum, item) => sum + item.low * getQuantity(item),
+    (sum, item) => sum + (item.low ?? item.low_price ?? 0) * getQuantity(item),
     0,
   );
   const remainingHigh = unsoldItems.reduce(
-    (sum, item) => sum + item.high * getQuantity(item),
+    (sum, item) => sum + (item.high ?? item.high_price ?? 0) * getQuantity(item),
     0,
   );
   const totalCost = pallets.reduce(
@@ -144,11 +147,11 @@ export const summarizePallet = (items, pallet) => {
     0,
   );
   const estimatedLow = palletItems.reduce(
-    (sum, item) => sum + item.low * getQuantity(item),
+    (sum, item) => sum + (item.low ?? item.low_price ?? 0) * getQuantity(item),
     0,
   );
   const estimatedHigh = palletItems.reduce(
-    (sum, item) => sum + item.high * getQuantity(item),
+    (sum, item) => sum + (item.high ?? item.high_price ?? 0) * getQuantity(item),
     0,
   );
   const unresolved = palletItems.filter((item) => getDisplayIssue(item)).length;

@@ -1,5 +1,6 @@
 const databaseName = "palletscanner";
 const storeName = "app-data";
+const isBrowserStorageAvailable = () => typeof indexedDB !== "undefined";
 
 const openDatabase = () =>
   new Promise<IDBDatabase>((resolve, reject) => {
@@ -14,6 +15,7 @@ const openDatabase = () =>
   });
 
 export const readWebStorage = async (key: string) => {
+  if (!isBrowserStorageAvailable()) return null;
   const database = await openDatabase();
   return new Promise<string | null>((resolve, reject) => {
     const transaction = database.transaction(storeName, "readonly");
@@ -26,6 +28,7 @@ export const readWebStorage = async (key: string) => {
 };
 
 export const writeWebStorage = async (key: string, value: string) => {
+  if (!isBrowserStorageAvailable()) return;
   const database = await openDatabase();
   return new Promise<void>((resolve, reject) => {
     const transaction = database.transaction(storeName, "readwrite");
@@ -39,6 +42,7 @@ export const writeWebStorage = async (key: string, value: string) => {
 };
 
 export const deleteWebStorage = async (key: string) => {
+  if (!isBrowserStorageAvailable()) return;
   const database = await openDatabase();
   return new Promise<void>((resolve, reject) => {
     const transaction = database.transaction(storeName, "readwrite");

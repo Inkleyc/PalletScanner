@@ -43,7 +43,7 @@ Looks like:
 EXPO_PUBLIC_SUPABASE_URL=https://YOUR_PROJECT.supabase.co
 ```
 
-### Anon Public Key
+### Publishable Public Key
 
 Location:
 
@@ -54,10 +54,12 @@ Project Settings -> API
 Looks like:
 
 ```env
-EXPO_PUBLIC_SUPABASE_ANON_KEY=YOUR_SUPABASE_ANON_KEY
+EXPO_PUBLIC_SUPABASE_ANON_KEY=YOUR_SUPABASE_PUBLISHABLE_KEY
 ```
 
-This is safe to ship in the app. It is not the same as the service-role key.
+This normally starts with `sb_publishable_` and is safe to ship in the app. The
+existing environment variable retains its historical `ANON_KEY` name for
+compatibility. Never substitute an `sb_secret_` or service-role key.
 
 ### JWT Secret
 
@@ -87,7 +89,7 @@ Add these redirect URLs:
 
 ```text
 palletscanner://settings
-http://localhost:8081/settings
+http://localhost:5173
 ```
 
 After the web app has a deployed URL, also add:
@@ -148,3 +150,15 @@ npm run ebay:production-check
 ```
 
 It should pass only when the backend is ready for production eBay posting.
+
+## Prepared Database Migration
+
+The initial inventory, photo, listing, sale, activity, storage, and row-level
+security schema is checked in at:
+
+```text
+supabase/migrations/202609110001_initial_inventory.sql
+```
+
+Review [backend-data-contract.md](./backend-data-contract.md) before applying it.
+No migration has been run against a remote project yet.

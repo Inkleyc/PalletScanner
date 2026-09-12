@@ -30,7 +30,8 @@ const readEnv = (key) => process.env[key]?.trim() ?? "";
 const failures = [];
 const warnings = [];
 
-loadDotEnv();
+loadDotEnv(".env");
+loadDotEnv(".env.local");
 
 const supabaseUrl = readEnv("EXPO_PUBLIC_SUPABASE_URL");
 const anonKey = readEnv("EXPO_PUBLIC_SUPABASE_ANON_KEY");
@@ -45,9 +46,12 @@ if (!supabaseUrl) {
 
 if (!anonKey) {
   failures.push("EXPO_PUBLIC_SUPABASE_ANON_KEY is required.");
-} else if (anonKey.split(".").length !== 3) {
+} else if (
+  !anonKey.startsWith("sb_publishable_") &&
+  anonKey.split(".").length !== 3
+) {
   warnings.push(
-    "EXPO_PUBLIC_SUPABASE_ANON_KEY usually looks like a JWT with three dot-separated parts.",
+    "EXPO_PUBLIC_SUPABASE_ANON_KEY should be an sb_publishable_ key or legacy JWT anon key.",
   );
 }
 

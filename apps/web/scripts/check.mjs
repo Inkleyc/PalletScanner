@@ -1,5 +1,14 @@
 import { readFile } from "node:fs/promises";
-import { items, pallets } from "../src/mock-data.js";
+globalThis.localStorage = {
+  getItem: () => null,
+  setItem: () => {},
+  removeItem: () => {},
+};
+const { items, pallets, repository } = await import("../src/inventory-repository.js");
+const { createSupabaseInventoryRepository } = await import("../src/supabase-inventory-repository.js");
+if (typeof createSupabaseInventoryRepository !== "function") {
+  throw new Error("Supabase inventory repository factory is unavailable.");
+}
 import {
   getDisplayIssue,
   getDisplayPlatform,
@@ -13,9 +22,14 @@ import {
 
 const requiredFiles = [
   "index.html",
-  "src/app.js",
+  "src/main.jsx",
+  "src/App.jsx",
   "src/dashboard-model.js",
   "src/mock-data.js",
+  "src/inventory-repository.js",
+  "src/supabase.js",
+  "src/supabase-inventory-repository.js",
+  "src/repository-router.js",
   "src/styles.css",
   "scripts/serve.mjs",
 ];
@@ -30,9 +44,9 @@ await Promise.all(
 );
 
 const html = await readFile(new URL("../index.html", import.meta.url), "utf8");
-const app = await readFile(new URL("../src/app.js", import.meta.url), "utf8");
+const app = await readFile(new URL("../src/App.jsx", import.meta.url), "utf8");
 
-for (const marker of ['id="app"', "./src/app.js", "./src/styles.css"]) {
+for (const marker of ['id="app"', "/src/main.jsx"]) {
   if (!html.includes(marker)) {
     throw new Error(`index.html is missing ${marker}`);
   }
@@ -41,38 +55,29 @@ for (const marker of ['id="app"', "./src/app.js", "./src/styles.css"]) {
 for (const marker of [
   "Business Dashboard",
   "Attention Queue",
-  "data-attention-item-id",
   "Attention queue is clear",
   "Marketplace review queue",
   "Marketplace queue is clear",
   "Unsold items older than 14 days",
-  "aging-queue-item",
-  "Stale Items",
-  "jump-aging",
   "Desktop-first review table",
   "Admin Settings",
-  "data-action=\"export-inventory\"",
+  "Supabase login",
+  "Email sign-in link",
+  "automatically use shared cloud inventory",
+  "Test cloud connection",
+  "Export CSV",
   "Needs Facebook",
   "Needs eBay",
-  "filter-facebook",
-  "filter-ebay",
-  "inventory-status-filter",
-  "inventory-platform-filter",
-  "inventory-pallet-filter",
-  "data-pallet-card-id",
-  "data-pallet-id",
   "inventory-context",
   "Filtered Pallet",
-  "data-action=\"reset-inventory\"",
-  "data-sort-column",
-  "inventory-empty-row",
   "inventory-detail",
-  "data-sortquantity",
-  "data-sortage",
   "Age Days",
-  "data-action=\"connect-ebay\"",
+  "Connect eBay",
+  "readinessChecks",
+  "Disconnect",
   "Planned for account setup",
-  "Not enabled in preview",
+  "Download JSON backup",
+  "Restore JSON backup",
 ]) {
   if (!app.includes(marker)) {
     throw new Error(`app.js is missing ${marker}`);
@@ -111,6 +116,76 @@ if (getItemAgeDays(items[1], new Date("2026-07-15T12:00:00Z")) < 14) {
 }
 if (getStaleInventoryItems(items, new Date("2026-07-15T12:00:00Z")).length === 0) {
   throw new Error("Expected stale inventory queue items.");
+}
+
+const snapshot = repository.getSnapshot();
+if (snapshot.items.length !== items.length || snapshot.pallets.length !== pallets.length) {
+  throw new Error("Local repository snapshot does not match its seeded collections.");
+}
+if (!snapshot.items.every((item) => Number.isFinite(item.low_price))) {
+  throw new Error("Local repository did not normalize item prices to the shared model.");
+}
+if (!snapshot.pallets.every((pallet) => "palletCost" in pallet)) {
+  throw new Error("Local repository did not normalize pallet costs to the shared model.");
+}
+
+const startingPalletCount = pallets.length;
+const testPallet = await repository.createPallet("Repository contract test");
+await repository.updatePallet(testPallet.id, { palletCost: 125 });
+if (repository.getSnapshot().pallets.find((pallet) => pallet.id === testPallet.id)?.palletCost !== 125) {
+  throw new Error("Local repository did not update a pallet.");
+}
+await repository.removePallet(testPallet.id);
+if (pallets.length !== startingPalletCount) {
+  throw new Error("Local repository did not remove its contract-test pallet.");
+}
+
+const originalItem = structuredClone(items[0]);
+let repositoryNotificationCount = 0;
+const unsubscribe = repository.subscribe(() => {
+  repositoryNotificationCount += 1;
+});
+await repository.saveItem({
+  ...originalItem,
+  name: "Repository edit test",
+  quantity: 2,
+  low: 60,
+  low_price: 60,
+});
+const editedItem = repository.getSnapshot().items.find((item) => item.id === originalItem.id);
+if (editedItem?.name !== "Repository edit test" || editedItem.quantity !== 2 || editedItem.low_price !== 60) {
+  throw new Error("Local repository did not persist an inventory edit.");
+}
+if (repositoryNotificationCount !== 1) {
+  throw new Error("Local repository did not notify subscribers after an inventory edit.");
+}
+if (!(await repository.listActivity(String(originalItem.id))).some((event) => event.type === "item.updated")) {
+  throw new Error("Local repository did not record inventory activity.");
+}
+await repository.saveItem(originalItem);
+unsubscribe();
+
+const removableItem = { ...originalItem, id: 999999, name: "Repository removal test" };
+await repository.saveItem(removableItem);
+await repository.removeItem(removableItem.id);
+if (repository.getSnapshot().items.some((item) => item.id === removableItem.id)) {
+  throw new Error("Local repository did not remove an inventory item.");
+}
+
+const roundTripSnapshot = repository.getSnapshot();
+await repository.saveItem({ ...originalItem, name: "Temporary restore test" });
+await repository.replaceSnapshot(roundTripSnapshot);
+if (repository.getSnapshot().items.find((item) => item.id === originalItem.id)?.name !== originalItem.name) {
+  throw new Error("Local repository did not restore a backup snapshot.");
+}
+let invalidBackupRejected = false;
+try {
+  await repository.replaceSnapshot({ items: [{ id: 5, name: "Orphan", palletId: "missing" }], pallets: [] });
+} catch {
+  invalidBackupRejected = true;
+}
+if (!invalidBackupRejected) {
+  throw new Error("Local repository accepted an invalid backup snapshot.");
 }
 
 console.log("Web dashboard scaffold check passed.");

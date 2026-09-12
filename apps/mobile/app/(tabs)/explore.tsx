@@ -547,8 +547,12 @@ export default function InventoryScreen() {
     }
 
     const remainingQueue = queueIds.slice(1);
+    const outcome = await openListingDraft(nextItem, "ebay", { showSuccessAlert: false });
+    if (outcome.status === "cancelled") {
+      setBulkEbayQueue(queueIds);
+      return;
+    }
     setBulkEbayQueue(remainingQueue);
-    await openListingDraft(nextItem, "ebay", { showSuccessAlert: false });
 
     if (remainingQueue.length === 0) {
       Alert.alert(
@@ -615,8 +619,12 @@ export default function InventoryScreen() {
     }
 
     const remainingQueue = queueIds.slice(1);
+    const outcome = await openListingDraft(nextItem, "facebook");
+    if (outcome.status === "cancelled") {
+      setBulkFacebookQueue(queueIds);
+      return;
+    }
     setBulkFacebookQueue(remainingQueue);
-    await openListingDraft(nextItem, "facebook");
   };
 
   const startBulkFacebookPosting = () => {

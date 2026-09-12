@@ -1,0 +1,174 @@
+import { items as seedItems, pallets as seedPallets } from "./mock-data.js";
+
+const storageKey = "palletscanner.inventoryRepository.v1";
+
+const clone = (value) => JSON.parse(JSON.stringify(value));
+const normalizeItem = (item) => ({
+  ...item,
+  low_price: Number.isFinite(item.low_price) ? item.low_price : item.low ?? 0,
+  high_price: Number.isFinite(item.high_price) ? item.high_price : item.high ?? 0,
+  floor_price: Number.isFinite(item.floor_price) ? item.floor_price : item.floor ?? 0,
+  low: Number.isFinite(item.low) ? item.low : item.low_price ?? 0,
+  high: Number.isFinite(item.high) ? item.high : item.high_price ?? 0,
+  floor: Number.isFinite(item.floor) ? item.floor : item.floor_price ?? 0,
+  listedPlatforms: Array.isArray(item.listedPlatforms) ? item.listedPlatforms : [],
+});
+const normalizePallet = (pallet) => ({
+  ...pallet,
+  palletCost: Number.isFinite(pallet.palletCost) ? pallet.palletCost : pallet.cost ?? null,
+  cost: Number.isFinite(pallet.cost) ? pallet.cost : pallet.palletCost ?? 0,
+});
+
+const load = () => {
+  try {
+    const saved = JSON.parse(localStorage.getItem(storageKey) ?? "null");
+    if (saved && Array.isArray(saved.items) && Array.isArray(saved.pallets)) {
+      return {
+        ...saved,
+        items: saved.items.map(normalizeItem),
+        pallets: saved.pallets.map(normalizePallet),
+        activity: Array.isArray(saved.activity) ? saved.activity : [],
+      };
+    }
+  } catch {
+    // Invalid preview data falls back to the checked-in fixture.
+  }
+  return {
+    items: clone(seedItems).map(normalizeItem),
+    pallets: clone(seedPallets).map(normalizePallet),
+    activePalletId: seedPallets[0]?.id ?? null,
+    activity: [],
+  };
+};
+
+const state = load();
+export const items = state.items;
+export const pallets = state.pallets;
+const listeners = new Set();
+const recordActivity = (type, entityId, details = {}) => {
+  state.activity.push({
+    id: `activity-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    type,
+    entityId: String(entityId),
+    occurredAt: Date.now(),
+    details,
+  });
+};
+
+const persist = () => {
+  localStorage.setItem(storageKey, JSON.stringify(state));
+  listeners.forEach((listener) => listener(repository.getSnapshot()));
+};
+
+export const repository = {
+  getSnapshot: () => clone(state),
+  hydrate: async () => clone(state),
+  subscribe(listener) {
+    listeners.add(listener);
+    return () => listeners.delete(listener);
+  },
+  async saveItem(item) {
+    const normalizedItem = normalizeItem(clone(item));
+    const index = items.findIndex((entry) => entry.id === item.id);
+    if (index < 0) items.push(normalizedItem);
+    else items[index] = { ...items[index], ...normalizedItem };
+    recordActivity(index < 0 ? "item.created" : "item.updated", item.id, { name: normalizedItem.name });
+    persist();
+  },
+  async removeItem(itemId) {
+    const index = items.findIndex((entry) => entry.id === itemId);
+    if (index >= 0) {
+      const [removed] = items.splice(index, 1);
+      recordActivity("item.deleted", itemId, { name: removed.name });
+    }
+    persist();
+  },
+  async createPallet(name) {
+    const createdAt = Date.now();
+    const pallet = {
+      id: `pallet-${createdAt}`,
+      name: name?.trim() || `Pallet ${pallets.length + 1}`,
+      createdAt,
+      palletCost: null,
+    };
+    pallets.push(pallet);
+    state.activePalletId = pallet.id;
+    recordActivity("pallet.created", pallet.id, { name: pallet.name });
+    persist();
+    return clone(pallet);
+  },
+  async updatePallet(palletId, update) {
+    const pallet = pallets.find((entry) => entry.id === palletId);
+    if (pallet) {
+      Object.assign(pallet, update);
+      if (update.palletCost !== undefined) pallet.cost = update.palletCost ?? 0;
+      recordActivity("pallet.updated", palletId, { name: pallet.name });
+    }
+    persist();
+  },
+  async removePallet(palletId) {
+    const index = pallets.findIndex((entry) => entry.id === palletId);
+    if (index < 0) return false;
+    const [removedPallet] = pallets.splice(index, 1);
+    for (let itemIndex = items.length - 1; itemIndex >= 0; itemIndex -= 1) {
+      if (items[itemIndex].palletId === palletId) items.splice(itemIndex, 1);
+    }
+    if (state.activePalletId === palletId) state.activePalletId = pallets[0]?.id ?? null;
+    recordActivity("pallet.deleted", palletId, { name: removedPallet.name });
+    persist();
+    return true;
+  },
+  async setActivePallet(palletId) {
+    if (pallets.some((entry) => entry.id === palletId)) {
+      state.activePalletId = palletId;
+      persist();
+    }
+  },
+  async listPhotos(itemId) {
+    const item = items.find((entry) => entry.id === itemId);
+    const photos = item?.photos?.length ? item.photos : item?.photo ? [item.photo] : [];
+    return photos.map((uri, index) => ({ id: `${itemId}-${index}`, itemId, uri, createdAt: itemId }));
+  },
+  async listSales(itemId) {
+    return items
+      .filter((item) => item.soldPrice != null && (itemId === undefined || item.id === itemId))
+      .map((item) => ({
+        id: `preview-sale-${item.id}`,
+        itemId: item.id,
+        marketplace: item.listedPlatforms?.[0] ?? "other",
+        soldPrice: item.soldPrice,
+        fees: 0,
+        shippingCost: 0,
+        soldAt: item.id,
+      }));
+  },
+  async listActivity(entityId) {
+    return clone(state.activity)
+      .filter((event) => entityId === undefined || event.entityId === String(entityId))
+      .sort((first, second) => second.occurredAt - first.occurredAt);
+  },
+  async replaceSnapshot(snapshot) {
+    if (!snapshot || !Array.isArray(snapshot.items) || !Array.isArray(snapshot.pallets)) {
+      throw new Error("Backup must contain items and pallets arrays.");
+    }
+    const restoredPallets = snapshot.pallets.map(normalizePallet);
+    const palletIds = new Set(restoredPallets.map((pallet) => pallet.id));
+    if (restoredPallets.some((pallet) => typeof pallet.id !== "string" || !pallet.id.trim() || typeof pallet.name !== "string" || !pallet.name.trim())) {
+      throw new Error("Every restored pallet must have a valid ID and name.");
+    }
+    const restoredItems = snapshot.items.map(normalizeItem);
+    if (restoredItems.some((item) => !Number.isFinite(item.id) || !item.name?.trim() || !palletIds.has(item.palletId))) {
+      throw new Error("Every restored item must have a valid ID, name, and pallet assignment.");
+    }
+    items.splice(0, items.length, ...restoredItems);
+    pallets.splice(0, pallets.length, ...restoredPallets);
+    state.activePalletId = palletIds.has(snapshot.activePalletId) ? snapshot.activePalletId : restoredPallets[0]?.id ?? null;
+    state.activity = Array.isArray(snapshot.activity) ? clone(snapshot.activity) : [];
+    recordActivity("data.restored", "repository", { itemCount: items.length, palletCount: pallets.length });
+    persist();
+  },
+};
+
+export const resetPreviewRepository = () => {
+  localStorage.removeItem(storageKey);
+};

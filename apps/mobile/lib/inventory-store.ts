@@ -725,6 +725,24 @@ export const setActivePalletSession = (palletId: string) => {
   void persistActivePalletId();
 };
 
+export const replaceInventorySnapshot = (
+  items: InventoryItem[],
+  pallets: PalletSession[],
+  nextActivePalletId?: string | null,
+) => {
+  const normalizedItems = items.map(normalizeInventoryItem);
+  const normalizedState = normalizePalletState(
+    ensureMigrationPallet(normalizedItems, pallets),
+    nextActivePalletId,
+  );
+  setInventoryStateAndPersist(normalizedItems);
+  palletState = normalizedState.pallets;
+  activePalletId = normalizedState.activePalletId;
+  notifyInventoryListeners();
+  void persistInventory();
+  void persistActivePalletId();
+};
+
 export const deletePalletSession = (palletId: string) => {
   if (!palletState.some((pallet) => pallet.id === palletId)) {
     return false;

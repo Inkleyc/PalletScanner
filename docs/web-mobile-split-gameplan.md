@@ -242,12 +242,22 @@ Progress:
 - The web attention queue can drill into the selected inventory item.
 - The web attention and marketplace queues now show clear empty states when no work is waiting.
 - The web dashboard now has an aging queue for stale unsold inventory, an actionable stale-items metric, and an age column in inventory/export.
+- Signed-in web and mobile clients now share Supabase-backed pallets, inventory,
+  private item photos, and marketplace listing status.
+- Mobile sync persists a per-account baseline so offline edits survive app
+  restarts and retry uploads pending work before pulling newer cloud data.
+- Automated sync policy coverage protects changed-record selection, deletion
+  boundaries, account isolation, and photo upload/cleanup behavior.
+- Web item review can confirm or remove Facebook/eBay listed status and records
+  those decisions in the shared activity trail.
 - The mobile first tab is labeled around the user's real action, Scan, instead of a generic Home label.
 - Mobile first-pallet creation can continue directly into the scan/capture workflow the user originally tapped.
 - Mobile pallet cards now show item count, sold count, and cost so users can choose the right active pallet faster.
 - Mobile Settings explains how app login relates to eBay account connection and shows the backend auth mode when available.
 - The root workspace check now includes backend syntax validation.
 - Keep marketplace posting limited to safe, guided actions.
+- Mobile publishing remains available without a separate web approval gate. Every
+  Facebook or eBay publish/open action requires a final readiness confirmation.
 - Remove or de-emphasize dashboard-heavy screens from mobile.
 
 Deliverable:

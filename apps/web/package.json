@@ -4,7 +4,18 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "node ./scripts/serve.mjs",
-    "check": "node ./scripts/check.mjs"
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "check": "node ./scripts/check.mjs && vite build"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.108.2",
+    "react": "latest",
+    "react-dom": "latest"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "latest",
+    "vite": "latest"
   }
 }

@@ -24,7 +24,7 @@ const FACEBOOK_LISTING_URLS = [
 ] as const;
 
 export type ListingDraftOutcome = {
-  status: "blocked" | "posted" | "failed" | "opened";
+  status: "blocked" | "cancelled" | "posted" | "failed" | "opened";
   title: string;
   message: string;
   listingUrl?: string;
@@ -263,6 +263,20 @@ export const openListingDraft = async (
     return { status: "blocked", title, message };
   }
 
+  const platformLabel = platform === "facebook" ? "Facebook Marketplace" : "eBay";
+  const confirmed = await Alert.confirm(
+    "Are you ready to publish?",
+    `Review the photos, condition, price, quantity, and listing text for ${item.name} before continuing to ${platformLabel}.`,
+    platform === "facebook" ? "Open Facebook" : "Publish to eBay",
+  );
+  if (!confirmed) {
+    return {
+      status: "cancelled",
+      title: "Publishing cancelled",
+      message: "The listing was not published or marked as listed.",
+    };
+  }
+
   if (platform === "ebay" && isEbayApiConfigured()) {
     updateInventoryItemEbayStatus(item.id, {
       status: "posting",
@@ -342,9 +356,6 @@ export const openListingDraft = async (
   }
 
   const ebayUrl = "https://www.ebay.com/sl/sell";
-  const platformLabel =
-    platform === "facebook" ? "Facebook Marketplace" : "eBay";
-
   try {
     const listingText = buildListingText(item, platform);
     await Clipboard.setStringAsync(listingText);

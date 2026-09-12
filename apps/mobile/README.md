@@ -36,3 +36,7 @@ npm run lint
 ```
 
 Keep mobile app environment values in `apps/mobile/.env`.
+
+When signed in with Supabase, cloud inventory is authoritative and the local
+inventory file acts as an offline cache. Pallets, items, and item photos sync to
+the same account used by the web dashboard. Sync health is shown in Settings.

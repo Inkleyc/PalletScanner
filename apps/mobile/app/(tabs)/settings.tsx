@@ -14,6 +14,11 @@ import {
 
 import { AppLayout, AppPalette } from "@/constants/app-palette";
 import { AppAlert as Alert } from "@/lib/app-alert";
+import {
+  getCloudInventorySyncSnapshot,
+  retryCloudInventorySync,
+  subscribeCloudInventorySync,
+} from "@/lib/cloud-inventory-sync";
 import { FREE_SCAN_LIMIT, getAppMeta, subscribeAppMeta } from "@/lib/app-meta";
 import {
   getAppSettings,
@@ -84,6 +89,11 @@ export default function SettingsScreen() {
     subscribeSupabaseAuth,
     getSupabaseAuthSnapshot,
     getSupabaseAuthSnapshot,
+  );
+  const cloudSync = useSyncExternalStore(
+    subscribeCloudInventorySync,
+    getCloudInventorySyncSnapshot,
+    getCloudInventorySyncSnapshot,
   );
   const { lifetimeScans, currentMonthScans } = useSyncExternalStore(
     subscribeAppMeta,
@@ -309,6 +319,32 @@ export default function SettingsScreen() {
           <Text style={styles.integrationStatus}>
             {currentMonthScans} / {FREE_SCAN_LIMIT} scans used this month
           </Text>
+          {supabaseAuth.signedIn ? (
+            <>
+              <Text style={styles.integrationStatus}>
+                {cloudSync.syncing
+                  ? "Syncing cloud inventory..."
+                  : cloudSync.error
+                    ? "Cloud sync needs attention"
+                    : cloudSync.lastSyncedAt
+                      ? `Cloud inventory synced ${new Date(cloudSync.lastSyncedAt).toLocaleTimeString()}`
+                      : "Preparing cloud inventory sync"}
+              </Text>
+              {cloudSync.error ? (
+                <>
+                  <Text style={styles.integrationError}>{cloudSync.error}</Text>
+                  <TouchableOpacity
+                    style={styles.secondaryBtn}
+                    onPress={() => {
+                      void retryCloudInventorySync();
+                    }}
+                  >
+                    <Text style={styles.secondaryBtnText}>Retry Cloud Sync</Text>
+                  </TouchableOpacity>
+                </>
+              ) : null}
+            </>
+          ) : null}
           <View style={styles.progressTrack}>
             <View
               style={[
