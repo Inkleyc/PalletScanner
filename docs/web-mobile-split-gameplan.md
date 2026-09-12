@@ -250,6 +250,12 @@ Progress:
   boundaries, account isolation, and photo upload/cleanup behavior.
 - Web item review can confirm or remove Facebook/eBay listed status and records
   those decisions in the shared activity trail.
+- The web dashboard uses focused navigation views instead of one continuous
+  page, with workload badges and direct queue-to-item navigation.
+- Inventory review now uses a desktop split view, quick filters, keyboard
+  search, save feedback, and safe multi-item status actions.
+- Listing operations are organized into preparation, ready, retry, published,
+  and sold stages.
 - The mobile first tab is labeled around the user's real action, Scan, instead of a generic Home label.
 - Mobile first-pallet creation can continue directly into the scan/capture workflow the user originally tapped.
 - Mobile pallet cards now show item count, sold count, and cost so users can choose the right active pallet faster.

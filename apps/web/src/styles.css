@@ -87,6 +87,23 @@ nav button {
   padding: 11px 12px;
   font-weight: 700;
   text-align: left;
+  align-items: center;
+  display: flex;
+  justify-content: space-between;
+}
+
+.nav-count {
+  background: rgba(255, 255, 255, 0.14);
+  border-radius: 999px;
+  font-size: 11px;
+  min-width: 24px;
+  padding: 2px 7px;
+  text-align: center;
+}
+
+nav button.active .nav-count {
+  background: #17221b;
+  color: #f8fbf2;
 }
 
 nav button:hover {
@@ -129,6 +146,12 @@ button {
   border-radius: 8px;
   padding: 10px 14px;
   font-weight: 800;
+}
+
+.primary-button {
+  background: #315f3b;
+  border-color: #315f3b;
+  color: #fff;
 }
 
 .metrics-grid {
@@ -207,6 +230,120 @@ button {
   align-items: center;
   display: flex;
   gap: 10px;
+}
+
+.saved-views {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.saved-views button {
+  border-radius: 999px;
+  font-size: 12px;
+  padding: 7px 11px;
+}
+
+.bulk-bar {
+  align-items: center;
+  background: #edf5e9;
+  border: 1px solid #bacbad;
+  border-radius: 9px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+  padding: 10px 12px;
+}
+
+.bulk-bar strong {
+  margin-right: auto;
+}
+
+.inventory-workspace {
+  align-items: start;
+  display: grid;
+  gap: 16px;
+  grid-template-columns: minmax(560px, 1.35fr) minmax(320px, 0.65fr);
+  margin-top: 14px;
+}
+
+.table-scroll {
+  max-height: calc(100vh - 300px);
+  overflow: auto;
+}
+
+.table-scroll thead {
+  background: #fff;
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+
+.detail-pane {
+  max-height: calc(100vh - 220px);
+  overflow: auto;
+  position: sticky;
+  top: 20px;
+}
+
+.pipeline {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(5, minmax(190px, 1fr));
+  overflow-x: auto;
+  padding-bottom: 6px;
+}
+
+.pipeline-stage {
+  background: #eef1e9;
+  border: 1px solid #d9dfd2;
+  border-radius: 10px;
+  min-height: 230px;
+  padding: 12px;
+}
+
+.pipeline-heading {
+  align-items: center;
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+
+.pipeline-items {
+  display: grid;
+  gap: 8px;
+}
+
+.pipeline-items > small {
+  color: #7a8476;
+  padding: 12px 4px;
+}
+
+.pipeline-items button {
+  display: grid;
+  gap: 5px;
+  padding: 10px;
+  text-align: left;
+}
+
+.pipeline-items button span {
+  color: #697364;
+  font-size: 12px;
+}
+
+.toast {
+  background: #17221b;
+  border-radius: 9px;
+  bottom: 24px;
+  box-shadow: 0 10px 32px rgba(23, 34, 27, 0.22);
+  color: #fff;
+  font-weight: 750;
+  padding: 12px 16px;
+  position: fixed;
+  right: 24px;
+  z-index: 20;
 }
 
 .inventory-tools span {
@@ -887,6 +1024,19 @@ th {
 
   .table-panel {
     overflow-x: auto;
+  }
+
+  .inventory-workspace {
+    grid-template-columns: 1fr;
+  }
+
+  .table-scroll {
+    max-height: none;
+  }
+
+  .detail-pane {
+    max-height: none;
+    position: static;
   }
 
   .inventory-context {

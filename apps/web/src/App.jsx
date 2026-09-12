@@ -454,6 +454,17 @@ function ActivityPanel({ snapshot }) {
   return <section className="panel"><div className="panel-heading"><div><h3>Recent activity</h3><span>Shared history of important inventory and listing changes.</span></div></div><div className="activity-list">{events.length === 0 ? <div className="empty-queue"><strong>No changes yet</strong><span>Item, pallet, and listing changes will appear here.</span></div> : events.slice(0, 10).map((event) => <div className="activity-row" key={event.id}><div><strong>{activityLabels[event.type] ?? event.type}</strong><span>{event.details?.name ?? event.entityId}</span></div><time dateTime={new Date(event.occurredAt).toISOString()}>{new Date(event.occurredAt).toLocaleString()}</time></div>)}</div></section>;
 }
 
+function ListingPipeline({ items, onSelect }) {
+  const stages = [
+    { id: "prep", title: "Needs preparation", items: items.filter((item) => item.soldPrice === null && getDisplayStatus(item) !== "ready" && item.ebayStatus !== "error" && item.facebookStatus !== "error"), tone: "warning" },
+    { id: "ready", title: "Ready to publish", items: items.filter((item) => item.soldPrice === null && getDisplayStatus(item) === "ready" && (item.listedPlatforms ?? []).length === 0 && item.ebayStatus !== "error" && item.facebookStatus !== "error"), tone: "success" },
+    { id: "failed", title: "Needs retry", items: items.filter((item) => item.soldPrice === null && (item.ebayStatus === "error" || item.facebookStatus === "error")), tone: "danger" },
+    { id: "published", title: "Published", items: items.filter((item) => item.soldPrice === null && item.ebayStatus !== "error" && item.facebookStatus !== "error" && ((item.listedPlatforms ?? []).length > 0 || item.ebayStatus === "active" || item.facebookStatus === "listed")), tone: "primary" },
+    { id: "sold", title: "Sold", items: items.filter((item) => item.soldPrice !== null), tone: "primary" },
+  ];
+  return <section className="pipeline" aria-label="Listing pipeline">{stages.map((stage) => <article className="pipeline-stage" key={stage.id}><div className="pipeline-heading"><strong>{stage.title}</strong><span className={`badge ${stage.tone}`}>{stage.items.length}</span></div><div className="pipeline-items">{stage.items.length === 0 ? <small>Nothing here</small> : stage.items.slice(0, 12).map((item) => <button key={item.id} onClick={() => onSelect(item.id)}><strong>{item.name}</strong><span>{getDisplayPlatform(item)}</span></button>)}</div></article>)}</section>;
+}
+
 const dashboardViews = ["overview", "pallets", "inventory", "listings", "activity", "settings"];
 const viewCopy = {
   overview: ["Business overview", "Know what is selling, what is stuck, and what needs your decision."],
@@ -476,6 +487,11 @@ export function App() {
   const [sort, setSort] = useState(() => ({ column: readPreference("palletscanner.inventorySortColumn", "name"), direction: readPreference("palletscanner.inventorySortDirection", "asc") }));
   const [selectedId, setSelectedId] = useState(() => Number(readPreference("palletscanner.selectedInventoryItemId", "0")));
   const [creatingItem, setCreatingItem] = useState(false);
+  const [selectedIds, setSelectedIds] = useState(() => new Set());
+  const [bulkSaving, setBulkSaving] = useState(false);
+  const [toast, setToast] = useState("");
+  const searchInput = useRef(null);
+  const toastTimer = useRef(null);
 
   useEffect(() => repository.subscribe(setSnapshot), []);
   useEffect(() => {
@@ -494,6 +510,17 @@ export function App() {
     localStorage.setItem("palletscanner.inventorySortColumn", sort.column);
     localStorage.setItem("palletscanner.inventorySortDirection", sort.direction);
   }, [query, statusFilter, platformFilter, palletFilter, sort]);
+  useEffect(() => {
+    const handleShortcut = (event) => {
+      if (event.key === "/" && !["INPUT", "TEXTAREA", "SELECT"].includes(document.activeElement?.tagName)) {
+        event.preventDefault();
+        navigate("inventory");
+        window.setTimeout(() => searchInput.current?.focus(), 0);
+      }
+    };
+    window.addEventListener("keydown", handleShortcut);
+    return () => window.removeEventListener("keydown", handleShortcut);
+  });
 
   const { items, pallets } = snapshot;
   const palletName = (id) => pallets.find((pallet) => pallet.id === id)?.name ?? "Unassigned";
@@ -526,7 +553,29 @@ export function App() {
     window.history.replaceState(null, "", `#${nextView}`);
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
-  const selectItem = (id) => { setSelectedId(id); localStorage.setItem("palletscanner.selectedInventoryItemId", String(id)); navigate("inventory"); };
+  const notify = (message) => {
+    setToast(message);
+    if (toastTimer.current) window.clearTimeout(toastTimer.current);
+    toastTimer.current = window.setTimeout(() => setToast(""), 3500);
+  };
+  const toggleSelected = (id) => setSelectedIds((current) => {
+    const next = new Set(current);
+    if (next.has(id)) next.delete(id); else next.add(id);
+    return next;
+  });
+  const bulkUpdate = async (label, transform) => {
+    const chosen = items.filter((item) => selectedIds.has(item.id));
+    if (chosen.length === 0) return;
+    setBulkSaving(true);
+    try {
+      for (const item of chosen) await repository.saveItem(transform(item));
+      setSelectedIds(new Set());
+      notify(`${chosen.length} item${chosen.length === 1 ? "" : "s"} ${label}.`);
+    } catch (error) {
+      notify(error instanceof Error ? error.message : "Bulk update failed.");
+    } finally { setBulkSaving(false); }
+  };
+  const selectItem = (id) => { setSelectedId(id); localStorage.setItem("palletscanner.selectedInventoryItemId", String(id)); if (view !== "inventory") navigate("inventory"); };
   const changeSort = (column) => setSort((current) => ({ column, direction: current.column === column && current.direction === "asc" ? "desc" : "asc" }));
   const resetFilters = () => { setQuery(""); setStatusFilter("all"); setPlatformFilter("all"); setPalletFilter("all"); };
   const exportCsv = () => {
@@ -540,28 +589,31 @@ export function App() {
 
   return (
     <div className="shell">
-      <aside className="sidebar"><div><p className="eyebrow">From pallet to profit</p><h1>PalletFlip</h1></div><nav aria-label="Dashboard sections">{navItems.map(([id, label]) => <button className={view === id ? "active" : ""} key={id} onClick={() => navigate(id)}>{label}</button>)}</nav></aside>
+      <aside className="sidebar"><div><p className="eyebrow">From pallet to profit</p><h1>PalletFlip</h1></div><nav aria-label="Dashboard sections">{navItems.map(([id, label]) => { const count = id === "overview" ? attention.length : id === "inventory" ? items.length : id === "listings" ? marketplace.length : null; return <button className={view === id ? "active" : ""} key={id} onClick={() => navigate(id)}><span>{label}</span>{count !== null && <span className="nav-count">{count}</span>}</button>; })}</nav></aside>
       <main className="main">
-        <header className="topbar"><div><p className="eyebrow">Business Dashboard</p><h2>{viewCopy[view][0]}</h2><span>{viewCopy[view][1]}</span></div>{view === "inventory" && <button onClick={exportCsv}>Export inventory</button>}</header>
+        <header className="topbar"><div><p className="eyebrow">Business Dashboard</p><h2>{viewCopy[view][0]}</h2><span>{viewCopy[view][1]}</span></div><div className="button-row">{pallets.length > 0 && <button className="primary-button" onClick={() => { navigate("inventory"); setCreatingItem(true); }}>New item</button>}{view === "inventory" && <button onClick={exportCsv}>Export inventory</button>}</div></header>
         {view === "overview" && <div className="view-stack"><section className="metrics-grid">
           <Metric label="Inventory" value={totals.totalItems} /><Metric label="Sell-through" value={`${totals.sellThrough.toFixed(0)}%`} tone="success" /><Metric label="Sold revenue" value={currency(totals.soldRevenue)} /><Metric label="Pallet cost" value={currency(totals.totalCost)} />
-          <Metric label="Remaining value" value={`${currency(totals.remainingLow)}–${currency(totals.remainingHigh)}`} /><Metric label="Gross profit" value={currency(totals.grossProfit)} tone={totals.grossProfit >= 0 ? "success" : "danger"} /><Metric label="Needs Facebook" value={totals.needsFacebook} tone="warning" onClick={() => { setPlatformFilter("Facebook"); navigate("inventory"); }} /><Metric label="Needs eBay" value={totals.needsEbay} tone="warning" onClick={() => { setPlatformFilter("eBay"); navigate("inventory"); }} />
+          <Metric label="Remaining value" value={`${currency(totals.remainingLow)}–${currency(totals.remainingHigh)}`} /><Metric label="Gross profit" value={currency(totals.grossProfit)} tone={totals.grossProfit >= 0 ? "success" : "danger"} /><Metric label="Needs Facebook" value={totals.needsFacebook} tone="warning" onClick={() => navigate("listings")} /><Metric label="Needs eBay" value={totals.needsEbay} tone="warning" onClick={() => navigate("listings")} />
         </section>
         <Queue title="Attention Queue" subtitle="Items missing information needed for a business decision." items={attention} empty="Attention queue is clear" onSelect={selectItem} renderMeta={(item) => statusLabel[getDisplayStatus(item)]} />
         </div>}
         {view === "pallets" && <PalletManager pallets={pallets} summaries={palletSummaries} activePalletId={snapshot.activePalletId} selectedPalletId={palletFilter} onFilter={(id) => { setPalletFilter(id); navigate("inventory"); }} />}
-        {view === "listings" && <div className="view-stack"><Queue title="Marketplace review queue" subtitle="Items that still need Facebook or eBay work." items={marketplace} empty="Marketplace queue is clear" onSelect={selectItem} renderMeta={getDisplayPlatform} />
+        {view === "listings" && <div className="view-stack"><ListingPipeline items={items} onSelect={selectItem} />
         <Queue title="Aging inventory" subtitle="Unsold items older than 14 days." items={stale} empty="No stale inventory" onSelect={selectItem} renderMeta={(item) => `${getItemAgeDays(item)} days`} />
         </div>}
         {view === "inventory" && <section className="panel table-panel" id="inventory">
           <div className="panel-heading"><div><h3>Inventory</h3><span>Desktop-first review table</span></div><div className="inventory-tools"><span>{visibleItems.length} items</span><button disabled={pallets.length === 0} onClick={() => setCreatingItem(true)}>New item</button><button onClick={exportCsv}>Export CSV</button><button className="reset-filter-button" onClick={resetFilters}>Reset</button></div></div>
-          <div className="inventory-tools"><input aria-label="Search inventory" placeholder="Search inventory" value={query} onChange={(event) => setQuery(event.target.value)} /><select aria-label="Status filter" value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)}><option value="all">All statuses</option>{Object.entries(statusLabel).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select><select aria-label="Platform filter" value={platformFilter} onChange={(event) => setPlatformFilter(event.target.value)}><option value="all">All platforms</option><option>Facebook</option><option>eBay</option><option>Review</option></select><select aria-label="Pallet filter" value={palletFilter} onChange={(event) => setPalletFilter(event.target.value)}><option value="all">All pallets</option>{pallets.map((pallet) => <option key={pallet.id} value={pallet.id}>{pallet.name}</option>)}</select></div>
+          <div className="saved-views"><button onClick={resetFilters}>All inventory</button><button onClick={() => { resetFilters(); setStatusFilter("needs_photos"); }}>Missing photos</button><button onClick={() => { resetFilters(); setStatusFilter("ready"); }}>Ready</button><button onClick={() => { resetFilters(); setPlatformFilter("Facebook"); }}>Facebook focus</button><button onClick={() => { resetFilters(); setPlatformFilter("eBay"); }}>eBay focus</button></div>
+          <div className="inventory-tools"><input ref={searchInput} aria-label="Search inventory" placeholder="Search inventory (press /)" value={query} onChange={(event) => setQuery(event.target.value)} /><select aria-label="Status filter" value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)}><option value="all">All statuses</option>{Object.entries(statusLabel).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select><select aria-label="Platform filter" value={platformFilter} onChange={(event) => setPlatformFilter(event.target.value)}><option value="all">All platforms</option><option>Facebook</option><option>eBay</option><option>Review</option></select><select aria-label="Pallet filter" value={palletFilter} onChange={(event) => setPalletFilter(event.target.value)}><option value="all">All pallets</option>{pallets.map((pallet) => <option key={pallet.id} value={pallet.id}>{pallet.name}</option>)}</select></div>
+          {selectedIds.size > 0 && <div className="bulk-bar"><strong>{selectedIds.size} selected</strong><button disabled={bulkSaving} onClick={() => bulkUpdate("marked ready", (item) => ({ ...item, status: "ready", soldPrice: null }))}>Mark ready</button><button disabled={bulkSaving} onClick={() => bulkUpdate("marked listed on Facebook", (item) => ({ ...item, facebookStatus: "listed", facebookUpdatedAt: Date.now(), listedPlatforms: [...new Set([...(item.listedPlatforms ?? []), "facebook"])] }))}>Mark Facebook listed</button><button disabled={bulkSaving} onClick={() => bulkUpdate("marked listed on eBay", (item) => ({ ...item, ebayStatus: "active", ebayUpdatedAt: Date.now(), listedPlatforms: [...new Set([...(item.listedPlatforms ?? []), "ebay"])] }))}>Mark eBay listed</button><button disabled={bulkSaving} onClick={() => setSelectedIds(new Set())}>Clear</button></div>}
           {palletFilter !== "all" && <div className="inventory-context"><strong>Filtered Pallet: {palletName(palletFilter)}</strong><button onClick={() => setPalletFilter("all")}>Show all</button></div>}
-          <table><thead><tr><th><SortButton column="name">Item</SortButton></th><th><SortButton column="pallet">Pallet</SortButton></th><th>Status</th><th>Platform</th><th><SortButton column="quantity">Quantity</SortButton></th><th><SortButton column="low">Low</SortButton></th><th><SortButton column="high">High</SortButton></th><th><SortButton column="age">Age Days</SortButton></th></tr></thead><tbody>{visibleItems.length === 0 ? <tr><td className="empty-table-cell" colSpan="8">No inventory matches these filters.</td></tr> : visibleItems.map((item) => <tr tabIndex="0" className={selected?.id === item.id ? "selected-row" : ""} key={item.id} onClick={() => selectItem(item.id)}><td><strong>{item.name}</strong></td><td>{palletName(item.palletId)}</td><td><span className={`badge ${statusClass[getDisplayStatus(item)]}`}>{statusLabel[getDisplayStatus(item)]}</span></td><td>{getDisplayPlatform(item)}</td><td>{getQuantity(item)}</td><td>{currency(price(item, "low"))}</td><td>{currency(price(item, "high"))}</td><td>{getItemAgeDays(item)}</td></tr>)}</tbody></table>
-          {creatingItem ? <NewItemForm pallets={pallets} defaultPalletId={palletFilter !== "all" ? palletFilter : snapshot.activePalletId ?? pallets[0]?.id ?? ""} onCancel={() => setCreatingItem(false)} onCreated={(id) => { setCreatingItem(false); resetFilters(); selectItem(id); }} /> : <InventoryDetail item={selected} palletName={selected ? palletName(selected.palletId) : ""} pallets={pallets} onSave={(item) => repository.saveItem(item)} onRemove={(id) => repository.removeItem(id)} />}
+          <div className="inventory-workspace"><div className="table-scroll"><table><thead><tr><th><input type="checkbox" aria-label="Select all visible items" checked={visibleItems.length > 0 && visibleItems.every((item) => selectedIds.has(item.id))} onChange={(event) => setSelectedIds((current) => { const next = new Set(current); visibleItems.forEach((item) => event.target.checked ? next.add(item.id) : next.delete(item.id)); return next; })} /></th><th><SortButton column="name">Item</SortButton></th><th><SortButton column="pallet">Pallet</SortButton></th><th>Status</th><th>Platform</th><th><SortButton column="quantity">Qty</SortButton></th><th><SortButton column="low">Low</SortButton></th><th><SortButton column="high">High</SortButton></th><th><SortButton column="age">Age</SortButton></th></tr></thead><tbody>{visibleItems.length === 0 ? <tr><td className="empty-table-cell" colSpan="9">No inventory matches these filters.</td></tr> : visibleItems.map((item) => <tr tabIndex="0" className={selected?.id === item.id ? "selected-row" : ""} key={item.id} onClick={() => selectItem(item.id)} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") selectItem(item.id); }}><td><input type="checkbox" aria-label={`Select ${item.name}`} checked={selectedIds.has(item.id)} onClick={(event) => event.stopPropagation()} onChange={() => toggleSelected(item.id)} /></td><td><strong>{item.name}</strong></td><td>{palletName(item.palletId)}</td><td><span className={`badge ${statusClass[getDisplayStatus(item)]}`}>{statusLabel[getDisplayStatus(item)]}</span></td><td>{getDisplayPlatform(item)}</td><td>{getQuantity(item)}</td><td>{currency(price(item, "low"))}</td><td>{currency(price(item, "high"))}</td><td>{getItemAgeDays(item)}d</td></tr>)}</tbody></table></div>
+          <div className="detail-pane">{creatingItem ? <NewItemForm pallets={pallets} defaultPalletId={palletFilter !== "all" ? palletFilter : snapshot.activePalletId ?? pallets[0]?.id ?? ""} onCancel={() => setCreatingItem(false)} onCreated={(id) => { setCreatingItem(false); resetFilters(); selectItem(id); notify("Inventory item created."); }} /> : <InventoryDetail item={selected} palletName={selected ? palletName(selected.palletId) : ""} pallets={pallets} onSave={async (item) => { await repository.saveItem(item); notify("Changes saved."); }} onRemove={async (id) => { await repository.removeItem(id); notify("Inventory item removed."); }} />}</div></div>
         </section>}
         {view === "settings" && <EbaySettings />}
         {view === "activity" && <ActivityPanel snapshot={snapshot} />}
+        {toast && <div className="toast" role="status">{toast}</div>}
       </main>
     </div>
   );

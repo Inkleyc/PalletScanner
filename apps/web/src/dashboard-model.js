@@ -70,8 +70,9 @@ export const getDisplayIssue = (item) => {
 export const getMarketplaceQueueItems = (items) =>
   items.filter(
     (item) =>
-      !item.listedPlatforms?.includes("facebook") ||
-      !item.listedPlatforms?.includes("ebay"),
+      item.soldPrice === null &&
+      (!item.listedPlatforms?.includes("facebook") ||
+      !item.listedPlatforms?.includes("ebay")),
   );
 
 export const getItemAgeDays = (item, now = new Date()) => {
