@@ -139,6 +139,58 @@ nav button.active {
   line-height: 1.12;
 }
 
+.title-status {
+  align-items: center;
+  display: flex;
+  gap: 10px;
+}
+
+.title-status .eyebrow {
+  margin-bottom: 0;
+}
+
+.cloud-status {
+  cursor: pointer;
+  padding: 4px 8px;
+}
+
+.getting-started {
+  padding: 24px;
+}
+
+.getting-started h3 {
+  font-size: 22px;
+  margin-top: 4px;
+}
+
+.getting-started p {
+  color: #697364;
+  max-width: 620px;
+}
+
+.advanced-settings {
+  border-top: 1px solid #d9dfd2;
+  margin-top: 14px;
+  padding-top: 12px;
+}
+
+.advanced-settings summary {
+  color: #566451;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 800;
+  margin-bottom: 12px;
+}
+
+.advanced-settings[open] {
+  display: grid;
+  gap: 10px;
+}
+
+.settings-mount[hidden] {
+  display: none;
+}
+
 button {
   border: 1px solid #bdc8b3;
   background: #ffffff;
