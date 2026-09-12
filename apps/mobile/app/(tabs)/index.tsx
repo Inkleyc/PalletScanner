@@ -83,7 +83,7 @@ export default function HomeScreen() {
     <>
       <ScrollView style={styles.container} contentContainerStyle={styles.content}>
         <View style={[styles.innerContent, isLargeLayout && styles.innerContentWide]}>
-          <Text style={styles.title}>Pallet Scanner</Text>
+          <Text style={styles.title}>PalletFlip</Text>
           <Text style={styles.subtitle}>Choose a pallet, scan the item, save it, move on.</Text>
 
           <View style={styles.primaryCard}>

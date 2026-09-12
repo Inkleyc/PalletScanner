@@ -1,6 +1,6 @@
 # Facebook Marketplace Workflow
 
-PalletScanner uses an assisted Facebook Marketplace flow. It prepares the listing,
+PalletFlip uses an assisted Facebook Marketplace flow. It prepares the listing,
 opens Marketplace, tracks draft/listed state, and keeps the exact fields ready to
 copy.
 
@@ -33,7 +33,7 @@ listing.
 
 ## Copy Behavior
 
-PalletScanner cannot autofill Facebook Marketplace fields directly. Facebook
+PalletFlip cannot autofill Facebook Marketplace fields directly. Facebook
 does not expose a reliable personal Marketplace create-listing API or field-fill
 intent for third-party apps.
 
@@ -50,7 +50,7 @@ All` only when you want the full package in one paste.
 ## Facebook Account
 
 Facebook Marketplace uses the account currently active in the Facebook app or
-browser. PalletScanner cannot force Facebook to post under a different personal
+browser. PalletFlip cannot force Facebook to post under a different personal
 account.
 
 Settings includes Facebook account shortcuts:
@@ -69,17 +69,17 @@ item at a time and guides the seller through:
 2. Copying each Marketplace field.
 3. Opening Facebook Marketplace.
 4. Publishing in Facebook.
-5. Marking the item listed in PalletScanner.
+5. Marking the item listed in PalletFlip.
 6. Saving the final Facebook listing URL.
 
-The queue exists because Facebook does not allow PalletScanner to submit a
+The queue exists because Facebook does not allow PalletFlip to submit a
 personal Marketplace listing in the background. Instead, the app makes the manual
 steps obvious and repeatable.
 
 ## Current Limits
 
 Facebook does not provide a normal public API for creating personal Marketplace
-listings from a third-party app. Because of that, PalletScanner should not try to
+listings from a third-party app. Because of that, PalletFlip should not try to
 silently auto-post to Marketplace.
 
 The supported production path is:

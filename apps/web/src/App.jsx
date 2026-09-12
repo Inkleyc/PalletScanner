@@ -305,7 +305,7 @@ function SupabaseAccount() {
       options: { emailRedirectTo: window.location.origin },
     });
     setLoading(false);
-    setMessage(error ? error.message : "Check your email for the PalletScanner sign-in link.");
+    setMessage(error ? error.message : "Check your email for the PalletFlip sign-in link.");
   };
 
   const signOut = async () => {
@@ -422,7 +422,7 @@ function EbaySettings() {
         <SupabaseAccount />
         <article className="admin-card integration-card">
           <strong>eBay Integration</strong>
-          <p>Connect the dashboard to the protected PalletScanner marketplace backend.</p>
+          <p>Connect the dashboard to the protected PalletFlip marketplace backend.</p>
           <label><span>Backend URL</span><input value={baseUrl} onChange={(event) => setBaseUrl(event.target.value)} placeholder="https://api.example.com" /></label>
           <label><span>App auth token</span><input type="password" value={token} onChange={(event) => setToken(event.target.value)} placeholder="Session-only token" /></label>
           <div className="status-line"><span className={`badge ${status?.readyToList ? "success" : status?.connected ? "warning" : ""}`}>{loading ? "Checking…" : status?.readyToList ? "Ready to list" : status?.connected ? "Connected, setup incomplete" : status ? "Seller not connected" : "Not checked"}</span>{status && <small>{status.environment} · {status.marketplaceId}</small>}</div>
@@ -514,7 +514,7 @@ export function App() {
 
   return (
     <div className="shell">
-      <aside className="sidebar"><div><p className="eyebrow">Resale operations</p><h1>PalletScanner</h1></div><nav><a className="active" href="#overview">Overview</a><a href="#pallets">Pallets</a><a href="#inventory">Inventory</a><a href="#listings">Listings</a><a href="#settings">Settings</a></nav></aside>
+      <aside className="sidebar"><div><p className="eyebrow">From pallet to profit</p><h1>PalletFlip</h1></div><nav><a className="active" href="#overview">Overview</a><a href="#pallets">Pallets</a><a href="#inventory">Inventory</a><a href="#listings">Listings</a><a href="#settings">Settings</a></nav></aside>
       <main className="main">
         <header className="topbar"><div><p className="eyebrow">Business Dashboard</p><h2>Know what is selling, what is stuck, and what needs your decision.</h2></div><button onClick={exportCsv}>Export inventory</button></header>
         <section className="metrics-grid" id="overview">

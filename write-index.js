@@ -147,7 +147,7 @@ export default function HomeScreen() {
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      <Text style={styles.title}>Pallet Scanner</Text>
+      <Text style={styles.title}>PalletFlip</Text>
       <Text style={styles.subtitle}>
         Add multiple photos then analyze the item
       </Text>

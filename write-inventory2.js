@@ -49,7 +49,7 @@ export default function InventoryScreen() {
     try {
       await Share.share({
         message: csv,
-        title: "PalletScanner Inventory",
+        title: "PalletFlip Inventory",
       });
     } catch (e) {
       Alert.alert("Error", "Could not export inventory.");

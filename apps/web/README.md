@@ -1,4 +1,4 @@
-# PalletScanner Web
+# PalletFlip Web
 
 Home for the business dashboard.
 

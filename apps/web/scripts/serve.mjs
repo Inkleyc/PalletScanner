@@ -42,5 +42,5 @@ const server = createServer(async (request, response) => {
 });
 
 server.listen(port, host, () => {
-  console.log(`PalletScanner web dashboard: http://${host}:${port}`);
+  console.log(`PalletFlip web dashboard: http://${host}:${port}`);
 });

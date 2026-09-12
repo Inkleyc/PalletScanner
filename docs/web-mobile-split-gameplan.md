@@ -1,8 +1,8 @@
-# PalletScanner Web and Mobile Split Gameplan
+# PalletFlip Web and Mobile Split Gameplan
 
 ## End Goal
 
-Build PalletScanner as two focused products on one shared business system:
+Build PalletFlip as two focused products on one shared business system:
 
 - A mobile app for warehouse action: scan, photograph, identify, sort, and move inventory quickly.
 - A web app for business control: review inventory, manage listings, track profitability, configure marketplaces, and understand what needs attention.

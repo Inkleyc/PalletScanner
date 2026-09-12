@@ -1118,7 +1118,7 @@ const server = createServer(async (req, res) => {
           renderConnectionPage({
             title: "Invalid state",
             message:
-              "The OAuth state token did not match. Start the connection again from PalletScanner.",
+              "The OAuth state token did not match. Start the connection again from PalletFlip.",
             tone: "danger",
           }),
         );
@@ -1133,7 +1133,7 @@ const server = createServer(async (req, res) => {
         200,
         renderConnectionPage({
           title: "eBay connected",
-          message: "You can close this page and return to PalletScanner.",
+          message: "You can close this page and return to PalletFlip.",
         }),
       );
       return;

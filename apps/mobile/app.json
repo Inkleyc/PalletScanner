@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "PalletScanner",
+    "name": "PalletFlip",
     "slug": "PalletScanner",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -13,8 +13,8 @@
       "bundleIdentifier": "com.coltoninkley.palletscanner",
       "buildNumber": "1",
       "infoPlist": {
-        "NSCameraUsageDescription": "PalletScanner uses the camera to scan barcodes and photograph inventory.",
-        "NSPhotoLibraryUsageDescription": "PalletScanner uses your photo library to attach product photos to inventory listings.",
+        "NSCameraUsageDescription": "PalletFlip uses the camera to scan barcodes and photograph inventory.",
+        "NSPhotoLibraryUsageDescription": "PalletFlip uses your photo library to attach product photos to inventory listings.",
         "ITSAppUsesNonExemptEncryption": false
       }
     },
@@ -55,14 +55,14 @@
       [
         "expo-camera",
         {
-          "cameraPermission": "Allow PalletScanner to scan barcodes and take product photos."
+          "cameraPermission": "Allow PalletFlip to scan barcodes and take product photos."
         }
       ],
       [
         "expo-image-picker",
         {
-          "photosPermission": "Allow PalletScanner to attach product photos from your library.",
-          "cameraPermission": "Allow PalletScanner to take product photos."
+          "photosPermission": "Allow PalletFlip to attach product photos from your library.",
+          "cameraPermission": "Allow PalletFlip to take product photos."
         }
       ],
       "expo-mail-composer"

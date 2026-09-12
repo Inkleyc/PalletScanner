@@ -83,7 +83,7 @@ export default function InventoryScreen() {
         return;
       }
       await MailComposer.composeAsync({
-        subject: "PalletScanner Inventory Export",
+        subject: "PalletFlip Inventory Export",
         body: "Your pallet inventory is attached. Open in Google Sheets or Excel.",
         attachments: [filename],
       });

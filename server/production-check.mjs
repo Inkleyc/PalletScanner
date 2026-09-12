@@ -95,7 +95,7 @@ if (!hasValue("PALLETSCANNER_IDENTITY_PROVIDER")) {
   );
 }
 
-console.log("PalletScanner eBay production readiness check");
+console.log("PalletFlip eBay production readiness check");
 console.log("");
 
 if (failures.length === 0) {

@@ -1,6 +1,6 @@
-# PalletScanner
+# PalletFlip
 
-PalletScanner is evolving into a two-surface pallet resale operations system:
+PalletFlip is a two-surface pallet resale operations system:
 
 - Mobile app: fast warehouse capture for pallets, barcodes, photos, item drafts, and next-item workflows.
 - Web app: business control for inventory review, listing queues, marketplace setup, pallet profitability, and reporting.

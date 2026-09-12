@@ -1,4 +1,4 @@
-# PalletScanner Mobile
+# PalletFlip Mobile
 
 Expo warehouse app for capture, scanning, photos, and fast item intake.
 

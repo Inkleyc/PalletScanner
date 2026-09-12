@@ -4,7 +4,7 @@
 
 Keep Expo for the mobile app.
 
-Expo is a good fit for PalletScanner's phone surface because the mobile app needs camera access, barcode scanning, photo capture, file handling, haptics, deep links, and fast iteration. Rebuilding the mobile app in plain native iOS/Android or bare React Native would add setup and release overhead before the product needs it.
+Expo is a good fit for PalletFlip's phone surface because the mobile app needs camera access, barcode scanning, photo capture, file handling, haptics, deep links, and fast iteration. Rebuilding the mobile app in plain native iOS/Android or bare React Native would add setup and release overhead before the product needs it.
 
 The important distinction is this:
 

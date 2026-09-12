@@ -55,7 +55,7 @@ if (!anonKey) {
   );
 }
 
-console.log("PalletScanner Supabase app environment check");
+console.log("PalletFlip Supabase app environment check");
 console.log("");
 
 if (failures.length === 0) {

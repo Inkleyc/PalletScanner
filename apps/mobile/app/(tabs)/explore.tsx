@@ -338,7 +338,7 @@ export default function InventoryScreen() {
     const platformLabel = platform === "facebook" ? "Facebook" : "eBay";
     Alert.alert(
       `Unmark ${platformLabel} posted?`,
-      "This only updates the item in Pallet Scanner. It will not remove or end anything on the marketplace.",
+      "This only updates the item in PalletFlip. It will not remove or end anything on the marketplace.",
       [
         { text: "Cancel", style: "cancel" },
         {
@@ -511,7 +511,7 @@ export default function InventoryScreen() {
       await MailComposer.composeAsync({
         subject: selectedPallet
           ? `${selectedPallet.name} Inventory Export`
-          : "PalletScanner Inventory Export",
+          : "PalletFlip Inventory Export",
         body: selectedPallet
           ? `${selectedPallet.name} inventory is attached. Open in Google Sheets or Excel.`
           : "Your pallet inventory is attached. Open in Google Sheets or Excel.",

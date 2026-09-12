@@ -1,6 +1,6 @@
 # eBay Integration Guide
 
-This guide explains how eBay connects to the PalletScanner app from zero context. The short version is:
+This guide explains how eBay connects to the PalletFlip app from zero context. The short version is:
 
 1. The app creates an inventory item and listing draft from photos or barcode scans.
 2. The mobile app sends that draft to our eBay backend.
@@ -36,7 +36,7 @@ This is the actual eBay account that owns the listings. It needs:
 
 The app credentials prove which software is asking. The seller account authorization proves which eBay account the software may post for.
 
-### PalletScanner Mobile App
+### PalletFlip Mobile App
 
 The Expo app owns the scanning, pricing, listing copy, inventory, and user workflow.
 
@@ -57,7 +57,7 @@ EXPO_PUBLIC_EBAY_API_BASE_URL=http://YOUR-BACKEND-HOST:8787
 
 If this value is blank, the app uses browser fallback.
 
-### PalletScanner eBay Backend
+### PalletFlip eBay Backend
 
 The backend is `server/ebay-server.mjs`. It is the bridge between the mobile app and eBay.
 
@@ -118,7 +118,7 @@ The mobile app does not store eBay seller tokens. That is intentional.
 
 The backend separates three states:
 
-- `configured`: the PalletScanner backend has the eBay app credentials needed to start OAuth.
+- `configured`: the PalletFlip backend has the eBay app credentials needed to start OAuth.
 - `connected`: the current app user has authorized an eBay seller account.
 - `readyToList`: the backend has app credentials, seller authorization, merchant location, payment policy, return policy, and fulfillment policy.
 
@@ -238,12 +238,12 @@ Distribution mode means other people install the app and connect their own eBay 
 ```text
 Customer's installed app
   -> https://api.yourdomain.com
-    -> hosted PalletScanner backend
+    -> hosted PalletFlip backend
       -> eBay production APIs
         -> customer's eBay seller account
 ```
 
-The app still never talks directly to eBay with secrets. Every customer uses the same PalletScanner eBay application credentials, but each customer authorizes their own seller account.
+The app still never talks directly to eBay with secrets. Every customer uses the same PalletFlip eBay application credentials, but each customer authorizes their own seller account.
 
 ### What Changes From Local
 
@@ -341,7 +341,7 @@ eBay refresh token, then create the listing for that seller.
 
 ## Current App Behavior
 
-Right now, PalletScanner is already wired for a staged rollout:
+Right now, PalletFlip is already wired for a staged rollout:
 
 - If `EXPO_PUBLIC_EBAY_API_BASE_URL` is blank:
   - eBay posting copies the listing text.

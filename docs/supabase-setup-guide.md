@@ -1,6 +1,6 @@
 # Supabase Setup Guide
 
-Supabase is PalletScanner's production login provider. It gives the app a signed
+Supabase is PalletFlip's production login provider. It gives the app a signed
 user token so the eBay backend can tell which seller is making each request.
 
 ## Create The Project
@@ -17,7 +17,7 @@ user token so the eBay backend can tell which seller is making each request.
 5. Use this project name:
 
    ```text
-   PalletScanner
+   PalletFlip
    ```
 
 6. Choose a database password and save it somewhere safe.

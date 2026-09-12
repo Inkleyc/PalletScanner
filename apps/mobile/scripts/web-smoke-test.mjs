@@ -129,7 +129,7 @@ const routeChecks = [
     texts: ["Scan any item from a pallet or lot"],
     label: "Onboarding",
   },
-  { path: "/(tabs)", texts: ["Pallet Scanner", "Scan Barcode"], label: "Scan" },
+  { path: "/(tabs)", texts: ["PalletFlip", "Scan Barcode"], label: "Scan" },
   { path: "/(tabs)/explore", texts: ["Inventory"], label: "Inventory" },
   { path: "/(tabs)/pallets", texts: ["Pallets"], label: "Pallets" },
   { path: "/(tabs)/analytics", texts: ["Pallet Stats"], label: "Analytics" },

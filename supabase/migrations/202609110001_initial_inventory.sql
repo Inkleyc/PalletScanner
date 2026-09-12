@@ -1,4 +1,4 @@
--- PalletScanner's initial user-owned data model.
+-- PalletFlip's initial user-owned data model.
 -- Client IDs preserve today's local data while UUIDs provide safe server keys.
 
 create extension if not exists pgcrypto;
