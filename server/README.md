@@ -7,6 +7,8 @@ For the full plain-English setup map, including local development versus distrib
 ## Endpoints
 
 - `GET /health`
+- `POST /ai/messages` securely proxies authenticated AI analysis requests.
+- `GET /barcode/lookup?barcode=...` performs protected server-side product lookup for web scanners.
 - `GET /ebay/status` returns backend configuration, seller connection, and the ready-to-list checklist.
 - `GET /ebay/connect`
 - `GET /ebay/connect-url`
@@ -41,6 +43,9 @@ You can use [server/ebay.env.example](c:/Users/colto/PalletScanner/server/ebay.e
 - `EBAY_TOKEN_ENCRYPTION_KEY=...`
 - `PALLETSCANNER_ALLOWED_ORIGIN=https://app.example.com`
 - `PALLETSCANNER_LISTING_RATE_LIMIT_PER_MINUTE=20`
+- `ANTHROPIC_API_KEY=...`
+- `ANTHROPIC_MODEL=claude-sonnet-5`
+- `PALLETSCANNER_AI_RATE_LIMIT_PER_MINUTE=10`
 
 ## Setup notes
 

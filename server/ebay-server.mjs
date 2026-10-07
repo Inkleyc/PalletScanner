@@ -68,9 +68,14 @@ const currency = process.env.EBAY_CURRENCY ?? "USD";
 const locale = process.env.EBAY_LOCALE ?? "en-US";
 const fallbackCategoryId = process.env.EBAY_CATEGORY_ID ?? "";
 const allowedOrigin = process.env.PALLETSCANNER_ALLOWED_ORIGIN ?? "*";
+const rehearsalOrigin = process.env.PALLETSCANNER_REHEARSAL_ORIGIN ?? "";
 const listingRateLimit = Number(
   process.env.PALLETSCANNER_LISTING_RATE_LIMIT_PER_MINUTE ?? 20,
 );
+const aiRateLimit = Number(
+  process.env.PALLETSCANNER_AI_RATE_LIMIT_PER_MINUTE ?? 10,
+);
+const anthropicModel = process.env.ANTHROPIC_MODEL ?? "claude-sonnet-5";
 
 const ebayScopes =
   process.env.EBAY_SCOPE ??
@@ -84,6 +89,7 @@ let appTokenCache = null;
 let categoryTreeCache = null;
 const categoryMetadataCache = new Map();
 const listingRateLimits = new Map();
+const aiRateLimits = new Map();
 
 const requireEnv = (name) => {
   const value = process.env[name];
@@ -93,7 +99,27 @@ const requireEnv = (name) => {
   return value;
 };
 
+const getListingDefaults = (stored) => ({
+  merchantLocationKey:
+    stored?.listingDefaults?.merchantLocationKey ??
+    process.env.EBAY_MERCHANT_LOCATION_KEY ??
+    "",
+  paymentPolicyId:
+    stored?.listingDefaults?.paymentPolicyId ??
+    process.env.EBAY_PAYMENT_POLICY_ID ??
+    "",
+  returnPolicyId:
+    stored?.listingDefaults?.returnPolicyId ??
+    process.env.EBAY_RETURN_POLICY_ID ??
+    "",
+  fulfillmentPolicyId:
+    stored?.listingDefaults?.fulfillmentPolicyId ??
+    process.env.EBAY_FULFILLMENT_POLICY_ID ??
+    "",
+});
+
 const getEbayReadiness = (stored) => {
+  const defaults = getListingDefaults(stored);
   const checks = [
     {
       key: "appCredentials",
@@ -112,22 +138,22 @@ const getEbayReadiness = (stored) => {
     {
       key: "merchantLocation",
       label: "Merchant location",
-      ok: Boolean(process.env.EBAY_MERCHANT_LOCATION_KEY),
+      ok: Boolean(defaults.merchantLocationKey),
     },
     {
       key: "paymentPolicy",
       label: "Payment policy",
-      ok: Boolean(process.env.EBAY_PAYMENT_POLICY_ID),
+      ok: Boolean(defaults.paymentPolicyId),
     },
     {
       key: "returnPolicy",
       label: "Return policy",
-      ok: Boolean(process.env.EBAY_RETURN_POLICY_ID),
+      ok: Boolean(defaults.returnPolicyId),
     },
     {
       key: "fulfillmentPolicy",
       label: "Fulfillment policy",
-      ok: Boolean(process.env.EBAY_FULFILLMENT_POLICY_ID),
+      ok: Boolean(defaults.fulfillmentPolicyId),
     },
   ];
 
@@ -211,10 +237,24 @@ const readRequestBody = (req) =>
   });
 
 const getCorsOrigin = (req) => {
+  if (rehearsalOrigin && req.headers.origin === rehearsalOrigin) {
+    return rehearsalOrigin;
+  }
   if (allowedOrigin === "*") {
     return "*";
   }
   return req.headers.origin === allowedOrigin ? allowedOrigin : "null";
+};
+
+const authenticateAiRequest = (req) => {
+  if (
+    isSandbox &&
+    rehearsalOrigin &&
+    req.headers.origin === rehearsalOrigin
+  ) {
+    return { userId: "rehearsal-browser", claims: {} };
+  }
+  return authenticateRequest(req);
 };
 
 const sendJson = (req, res, statusCode, payload) => {
@@ -284,6 +324,7 @@ const requestToken = async (params) => {
 };
 
 const exchangeAuthorizationCode = async (userId, code) => {
+  const existing = await tokenStore.load(userId);
   const tokenResponse = await requestToken({
     grant_type: "authorization_code",
     code,
@@ -291,6 +332,7 @@ const exchangeAuthorizationCode = async (userId, code) => {
   });
 
   const stored = {
+    ...existing,
     ...tokenResponse,
     expiresAt: Date.now() + Number(tokenResponse.expires_in ?? 7200) * 1000,
     refreshedAt: Date.now(),
@@ -343,6 +385,122 @@ const enforceListingRateLimit = (userId) => {
   }
   recent.push(now);
   listingRateLimits.set(userId, recent);
+};
+
+const enforceAiRateLimit = (userId) => {
+  const now = Date.now();
+  const windowStart = now - 60_000;
+  const recent = (aiRateLimits.get(userId) ?? []).filter(
+    (timestamp) => timestamp > windowStart,
+  );
+  if (recent.length >= aiRateLimit) {
+    const error = new Error("Too many AI requests. Wait a minute and try again.");
+    error.statusCode = 429;
+    throw error;
+  }
+  recent.push(now);
+  aiRateLimits.set(userId, recent);
+};
+
+const createAiMessage = async (userId, payload) => {
+  enforceAiRateLimit(userId);
+  const apiKey = process.env.ANTHROPIC_API_KEY ?? process.env.EXPO_PUBLIC_ANTHROPIC_API_KEY;
+  if (!apiKey) {
+    const error = new Error("Anthropic is not configured on the backend.");
+    error.statusCode = 503;
+    throw error;
+  }
+  if (!Array.isArray(payload?.messages) || payload.messages.length === 0) {
+    const error = new Error("AI messages are required.");
+    error.statusCode = 400;
+    throw error;
+  }
+
+  const response = await fetch("https://api.anthropic.com/v1/messages", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "x-api-key": apiKey,
+      "anthropic-version": "2023-06-01",
+    },
+    body: JSON.stringify({
+      model: anthropicModel,
+      max_tokens: Math.min(Math.max(Number(payload.max_tokens) || 1000, 1), 2000),
+      messages: payload.messages,
+    }),
+  });
+  const body = await response.text();
+  if (!response.ok) {
+    const error = new Error(`Anthropic request failed (${response.status}): ${body.slice(0, 300)}`);
+    error.statusCode = response.status;
+    throw error;
+  }
+  return JSON.parse(body);
+};
+
+const firstText = (...values) =>
+  values.find((value) => typeof value === "string" && value.trim())?.trim();
+
+const normalizeFactsProduct = (product) => {
+  const title = firstText(product?.product_name, product?.product_name_en);
+  if (!title) throw new Error("No product found.");
+  return {
+    title,
+    description: firstText(product.generic_name, product.generic_name_en),
+    brand: firstText(product.brands),
+    category: firstText(product.categories, product.categories_old),
+    images: [product.image_front_url, product.image_url].filter(Boolean),
+  };
+};
+
+const fetchBarcodeSource = async (url, normalize) => {
+  const response = await fetch(url, { signal: AbortSignal.timeout(7000) });
+  if (!response.ok) throw new Error(`Lookup failed (${response.status}).`);
+  return normalize(await response.json());
+};
+
+const lookupBarcode = async (rawBarcode) => {
+  const barcode = String(rawBarcode ?? "").trim().replace(/[^0-9A-Za-z]/g, "");
+  if (!barcode) {
+    const error = new Error("A barcode is required.");
+    error.statusCode = 400;
+    throw error;
+  }
+
+  const attempts = [
+    fetchBarcodeSource(
+      `https://api.upcitemdb.com/prod/trial/lookup?upc=${encodeURIComponent(barcode)}`,
+      (payload) => {
+        if (!Array.isArray(payload.items) || !payload.items[0]) throw new Error("No product found.");
+        return payload.items[0];
+      },
+    ),
+    fetchBarcodeSource(
+      `https://world.openfoodfacts.org/api/v3/product/${encodeURIComponent(barcode)}?product_type=all&fields=product_name,product_name_en,generic_name,generic_name_en,brands,categories,categories_old,image_front_url,image_url`,
+      (payload) => normalizeFactsProduct(payload.product),
+    ),
+    fetchBarcodeSource(
+      `https://gtinhub.com/api/v1/product/${encodeURIComponent(barcode)}`,
+      (payload) => {
+        if (!payload.found || !payload.product?.name) throw new Error("No product found.");
+        return {
+          title: payload.product.name,
+          description: firstText(payload.product.description),
+          brand: firstText(payload.product.brand),
+          category: firstText(payload.product.category),
+          images: [payload.product.image_url].filter(Boolean),
+        };
+      },
+    ),
+  ];
+
+  try {
+    return await Promise.any(attempts);
+  } catch {
+    const error = new Error("No product information was found for that barcode.");
+    error.statusCode = 404;
+    throw error;
+  }
 };
 
 const getAppAccessToken = async () => {
@@ -411,7 +569,126 @@ const getCategoryTreeId = async () => {
   return categoryTreeCache;
 };
 
-const getCategory = async (title) => {
+const getEbaySetup = async (userId) => {
+  const accessToken = await getUserAccessToken(userId);
+  const headers = { Authorization: `Bearer ${accessToken}` };
+  const market = encodeURIComponent(marketplaceId);
+  const [locationsResult, paymentResult, returnResult, fulfillmentResult] =
+    await Promise.all([
+      ebayFetch("/sell/inventory/v1/location?limit=200", { headers }),
+      ebayFetch(`/sell/account/v1/payment_policy?marketplace_id=${market}`, { headers }),
+      ebayFetch(`/sell/account/v1/return_policy?marketplace_id=${market}`, { headers }),
+      ebayFetch(`/sell/account/v1/fulfillment_policy?marketplace_id=${market}`, { headers }),
+    ]);
+  const stored = await tokenStore.load(userId);
+  return {
+    defaults: getListingDefaults(stored),
+    locations: (locationsResult?.locations ?? []).map((location) => ({
+      id: location.merchantLocationKey,
+      name: location.name ?? location.merchantLocationKey,
+      status: location.merchantLocationStatus,
+      address: location.location?.address ?? {},
+    })),
+    paymentPolicies: (paymentResult?.paymentPolicies ?? []).map((policy) => ({
+      id: policy.paymentPolicyId,
+      name: policy.name,
+    })),
+    returnPolicies: (returnResult?.returnPolicies ?? []).map((policy) => ({
+      id: policy.returnPolicyId,
+      name: policy.name,
+    })),
+    fulfillmentPolicies: (fulfillmentResult?.fulfillmentPolicies ?? []).map(
+      (policy) => ({ id: policy.fulfillmentPolicyId, name: policy.name }),
+    ),
+    businessPoliciesUrl: isSandbox
+      ? "https://www.sandbox.ebay.com/bp/manage"
+      : "https://www.ebay.com/bp/manage",
+  };
+};
+
+const saveEbayDefaults = async (userId, defaults) => {
+  const stored = await tokenStore.load(userId);
+  if (!stored?.refresh_token) {
+    const error = new Error("Connect your eBay account first.");
+    error.statusCode = 409;
+    throw error;
+  }
+  const setup = await getEbaySetup(userId);
+  const allowed = {
+    merchantLocationKey: new Set(setup.locations.map((entry) => entry.id)),
+    paymentPolicyId: new Set(setup.paymentPolicies.map((entry) => entry.id)),
+    returnPolicyId: new Set(setup.returnPolicies.map((entry) => entry.id)),
+    fulfillmentPolicyId: new Set(
+      setup.fulfillmentPolicies.map((entry) => entry.id),
+    ),
+  };
+  const listingDefaults = {};
+  for (const key of Object.keys(allowed)) {
+    const value = String(defaults?.[key] ?? "").trim();
+    if (value && !allowed[key].has(value)) {
+      const error = new Error(`The selected ${key} is not available on this eBay account.`);
+      error.statusCode = 422;
+      throw error;
+    }
+    listingDefaults[key] = value;
+  }
+  await tokenStore.save(userId, { ...stored, listingDefaults });
+  return listingDefaults;
+};
+
+const createEbayLocation = async (userId, payload) => {
+  const name = String(payload?.name ?? "PalletFlip inventory").trim();
+  const postalCode = String(payload?.postalCode ?? "").trim();
+  const country = String(payload?.country ?? "US").trim().toUpperCase();
+  const city = String(payload?.city ?? "").trim();
+  const stateOrProvince = String(payload?.stateOrProvince ?? "").trim();
+  if (!name || !country || (!postalCode && !(city && stateOrProvince))) {
+    const error = new Error("Enter a location name and either a postal code or city and state.");
+    error.statusCode = 422;
+    throw error;
+  }
+  const keyBase = String(payload?.merchantLocationKey ?? name)
+    .toLowerCase()
+    .replace(/[^a-z0-9_-]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 40) || "palletflip";
+  const merchantLocationKey = `${keyBase}-${Date.now().toString(36)}`.slice(0, 50);
+  const accessToken = await getUserAccessToken(userId);
+  await ebayFetch(
+    `/sell/inventory/v1/location/${encodeURIComponent(merchantLocationKey)}`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        name,
+        merchantLocationStatus: "ENABLED",
+        locationTypes: ["WAREHOUSE"],
+        location: {
+          address: {
+            ...(postalCode ? { postalCode } : {}),
+            ...(city ? { city } : {}),
+            ...(stateOrProvince ? { stateOrProvince } : {}),
+            country,
+          },
+        },
+      }),
+    },
+  );
+  const stored = await tokenStore.load(userId);
+  await tokenStore.save(userId, {
+    ...stored,
+    listingDefaults: {
+      ...getListingDefaults(stored),
+      merchantLocationKey,
+    },
+  });
+  return { merchantLocationKey };
+};
+
+const getCategory = async (title, categoryHint) => {
   if (fallbackCategoryId) {
     return {
       categoryId: fallbackCategoryId,
@@ -420,12 +697,25 @@ const getCategory = async (title) => {
     };
   }
 
+  const categoryText = `${title ?? ""} ${categoryHint ?? ""}`.toLowerCase();
+  if (/\b(computer\s+monitor|pc\s+monitor|monitor\s+display)\b/.test(categoryText)) {
+    return {
+      categoryId: "80053",
+      categoryName: "Monitors",
+      source: "product-family",
+    };
+  }
+
   const appToken = await getAppAccessToken();
   const categoryTreeId = await getCategoryTreeId();
+  const categoryQuery = [title, categoryHint]
+    .map((value) => String(value ?? "").trim())
+    .filter(Boolean)
+    .join(" ");
   const suggestions = await ebayFetch(
     `/commerce/taxonomy/v1/category_tree/${encodeURIComponent(
       categoryTreeId,
-    )}/get_category_suggestions?q=${encodeURIComponent(title)}`,
+    )}/get_category_suggestions?q=${encodeURIComponent(categoryQuery)}`,
     {
       headers: {
         Authorization: `Bearer ${appToken}`,
@@ -618,6 +908,19 @@ const fallbackAspectValue = (aspect, searchableText, payload) => {
     }
     return findPreferred("USB-C", "USB", "Not Applicable", "Does not apply");
   }
+  if (normalizedName.includes("screen size")) {
+    const screenSize = searchableText.match(
+      /\b(\d{1,3}(?:\.\d+)?)\s*(?:"|in(?:ch(?:es)?)?)/i,
+    )?.[1];
+    if (screenSize) {
+      return (
+        localizedValues.find((value) =>
+          new RegExp(`^${screenSize.replace(".", "\\.")}\\s*(?:in|inch|inches|\")$`, "i").test(value),
+        ) ?? `${screenSize} in`
+      );
+    }
+    return null;
+  }
   if (normalizedName === "type") {
     if (searchableText.includes("pencil") || searchableText.includes("stylus")) {
       return findPreferred("Stylus", "Active Stylus", "Digital Pen", "Other");
@@ -643,7 +946,15 @@ const fallbackAspectValue = (aspect, searchableText, payload) => {
     return findPreferred("Does Not Apply", "Does not apply", "N/A", "Unknown");
   }
   if (normalizedName.includes("size")) {
-    return findPreferred("One Size", "Regular", "Does not apply", "Other");
+    const preferredSize = findPreferred(
+      "One Size",
+      "Regular",
+      "Does not apply",
+      "Other",
+    );
+    if (preferredSize) {
+      return preferredSize;
+    }
   }
 
   const isFreeText =
@@ -670,26 +981,83 @@ const getProductAspects = (payload, aspects) => {
     (aspect) => aspect.aspectConstraint?.aspectRequired,
   );
   const resolvedAspects = {};
+  const questions = [];
+  const fields = [];
+  const providedAspects = payload.itemSpecifics ?? payload.product?.aspects ?? {};
 
   for (const aspect of requiredAspects) {
-    const value = fallbackAspectValue(aspect, searchableText, payload);
+    const name = aspect.localizedAspectName;
+    const provided = providedAspects[name];
+    const rawProvidedValue = String(Array.isArray(provided) ? provided[0] ?? "" : provided ?? "").trim();
+    const providedValue = /screen\s*size/i.test(name) && /^\d+(?:\.\d+)?(?:\s*(?:in|inch|inches|"))?$/i.test(rawProvidedValue)
+      ? `${rawProvidedValue.match(/^\d+(?:\.\d+)?/)?.[0]} in`
+      : rawProvidedValue;
+    const value = providedValue || fallbackAspectValue(aspect, searchableText, payload);
+    const options = (aspect.aspectValues ?? [])
+      .map((entry) => entry.localizedValue)
+      .filter(Boolean);
+    const fieldOptions = value && !options.includes(value)
+      ? [value, ...options]
+      : options;
+    fields.push({
+      key: name,
+      label: name,
+      type: fieldOptions.length > 0 ? "select" : "text",
+      options: fieldOptions,
+      required: true,
+      value: value ?? "",
+      source: providedValue ? "saved" : value ? "inferred" : "missing",
+      reason: value
+        ? providedValue
+          ? "Saved value"
+          : "AI selected"
+        : "Required by eBay",
+    });
     if (value) {
-      resolvedAspects[aspect.localizedAspectName] = [value];
+      resolvedAspects[name] = [value];
+    } else {
+      questions.push({
+        key: name,
+        label: `What is the ${name.toLowerCase()}?`,
+        type: options.length > 0 ? "select" : "text",
+        options,
+        required: true,
+        reason: `Required by eBay for this category`,
+      });
     }
   }
 
-  return Object.keys(resolvedAspects).length > 0
-    ? resolvedAspects
-    : undefined;
+  return {
+    aspects: Object.keys(resolvedAspects).length > 0 ? resolvedAspects : undefined,
+    questions,
+    fields,
+  };
 };
 
 const getListingMetadata = async (payload) => {
-  const category = await getCategory(payload.title);
+  const category = await getCategory(payload.title, payload.category);
   const metadata = await getCategoryMetadata(category.categoryId);
+  const productAspects = getProductAspects(payload, metadata.aspects);
   return {
     ...category,
     condition: selectCondition(payload.condition, metadata.conditions),
-    aspects: getProductAspects(payload, metadata.aspects),
+    aspects: productAspects.aspects,
+    questions: productAspects.questions,
+    fields: productAspects.fields,
+  };
+};
+
+const getListingRequirements = async (payload) => {
+  const metadata = await getListingMetadata(payload);
+  return {
+    status: metadata.questions.length > 0 ? "needs_input" : "ready",
+    categoryId: metadata.categoryId,
+    categoryName: metadata.categoryName,
+    itemSpecifics: Object.fromEntries(
+      Object.entries(metadata.aspects ?? {}).map(([key, values]) => [key, values[0]]),
+    ),
+    questions: metadata.questions,
+    fields: metadata.fields,
   };
 };
 
@@ -786,15 +1154,48 @@ const getDuplicateListingId = (error) => {
   }
 };
 
+const normalizeEbayTitle = (value) => {
+  const title = String(value ?? "").replace(/\s+/g, " ").trim();
+  if (!title) {
+    const error = new Error("An eBay listing title is required.");
+    error.statusCode = 422;
+    throw error;
+  }
+  if (title.length <= 80) return title;
+  const candidate = title.slice(0, 80);
+  const lastSpace = candidate.lastIndexOf(" ");
+  return (lastSpace >= 60 ? candidate.slice(0, lastSpace) : candidate).trim();
+};
+
 const createListing = async (userId, payload) => {
   enforceListingRateLimit(userId);
   const accessToken = await getUserAccessToken(userId);
+  const stored = await tokenStore.load(userId);
+  const listingDefaults = getListingDefaults(stored);
+  const missingDefaults = Object.entries(listingDefaults)
+    .filter(([, value]) => !value)
+    .map(([key]) => key);
+  if (missingDefaults.length > 0) {
+    const error = new Error(
+      "Complete the eBay location and policy defaults in Settings before publishing.",
+    );
+    error.statusCode = 422;
+    throw error;
+  }
   const itemId = String(payload.itemId ?? Date.now()).replace(
     /[^a-zA-Z0-9_-]/g,
     "-",
   );
   const sku = `pallet-${itemId}`.slice(0, 50);
+  const ebayTitle = normalizeEbayTitle(payload.title);
   const listingMetadata = await getListingMetadata(payload);
+  if (listingMetadata.questions.length > 0) {
+    const error = new Error(
+      `eBay needs more information: ${listingMetadata.questions.map((question) => question.key).join(", ")}.`,
+    );
+    error.statusCode = 422;
+    throw error;
+  }
   const { categoryId } = listingMetadata;
   const uploadedImageUrls = (
     await Promise.all(
@@ -825,7 +1226,7 @@ const createListing = async (userId, payload) => {
           ? `Item condition: ${payload.condition}.`
           : undefined,
         product: {
-          title: payload.title,
+          title: ebayTitle,
           description: payload.description,
           imageUrls:
             uploadedImageUrls.length > 0 ? uploadedImageUrls : undefined,
@@ -843,7 +1244,7 @@ const createListing = async (userId, payload) => {
     format: "FIXED_PRICE",
     availableQuantity: payload.quantity ?? 1,
     categoryId,
-    merchantLocationKey: requireEnv("EBAY_MERCHANT_LOCATION_KEY"),
+    merchantLocationKey: listingDefaults.merchantLocationKey,
     listingDescription: payload.description,
     pricingSummary: {
       price: {
@@ -852,9 +1253,9 @@ const createListing = async (userId, payload) => {
       },
     },
     listingPolicies: {
-      paymentPolicyId: requireEnv("EBAY_PAYMENT_POLICY_ID"),
-      returnPolicyId: requireEnv("EBAY_RETURN_POLICY_ID"),
-      fulfillmentPolicyId: requireEnv("EBAY_FULFILLMENT_POLICY_ID"),
+      paymentPolicyId: listingDefaults.paymentPolicyId,
+      returnPolicyId: listingDefaults.returnPolicyId,
+      fulfillmentPolicyId: listingDefaults.fulfillmentPolicyId,
       bestOfferTerms: {
         bestOfferEnabled: true,
         autoDeclinePrice: {
@@ -1032,6 +1433,7 @@ const server = createServer(async (req, res) => {
       const { userId } = authenticateRequest(req);
       const stored = await tokenStore.load(userId);
       const readiness = getEbayReadiness(stored);
+      const defaults = getListingDefaults(stored);
       sendJson(req, res, 200, {
         configured: readiness.checks[0].ok,
         connected: Boolean(stored?.refresh_token),
@@ -1044,14 +1446,27 @@ const server = createServer(async (req, res) => {
         scopes: ebayScopes.split(" ").filter(Boolean),
         callbackPath: "/ebay/callback",
         categoryId: fallbackCategoryId || null,
-        merchantLocationKey: process.env.EBAY_MERCHANT_LOCATION_KEY || null,
-        paymentPolicyId: process.env.EBAY_PAYMENT_POLICY_ID || null,
-        returnPolicyId: process.env.EBAY_RETURN_POLICY_ID || null,
-        fulfillmentPolicyId: process.env.EBAY_FULFILLMENT_POLICY_ID || null,
+        merchantLocationKey: defaults.merchantLocationKey || null,
+        paymentPolicyId: defaults.paymentPolicyId || null,
+        returnPolicyId: defaults.returnPolicyId || null,
+        fulfillmentPolicyId: defaults.fulfillmentPolicyId || null,
         serverProcessId,
         serverStartTime,
         authMode: getAuthMode(),
       });
+      return;
+    }
+
+    if (req.method === "POST" && url.pathname === "/ai/messages") {
+      const { userId } = authenticateAiRequest(req);
+      const rawBody = await readRequestBody(req);
+      const payload = JSON.parse(rawBody);
+      sendJson(req, res, 200, await createAiMessage(userId, payload));
+      return;
+    }
+
+    if (req.method === "GET" && url.pathname === "/barcode/lookup") {
+      sendJson(req, res, 200, await lookupBarcode(url.searchParams.get("barcode")));
       return;
     }
 
@@ -1060,6 +1475,27 @@ const server = createServer(async (req, res) => {
       sendJson(req, res, 200, {
         authorizationUrl: getAuthorizationUrl(userId),
       });
+      return;
+    }
+
+    if (req.method === "GET" && url.pathname === "/ebay/setup") {
+      const { userId } = authenticateRequest(req);
+      sendJson(req, res, 200, await getEbaySetup(userId));
+      return;
+    }
+
+    if (req.method === "POST" && url.pathname === "/ebay/setup/defaults") {
+      const { userId } = authenticateRequest(req);
+      const rawBody = await readRequestBody(req);
+      const defaults = await saveEbayDefaults(userId, JSON.parse(rawBody));
+      sendJson(req, res, 200, { defaults });
+      return;
+    }
+
+    if (req.method === "POST" && url.pathname === "/ebay/setup/location") {
+      const { userId } = authenticateRequest(req);
+      const rawBody = await readRequestBody(req);
+      sendJson(req, res, 201, await createEbayLocation(userId, JSON.parse(rawBody)));
       return;
     }
 
@@ -1148,6 +1584,14 @@ const server = createServer(async (req, res) => {
       return;
     }
 
+    if (req.method === "POST" && url.pathname === "/ebay/listing-requirements") {
+      authenticateRequest(req);
+      const rawBody = await readRequestBody(req);
+      const payload = JSON.parse(rawBody);
+      sendJson(req, res, 200, await getListingRequirements(payload));
+      return;
+    }
+
     if (req.method === "POST" && url.pathname === "/ebay/listings/end") {
       const { userId } = authenticateRequest(req);
       const rawBody = await readRequestBody(req);
@@ -1159,7 +1603,10 @@ const server = createServer(async (req, res) => {
 
     if (req.method === "POST" && url.pathname === "/ebay/disconnect") {
       const { userId } = authenticateRequest(req);
+      const stored = await tokenStore.load(userId);
+      const listingDefaults = stored?.listingDefaults;
       await tokenStore.remove(userId);
+      if (listingDefaults) await tokenStore.save(userId, { listingDefaults });
       sendJson(req, res, 200, { disconnected: true });
       return;
     }

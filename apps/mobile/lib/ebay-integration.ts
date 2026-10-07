@@ -4,6 +4,7 @@ import {
   createEbayApiClient,
   type CreateEbayListingResponse,
   type EbayConnectionStatus,
+  type EbayListingRequirements,
 } from "@palletscanner/api-client";
 
 import type { InventoryItem } from "@/lib/inventory-store";
@@ -12,7 +13,10 @@ import { browserUriToDataUri } from "@/lib/web-storage";
 
 export type { EbayConnectionStatus } from "@palletscanner/api-client";
 
-const EBAY_API_BASE_URL = process.env.EXPO_PUBLIC_EBAY_API_BASE_URL ?? "";
+const EBAY_API_BASE_URL =
+  process.env.EXPO_PUBLIC_AI_API_BASE_URL ??
+  process.env.EXPO_PUBLIC_EBAY_API_BASE_URL ??
+  "";
 const APP_AUTH_TOKEN = process.env.EXPO_PUBLIC_PALLETSCANNER_AUTH_TOKEN ?? "";
 
 const getEbayAuthToken = async () => {
@@ -44,14 +48,10 @@ export const endEbayListing = async (offerId: string) => {
 export const getEbayConnectionStatus = (): Promise<EbayConnectionStatus> =>
   ebayApi.getConnectionStatus();
 
-export const createEbayListing = async (
+const buildEbayListingPayload = async (
   item: InventoryItem,
   onProgress?: (message: string) => void,
 ) => {
-  if (!isEbayApiConfigured()) {
-    throw new Error("eBay API backend is not configured.");
-  }
-
   const title = item.listing_title_ebay || item.listing_title;
   const description = item.listing_description_ebay || item.listing_description;
   const photoUris =
@@ -65,7 +65,7 @@ export const createEbayListing = async (
       onProgress?.(
         `Preparing photo ${index + 1} of ${photoUris.length}`,
       );
-      if (/^https:\/\//i.test(uri)) {
+      if (/^https?:\/\//i.test(uri)) {
         return { url: uri };
       }
 
@@ -96,21 +96,43 @@ export const createEbayListing = async (
     photos.length > 0 ? "Uploading photos to eBay" : "Creating eBay listing",
   );
 
-  const listingPayload = {
+  return {
     itemId: item.id,
     offerId: item.ebayOfferId,
     listingId: item.ebayListingId,
     title,
     description,
-    price: item.high_price,
+    price: item.listing_price ?? item.high_price,
     floorPrice: item.floor_price,
     condition: item.condition,
+    category: item.category,
     quantity: 1,
+    itemSpecifics: item.ebayItemSpecifics,
     photos,
     product: {
       name: item.name,
     },
   };
+};
+
+export const getEbayListingRequirements = async (
+  item: InventoryItem,
+): Promise<EbayListingRequirements> => {
+  if (!isEbayApiConfigured()) {
+    throw new Error("eBay API backend is not configured.");
+  }
+  return ebayApi.getListingRequirements(await buildEbayListingPayload(item));
+};
+
+export const createEbayListing = async (
+  item: InventoryItem,
+  onProgress?: (message: string) => void,
+) => {
+  if (!isEbayApiConfigured()) {
+    throw new Error("eBay API backend is not configured.");
+  }
+
+  const listingPayload = await buildEbayListingPayload(item, onProgress);
 
   onProgress?.("Publishing listing");
   return (await ebayApi.createListing(

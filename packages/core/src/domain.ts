@@ -6,6 +6,7 @@ export type FacebookListingStatus = "idle" | "opened" | "listed" | "error";
 
 export type CaptureAnalysisResult = {
   name: string;
+  category?: string;
   description: string;
   condition: string;
   low_price: number;
@@ -21,8 +22,10 @@ export type CaptureAnalysisResult = {
   listing_description_ebay?: string;
   photo_tips?: string;
   photo_example_queries?: string[];
+  photo_shot_list?: string[];
   sellability_score?: number;
   sellability_reason?: string;
+  ebay_item_specifics?: Record<string, string>;
 };
 
 export type InventoryItem = {
@@ -36,6 +39,7 @@ export type InventoryItem = {
   low_price: number;
   high_price: number;
   floor_price: number;
+  listing_price?: number;
   best_platform: string;
   listing_title: string;
   listing_description: string;
@@ -56,6 +60,7 @@ export type InventoryItem = {
   ebayProgress?: string;
   ebayLastError?: string;
   ebayUpdatedAt?: number;
+  ebayItemSpecifics?: Record<string, string>;
   facebookStatus?: FacebookListingStatus;
   facebookListingUrl?: string;
   facebookLastError?: string;

@@ -2,6 +2,7 @@ export type AppAlertButton = {
   text?: string;
   style?: "default" | "cancel" | "destructive";
   onPress?: () => void;
+  inputSubmit?: boolean;
 };
 
 type AlertState = {
@@ -9,6 +10,7 @@ type AlertState = {
   message?: string;
   buttons: AppAlertButton[];
   onDismiss?: () => void;
+  input?: { initialValue?: string; placeholder?: string; options?: string[]; onSubmit: (value: string) => void };
 };
 
 const listeners = new Set<() => void>();
@@ -61,6 +63,21 @@ export const AppAlert = {
         ],
         () => resolve(false),
       );
+    });
+  },
+  prompt(title: string, message: string, initialValue = "", placeholder = "", options: string[] = []) {
+    return new Promise<string | null>((resolve) => {
+      alertState = {
+        title,
+        message,
+        input: { initialValue, placeholder, options, onSubmit: resolve },
+        buttons: [
+          { text: "Finish later", style: "cancel", onPress: () => resolve(null) },
+          { text: "Continue", inputSubmit: true },
+        ],
+        onDismiss: () => resolve(null),
+      };
+      notify();
     });
   },
 };

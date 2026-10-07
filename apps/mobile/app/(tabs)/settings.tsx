@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState, useSyncExternalStore } from "react";
+import { useRouter } from "expo-router";
 import {
   AppState,
   Linking,
@@ -14,12 +15,7 @@ import {
 
 import { AppLayout, AppPalette } from "@/constants/app-palette";
 import { AppAlert as Alert } from "@/lib/app-alert";
-import {
-  getCloudInventorySyncSnapshot,
-  retryCloudInventorySync,
-  subscribeCloudInventorySync,
-} from "@/lib/cloud-inventory-sync";
-import { FREE_SCAN_LIMIT, getAppMeta, subscribeAppMeta } from "@/lib/app-meta";
+import { setDemoBearerToken } from "@/lib/app-auth";
 import {
   getAppSettings,
   setFacebookSellerNote,
@@ -27,11 +23,8 @@ import {
   subscribeAppSettings,
 } from "@/lib/app-settings";
 import {
+  disableTestMode,
   getSupabaseAuthSnapshot,
-  handleSupabaseCallbackUrl,
-  hydrateSupabaseAuth,
-  isSupabaseConfigured,
-  sendSupabaseMagicLink,
   signOutSupabase,
   subscribeSupabaseAuth,
 } from "@/lib/supabase-auth";
@@ -70,6 +63,7 @@ const getResetBackupTimeLabel = (resetBackup: ResetBackupSummary | null) => {
 };
 
 export default function SettingsScreen() {
+  const router = useRouter();
   const { width } = useWindowDimensions();
   const isLargeLayout = width >= 900;
   const [ebayStatus, setEbayStatus] = useState<EbayConnectionStatus | null>(
@@ -77,9 +71,8 @@ export default function SettingsScreen() {
   );
   const [ebayStatusError, setEbayStatusError] = useState<string | null>(null);
   const [isRefreshingEbay, setIsRefreshingEbay] = useState(false);
-  const [loginEmail, setLoginEmail] = useState("");
-  const [isSendingLoginLink, setIsSendingLoginLink] = useState(false);
   const [facebookSellerNoteDraft, setFacebookSellerNoteDraft] = useState("");
+  const [demoAccessToken, setDemoAccessToken] = useState("");
   const { facebookSellerNote, promptToPostOnSave } = useSyncExternalStore(
     subscribeAppSettings,
     getAppSettings,
@@ -90,23 +83,12 @@ export default function SettingsScreen() {
     getSupabaseAuthSnapshot,
     getSupabaseAuthSnapshot,
   );
-  const cloudSync = useSyncExternalStore(
-    subscribeCloudInventorySync,
-    getCloudInventorySyncSnapshot,
-    getCloudInventorySyncSnapshot,
-  );
-  const { lifetimeScans, currentMonthScans } = useSyncExternalStore(
-    subscribeAppMeta,
-    getAppMeta,
-    getAppMeta,
-  );
   const resetBackup = useSyncExternalStore(
     subscribeInventory,
     getResetBackupSummary,
     getResetBackupSummary,
   );
   const missingEbayRequirements = ebayStatus?.missingRequirements ?? [];
-  const scanUsageProgress = Math.min(currentMonthScans / FREE_SCAN_LIMIT, 1);
   const resetBackupTimeLabel = getResetBackupTimeLabel(resetBackup);
   const ebayStatusLabel = !isEbayApiConfigured()
     ? "Backend not configured"
@@ -141,6 +123,28 @@ export default function SettingsScreen() {
     }
   }, []);
 
+  const applyDemoAccess = async () => {
+    if (!demoAccessToken.trim()) {
+      Alert.alert("Enter the demo access code", "Paste the temporary code before connecting.");
+      return;
+    }
+    setIsRefreshingEbay(true);
+    try {
+      await setDemoBearerToken(demoAccessToken);
+      const status = await getEbayConnectionStatus();
+      setEbayStatus(status);
+      setEbayStatusError(null);
+      setDemoAccessToken("");
+      Alert.alert("Demo access connected", "AI analysis and eBay can now use the protected demo backend.");
+    } catch (error) {
+      setEbayStatus(null);
+      setEbayStatusError(error instanceof Error ? error.message : "The demo code could not be verified.");
+      Alert.alert("Demo access failed", "Check the temporary code and try again.");
+    } finally {
+      setIsRefreshingEbay(false);
+    }
+  };
+
   useEffect(() => {
     void refreshEbayStatus();
   }, [refreshEbayStatus]);
@@ -158,60 +162,51 @@ export default function SettingsScreen() {
   }, [refreshEbayStatus]);
 
   useEffect(() => {
-    void hydrateSupabaseAuth();
-    void Linking.getInitialURL().then((url) => {
-      void handleSupabaseCallbackUrl(url).then((handled) => {
-        if (handled) {
-          void refreshEbayStatus();
-        }
-      });
-    });
-
-    const subscription = Linking.addEventListener("url", ({ url }) => {
-      void handleSupabaseCallbackUrl(url).then((handled) => {
-        if (handled) {
-          void refreshEbayStatus();
-        }
-      });
-    });
-
-    return () => {
-      subscription.remove();
-    };
-  }, [refreshEbayStatus]);
-
-  useEffect(() => {
     setFacebookSellerNoteDraft(facebookSellerNote);
   }, [facebookSellerNote]);
 
-  const sendLoginLink = async () => {
-    const email = loginEmail.trim();
-    if (!email) {
-      Alert.alert("Enter your email", "Type the email address you want to use.");
-      return;
-    }
-
-    setIsSendingLoginLink(true);
-    try {
-      await sendSupabaseMagicLink(email);
-      Alert.alert(
-        "Check your email",
-        "Open the magic link on this device to sign in.",
-      );
-    } catch (error) {
-      Alert.alert(
-        "Unable to send login link",
-        error instanceof Error ? error.message : "Try again in a moment.",
-      );
-    } finally {
-      setIsSendingLoginLink(false);
-    }
-  };
-
   const signOut = async () => {
     await signOutSupabase();
-    Alert.alert("Signed out", "The saved app login session was cleared.");
-    await refreshEbayStatus();
+    router.replace("/login");
+  };
+
+  const confirmSignOut = () => {
+    Alert.alert(
+      "Sign out of PalletFlip?",
+      "You will need a new verification code to sign in again.",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Sign Out",
+          style: "destructive",
+          onPress: () => {
+            void signOut();
+          },
+        },
+      ],
+    );
+  };
+
+  const exitTestMode = async () => {
+    await disableTestMode();
+    router.replace("/login");
+  };
+
+  const confirmExitTestMode = () => {
+    Alert.alert(
+      "Exit Test Mode?",
+      "You will return to the PalletFlip sign-in screen.",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Exit Test Mode",
+          style: "destructive",
+          onPress: () => {
+            void exitTestMode();
+          },
+        },
+      ],
+    );
   };
 
   const connectEbayAccount = async () => {
@@ -312,49 +307,44 @@ export default function SettingsScreen() {
         </Text>
 
         <View style={styles.card}>
-          <Text style={styles.settingTitle}>Scan Usage</Text>
-          <Text style={styles.settingDescription}>
-            Keep an eye on monthly usage while the Pro plan shell is in place.
-          </Text>
-          <Text style={styles.integrationStatus}>
-            {currentMonthScans} / {FREE_SCAN_LIMIT} scans used this month
-          </Text>
-          {supabaseAuth.signedIn ? (
-            <>
-              <Text style={styles.integrationStatus}>
-                {cloudSync.syncing
-                  ? "Syncing cloud inventory..."
-                  : cloudSync.error
-                    ? "Cloud sync needs attention"
-                    : cloudSync.lastSyncedAt
-                      ? `Cloud inventory synced ${new Date(cloudSync.lastSyncedAt).toLocaleTimeString()}`
-                      : "Preparing cloud inventory sync"}
-              </Text>
-              {cloudSync.error ? (
-                <>
-                  <Text style={styles.integrationError}>{cloudSync.error}</Text>
-                  <TouchableOpacity
-                    style={styles.secondaryBtn}
-                    onPress={() => {
-                      void retryCloudInventorySync();
-                    }}
-                  >
-                    <Text style={styles.secondaryBtnText}>Retry Cloud Sync</Text>
-                  </TouchableOpacity>
-                </>
-              ) : null}
-            </>
-          ) : null}
-          <View style={styles.progressTrack}>
-            <View
-              style={[
-                styles.progressFill,
-                { width: `${scanUsageProgress * 100}%` },
-              ]}
+          <Text style={styles.settingTitle}>Posting After Save</Text>
+          <View style={styles.settingRow}>
+            <Text style={styles.settingDescription}>
+              Ask whether to open Facebook Marketplace or eBay after saving a new
+              item. Leave this off for fast pallet scanning.
+            </Text>
+            <Switch
+              value={promptToPostOnSave}
+              onValueChange={setPromptToPostOnSave}
+              trackColor={{ false: AppPalette.borderStrong, true: "#a9c8df" }}
+              thumbColor={promptToPostOnSave ? AppPalette.primaryStrong : "#f4f4f4"}
             />
           </View>
-          <Text style={styles.integrationHint}>Lifetime scans: {lifetimeScans}</Text>
         </View>
+
+        <Text style={styles.sectionHeader}>eBay</Text>
+
+        {supabaseAuth.testMode ? (
+          <View style={styles.card}>
+            <Text style={styles.settingTitle}>Demo Access</Text>
+            <Text style={styles.settingDescription}>
+              Enter the temporary rehearsal code to enable protected AI and eBay requests.
+            </Text>
+            <TextInput
+              style={styles.input}
+              value={demoAccessToken}
+              onChangeText={setDemoAccessToken}
+              placeholder="Temporary access code"
+              placeholderTextColor={AppPalette.textSoft}
+              autoCapitalize="none"
+              autoCorrect={false}
+              secureTextEntry
+            />
+            <TouchableOpacity style={styles.primaryBtn} onPress={() => { void applyDemoAccess(); }}>
+              <Text style={styles.primaryBtnText}>Connect Demo Backend</Text>
+            </TouchableOpacity>
+          </View>
+        ) : null}
 
         <View style={styles.card}>
           <Text style={styles.settingTitle}>eBay Account</Text>
@@ -390,8 +380,8 @@ export default function SettingsScreen() {
           ) : null}
           {supabaseAuth.configured && !supabaseAuth.signedIn ? (
             <Text style={styles.integrationHint}>
-              Sign in below before connecting eBay when the backend is using
-              account auth.
+              Sign in to PalletFlip before connecting eBay when the backend is
+              using account auth.
             </Text>
           ) : null}
           <TouchableOpacity
@@ -437,75 +427,7 @@ export default function SettingsScreen() {
           ) : null}
         </View>
 
-        <View style={styles.card}>
-          <Text style={styles.settingTitle}>App Login</Text>
-          <Text style={styles.settingDescription}>
-            Sign in on this device so marketplace actions can use your saved
-            account. The eBay backend uses this session when account auth is
-            enabled.
-          </Text>
-          <Text style={styles.integrationStatus}>
-            {!isSupabaseConfigured()
-              ? "Login is not configured yet"
-              : supabaseAuth.signedIn
-                ? `Signed in${supabaseAuth.email ? ` as ${supabaseAuth.email}` : ""}`
-                : "Ready to sign in"}
-          </Text>
-          {supabaseAuth.configured && !supabaseAuth.signedIn ? (
-            <>
-              <TextInput
-                style={styles.input}
-                value={loginEmail}
-                onChangeText={setLoginEmail}
-                placeholder="Email address"
-                placeholderTextColor={AppPalette.textSoft}
-                autoCapitalize="none"
-                autoCorrect={false}
-                keyboardType="email-address"
-              />
-              <TouchableOpacity
-                style={[
-                  styles.primaryBtn,
-                  (isSendingLoginLink || !loginEmail.trim()) && styles.disabledBtn,
-                ]}
-                disabled={isSendingLoginLink || !loginEmail.trim()}
-                onPress={() => {
-                  void sendLoginLink();
-                }}
-              >
-                <Text style={styles.primaryBtnText}>
-                  {isSendingLoginLink ? "Sending..." : "Send Login Link"}
-                </Text>
-              </TouchableOpacity>
-            </>
-          ) : null}
-          {supabaseAuth.signedIn ? (
-            <TouchableOpacity
-              style={styles.secondaryBtn}
-              onPress={() => {
-                void signOut();
-              }}
-            >
-              <Text style={styles.secondaryBtnText}>Sign Out</Text>
-            </TouchableOpacity>
-          ) : null}
-        </View>
-
-        <View style={styles.card}>
-          <Text style={styles.settingTitle}>Posting After Save</Text>
-          <View style={styles.settingRow}>
-            <Text style={styles.settingDescription}>
-              Ask whether to open Facebook Marketplace or eBay after saving a new
-              item. Leave this off for fast pallet scanning.
-            </Text>
-            <Switch
-              value={promptToPostOnSave}
-              onValueChange={setPromptToPostOnSave}
-              trackColor={{ false: AppPalette.borderStrong, true: "#a9c8df" }}
-              thumbColor={promptToPostOnSave ? AppPalette.primaryStrong : "#f4f4f4"}
-            />
-          </View>
-        </View>
+        <Text style={styles.sectionHeader}>Facebook</Text>
 
         <View style={styles.card}>
           <Text style={styles.settingTitle}>Facebook Account</Text>
@@ -556,6 +478,8 @@ export default function SettingsScreen() {
           </TouchableOpacity>
         </View>
 
+        <Text style={styles.sectionHeader}>Data</Text>
+
         <View style={styles.resetCard}>
           <Text style={styles.settingTitle}>Delete App Data</Text>
           <Text style={styles.settingDescription}>
@@ -591,6 +515,22 @@ export default function SettingsScreen() {
             <Text style={styles.dangerBtnText}>Delete All Pallets and Items</Text>
           </TouchableOpacity>
         </View>
+
+        {supabaseAuth.signedIn || supabaseAuth.testMode ? (
+          <>
+            <Text style={styles.sectionHeader}>Account</Text>
+            <TouchableOpacity
+              style={styles.signOutBtn}
+              onPress={
+                supabaseAuth.testMode ? confirmExitTestMode : confirmSignOut
+              }
+            >
+              <Text style={styles.signOutBtnText}>
+                {supabaseAuth.testMode ? "Exit Test Mode" : "Sign Out"}
+              </Text>
+            </TouchableOpacity>
+          </>
+        ) : null}
       </View>
     </ScrollView>
   );
@@ -625,6 +565,13 @@ const styles = StyleSheet.create({
     shadowOpacity: 1,
     shadowRadius: 18,
     elevation: 2,
+  },
+  sectionHeader: {
+    color: AppPalette.text,
+    fontSize: 18,
+    fontWeight: "700",
+    marginBottom: 10,
+    marginTop: 4,
   },
   settingRow: {
     flexDirection: "row",
@@ -661,20 +608,6 @@ const styles = StyleSheet.create({
     color: AppPalette.dangerStrong,
     lineHeight: 18,
     marginTop: 8,
-  },
-  progressTrack: {
-    marginTop: 12,
-    height: 10,
-    borderRadius: 999,
-    backgroundColor: AppPalette.surfaceMuted,
-    overflow: "hidden",
-    borderWidth: 1,
-    borderColor: AppPalette.border,
-  },
-  progressFill: {
-    height: "100%",
-    backgroundColor: AppPalette.primaryStrong,
-    borderRadius: 999,
   },
   requirementsBox: {
     backgroundColor: AppPalette.surfaceMuted,
@@ -812,6 +745,19 @@ const styles = StyleSheet.create({
   dangerBtnText: {
     color: AppPalette.primaryOn,
     fontSize: 13,
+    fontWeight: "700",
+  },
+  signOutBtn: {
+    alignItems: "center",
+    borderColor: AppPalette.dangerStrong,
+    borderRadius: 8,
+    borderWidth: 1,
+    marginBottom: 16,
+    paddingVertical: 13,
+  },
+  signOutBtnText: {
+    color: AppPalette.dangerStrong,
+    fontSize: 14,
     fontWeight: "700",
   },
 });

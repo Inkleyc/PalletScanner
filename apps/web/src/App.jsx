@@ -6,9 +6,7 @@ import {
   getDisplayPlatform,
   getDisplayStatus,
   getItemAgeDays,
-  getMarketplaceQueueItems,
   getQuantity,
-  getStaleInventoryItems,
   statusClass,
   statusLabel,
   summarizeInventory,
@@ -20,6 +18,148 @@ import { buildAnalytics } from "./analytics-model.js";
 
 const readPreference = (key, fallback) => localStorage.getItem(key) ?? fallback;
 const price = (item, field) => item[field] ?? item[`${field}_price`] ?? 0;
+const preferredListingPrice = (low, high) => {
+  const rule = readPreference("palletscanner.listingPriceRule", "high");
+  if (rule === "low") return low;
+  if (rule === "midpoint") return Math.round(((low + high) / 2) * 100) / 100;
+  return high;
+};
+const preferredMarketplace = (recommendation) => {
+  const preference = readPreference("palletscanner.defaultMarketplace", "ai");
+  return preference === "ai" ? recommendation : preference;
+};
+const isReviewEligible = (item) => item.soldPrice === null && !["ready", "sold"].includes(getDisplayStatus(item));
+const matchesWorkFilter = (item, filter) => {
+  if (!isReviewEligible(item)) return false;
+  if (filter === "decision") return Boolean(getDisplayIssue(item));
+  if (filter === "failed") return item.ebayStatus === "error" || item.facebookStatus === "error";
+  if (filter === "aging") return getItemAgeDays(item) > 14;
+  return Boolean(getDisplayIssue(item));
+};
+
+const MAX_ITEM_PHOTOS = 5;
+const getAiBaseUrl = () => (
+  import.meta.env.VITE_AI_API_BASE_URL ||
+  readPreference("palletscanner.ebayApiBaseUrl", "") ||
+  (typeof window !== "undefined" ? window.location.origin : "")
+).trim().replace(/\/$/, "");
+
+const resizePhoto = (file) => new Promise((resolve, reject) => {
+  const reader = new FileReader();
+  reader.onerror = () => reject(new Error(`Could not read ${file.name}.`));
+  reader.onload = () => {
+    const image = new Image();
+    image.onerror = () => reject(new Error(`${file.name} is not a supported image.`));
+    image.onload = () => {
+      const scale = Math.min(1, 1600 / Math.max(image.width, image.height));
+      const canvas = document.createElement("canvas");
+      canvas.width = Math.max(1, Math.round(image.width * scale));
+      canvas.height = Math.max(1, Math.round(image.height * scale));
+      canvas.getContext("2d").drawImage(image, 0, 0, canvas.width, canvas.height);
+      resolve(canvas.toDataURL("image/jpeg", 0.78));
+    };
+    image.src = reader.result;
+  };
+  reader.readAsDataURL(file);
+});
+
+const parseAiJson = (text) => {
+  const cleaned = text.replace(/```json|```/gi, "").trim();
+  const start = cleaned.indexOf("{");
+  const end = cleaned.lastIndexOf("}");
+  if (start < 0 || end <= start) throw new Error("AI did not return an item draft.");
+  return JSON.parse(cleaned.slice(start, end + 1));
+};
+
+const analyzeItemPhotos = async (item, photos) => {
+  const baseUrl = getAiBaseUrl();
+  if (!baseUrl) throw new Error("Configure the PalletFlip backend in Settings before using AI analysis.");
+  const imageContent = photos.filter((uri) => uri.startsWith("data:")).map((uri) => {
+    const match = uri.match(/^data:([^;]+);base64,(.+)$/);
+    return match ? { type: "image", source: { type: "base64", media_type: match[1], data: match[2] } } : null;
+  }).filter(Boolean);
+  if (imageContent.length === 0) throw new Error("Add at least one uploaded photo before running AI analysis.");
+  const token = sessionStorage.getItem("palletscanner.authToken")?.trim();
+  const response = await fetch(`${baseUrl}/ai/messages`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+    body: JSON.stringify({
+      model: "claude-sonnet-5",
+      max_tokens: 1200,
+      messages: [{ role: "user", content: [
+        ...imageContent,
+        { type: "text", text: `Analyze these photos as a resale inventory expert. Read labels, model numbers, packaging, and visible specifications carefully. Use the existing item details only as context and correct them when the photos provide better evidence. Return ONLY raw JSON with: name, category, condition, low_price, high_price, floor_price, best_platform, listing_title, listing_description, listing_title_ebay, listing_description_ebay, listing_title_facebook, listing_description_facebook, ebay_item_specifics. ebay_item_specifics must be an object containing only marketplace attributes directly supported by visible evidence, such as Brand, Model, Screen Size, Storage Capacity, Color, Size, Type, or MPN. Normalize measurements with units. Do not guess an attribute that cannot be seen or reliably derived. Existing item: ${JSON.stringify({ name: item.name, category: item.category, condition: item.condition, listing_title: item.listing_title })}` },
+      ] }],
+    }),
+  });
+  const body = await response.text();
+  if (!response.ok) throw new Error(body || `AI analysis failed (${response.status}).`);
+  const payload = JSON.parse(body);
+  const text = payload.content?.map((block) => block.text || "").join("\n").trim();
+  return parseAiJson(text || "");
+};
+
+const backendRequest = async (path, init = {}) => {
+  const baseUrl = getAiBaseUrl();
+  if (!baseUrl) throw new Error("Configure the PalletFlip backend in Settings first.");
+  const token = sessionStorage.getItem("palletscanner.authToken")?.trim();
+  const response = await fetch(`${baseUrl}${path}`, {
+    ...init,
+    headers: { ...(init.body ? { "Content-Type": "application/json" } : {}), ...(token ? { Authorization: `Bearer ${token}` } : {}), ...init.headers },
+  });
+  const body = await response.text();
+  if (!response.ok) {
+    try {
+      const outer = JSON.parse(body);
+      const detail = typeof outer.error === "string" && outer.error.trim().startsWith("{")
+        ? JSON.parse(outer.error)
+        : outer;
+      const ebayError = detail.errors?.[0];
+      throw new Error(ebayError?.longMessage || ebayError?.message || outer.error || body);
+    } catch (error) {
+      if (error instanceof SyntaxError) throw new Error(body || `Backend request failed (${response.status}).`);
+      throw error;
+    }
+  }
+  return body ? JSON.parse(body) : null;
+};
+
+const getEbayListingPayload = (item) => {
+  const photoUris = item.photos?.length ? item.photos : item.photo ? [item.photo] : [];
+  const photos = photoUris.filter((uri) => !uri.startsWith("mock://")).map((uri, index) => {
+    const data = uri.match(/^data:([^;]+);base64,(.+)$/);
+    return data
+      ? { base64: data[2], mimeType: data[1], filename: `item-${item.id}-${index + 1}.jpg` }
+      : { url: uri };
+  });
+  return {
+      itemId: item.id,
+      offerId: item.ebayOfferId,
+      listingId: item.ebayListingId,
+      title: item.listing_title_ebay || item.listing_title || item.name,
+      description: item.listing_description_ebay || item.listing_description || item.description || item.name,
+      price: Number.isFinite(item.listing_price) ? item.listing_price : price(item, "high"),
+      floorPrice: price(item, "floor"),
+      condition: item.condition,
+      category: item.category,
+      quantity: getQuantity(item),
+      itemSpecifics: item.ebayItemSpecifics ?? {},
+      photos,
+      product: { name: item.name },
+  };
+};
+
+const getEbayListingRequirements = (item) => backendRequest("/ebay/listing-requirements", {
+  method: "POST",
+  body: JSON.stringify(getEbayListingPayload(item)),
+});
+
+const postItemToEbay = async (item) => {
+  return backendRequest("/ebay/listings", {
+    method: "POST",
+    body: JSON.stringify(getEbayListingPayload(item)),
+  });
+};
 
 function Metric({ label, value, tone = "", onClick }) {
   const Tag = onClick ? "button" : "section";
@@ -27,24 +167,6 @@ function Metric({ label, value, tone = "", onClick }) {
     <Tag className={`metric ${onClick ? "metric-button" : ""} ${tone}`} onClick={onClick}>
       <span>{label}</span><strong>{value}</strong>
     </Tag>
-  );
-}
-
-function Queue({ title, subtitle, items, empty, onSelect, renderMeta }) {
-  return (
-    <section className="panel">
-      <div className="panel-heading"><div><h3>{title}</h3><span>{subtitle}</span></div></div>
-      <div className="queue-list">
-        {items.length === 0 ? (
-          <div className="empty-queue"><strong>{empty}</strong><span>No action is needed right now.</span></div>
-        ) : items.map((item) => (
-          <button className="queue-item" key={item.id} onClick={() => onSelect(item.id)}>
-            <div><strong>{item.name}</strong><span>{getDisplayIssue(item) ?? renderMeta(item)}</span></div>
-            <span className={`badge ${statusClass[getDisplayStatus(item)]}`}>{renderMeta(item)}</span>
-          </button>
-        ))}
-      </div>
-    </section>
   );
 }
 
@@ -89,32 +211,16 @@ function PalletManager({ pallets, summaries, activePalletId, selectedPalletId, o
     if (!window.confirm(`Delete ${pallet.name}?${detail}`)) return;
     await repository.removePallet(pallet.id);
     if (selectedPalletId === pallet.id) onFilter("all");
+    if (editingId === pallet.id) cancel();
   };
 
   return (
     <section className="panel" id="pallets">
       <div className="panel-heading"><div><h3>Pallet health</h3><span>Cost, recovery, estimated value, and open issues.</span></div><button onClick={() => { cancel(); setCreating(true); }}>New pallet</button></div>
-      {(creating || editingId) && <form className="inline-editor" onSubmit={save}><label><span>Name</span><input autoFocus value={name} onChange={(event) => setName(event.target.value)} placeholder="Pallet name" /></label><label><span>Purchase cost</span><input type="number" min="0" step="0.01" value={cost} onChange={(event) => setCost(event.target.value)} placeholder="Optional" /></label><div className="button-row"><button type="button" disabled={saving} onClick={cancel}>Cancel</button><button type="submit" disabled={saving}>{saving ? "Saving…" : editingId ? "Save pallet" : "Create pallet"}</button></div>{error && <p className="error-text">{error}</p>}</form>}
-      <div className="pallet-grid">{summaries.map((pallet) => <article tabIndex="0" className={`pallet-card ${selectedPalletId === pallet.id ? "selected-card" : ""}`} key={pallet.id} onClick={() => onFilter(pallet.id)} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") onFilter(pallet.id); }}><div className="card-row"><strong>{pallet.name}</strong>{activePalletId === pallet.id && <span className="badge success">Active</span>}</div><dl><div><dt>Items</dt><dd>{pallet.itemCount}</dd></div><div><dt>Cost</dt><dd>{currency(pallet.cost)}</dd></div><div><dt>Sold</dt><dd>{currency(pallet.soldRevenue)}</dd></div><div><dt>Issues</dt><dd>{pallet.unresolved}</dd></div></dl><div className="card-actions"><button onClick={(event) => { event.stopPropagation(); repository.setActivePallet(pallet.id); }}>Set active</button><button onClick={(event) => { event.stopPropagation(); startEdit(pallet); }}>Edit</button><button className="danger-button" onClick={(event) => { event.stopPropagation(); remove(pallet); }}>Delete</button></div></article>)}</div>
+<div className="pallet-grid">{summaries.map((pallet) => <article tabIndex="0" className={`pallet-card ${selectedPalletId === pallet.id ? "selected-card" : ""}`} key={pallet.id} onClick={() => onFilter(pallet.id)} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") onFilter(pallet.id); }}><div className="pallet-card-heading"><div className="pallet-title-row"><strong>{pallet.name}</strong></div><button className="compact-edit-button" aria-label={`Edit ${pallet.name}`} title="Edit pallet" onClick={(event) => { event.stopPropagation(); startEdit(pallet); }}>Edit</button></div><dl><div><dt>Items</dt><dd>{pallet.itemCount}</dd></div><div><dt>Cost</dt><dd>{currency(pallet.cost)}</dd></div><div><dt>Sold</dt><dd>{currency(pallet.soldRevenue)}</dd></div><div><dt>Issues</dt><dd>{pallet.unresolved}</dd></div></dl></article>)}</div>
+      {(creating || editingId) && <div className="modal-backdrop" role="presentation" onMouseDown={cancel}><form className="edit-modal" role="dialog" aria-modal="true" aria-labelledby="edit-pallet-title" onSubmit={save} onMouseDown={(event) => event.stopPropagation()}><div><h3 id="edit-pallet-title">{editingId ? "Edit pallet" : "New pallet"}</h3><p>{editingId ? "Update this pallet's name or purchase cost." : "Create a pallet for grouping inventory and purchase cost."}</p></div><label><span>Name</span><input autoFocus value={name} onChange={(event) => setName(event.target.value)} placeholder="Pallet name" /></label><label><span>Purchase cost</span><input type="number" min="0" step="0.01" value={cost} onChange={(event) => setCost(event.target.value)} placeholder="Optional" /></label>{error && <p className="error-text">{error}</p>}<div className="button-row">{editingId && <button type="button" className="danger-button" disabled={saving} onClick={() => { const pallet = pallets.find((entry) => entry.id === editingId); if (pallet) void remove(pallet); }}>Delete pallet</button>}<button type="button" disabled={saving} onClick={cancel}>Cancel</button><button className="primary-button" type="submit" disabled={saving}>{saving ? "Saving…" : editingId ? "Save" : "Create pallet"}</button></div></form></div>}
     </section>
   );
-}
-
-function NewItemForm({ pallets, defaultPalletId, onCreated, onCancel }) {
-  const [draft, setDraft] = useState({ name: "", category: "Uncategorized", condition: "Unknown", palletId: defaultPalletId, quantity: "1", low: "0", high: "0", floor: "0", platform: "Review" });
-  const [error, setError] = useState("");
-  const update = (field) => (event) => setDraft((current) => ({ ...current, [field]: event.target.value }));
-  const save = async (event) => {
-    event.preventDefault();
-    const quantity = Number(draft.quantity); const low = Number(draft.low); const high = Number(draft.high); const floor = Number(draft.floor);
-    if (!draft.name.trim() || !draft.condition.trim() || !draft.palletId) return setError("Name, condition, and pallet are required.");
-    if (!Number.isInteger(quantity) || quantity < 1) return setError("Quantity must be a whole number of at least 1.");
-    if (![low, high, floor].every((value) => Number.isFinite(value) && value >= 0) || high < low) return setError("Enter a valid price range with the high price at or above the low price.");
-    const id = Date.now();
-    await repository.saveItem({ id, photo: null, photos: [], name: draft.name.trim(), category: draft.category.trim() || "Uncategorized", condition: draft.condition.trim(), quantity, low, high, floor, low_price: low, high_price: high, floor_price: floor, best_platform: draft.platform, platform: draft.platform, listing_title: draft.name.trim(), listing_description: "", listedPlatforms: [], palletId: draft.palletId, soldPrice: null, status: "captured", capturedAt: new Date().toISOString() });
-    onCreated(id);
-  };
-  return <form className="inventory-detail edit-form" onSubmit={save}><div className="panel-heading"><h3>New inventory item</h3><div className="button-row"><button type="button" onClick={onCancel}>Cancel</button><button type="submit">Create item</button></div></div><div className="edit-grid"><label><span>Name</span><input autoFocus value={draft.name} onChange={update("name")} /></label><label><span>Category</span><input value={draft.category} onChange={update("category")} placeholder="Tools, Electronics, Furniture…" /></label><label><span>Condition</span><input value={draft.condition} onChange={update("condition")} /></label><label><span>Pallet</span><select value={draft.palletId} onChange={update("palletId")}>{pallets.map((pallet) => <option key={pallet.id} value={pallet.id}>{pallet.name}</option>)}</select></label><label><span>Quantity</span><input type="number" min="1" step="1" value={draft.quantity} onChange={update("quantity")} /></label><label><span>Platform</span><select value={draft.platform} onChange={update("platform")}><option>Facebook</option><option>eBay</option><option>Review</option></select></label><label><span>Low price</span><input type="number" min="0" step="0.01" value={draft.low} onChange={update("low")} /></label><label><span>High price</span><input type="number" min="0" step="0.01" value={draft.high} onChange={update("high")} /></label><label><span>Floor price</span><input type="number" min="0" step="0.01" value={draft.floor} onChange={update("floor")} /></label></div>{error && <p className="error-text">{error}</p>}</form>;
 }
 
 const itemDraft = (item) => ({
@@ -131,16 +237,184 @@ const itemDraft = (item) => ({
   soldPrice: item.soldPrice == null ? "" : String(item.soldPrice),
   listing_title: item.listing_title ?? "",
   listing_description: item.listing_description ?? "",
+  ebayItemSpecifics: { ...(item.ebayItemSpecifics ?? {}) },
 });
 
-function PhotoReview({ item }) {
+function PhotoReview({ item, onSave }) {
   const photos = item.photos?.length ? item.photos : item.photo ? [item.photo] : [];
-  return <section className="photo-review"><div className="card-row"><div><strong>Listing photos</strong><span>{photos.length === 0 ? "No photos attached" : `${photos.length} photo${photos.length === 1 ? "" : "s"} available`}</span></div><span className={`badge ${photos.length > 0 ? "success" : "warning"}`}>{photos.length > 0 ? "Review" : "Needed"}</span></div>{photos.length > 0 ? <div className="photo-grid">{photos.map((uri, index) => uri.startsWith("mock://") ? <div className="photo-placeholder" key={uri}><span>Photo {index + 1}</span><small>Preview fixture</small></div> : <img key={uri} src={uri} alt={`${item.name} listing photo ${index + 1}`} />)}</div> : <p className="detail-issue">Capture photos from the phone before publishing this item.</p>}<small>Photos are captured on the phone and securely loaded from shared cloud storage for review.</small></section>;
+  const inputRef = useRef(null);
+  const cameraInputRef = useRef(null);
+  const [working, setWorking] = useState("");
+  const [error, setError] = useState("");
+  const addPhotos = async (event) => {
+    const files = [...(event.target.files ?? [])];
+    event.target.value = "";
+    if (files.length === 0) return;
+    setWorking("Adding photos…"); setError("");
+    try {
+      const added = await Promise.all(files.slice(0, MAX_ITEM_PHOTOS - photos.length).map(resizePhoto));
+      const nextPhotos = [...photos, ...added].slice(0, MAX_ITEM_PHOTOS);
+      await onSave({ ...item, photo: nextPhotos[0] ?? null, photos: nextPhotos, status: getDisplayStatus(item) === "needs_photos" ? "needs_review" : item.status });
+    } catch (uploadError) { setError(uploadError instanceof Error ? uploadError.message : "Could not add the photos."); }
+    finally { setWorking(""); }
+  };
+  const removePhoto = async (index) => {
+    const nextPhotos = photos.filter((_, photoIndex) => photoIndex !== index);
+    setWorking("Removing photo…"); setError("");
+    try { await onSave({ ...item, photo: nextPhotos[0] ?? null, photos: nextPhotos }); }
+    catch (removeError) { setError(removeError instanceof Error ? removeError.message : "Could not remove the photo."); }
+    finally { setWorking(""); }
+  };
+  const analyze = async () => {
+    setWorking("Analyzing photos…"); setError("");
+    try {
+      const result = await analyzeItemPhotos(item, photos);
+      const low = Number(result.low_price); const high = Number(result.high_price); const floor = Number(result.floor_price);
+      const nextLow = Number.isFinite(low) ? low : price(item, "low");
+      const nextHigh = Number.isFinite(high) ? high : price(item, "high");
+      await onSave({
+        ...item,
+        name: result.name?.trim() || item.name,
+        category: result.category?.trim() || item.category,
+        condition: result.condition?.trim() || item.condition,
+        low: nextLow, low_price: nextLow,
+        high: nextHigh, high_price: nextHigh,
+        listing_price: preferredListingPrice(nextLow, nextHigh),
+        floor: Number.isFinite(floor) ? floor : price(item, "floor"), floor_price: Number.isFinite(floor) ? floor : price(item, "floor"),
+        platform: preferredMarketplace(result.best_platform?.trim() || item.platform), best_platform: preferredMarketplace(result.best_platform?.trim() || item.best_platform),
+        listing_title: result.listing_title?.trim() || item.listing_title,
+        listing_description: result.listing_description?.trim() || item.listing_description,
+        listing_title_ebay: result.listing_title_ebay?.trim() || item.listing_title_ebay,
+        listing_description_ebay: result.listing_description_ebay?.trim() || item.listing_description_ebay,
+        listing_title_facebook: result.listing_title_facebook?.trim() || item.listing_title_facebook,
+        listing_description_facebook: result.listing_description_facebook?.trim() || item.listing_description_facebook,
+        ebayItemSpecifics: { ...(item.ebayItemSpecifics ?? {}), ...(result.ebay_item_specifics ?? {}) },
+        status: "needs_review",
+      });
+    } catch (analysisError) { setError(analysisError instanceof Error ? analysisError.message : "AI could not analyze these photos."); }
+    finally { setWorking(""); }
+  };
+return <section className="photo-review"><div className="card-row"><div><strong>Listing photos</strong><span>{photos.length === 0 ? "No photos attached" : `${photos.length} photo${photos.length === 1 ? "" : "s"} available`}</span></div><span className={`badge ${photos.length > 0 ? "success" : "warning"}`}>{photos.length > 0 ? "Review" : "Needed"}</span></div>{photos.length > 0 ? <div className="photo-grid">{photos.map((uri, index) => <div className="photo-tile" key={`${uri.slice(0, 40)}-${index}`}>{uri.startsWith("mock://") ? <div className="photo-placeholder"><span>Photo {index + 1}</span><small>Preview fixture</small></div> : <img src={uri} alt={`${item.name} listing photo ${index + 1}`} />}<button type="button" className="photo-remove" aria-label={`Remove photo ${index + 1}`} title="Remove photo" disabled={Boolean(working)} onClick={() => removePhoto(index)}>×</button></div>)}</div> : <p className="detail-issue">Add photos to identify the item and prepare its listing.</p>}<input ref={cameraInputRef} className="visually-hidden" type="file" accept="image/*" capture="environment" onChange={addPhotos} /><input ref={inputRef} className="visually-hidden" type="file" accept="image/*" multiple onChange={addPhotos} /><div className="photo-actions"><button type="button" disabled={Boolean(working) || photos.length >= MAX_ITEM_PHOTOS} onClick={() => cameraInputRef.current?.click()}>Take photo</button><button type="button" disabled={Boolean(working) || photos.length >= MAX_ITEM_PHOTOS} onClick={() => inputRef.current?.click()}>Upload</button><button type="button" className="primary-button" disabled={Boolean(working) || !photos.some((uri) => uri.startsWith("data:"))} onClick={analyze}>{working === "Analyzing photos…" ? working : "Analyze with AI"}</button></div>{working && working !== "Analyzing photos…" && <small>{working}</small>}{error && <p className="error-text">{error}</p>}</section>;
+}
+
+function ItemThumbnail({ item }) {
+  const uri = item.photos?.[0] ?? item.photo;
+  if (!uri || uri.startsWith("mock://")) {
+    return <div className="item-thumbnail placeholder" aria-label={uri ? `${item.name} preview photo` : `${item.name} has no photo`}><span>{uri ? item.name.charAt(0).toUpperCase() : "No photo"}</span></div>;
+  }
+  return <img className="item-thumbnail" src={uri} alt={`${item.name} thumbnail`} />;
+}
+
+function EbayRequirementsDialog({ questions, answers, onChange, onFinishLater, onSave }) {
+  const [error, setError] = useState("");
+  const save = () => {
+    const missing = questions.find((question) => question.required && !String(answers[question.key] ?? "").trim());
+    if (missing) return setError(`${missing.label} is required, or choose Finish later.`);
+    setError("");
+    onSave();
+  };
+  return <div className="modal-backdrop requirements-backdrop" role="presentation"><div className="edit-modal ebay-questions-modal" role="dialog" aria-modal="true" aria-labelledby="analysis-questions-title"><div><h3 id="analysis-questions-title">Review eBay details</h3><p>These fields are required for the category eBay selected. Review AI's choices and correct anything that is not right.</p></div><div className="edit-grid">{questions.map((question, index) => <label key={question.key}><span>{question.label}</span>{question.type === "select" ? <select autoFocus={index === 0} value={answers[question.key] ?? ""} onChange={(event) => onChange(question.key, event.target.value)}><option value="">Select an answer</option>{question.options.map((option) => <option key={option}>{option}</option>)}</select> : <input autoFocus={index === 0} value={answers[question.key] ?? ""} onChange={(event) => onChange(question.key, event.target.value)} />}<small>{question.reason}</small></label>)}</div>{error && <p className="error-text">{error}</p>}<div className="button-row"><button type="button" onClick={onFinishLater}>Finish later</button><button type="button" className="primary-button" onClick={save}>Save details</button></div></div></div>;
+}
+
+function AddItemDialog({ pallets, activePalletId, onCancel, onCreate }) {
+  const [draft, setDraft] = useState({ name: "", category: "Uncategorized", palletId: activePalletId || pallets[0]?.id || "", condition: "Details need review", quantity: "1", low: "0", high: "0", floor: "0", platform: "Review", listing_title: "", listing_description: "", listing_title_ebay: "", listing_description_ebay: "", listing_title_facebook: "", listing_description_facebook: "" });
+  const [photos, setPhotos] = useState([]);
+  const [saving, setSaving] = useState(false);
+  const [analyzing, setAnalyzing] = useState(false);
+  const [error, setError] = useState("");
+  const [ebayQuestions, setEbayQuestions] = useState([]);
+  const [ebayItemSpecifics, setEbayItemSpecifics] = useState({});
+  const [showEbayQuestions, setShowEbayQuestions] = useState(false);
+  const photoInput = useRef(null);
+  const cameraInput = useRef(null);
+  const update = (field) => (event) => setDraft((current) => ({ ...current, [field]: event.target.value }));
+  const addPhotos = async (event) => {
+    const files = [...(event.target.files ?? [])];
+    event.target.value = "";
+    if (files.length === 0) return;
+    setError("");
+    try { setPhotos((current) => current); const added = await Promise.all(files.slice(0, MAX_ITEM_PHOTOS - photos.length).map(resizePhoto)); setPhotos((current) => [...current, ...added].slice(0, MAX_ITEM_PHOTOS)); }
+    catch (photoError) { setError(photoError instanceof Error ? photoError.message : "Could not add the photos."); }
+  };
+  const analyze = async () => {
+    setAnalyzing(true); setError("");
+    try {
+      const result = await analyzeItemPhotos({ name: draft.name, category: draft.category, condition: draft.condition, listing_title: draft.listing_title }, photos);
+      const nextDraft = {
+        ...draft,
+        name: result.name?.trim() || draft.name,
+        category: result.category?.trim() || draft.category,
+        condition: result.condition?.trim() || draft.condition,
+        low: Number.isFinite(Number(result.low_price)) ? String(result.low_price) : draft.low,
+        high: Number.isFinite(Number(result.high_price)) ? String(result.high_price) : draft.high,
+        floor: Number.isFinite(Number(result.floor_price)) ? String(result.floor_price) : draft.floor,
+        platform: preferredMarketplace(result.best_platform?.trim() || draft.platform),
+        listing_title: result.listing_title?.trim() || draft.listing_title,
+        listing_description: result.listing_description?.trim() || draft.listing_description,
+        listing_title_ebay: result.listing_title_ebay?.trim() || draft.listing_title_ebay,
+        listing_description_ebay: result.listing_description_ebay?.trim() || draft.listing_description_ebay,
+        listing_title_facebook: result.listing_title_facebook?.trim() || draft.listing_title_facebook,
+        listing_description_facebook: result.listing_description_facebook?.trim() || draft.listing_description_facebook,
+      };
+      setDraft(nextDraft);
+      const requirements = await getEbayListingRequirements({
+        ...nextDraft,
+        listing_title: nextDraft.listing_title_ebay || nextDraft.listing_title || nextDraft.name,
+        listing_description: nextDraft.listing_description_ebay || nextDraft.listing_description,
+        ebayItemSpecifics: { ...ebayItemSpecifics, ...(result.ebay_item_specifics ?? {}) },
+      });
+      setEbayItemSpecifics((current) => ({ ...current, ...(result.ebay_item_specifics ?? {}), ...(requirements.itemSpecifics ?? {}) }));
+      const reviewFields = requirements.fields ?? requirements.questions ?? [];
+      setEbayQuestions(reviewFields);
+      setShowEbayQuestions(reviewFields.length > 0);
+    } catch (analysisError) { setError(analysisError instanceof Error ? analysisError.message : "AI could not analyze these photos."); }
+    finally { setAnalyzing(false); }
+  };
+  const submit = async (event) => {
+    event.preventDefault();
+    const quantity = Number(draft.quantity);
+    const low = Number(draft.low); const high = Number(draft.high); const floor = Number(draft.floor);
+    if (!draft.palletId) return setError("Choose a pallet first.");
+    if (!Number.isInteger(quantity) || quantity < 1) return setError("Quantity must be a whole number of at least 1.");
+    if (![low, high, floor].every((value) => Number.isFinite(value) && value >= 0)) return setError("Prices must be valid non-negative numbers.");
+    if (high < low) return setError("High price cannot be lower than low price.");
+    setSaving(true); setError("");
+    try {
+      await onCreate({
+        id: Date.now(),
+        name: draft.name.trim() || "New item",
+        category: draft.category.trim() || "Uncategorized",
+        condition: draft.condition.trim() || "Details need review",
+        palletId: draft.palletId,
+        quantity,
+        low, high, floor,
+        low_price: low, high_price: high, floor_price: floor,
+        listing_price: preferredListingPrice(low, high),
+        status: "needs_review",
+        platform: draft.platform,
+        best_platform: draft.platform,
+        soldPrice: null,
+        photo: photos[0] ?? null,
+        photos,
+        listedPlatforms: [],
+        listing_title: draft.listing_title.trim(),
+        listing_description: draft.listing_description.trim(),
+        listing_title_ebay: draft.listing_title_ebay.trim(),
+        listing_description_ebay: draft.listing_description_ebay.trim(),
+        listing_title_facebook: draft.listing_title_facebook.trim(),
+        listing_description_facebook: draft.listing_description_facebook.trim(),
+        ebayItemSpecifics,
+      });
+    } catch (createError) { setError(createError instanceof Error ? createError.message : "Could not add the item."); setSaving(false); }
+  };
+  return <><div className="modal-backdrop" role="presentation" onMouseDown={onCancel}><form className="edit-modal item-edit-modal add-item-modal" role="dialog" aria-modal="true" aria-labelledby="add-item-title" onSubmit={submit} onMouseDown={(event) => event.stopPropagation()}><div><h3 id="add-item-title">Add item</h3><p>Add pictures first and let AI prepare the item record. Everything remains editable before saving.</p></div><section className="add-item-photos"><input ref={cameraInput} className="visually-hidden" type="file" accept="image/*" capture="environment" onChange={addPhotos} /><input ref={photoInput} className="visually-hidden" type="file" accept="image/*" multiple onChange={addPhotos} />{photos.length > 0 && <div className="photo-grid">{photos.map((uri, index) => <div className="photo-tile" key={index}><img src={uri} alt={`New item photo ${index + 1}`} /><button type="button" className="photo-remove" aria-label={`Remove photo ${index + 1}`} onClick={() => setPhotos((current) => current.filter((_, photoIndex) => photoIndex !== index))}>×</button></div>)}</div>}<div className="photo-actions"><button type="button" disabled={saving || analyzing || photos.length >= MAX_ITEM_PHOTOS} onClick={() => cameraInput.current?.click()}>Take photo</button><button type="button" disabled={saving || analyzing || photos.length >= MAX_ITEM_PHOTOS} onClick={() => photoInput.current?.click()}>Upload</button><button type="button" className="primary-button" disabled={saving || analyzing || photos.length === 0} onClick={analyze}>{analyzing ? "Analyzing…" : "Analyze with AI"}</button></div></section><div className="edit-grid"><label className="wide-field"><span>Name</span><input value={draft.name} onChange={update("name")} placeholder="AI will fill this from the pictures" /></label><label><span>Category</span><input value={draft.category} onChange={update("category")} /></label><label><span>Condition</span><input value={draft.condition} onChange={update("condition")} /></label><label><span>Pallet</span><select value={draft.palletId} onChange={update("palletId")}>{pallets.map((pallet) => <option key={pallet.id} value={pallet.id}>{pallet.name}</option>)}</select></label><label><span>Quantity</span><input type="number" min="1" step="1" value={draft.quantity} onChange={update("quantity")} /></label><label><span>Low price</span><input type="number" min="0" step="0.01" value={draft.low} onChange={update("low")} /></label><label><span>High price</span><input type="number" min="0" step="0.01" value={draft.high} onChange={update("high")} /></label><label><span>Floor price</span><input type="number" min="0" step="0.01" value={draft.floor} onChange={update("floor")} /></label><label><span>Platform</span><select value={draft.platform} onChange={update("platform")}><option>Review</option><option>eBay</option><option>Facebook</option></select></label><label className="wide-field"><span>Listing title</span><input value={draft.listing_title} onChange={update("listing_title")} /></label><label className="wide-field"><span>Listing description</span><textarea rows="4" value={draft.listing_description} onChange={update("listing_description")} /></label></div>{Object.entries(ebayItemSpecifics).some(([, value]) => String(value).trim()) && <section className="required-details"><strong>eBay details</strong><div className="edit-grid">{Object.entries(ebayItemSpecifics).filter(([, value]) => String(value).trim()).map(([key, value]) => <label key={key}><span>{key}</span><input value={value} onChange={(event) => setEbayItemSpecifics((current) => ({ ...current, [key]: event.target.value }))} /></label>)}</div></section>}{error && <p className="error-text">{error}</p>}<div className="button-row"><button type="button" disabled={saving || analyzing} onClick={onCancel}>Cancel</button><button className="primary-button" type="submit" disabled={saving || analyzing}>{saving ? "Adding…" : "Add item"}</button></div></form></div>{showEbayQuestions && <EbayRequirementsDialog questions={ebayQuestions} answers={ebayItemSpecifics} onChange={(key, value) => setEbayItemSpecifics((current) => ({ ...current, [key]: value }))} onFinishLater={() => setShowEbayQuestions(false)} onSave={() => setShowEbayQuestions(false)} />}</>;
 }
 
 function ListingReview({ item, onSave }) {
   const [savingPlatform, setSavingPlatform] = useState(null);
   const [error, setError] = useState("");
+  const [questions, setQuestions] = useState([]);
+  const [answers, setAnswers] = useState({});
   const updatePlatform = async (platform) => {
     setSavingPlatform(platform);
     setError("");
@@ -153,7 +427,51 @@ function ListingReview({ item, onSave }) {
     catch (saveError) { setError(saveError instanceof Error ? saveError.message : "Could not update marketplace status."); }
     finally { setSavingPlatform(null); }
   };
-  return <section className="photo-review"><div className="card-row"><div><strong>Marketplace review</strong><span>Confirm where this item is currently listed.</span></div></div><div className="button-row"><button disabled={savingPlatform !== null} onClick={() => updatePlatform("facebook")}>{savingPlatform === "facebook" ? "Saving…" : item.listedPlatforms.includes("facebook") ? "Remove Facebook listed mark" : "Mark listed on Facebook"}</button><button disabled={savingPlatform !== null} onClick={() => updatePlatform("ebay")}>{savingPlatform === "ebay" ? "Saving…" : item.listedPlatforms.includes("ebay") ? "Remove eBay listed mark" : "Mark listed on eBay"}</button></div>{error && <p className="error-text">{error}</p>}{item.ebayLastError && <p className="error-text">eBay: {item.ebayLastError}</p>}{item.facebookLastError && <p className="error-text">Facebook: {item.facebookLastError}</p>}</section>;
+  const completeEbayPublish = async (candidate) => {
+    const result = await postItemToEbay(candidate);
+    await onSave({ ...candidate, ebayStatus: "active", ebayOfferId: result.offerId, ebayListingId: result.listingId, ebayListingUrl: result.listingUrl, ebayLastError: null, ebayUpdatedAt: Date.now(), listedPlatforms: [...new Set([...(candidate.listedPlatforms ?? []), "ebay"])] });
+  };
+  const publishEbay = async () => {
+    if (!window.confirm(`Publish ${item.name} to eBay for ${currency(item.listing_price ?? price(item, "high"))}?`)) return;
+    setSavingPlatform("ebay-post"); setError("");
+    try {
+      await onSave({ ...item, ebayStatus: "posting", ebayLastError: null, ebayUpdatedAt: Date.now() });
+      const requirements = await getEbayListingRequirements(item);
+      if (requirements.status === "needs_input") {
+        setAnswers(Object.fromEntries(requirements.questions.map((question) => [question.key, item.ebayItemSpecifics?.[question.key] ?? ""])));
+        setQuestions(requirements.questions);
+        return;
+      }
+      await completeEbayPublish({ ...item, ebayItemSpecifics: { ...(item.ebayItemSpecifics ?? {}), ...(requirements.itemSpecifics ?? {}) } });
+    } catch (publishError) {
+      const message = publishError instanceof Error ? publishError.message : "Could not publish this eBay listing.";
+      setError(message);
+    } finally { setSavingPlatform(null); }
+  };
+  const submitAnswers = async (event) => {
+    event.preventDefault();
+    const missing = questions.find((question) => question.required && !String(answers[question.key] ?? "").trim());
+    if (missing) return setError(`${missing.label} is required.`);
+    setSavingPlatform("ebay-questions"); setError("");
+    const candidate = { ...item, ebayItemSpecifics: { ...(item.ebayItemSpecifics ?? {}), ...answers } };
+    try {
+      await onSave(candidate);
+      await completeEbayPublish(candidate);
+      setQuestions([]);
+    } catch (publishError) { setError(publishError instanceof Error ? publishError.message : "Could not publish this eBay listing."); }
+    finally { setSavingPlatform(null); }
+  };
+  const openFacebookDraft = async () => {
+    setSavingPlatform("facebook-open"); setError("");
+    const title = item.listing_title_facebook || item.listing_title || item.name;
+    const description = item.listing_description_facebook || item.listing_description || item.description || "";
+    try {
+      await navigator.clipboard.writeText(`${title}\n\n${description}`.trim());
+      window.open("https://www.facebook.com/marketplace/create/item", "_blank", "noopener,noreferrer");
+    } catch { setError("Facebook Marketplace could not be opened. Check browser popup and clipboard permissions."); }
+    finally { setSavingPlatform(null); }
+  };
+  return <><section className="photo-review"><div className="card-row"><div><strong>Marketplace actions</strong><span>Publish to eBay or prepare the Facebook Marketplace draft.</span></div></div><div className="marketplace-action"><div><strong>eBay</strong><span>{item.ebayListingId ? `Listing ${item.ebayListingId}` : "Checks current eBay requirements before publishing."}</span></div>{item.ebayListingUrl ? <a className="button-link" href={item.ebayListingUrl} target="_blank" rel="noreferrer">View eBay listing</a> : <button className="primary-button" disabled={savingPlatform !== null} onClick={publishEbay}>{savingPlatform === "ebay-post" ? "Checking…" : "Post to eBay"}</button>}</div><div className="marketplace-action"><div><strong>Facebook Marketplace</strong><span>Copies the listing text and opens Facebook’s item composer.</span></div><button disabled={savingPlatform !== null} onClick={openFacebookDraft}>{savingPlatform === "facebook-open" ? "Opening…" : "Open Facebook draft"}</button></div><div className="marketplace-confirm"><span>{item.listedPlatforms.includes("facebook") ? "Marked as listed on Facebook" : "After publishing on Facebook, confirm it here."}</span><button disabled={savingPlatform !== null} onClick={() => updatePlatform("facebook")}>{savingPlatform === "facebook" ? "Saving…" : item.listedPlatforms.includes("facebook") ? "Remove listed mark" : "Mark listed"}</button></div>{error && <p className="error-text">{error}</p>}{item.ebayLastError && item.ebayStatus === "error" && <p className="error-text">eBay: {item.ebayLastError}</p>}{item.facebookLastError && <p className="error-text">Facebook: {item.facebookLastError}</p>}</section>{questions.length > 0 && <div className="modal-backdrop" role="presentation"><form className="edit-modal ebay-questions-modal" role="dialog" aria-modal="true" aria-labelledby="ebay-questions-title" onSubmit={submitAnswers}><div><h3 id="ebay-questions-title">A few details before posting</h3><p>eBay requires these details for the selected category. PalletFlip will save your answers with this item.</p></div>{questions.map((question) => <label key={question.key}><span>{question.label}</span>{question.type === "select" ? <select autoFocus value={answers[question.key] ?? ""} onChange={(event) => setAnswers((current) => ({ ...current, [question.key]: event.target.value }))}><option value="">Select an answer</option>{question.options.map((option) => <option key={option}>{option}</option>)}</select> : <input autoFocus value={answers[question.key] ?? ""} onChange={(event) => setAnswers((current) => ({ ...current, [question.key]: event.target.value }))} />}<small>{question.reason}</small></label>)}{error && <p className="error-text">{error}</p>}<div className="button-row"><button type="button" disabled={savingPlatform !== null} onClick={() => { setQuestions([]); setError(""); }}>Cancel</button><button className="primary-button" type="submit" disabled={savingPlatform !== null}>{savingPlatform === "ebay-questions" ? "Publishing…" : "Save and publish"}</button></div></form></div>}</>;
 }
 
 function RecordSale({ item, onRecorded }) {
@@ -181,19 +499,20 @@ function RecordSale({ item, onRecorded }) {
   const hasDetailedSale = recordedSales.some((sale) => !sale.id.startsWith("preview-sale-") && !sale.id.startsWith("legacy-sale-"));
   if (loading) return <section className="sale-card"><div><strong>Checking sale details…</strong></div></section>;
   if (item.soldPrice !== null && hasDetailedSale) return <section className="sale-card"><div><strong>Sold for {currency(item.soldPrice)}</strong><span>The complete sale appears in Analysis.</span></div></section>;
-  if (!open) return <section className="sale-card"><div><strong>{item.soldPrice === null ? "Did this item sell?" : `Sold for ${currency(item.soldPrice)}`}</strong><span>{item.soldPrice === null ? "Record the marketplace and costs to improve your analysis." : "Add the missing marketplace, costs, and date so this sale can be analyzed accurately."}</span></div><button className="primary-button" onClick={() => setOpen(true)}>{item.soldPrice === null ? "Record sale" : "Complete sale details"}</button></section>;
-  return <form className="sale-form" onSubmit={save}><div className="card-row"><div><strong>Record sale</strong><span>Gross price minus fees and shipping becomes net proceeds.</span></div><button type="button" onClick={() => setOpen(false)}>Cancel</button></div><div className="edit-grid"><label><span>Marketplace</span><select value={draft.marketplace} onChange={update("marketplace")}><option value="facebook">Facebook</option><option value="ebay">eBay</option><option value="other">Other</option></select></label><label><span>Sold price</span><input autoFocus required type="number" min="0" step="0.01" value={draft.soldPrice} onChange={update("soldPrice")} /></label><label><span>Marketplace fees</span><input type="number" min="0" step="0.01" value={draft.fees} onChange={update("fees")} /></label><label><span>Shipping cost</span><input type="number" min="0" step="0.01" value={draft.shippingCost} onChange={update("shippingCost")} /></label><label><span>Sold date</span><input required type="date" value={draft.soldAt} onChange={update("soldAt")} /></label></div><button className="primary-button" type="submit" disabled={saving}>{saving ? "Recording…" : "Save sale"}</button>{error && <p className="error-text">{error}</p>}</form>;
+  return <><section className="sale-card"><div><strong>{item.soldPrice === null ? "Did this item sell?" : `Sold for ${currency(item.soldPrice)}`}</strong><span>{item.soldPrice === null ? "Record the marketplace and costs to improve your analysis." : "Add the missing marketplace, costs, and date so this sale can be analyzed accurately."}</span></div><button className="primary-button" onClick={() => setOpen(true)}>{item.soldPrice === null ? "Record sale" : "Complete sale details"}</button></section>{open && <div className="modal-backdrop" role="presentation" onMouseDown={() => setOpen(false)}><form className="edit-modal item-edit-modal" role="dialog" aria-modal="true" aria-labelledby="record-sale-title" onSubmit={save} onMouseDown={(event) => event.stopPropagation()}><div><h3 id="record-sale-title">Record sale</h3><p>Gross price minus fees and shipping becomes net proceeds.</p></div><div className="edit-grid"><label><span>Marketplace</span><select value={draft.marketplace} onChange={update("marketplace")}><option value="facebook">Facebook</option><option value="ebay">eBay</option><option value="other">Other</option></select></label><label><span>Sold price</span><input autoFocus required type="number" min="0" step="0.01" value={draft.soldPrice} onChange={update("soldPrice")} /></label><label><span>Marketplace fees</span><input type="number" min="0" step="0.01" value={draft.fees} onChange={update("fees")} /></label><label><span>Shipping cost</span><input type="number" min="0" step="0.01" value={draft.shippingCost} onChange={update("shippingCost")} /></label><label><span>Sold date</span><input required type="date" value={draft.soldAt} onChange={update("soldAt")} /></label></div>{error && <p className="error-text">{error}</p>}<div className="button-row"><button type="button" onClick={() => setOpen(false)}>Cancel</button><button className="primary-button" type="submit" disabled={saving}>{saving ? "Recording…" : "Save sale"}</button></div></form></div>}</>;
 }
 
-function InventoryDetail({ item, palletName, pallets, onSave, onRemove, onSaleRecorded }) {
+function InventoryDetail({ item, palletName, pallets, onSave, onRemove, onSaleRecorded, onClose, allowEditing = true, showWorkflowActions = true }) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(() => item ? itemDraft(item) : null);
+  const [detailTab, setDetailTab] = useState("details");
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     setDraft(item ? itemDraft(item) : null);
     setEditing(false);
+    setDetailTab("details");
     setError("");
   }, [item?.id]);
 
@@ -232,6 +551,7 @@ function InventoryDetail({ item, palletName, pallets, onSave, onRemove, onSaleRe
         soldPrice,
         listing_title: draft.listing_title.trim(),
         listing_description: draft.listing_description.trim(),
+        ebayItemSpecifics: { ...(draft.ebayItemSpecifics ?? {}) },
       });
       setEditing(false);
     } catch (saveError) {
@@ -248,9 +568,11 @@ function InventoryDetail({ item, palletName, pallets, onSave, onRemove, onSaleRe
     await onRemove(item.id);
   };
 
-  if (editing) return (
-    <form className="inventory-detail edit-form" onSubmit={save}>
-      <div className="panel-heading"><h3>Edit item</h3><div className="button-row"><button type="button" onClick={() => { setDraft(itemDraft(item)); setEditing(false); setError(""); }}>Cancel</button><button type="submit" disabled={saving}>{saving ? "Saving…" : "Save item"}</button></div></div>
+  const closeEdit = () => { setDraft(itemDraft(item)); setEditing(false); setError(""); };
+  const editDialog = editing ? (
+    <div className="modal-backdrop" role="presentation" onMouseDown={closeEdit}>
+    <form className="edit-modal item-edit-modal" role="dialog" aria-modal="true" aria-labelledby="edit-item-title" onSubmit={save} onMouseDown={(event) => event.stopPropagation()}>
+      <div className="panel-heading"><div><h3 id="edit-item-title">Edit item</h3><span>Update the selected inventory record.</span></div></div>
       <div className="edit-grid">
         <label><span>Name</span><input value={draft.name} onChange={update("name")} /></label>
         <label><span>Category</span><input value={draft.category} onChange={update("category")} placeholder="Tools, Electronics, Furniture…" /></label>
@@ -264,32 +586,30 @@ function InventoryDetail({ item, palletName, pallets, onSave, onRemove, onSaleRe
         <label><span>Platform</span><select value={draft.platform} onChange={update("platform")}><option>Facebook</option><option>eBay</option><option>Review</option></select></label>
         <label className="wide-field"><span>Listing title</span><input value={draft.listing_title} onChange={update("listing_title")} /></label>
         <label className="wide-field"><span>Listing description</span><textarea rows="4" value={draft.listing_description} onChange={update("listing_description")} /></label>
+        {Object.entries(draft.ebayItemSpecifics ?? {}).map(([key, value]) => <label key={key}><span>{key}</span><input value={value} onChange={(event) => setDraft((current) => ({ ...current, ebayItemSpecifics: { ...(current.ebayItemSpecifics ?? {}), [key]: event.target.value } }))} /></label>)}
       </div>
       {error && <p className="error-text">{error}</p>}
+      <div className="button-row"><button type="button" onClick={closeEdit}>Cancel</button><button className="primary-button" type="submit" disabled={saving}>{saving ? "Saving…" : "Save item"}</button></div>
     </form>
-  );
+    </div>
+  ) : null;
   return (
+    <>
     <section className="inventory-detail" aria-label="Selected inventory item">
-      <div className="panel-heading"><h3>{item.name}</h3><button onClick={() => setEditing(true)}>Edit item</button></div>
-      <div className="detail-grid">
-        <div><span>Pallet</span><strong>{palletName}</strong></div>
-        <div><span>Condition</span><strong>{item.condition}</strong></div>
-        <div><span>Category</span><strong>{item.category ?? "Uncategorized"}</strong></div>
-        <div><span>Quantity</span><strong>{getQuantity(item)}</strong></div>
-        <div><span>Low</span><strong>{currency(price(item, "low"))}</strong></div>
-        <div><span>High</span><strong>{currency(price(item, "high"))}</strong></div>
-        <div><span>Platform</span><strong>{getDisplayPlatform(item)}</strong></div>
-        <div><span>Age</span><strong>{getItemAgeDays(item)} days</strong></div>
+      <div className="panel-heading"><h3>{item.name}</h3><div className="detail-header-actions">{allowEditing && <button onClick={() => setEditing(true)}>Edit item</button>}{onClose && <button type="button" onClick={onClose}>Close</button>}</div></div>
+      <div className="item-detail-workspace">
+        <PhotoReview item={item} onSave={onSave} />
+        <div className="item-detail-content">
+          <div className="detail-tabs" role="tablist" aria-label="Item details"><button role="tab" aria-selected={detailTab === "details"} onClick={() => setDetailTab("details")}>Details</button><button role="tab" aria-selected={detailTab === "marketplace"} onClick={() => setDetailTab("marketplace")}>Marketplace</button><button role="tab" aria-selected={detailTab === "sale"} onClick={() => setDetailTab("sale")}>Sale</button></div>
+          {detailTab === "details" && <div className="detail-tab-panel" role="tabpanel"><div className="detail-grid"><div><span>Pallet</span><strong>{palletName}</strong></div><div><span>Condition</span><strong>{item.condition}</strong></div><div><span>Category</span><strong>{item.category ?? "Uncategorized"}</strong></div><div><span>Quantity</span><strong>{getQuantity(item)}</strong></div><div><span>Low</span><strong>{currency(price(item, "low"))}</strong></div><div><span>High</span><strong>{currency(price(item, "high"))}</strong></div><div><span>Floor</span><strong>{currency(price(item, "floor"))}</strong></div><div><span>Status</span><strong>{statusLabel[getDisplayStatus(item)]}</strong></div><div><span>Platform</span><strong>{getDisplayPlatform(item)}</strong></div><div><span>Age</span><strong>{getItemAgeDays(item)} days</strong></div>{item.soldPrice !== null && <div><span>Sold price</span><strong>{currency(item.soldPrice)}</strong></div>}{Object.entries(item.ebayItemSpecifics ?? {}).filter(([, value]) => String(value).trim()).map(([key, value]) => <div key={key}><span>{key}</span><strong>{value}</strong></div>)}</div><p className={getDisplayIssue(item) ? "detail-issue" : "detail-ready"}>{getDisplayIssue(item) ?? "Ready for the next marketplace action."}</p><section className="listing-copy"><div><span>Listing title</span><strong>{item.listing_title || item.name}</strong></div><div><span>Listing description</span><p>{item.listing_description || "No listing description saved."}</p></div></section>{showWorkflowActions && item.soldPrice === null && <div className="button-row workflow-actions"><button onClick={() => setWorkflowStatus("needs_photos")}>Needs photos</button><button onClick={() => setWorkflowStatus("needs_research")}>Needs research</button><button onClick={() => setWorkflowStatus("ready")}>Mark ready</button></div>}</div>}
+          {detailTab === "marketplace" && <div className="detail-tab-panel" role="tabpanel"><ListingReview item={item} onSave={onSave} /></div>}
+          {detailTab === "sale" && <div className="detail-tab-panel" role="tabpanel"><RecordSale item={item} onRecorded={onSaleRecorded} /><button className="danger-button remove-item-button" onClick={remove}>Remove item</button></div>}
+        </div>
       </div>
-      <p className={getDisplayIssue(item) ? "detail-issue" : "detail-ready"}>
-        {getDisplayIssue(item) ?? "Ready for the next marketplace action."}
-      </p>
-      <PhotoReview item={item} />
-      <ListingReview item={item} onSave={onSave} />
-      <RecordSale item={item} onRecorded={onSaleRecorded} />
-      <div className="button-row workflow-actions">{item.soldPrice === null && <><button onClick={() => setWorkflowStatus("needs_photos")}>Needs photos</button><button onClick={() => setWorkflowStatus("needs_research")}>Needs research</button><button onClick={() => setWorkflowStatus("ready")}>Mark ready</button></>}<button className="danger-button" onClick={remove}>Remove item</button></div>
       {error && <p className="error-text">{error}</p>}
     </section>
+    {editDialog}
+    </>
   );
 }
 
@@ -378,10 +698,27 @@ function SupabaseAccount() {
   return <article className="admin-card integration-card"><span className="admin-kicker">Shared Account</span><strong>Supabase login</strong><p>{isSupabaseConfigured ? "Signed-in sessions automatically use shared cloud inventory. Local preview data is never uploaded automatically." : "Add the public Supabase URL and publishable key to enable login."}</p>{session ? <><div className="status-line"><span className="badge success">Signed in</span><small>{session.user.email}</small><span className={`badge ${repositoryMode === "cloud" ? "primary" : "warning"}`}>{loading ? "Loading cloud inventory…" : repositoryMode === "cloud" ? "Cloud inventory" : "Local fallback"}</span></div><div className="button-row"><button disabled={loading || testingCloud} onClick={testCloud}>{testingCloud ? "Testing…" : repositoryMode === "cloud" ? "Test cloud connection" : "Reconnect and test cloud"}</button><button disabled={loading || testingCloud} onClick={signOut}>Sign out</button></div></> : <form onSubmit={sendMagicLink}><label><span>Email</span><input type="email" required value={email} onChange={(event) => setEmail(event.target.value)} placeholder="you@example.com" /></label><button disabled={loading || !isSupabaseConfigured} type="submit">{loading ? "Checking…" : "Email sign-in link"}</button></form>}{message && <p className={messageIsProgress ? "" : "error-text"}>{message}</p>}</article>;
 }
 
-function EbaySettings() {
+function SellingDefaults() {
+  const [priceRule, setPriceRule] = useState(() => readPreference("palletscanner.listingPriceRule", "high"));
+  const [marketplace, setMarketplace] = useState(() => readPreference("palletscanner.defaultMarketplace", "ai"));
+  const [saved, setSaved] = useState(false);
+  const saveDefaults = () => {
+    localStorage.setItem("palletscanner.listingPriceRule", priceRule);
+    localStorage.setItem("palletscanner.defaultMarketplace", marketplace);
+    setSaved(true);
+    setTimeout(() => setSaved(false), 1800);
+  };
+  return <article className="admin-card integration-card"><span className="admin-kicker">Selling defaults</span><strong>New listing preferences</strong><p>These choices are applied when AI analyzes new inventory. You can still change any item before posting.</p><label><span>Listing price</span><select value={priceRule} onChange={(event) => setPriceRule(event.target.value)}><option value="high">High estimate</option><option value="midpoint">Middle of range</option><option value="low">Low estimate</option></select><small>The exact price initially sent to eBay.</small></label><label><span>Preferred marketplace</span><select value={marketplace} onChange={(event) => setMarketplace(event.target.value)}><option value="ai">Use AI recommendation</option><option value="eBay">Prefer eBay</option><option value="Facebook">Prefer Facebook</option></select><small>Sets the initial marketplace recommendation on new items.</small></label><button className="primary-button" type="button" onClick={saveDefaults}>{saved ? "Saved" : "Save defaults"}</button></article>;
+}
+
+function EbaySettings({ mode = "all" }) {
   const [baseUrl, setBaseUrl] = useState(() => readPreference("palletscanner.ebayApiBaseUrl", ""));
   const [token, setToken] = useState(() => sessionStorage.getItem("palletscanner.authToken") ?? "");
+  const [configOpen, setConfigOpen] = useState(false);
   const [status, setStatus] = useState(null);
+  const [setup, setSetup] = useState(null);
+  const [defaults, setDefaults] = useState({ merchantLocationKey: "", paymentPolicyId: "", returnPolicyId: "", fulfillmentPolicyId: "" });
+  const [locationDraft, setLocationDraft] = useState({ name: "Main inventory", postalCode: "", city: "", stateOrProvince: "", country: "US" });
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
   const backupInput = useRef(null);
@@ -399,8 +736,44 @@ function EbaySettings() {
 
   const checkStatus = async () => {
     setLoading(true); setMessage("");
-    try { setStatus(await request("/ebay/status")); }
+    try {
+      const nextStatus = await request("/ebay/status");
+      setStatus(nextStatus);
+      if (nextStatus.connected) {
+        const nextSetup = await request("/ebay/setup");
+        setSetup(nextSetup);
+        setDefaults(nextSetup.defaults);
+      } else {
+        setSetup(null);
+      }
+    }
     catch (error) { setMessage(error instanceof Error ? error.message : "Could not check eBay status."); }
+    finally { setLoading(false); }
+  };
+
+  const saveDefaults = async () => {
+    setLoading(true); setMessage("");
+    try {
+      const result = await request("/ebay/setup/defaults", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(defaults) });
+      setDefaults(result.defaults);
+      const nextStatus = await request("/ebay/status");
+      setStatus(nextStatus);
+      setMessage("eBay defaults saved.");
+    } catch (error) { setMessage(error instanceof Error ? error.message : "Could not save eBay defaults."); }
+    finally { setLoading(false); }
+  };
+
+  const createLocation = async (event) => {
+    event.preventDefault();
+    setLoading(true); setMessage("");
+    try {
+      await request("/ebay/setup/location", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(locationDraft) });
+      const nextSetup = await request("/ebay/setup");
+      setSetup(nextSetup);
+      setDefaults(nextSetup.defaults);
+      setStatus(await request("/ebay/status"));
+      setMessage("Inventory location created and selected.");
+    } catch (error) { setMessage(error instanceof Error ? error.message : "Could not create the inventory location."); }
     finally { setLoading(false); }
   };
 
@@ -424,6 +797,12 @@ function EbaySettings() {
     localStorage.setItem("palletscanner.ebayApiBaseUrl", baseUrl.trim());
     sessionStorage.setItem("palletscanner.authToken", token.trim());
     setMessage("Settings saved for this browser.");
+    setConfigOpen(false);
+  };
+  const cancelConfig = () => {
+    setBaseUrl(readPreference("palletscanner.ebayApiBaseUrl", ""));
+    setToken(sessionStorage.getItem("palletscanner.authToken") ?? "");
+    setConfigOpen(false);
   };
   const downloadBackup = () => {
     const backup = { version: 1, exportedAt: new Date().toISOString(), ...repository.getSnapshot() };
@@ -451,20 +830,39 @@ function EbaySettings() {
 
   return (
     <section className="panel" id="settings">
-      <div className="panel-heading"><div><p className="eyebrow">Administration</p><h3>Admin Settings</h3></div></div>
+      <div className="panel-heading"><div><p className="eyebrow">Account and integrations</p><h3>Settings</h3></div></div>
       <div className="admin-grid">
-        <SupabaseAccount />
-        <article className="admin-card integration-card">
+        <div className="settings-group-heading"><h4>Selling</h4><p>Choose the defaults applied to newly analyzed inventory.</p></div>
+        {mode !== "settings" && <SellingDefaults />}
+        <div className="settings-group-heading"><h4>Account</h4><p>Manage sign-in and inventory syncing for this dashboard.</p></div>
+        {mode !== "ebay" && <SupabaseAccount />}
+        <div className="settings-group-heading"><h4>eBay</h4><p>Connect your seller account and confirm it is ready to publish listings.</p></div>
+        {mode !== "settings" && <article className="admin-card integration-card">
           <strong>eBay Integration</strong>
           <p>Connect the dashboard to the protected PalletFlip marketplace backend.</p>
           <div className="status-line"><span className={`badge ${status?.readyToList ? "success" : status?.connected ? "warning" : ""}`}>{loading ? "Checking…" : status?.readyToList ? "Ready to list" : status?.connected ? "Connected, setup incomplete" : status ? "Seller not connected" : "Not checked"}</span>{status && <small>{status.environment} · {status.marketplaceId}</small>}</div>
           {status?.readinessChecks?.length > 0 && <div className="check-list">{status.readinessChecks.map((check) => <div className="check-row" key={check.label}><span className={`check-dot ${check.ok ? "ok" : ""}`} /><span>{check.label}</span></div>)}</div>}
           <div className="button-row"><button disabled={loading} onClick={checkStatus}>Check status</button><button className="primary-button" disabled={loading} onClick={connect}>{status?.connected ? "Reconnect eBay" : "Connect eBay"}</button>{status?.connected && <button className="danger-button" disabled={loading} onClick={disconnect}>Disconnect</button>}</div>
-          <details className="advanced-settings"><summary>Backend configuration</summary><label><span>Backend URL</span><input value={baseUrl} onChange={(event) => setBaseUrl(event.target.value)} placeholder="https://api.example.com" /></label><label><span>App auth token</span><input type="password" value={token} onChange={(event) => setToken(event.target.value)} placeholder="Session-only token" /></label><button onClick={save}>Save configuration</button></details>
+          <button onClick={() => setConfigOpen(true)}>Edit backend configuration</button>
           {message && <p className={message.includes("saved") ? "" : "error-text"}>{message}</p>}
-        </article>
-        <article className="admin-card"><strong>Data export</strong><p>Download a portable JSON copy of the currently loaded pallets and inventory.</p><button onClick={downloadBackup}>Download JSON backup</button>{getRepositoryMode() === "local" && <><button className="danger-button" onClick={() => backupInput.current?.click()}>Restore local backup</button><input ref={backupInput} className="visually-hidden" type="file" accept="application/json,.json" onChange={restoreBackup} /></>}</article>
+        </article>}
+        {mode !== "settings" && <article className="admin-card ebay-setup-card">
+          <strong>Listing defaults</strong>
+          <p>These account-level choices are reused automatically whenever PalletFlip publishes an item.</p>
+          {!status?.connected ? <div className="setup-empty"><span>Connect eBay, then check the status to load locations and policies.</span></div> : !setup ? <button type="button" onClick={checkStatus} disabled={loading}>Load eBay setup</button> : <>
+            <label><span>Inventory location</span><select value={defaults.merchantLocationKey} onChange={(event) => setDefaults((current) => ({ ...current, merchantLocationKey: event.target.value }))}><option value="">Select a location</option>{setup.locations.map((entry) => <option value={entry.id} key={entry.id}>{entry.name}</option>)}</select></label>
+            {setup.locations.length === 0 && <form className="location-form" onSubmit={createLocation}><strong>Create inventory location</strong><div className="compact-field-grid"><label><span>Location name</span><input required value={locationDraft.name} onChange={(event) => setLocationDraft((current) => ({ ...current, name: event.target.value }))} /></label><label><span>Postal code</span><input value={locationDraft.postalCode} onChange={(event) => setLocationDraft((current) => ({ ...current, postalCode: event.target.value }))} /></label><label><span>City</span><input value={locationDraft.city} onChange={(event) => setLocationDraft((current) => ({ ...current, city: event.target.value }))} /></label><label><span>State</span><input value={locationDraft.stateOrProvince} onChange={(event) => setLocationDraft((current) => ({ ...current, stateOrProvince: event.target.value }))} /></label><label><span>Country</span><input required maxLength={2} value={locationDraft.country} onChange={(event) => setLocationDraft((current) => ({ ...current, country: event.target.value.toUpperCase() }))} /></label></div><button className="primary-button" disabled={loading} type="submit">Create location</button></form>}
+            <label><span>Payment policy</span><select value={defaults.paymentPolicyId} onChange={(event) => setDefaults((current) => ({ ...current, paymentPolicyId: event.target.value }))}><option value="">Select a payment policy</option>{setup.paymentPolicies.map((entry) => <option value={entry.id} key={entry.id}>{entry.name}</option>)}</select></label>
+            <label><span>Return policy</span><select value={defaults.returnPolicyId} onChange={(event) => setDefaults((current) => ({ ...current, returnPolicyId: event.target.value }))}><option value="">Select a return policy</option>{setup.returnPolicies.map((entry) => <option value={entry.id} key={entry.id}>{entry.name}</option>)}</select></label>
+            <label><span>Shipping policy</span><select value={defaults.fulfillmentPolicyId} onChange={(event) => setDefaults((current) => ({ ...current, fulfillmentPolicyId: event.target.value }))}><option value="">Select a shipping policy</option>{setup.fulfillmentPolicies.map((entry) => <option value={entry.id} key={entry.id}>{entry.name}</option>)}</select></label>
+            {(setup.paymentPolicies.length === 0 || setup.returnPolicies.length === 0 || setup.fulfillmentPolicies.length === 0) && <div className="setup-warning"><strong>Business policies are missing</strong><span>Create payment, return, and shipping policies on eBay, then return here and refresh.</span><a className="button-link" href={setup.businessPoliciesUrl} target="_blank" rel="noreferrer">Open eBay setup</a></div>}
+            <div className="button-row"><button type="button" onClick={checkStatus} disabled={loading}>Refresh from eBay</button><button className="primary-button" type="button" onClick={saveDefaults} disabled={loading || !defaults.merchantLocationKey || !defaults.paymentPolicyId || !defaults.returnPolicyId || !defaults.fulfillmentPolicyId}>Save defaults</button></div>
+          </>}
+        </article>}
+        <div className="settings-group-heading"><h4>Data</h4><p>Keep a portable backup of your pallets and inventory.</p></div>
+        {mode !== "ebay" && <article className="admin-card"><strong>Data export</strong><p>Download a portable JSON copy of the currently loaded pallets and inventory.</p><button onClick={downloadBackup}>Download JSON backup</button>{getRepositoryMode() === "local" && <><button className="danger-button" onClick={() => backupInput.current?.click()}>Restore local backup</button><input ref={backupInput} className="visually-hidden" type="file" accept="application/json,.json" onChange={restoreBackup} /></>}</article>}
       </div>
+      {mode !== "settings" && configOpen && <div className="modal-backdrop" role="presentation" onMouseDown={cancelConfig}><div className="edit-modal" role="dialog" aria-modal="true" aria-labelledby="backend-config-title" onMouseDown={(event) => event.stopPropagation()}><div><h3 id="backend-config-title">Backend configuration</h3><p>These connection settings apply only to this browser session.</p></div><label><span>Backend URL</span><input autoFocus value={baseUrl} onChange={(event) => setBaseUrl(event.target.value)} placeholder="https://api.example.com" /></label><label><span>App auth token</span><input type="password" value={token} onChange={(event) => setToken(event.target.value)} placeholder="Session-only token" /></label><div className="button-row"><button type="button" onClick={cancelConfig}>Cancel</button><button className="primary-button" type="button" onClick={save}>Save</button></div></div></div>}
     </section>
   );
 }
@@ -526,40 +924,31 @@ function AnalysisPanel({ snapshot }) {
   </div>;
 }
 
-function ListingPipeline({ items, onSelect }) {
-  const stages = [
-    { id: "prep", title: "Needs preparation", items: items.filter((item) => item.soldPrice === null && getDisplayStatus(item) !== "ready" && item.ebayStatus !== "error" && item.facebookStatus !== "error"), tone: "warning" },
-    { id: "ready", title: "Ready to publish", items: items.filter((item) => item.soldPrice === null && getDisplayStatus(item) === "ready" && (item.listedPlatforms ?? []).length === 0 && item.ebayStatus !== "error" && item.facebookStatus !== "error"), tone: "success" },
-    { id: "failed", title: "Needs retry", items: items.filter((item) => item.soldPrice === null && (item.ebayStatus === "error" || item.facebookStatus === "error")), tone: "danger" },
-    { id: "published", title: "Published", items: items.filter((item) => item.soldPrice === null && item.ebayStatus !== "error" && item.facebookStatus !== "error" && ((item.listedPlatforms ?? []).length > 0 || item.ebayStatus === "active" || item.facebookStatus === "listed")), tone: "primary" },
-    { id: "sold", title: "Sold", items: items.filter((item) => item.soldPrice !== null), tone: "primary" },
-  ];
-  return <section className="pipeline" aria-label="Listing pipeline">{stages.map((stage) => <article className="pipeline-stage" key={stage.id}><div className="pipeline-heading"><strong>{stage.title}</strong><span className={`badge ${stage.tone}`}>{stage.items.length}</span></div><div className="pipeline-items">{stage.items.length === 0 ? <small>Nothing here</small> : stage.items.slice(0, 12).map((item) => <button key={item.id} onClick={() => onSelect(item.id)}><strong>{item.name}</strong><span>{getDisplayPlatform(item)}</span></button>)}</div></article>)}</section>;
-}
-
-const dashboardViews = ["overview", "pallets", "inventory", "listings", "analysis", "activity", "settings"];
+const dashboardViews = ["overview", "review", "inventory", "pallets", "analysis", "settings"];
 const viewCopy = {
   overview: ["Business overview", "Know what is selling, what is stuck, and what needs your decision."],
+  review: ["Review", "Work through inventory decisions one item at a time."],
   pallets: ["Pallets", "Track the cost, recovery, and health of each purchase."],
-  inventory: ["Inventory", "Search, review, and update every item in one focused workspace."],
-  listings: ["Listings", "Move ready inventory onto marketplaces and catch aging items."],
+  inventory: ["Inventory", "Search, filter, and manage the complete inventory record."],
   analysis: ["Data & Analysis", "Learn what sells, where it sells, and what actually returns a profit."],
-  activity: ["Activity", "Review the shared audit trail across your operation."],
-  settings: ["Settings", "Manage cloud access, marketplace connections, and backups."],
+  settings: ["Settings", "Manage your account, backups, and activity history."],
 };
-const navItems = dashboardViews.map((id) => [id, id === "analysis" ? "Data / Analysis" : id[0].toUpperCase() + id.slice(1)]);
+const navLabels = { overview: "Overview", review: "Review", inventory: "Inventory", pallets: "Pallets", analysis: "Data / Analysis", settings: "Settings" };
+const navItems = dashboardViews.map((id) => [id, navLabels[id]]);
 
 export function App() {
   const initialView = window.location.hash.slice(1);
   const [view, setView] = useState(dashboardViews.includes(initialView) ? initialView : "overview");
   const [snapshot, setSnapshot] = useState(() => repository.getSnapshot());
   const [query, setQuery] = useState(() => readPreference("palletscanner.inventorySearch", ""));
-  const [statusFilter, setStatusFilter] = useState(() => readPreference("palletscanner.inventoryStatusFilter", "all"));
+  const [workFilter, setWorkFilter] = useState("decision");
   const [platformFilter, setPlatformFilter] = useState(() => readPreference("palletscanner.inventoryPlatformFilter", "all"));
   const [palletFilter, setPalletFilter] = useState(() => readPreference("palletscanner.inventoryPalletFilter", "all"));
+  const [overviewPalletId, setOverviewPalletId] = useState("all");
+  const [overviewMenuOpen, setOverviewMenuOpen] = useState(false);
   const [sort, setSort] = useState(() => ({ column: readPreference("palletscanner.inventorySortColumn", "name"), direction: readPreference("palletscanner.inventorySortDirection", "asc") }));
-  const [selectedId, setSelectedId] = useState(() => Number(readPreference("palletscanner.selectedInventoryItemId", "0")));
-  const [creatingItem, setCreatingItem] = useState(false);
+  const [inventoryModalId, setInventoryModalId] = useState(null);
+  const [addingItem, setAddingItem] = useState(false);
   const [selectedIds, setSelectedIds] = useState(() => new Set());
   const [bulkSaving, setBulkSaving] = useState(false);
   const [toast, setToast] = useState("");
@@ -567,6 +956,9 @@ export function App() {
   const toastTimer = useRef(null);
 
   useEffect(() => repository.subscribe(setSnapshot), []);
+  useEffect(() => {
+    if (!dashboardViews.includes(view)) navigate("settings");
+  }, [view]);
   useEffect(() => {
     const handleHashChange = () => {
       const nextView = window.location.hash.slice(1);
@@ -577,12 +969,11 @@ export function App() {
   }, []);
   useEffect(() => {
     localStorage.setItem("palletscanner.inventorySearch", query);
-    localStorage.setItem("palletscanner.inventoryStatusFilter", statusFilter);
     localStorage.setItem("palletscanner.inventoryPlatformFilter", platformFilter);
     localStorage.setItem("palletscanner.inventoryPalletFilter", palletFilter);
     localStorage.setItem("palletscanner.inventorySortColumn", sort.column);
     localStorage.setItem("palletscanner.inventorySortDirection", sort.direction);
-  }, [query, statusFilter, platformFilter, palletFilter, sort]);
+  }, [query, platformFilter, palletFilter, sort]);
   useEffect(() => {
     const handleShortcut = (event) => {
       if (event.key === "/" && !["INPUT", "TEXTAREA", "SELECT"].includes(document.activeElement?.tagName)) {
@@ -594,21 +985,36 @@ export function App() {
     window.addEventListener("keydown", handleShortcut);
     return () => window.removeEventListener("keydown", handleShortcut);
   });
+  useEffect(() => {
+    if (inventoryModalId === null) return undefined;
+    const closeOnEscape = (event) => { if (event.key === "Escape") setInventoryModalId(null); };
+    window.addEventListener("keydown", closeOnEscape);
+    return () => window.removeEventListener("keydown", closeOnEscape);
+  }, [inventoryModalId]);
 
   const { items, pallets } = snapshot;
   const palletName = (id) => pallets.find((pallet) => pallet.id === id)?.name ?? "Unassigned";
-  const totals = useMemo(() => summarizeInventory(items, pallets), [items, pallets]);
+  const overviewScope = overviewPalletId === "all" || pallets.some((pallet) => pallet.id === overviewPalletId) ? overviewPalletId : "all";
+  const overviewItems = overviewScope === "all" ? items : items.filter((item) => item.palletId === overviewScope);
+  const overviewPallets = overviewScope === "all" ? pallets : pallets.filter((pallet) => pallet.id === overviewScope);
+  const overviewTotals = useMemo(() => summarizeInventory(overviewItems, overviewPallets), [overviewItems, overviewPallets]);
   const palletSummaries = useMemo(() => pallets.map((pallet) => summarizePallet(items, pallet)), [items, pallets]);
-  const attention = items.filter((item) => getDisplayIssue(item));
-  const marketplace = getMarketplaceQueueItems(items);
-  const stale = getStaleInventoryItems(items);
+  const attention = items.filter((item) => isReviewEligible(item) && (Boolean(getDisplayIssue(item)) || item.ebayStatus === "error" || item.facebookStatus === "error" || getItemAgeDays(item) > 14));
+  const workViews = [
+    { id: "decision", label: "Needs decision" },
+    { id: "failed", label: "Publishing issues" },
+    { id: "aging", label: "Aging" },
+  ].map((entry) => ({ ...entry, count: items.filter((item) => matchesWorkFilter(item, entry.id)).length }));
+  const overviewPalletName = overviewScope === "all" ? "All pallets" : palletName(overviewScope);
+  const overviewNeedsAttention = overviewScope === "all"
+    ? attention.length > 0
+    : attention.some((item) => item.palletId === overviewScope);
 
   const visibleItems = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase();
     const filtered = items.filter((item) => {
       const text = [item.name, item.category, palletName(item.palletId), item.condition, getDisplayPlatform(item), statusLabel[getDisplayStatus(item)]].join(" ").toLowerCase();
       return (!normalizedQuery || text.includes(normalizedQuery)) &&
-        (statusFilter === "all" || getDisplayStatus(item) === statusFilter) &&
         (platformFilter === "all" || getDisplayPlatform(item).toLowerCase() === platformFilter.toLowerCase()) &&
         (palletFilter === "all" || item.palletId === palletFilter);
     });
@@ -618,9 +1024,10 @@ export function App() {
       const comparison = first < second ? -1 : first > second ? 1 : 0;
       return sort.direction === "asc" ? comparison : -comparison;
     });
-  }, [items, pallets, query, statusFilter, platformFilter, palletFilter, sort]);
+  }, [items, pallets, query, platformFilter, palletFilter, sort]);
 
-  const selected = visibleItems.find((item) => item.id === selectedId) ?? visibleItems[0] ?? null;
+  const reviewItems = items.filter((item) => matchesWorkFilter(item, workFilter));
+  const inventoryModalItem = items.find((item) => item.id === inventoryModalId) ?? null;
   const navigate = (nextView) => {
     setView(nextView);
     window.history.replaceState(null, "", `#${nextView}`);
@@ -648,9 +1055,8 @@ export function App() {
       notify(error instanceof Error ? error.message : "Bulk update failed.");
     } finally { setBulkSaving(false); }
   };
-  const selectItem = (id) => { setSelectedId(id); localStorage.setItem("palletscanner.selectedInventoryItemId", String(id)); if (view !== "inventory") navigate("inventory"); };
   const changeSort = (column) => setSort((current) => ({ column, direction: current.column === column && current.direction === "asc" ? "desc" : "asc" }));
-  const resetFilters = () => { setQuery(""); setStatusFilter("all"); setPlatformFilter("all"); setPalletFilter("all"); };
+  const resetFilters = () => { setQuery(""); setPlatformFilter("all"); setPalletFilter("all"); };
   const exportCsv = () => {
     const rows = [["Name", "Category", "Pallet", "Status", "Platform", "Quantity", "Low", "High", "Sold", "Age Days"], ...visibleItems.map((item) => [item.name, item.category ?? "Uncategorized", palletName(item.palletId), statusLabel[getDisplayStatus(item)], getDisplayPlatform(item), getQuantity(item), price(item, "low"), price(item, "high"), item.soldPrice ?? "", getItemAgeDays(item)])];
     const csv = rows.map((row) => row.map((cell) => `"${String(cell).replaceAll('"', '""')}"`).join(",")).join("\n");
@@ -662,32 +1068,28 @@ export function App() {
 
   return (
     <div className="shell">
-      <aside className="sidebar"><div><p className="eyebrow">From pallet to profit</p><h1>PalletFlip</h1></div><nav aria-label="Dashboard sections">{navItems.map(([id, label]) => { const count = id === "overview" ? attention.length : id === "inventory" ? items.length : id === "listings" ? marketplace.length : null; return <button className={view === id ? "active" : ""} key={id} onClick={() => navigate(id)}><span>{label}</span>{count !== null && <span className="nav-count">{count}</span>}</button>; })}</nav></aside>
+      <aside className="sidebar"><div><p className="eyebrow">From pallet to profit</p><h1>PalletFlip</h1></div><nav aria-label="Dashboard sections">{navItems.map(([id, label]) => { const count = id === "review" ? attention.length : id === "inventory" ? items.length : null; return <button className={view === id ? "active" : ""} key={id} onClick={() => navigate(id)}><span>{label}</span>{count !== null && <span className="nav-count">{count}</span>}</button>; })}</nav></aside>
       <main className="main">
-        <header className="topbar"><div><div className="title-status"><p className="eyebrow">Business Dashboard</p><button className={`badge cloud-status ${getRepositoryMode() === "cloud" ? "success" : "warning"}`} onClick={() => navigate("settings")}>{getRepositoryMode() === "cloud" ? "Cloud" : "Local preview"}</button></div><h2>{viewCopy[view][0]}</h2><span>{viewCopy[view][1]}</span></div><div className="button-row">{pallets.length > 0 && <button className="primary-button" onClick={() => { navigate("inventory"); setCreatingItem(true); }}>New item</button>}{view === "inventory" && <button onClick={exportCsv}>Export inventory</button>}</div></header>
-        {view === "overview" && <div className="view-stack"><section className="metrics-grid">
-          <Metric label="Inventory" value={totals.totalItems} /><Metric label="Sell-through" value={`${totals.sellThrough.toFixed(0)}%`} tone="success" /><Metric label="Sold revenue" value={currency(totals.soldRevenue)} /><Metric label="Pallet cost" value={currency(totals.totalCost)} />
-          <Metric label="Remaining value" value={`${currency(totals.remainingLow)}–${currency(totals.remainingHigh)}`} /><Metric label="Gross profit" value={currency(totals.grossProfit)} tone={totals.grossProfit >= 0 ? "success" : "danger"} /><Metric label="Needs Facebook" value={totals.needsFacebook} tone="warning" onClick={() => navigate("listings")} /><Metric label="Needs eBay" value={totals.needsEbay} tone="warning" onClick={() => navigate("listings")} />
+        <header className="topbar"><div><div className="title-status"><p className="eyebrow">Business Dashboard</p><span className={`badge cloud-status ${getRepositoryMode() === "cloud" ? "success" : "warning"}`}>{getRepositoryMode() === "cloud" ? "Cloud data" : "Local preview data"}</span></div><h2>{(viewCopy[view] ?? viewCopy.settings)[0]}</h2><span>{(viewCopy[view] ?? viewCopy.settings)[1]}</span></div><div className="button-row">{view === "inventory" && <><button onClick={exportCsv}>Export inventory</button><button className="primary-button" disabled={pallets.length === 0} onClick={() => setAddingItem(true)}>Add item</button></>}</div></header>
+        {view === "overview" && <div className="view-stack"><div className="overview-scope"><span className="overview-scope-label">Viewing</span><div className="pallet-scope-select"><button className="pallet-scope-trigger" type="button" aria-haspopup="listbox" aria-expanded={overviewMenuOpen} onClick={() => setOverviewMenuOpen((open) => !open)}><span className={`status-dot ${overviewNeedsAttention ? "attention" : "clear"}`} /><span>{overviewPalletName}</span><span className="select-chevron" aria-hidden="true">▾</span></button>{overviewMenuOpen && <div className="pallet-scope-menu" role="listbox" aria-label="Overview pallet"><button type="button" role="option" aria-selected={overviewScope === "all"} onClick={() => { setOverviewPalletId("all"); setOverviewMenuOpen(false); }}><span className={`status-dot ${attention.length > 0 ? "attention" : "clear"}`} /><span>All pallets</span>{attention.length > 0 && <small>{attention.length} need attention</small>}</button>{pallets.map((pallet) => { const attentionCount = attention.filter((item) => item.palletId === pallet.id).length; return <button key={pallet.id} type="button" role="option" aria-selected={overviewScope === pallet.id} onClick={() => { setOverviewPalletId(pallet.id); setOverviewMenuOpen(false); }}><span className={`status-dot ${attentionCount > 0 ? "attention" : "clear"}`} /><span>{pallet.name}</span><small>{attentionCount > 0 ? `${attentionCount} need attention` : "Clear"}</small></button>; })}</div>}</div></div><section className="metrics-grid overview-metrics">
+          <Metric label="Items" value={overviewTotals.totalItems} onClick={() => { setPalletFilter(overviewScope); navigate("inventory"); }} /><Metric label="Sold items" value={overviewTotals.soldCount} /><Metric label="Sell-through" value={`${overviewTotals.sellThrough.toFixed(0)}%`} tone="success" /><Metric label="Sold revenue" value={currency(overviewTotals.soldRevenue)} /><Metric label="Pallet cost" value={currency(overviewTotals.totalCost)} /><Metric label="Revenue less cost" value={currency(overviewTotals.grossProfit)} tone={overviewTotals.grossProfit >= 0 ? "success" : "danger"} />
         </section>
         {pallets.length === 0 && <section className="panel getting-started"><span className="admin-kicker">Start here</span><h3>Create your first pallet</h3><p>A pallet groups its purchase cost, inventory, listings, and profit. Create one before adding items.</p><button className="primary-button" onClick={async () => { const pallet = await repository.createPallet("Pallet 1"); await repository.setActivePallet(pallet.id); notify("Your first pallet is ready."); navigate("pallets"); }}>Create first pallet</button></section>}
-        <Queue title="Attention Queue" subtitle="Items missing information needed for a business decision." items={attention} empty="Attention queue is clear" onSelect={selectItem} renderMeta={(item) => statusLabel[getDisplayStatus(item)]} />
         </div>}
+        {view === "review" && <section className="panel review-panel"><div className="saved-views" aria-label="Review queues">{workViews.map((workView) => <button key={workView.id} aria-pressed={workFilter === workView.id} onClick={() => setWorkFilter(workView.id)}><span>{workView.label}</span><strong>{workView.count}</strong></button>)}</div><div className="review-workspace"><div className="review-list" aria-label="Items to review">{reviewItems.length === 0 ? <div className="empty-queue"><strong>This queue is clear</strong><span>Choose another review category.</span></div> : reviewItems.map((item) => <button key={item.id} onClick={() => setInventoryModalId(item.id)}><ItemThumbnail item={item} /><div><strong>{item.name}</strong><span>{palletName(item.palletId)} · {getDisplayPlatform(item)}</span></div><span className={`badge ${statusClass[getDisplayStatus(item)]}`}>{statusLabel[getDisplayStatus(item)]}</span></button>)}</div></div></section>}
         {view === "pallets" && <PalletManager pallets={pallets} summaries={palletSummaries} activePalletId={snapshot.activePalletId} selectedPalletId={palletFilter} onFilter={(id) => { setPalletFilter(id); navigate("inventory"); }} />}
-        {view === "listings" && <div className="view-stack"><ListingPipeline items={items} onSelect={selectItem} />
-        <Queue title="Aging inventory" subtitle="Unsold items older than 14 days." items={stale} empty="No stale inventory" onSelect={selectItem} renderMeta={(item) => `${getItemAgeDays(item)} days`} />
-        </div>}
         {view === "analysis" && <AnalysisPanel snapshot={snapshot} />}
         {view === "inventory" && <section className="panel table-panel" id="inventory">
-          <div className="panel-heading"><div><h3>Inventory</h3><span>{visibleItems.length} of {items.length} items shown</span></div><button className="reset-filter-button" onClick={resetFilters}>Clear filters</button></div>
-          <div className="saved-views"><button onClick={resetFilters}>All inventory</button><button onClick={() => { resetFilters(); setStatusFilter("needs_photos"); }}>Missing photos</button><button onClick={() => { resetFilters(); setStatusFilter("ready"); }}>Ready</button><button onClick={() => { resetFilters(); setPlatformFilter("Facebook"); }}>Facebook focus</button><button onClick={() => { resetFilters(); setPlatformFilter("eBay"); }}>eBay focus</button></div>
-          <div className="inventory-tools"><input ref={searchInput} aria-label="Search inventory" placeholder="Search inventory (press /)" value={query} onChange={(event) => setQuery(event.target.value)} /><select aria-label="Status filter" value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)}><option value="all">All statuses</option>{Object.entries(statusLabel).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select><select aria-label="Platform filter" value={platformFilter} onChange={(event) => setPlatformFilter(event.target.value)}><option value="all">All platforms</option><option>Facebook</option><option>eBay</option><option>Review</option></select><select aria-label="Pallet filter" value={palletFilter} onChange={(event) => setPalletFilter(event.target.value)}><option value="all">All pallets</option>{pallets.map((pallet) => <option key={pallet.id} value={pallet.id}>{pallet.name}</option>)}</select></div>
+          <div className="panel-heading inventory-heading"><div><strong>{visibleItems.length} of {items.length} items</strong><span>Select an item to view its complete record and photos.</span></div><button className="reset-filter-button" onClick={resetFilters}>Clear filters</button></div>
+          <div className="inventory-tools"><input ref={searchInput} aria-label="Search inventory" placeholder="Search inventory (press /)" value={query} onChange={(event) => setQuery(event.target.value)} /><select aria-label="Platform filter" value={platformFilter} onChange={(event) => setPlatformFilter(event.target.value)}><option value="all">All platforms</option><option>Facebook</option><option>eBay</option><option>Review</option></select><select aria-label="Pallet filter" value={palletFilter} onChange={(event) => setPalletFilter(event.target.value)}><option value="all">All pallets</option>{pallets.map((pallet) => <option key={pallet.id} value={pallet.id}>{pallet.name}</option>)}</select></div>
           {selectedIds.size > 0 && <div className="bulk-bar"><strong>{selectedIds.size} selected</strong><button disabled={bulkSaving} onClick={() => bulkUpdate("marked ready", (item) => ({ ...item, status: "ready", soldPrice: null }))}>Mark ready</button><button disabled={bulkSaving} onClick={() => bulkUpdate("marked listed on Facebook", (item) => ({ ...item, facebookStatus: "listed", facebookUpdatedAt: Date.now(), listedPlatforms: [...new Set([...(item.listedPlatforms ?? []), "facebook"])] }))}>Mark Facebook listed</button><button disabled={bulkSaving} onClick={() => bulkUpdate("marked listed on eBay", (item) => ({ ...item, ebayStatus: "active", ebayUpdatedAt: Date.now(), listedPlatforms: [...new Set([...(item.listedPlatforms ?? []), "ebay"])] }))}>Mark eBay listed</button><button disabled={bulkSaving} onClick={() => setSelectedIds(new Set())}>Clear</button></div>}
           {palletFilter !== "all" && <div className="inventory-context"><strong>Filtered Pallet: {palletName(palletFilter)}</strong><button onClick={() => setPalletFilter("all")}>Show all</button></div>}
-          <div className="inventory-workspace"><div className="table-scroll"><table><thead><tr><th><input type="checkbox" aria-label="Select all visible items" checked={visibleItems.length > 0 && visibleItems.every((item) => selectedIds.has(item.id))} onChange={(event) => setSelectedIds((current) => { const next = new Set(current); visibleItems.forEach((item) => event.target.checked ? next.add(item.id) : next.delete(item.id)); return next; })} /></th><th><SortButton column="name">Item</SortButton></th><th><SortButton column="pallet">Pallet</SortButton></th><th>Status</th><th>Platform</th><th><SortButton column="quantity">Qty</SortButton></th><th><SortButton column="low">Low</SortButton></th><th><SortButton column="high">High</SortButton></th><th><SortButton column="age">Age</SortButton></th></tr></thead><tbody>{visibleItems.length === 0 ? <tr><td className="empty-table-cell" colSpan="9">No inventory matches these filters.</td></tr> : visibleItems.map((item) => <tr tabIndex="0" className={selected?.id === item.id ? "selected-row" : ""} key={item.id} onClick={() => selectItem(item.id)} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") selectItem(item.id); }}><td><input type="checkbox" aria-label={`Select ${item.name}`} checked={selectedIds.has(item.id)} onClick={(event) => event.stopPropagation()} onChange={() => toggleSelected(item.id)} /></td><td><strong>{item.name}</strong></td><td>{palletName(item.palletId)}</td><td><span className={`badge ${statusClass[getDisplayStatus(item)]}`}>{statusLabel[getDisplayStatus(item)]}</span></td><td>{getDisplayPlatform(item)}</td><td>{getQuantity(item)}</td><td>{currency(price(item, "low"))}</td><td>{currency(price(item, "high"))}</td><td>{getItemAgeDays(item)}d</td></tr>)}</tbody></table></div>
-          <div className="detail-pane">{creatingItem ? <NewItemForm pallets={pallets} defaultPalletId={palletFilter !== "all" ? palletFilter : snapshot.activePalletId ?? pallets[0]?.id ?? ""} onCancel={() => setCreatingItem(false)} onCreated={(id) => { setCreatingItem(false); resetFilters(); selectItem(id); notify("Inventory item created."); }} /> : <InventoryDetail item={selected} palletName={selected ? palletName(selected.palletId) : ""} pallets={pallets} onSave={async (item) => { await repository.saveItem(item); notify("Changes saved."); }} onRemove={async (id) => { await repository.removeItem(id); notify("Inventory item removed."); }} onSaleRecorded={() => notify("Sale recorded. Analysis is updated.")} />}</div></div>
+          <div className="inventory-workspace"><div className="table-scroll"><table><thead><tr><th><input type="checkbox" aria-label="Select all visible items" checked={visibleItems.length > 0 && visibleItems.every((item) => selectedIds.has(item.id))} onChange={(event) => setSelectedIds((current) => { const next = new Set(current); visibleItems.forEach((item) => event.target.checked ? next.add(item.id) : next.delete(item.id)); return next; })} /></th><th>Photo</th><th><SortButton column="name">Item</SortButton></th><th><SortButton column="pallet">Pallet</SortButton></th><th>Status</th><th>Platform</th><th><SortButton column="quantity">Qty</SortButton></th><th><SortButton column="age">Age</SortButton></th></tr></thead><tbody>{visibleItems.length === 0 ? <tr><td className="empty-table-cell" colSpan="8">No inventory matches these filters.</td></tr> : visibleItems.map((item) => <tr data-inventory-row tabIndex="0" key={item.id} onClick={() => setInventoryModalId(item.id)} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") setInventoryModalId(item.id); }}><td><input type="checkbox" aria-label={`Select ${item.name}`} checked={selectedIds.has(item.id)} onClick={(event) => event.stopPropagation()} onChange={() => toggleSelected(item.id)} /></td><td><ItemThumbnail item={item} /></td><td><strong>{item.name}</strong></td><td>{palletName(item.palletId)}</td><td><span className={`badge ${statusClass[getDisplayStatus(item)]}`}>{statusLabel[getDisplayStatus(item)]}</span></td><td>{getDisplayPlatform(item)}</td><td>{getQuantity(item)}</td><td>{getItemAgeDays(item)}d</td></tr>)}</tbody></table></div>
+          </div>
         </section>}
-        <div className="settings-mount" hidden={view !== "settings"}><EbaySettings /></div>
-        {view === "activity" && <ActivityPanel snapshot={snapshot} />}
+        {inventoryModalItem && <div className="modal-backdrop" role="presentation" onMouseDown={() => setInventoryModalId(null)}><div className="inventory-detail-modal" role="dialog" aria-modal="true" aria-label={`${inventoryModalItem.name} inventory record`} onMouseDown={(event) => event.stopPropagation()}><InventoryDetail item={inventoryModalItem} palletName={palletName(inventoryModalItem.palletId)} pallets={pallets} showWorkflowActions={false} onClose={() => setInventoryModalId(null)} onSave={async (item) => { await repository.saveItem(item); notify("Changes saved."); }} onRemove={async (id) => { await repository.removeItem(id); setInventoryModalId(null); notify("Inventory item removed."); }} onSaleRecorded={() => notify("Sale recorded. Analysis is updated.")} /></div></div>}
+        {addingItem && <AddItemDialog pallets={pallets} activePalletId={snapshot.activePalletId} onCancel={() => setAddingItem(false)} onCreate={async (item) => { await repository.saveItem(item); setAddingItem(false); setInventoryModalId(item.id); notify("Item added. Add photos or edit its details."); }} />}
+        <div className="settings-mount" hidden={view !== "settings"}><div className="view-stack"><EbaySettings /><ActivityPanel snapshot={snapshot} /></div></div>
         {toast && <div className="toast" role="status">{toast}</div>}
       </main>
     </div>

@@ -74,6 +74,10 @@ const normalizeInventoryItem = (item: InventoryItem): InventoryItem => ({
   condition: coerceText(item.condition, "Unknown"),
   low_price: coerceNumber(item.low_price, 0),
   high_price: coerceNumber(item.high_price, coerceNumber(item.low_price, 0)),
+  listing_price: coerceNumber(
+    item.listing_price,
+    coerceNumber(item.high_price, coerceNumber(item.low_price, 0)),
+  ),
   floor_price:
     typeof item.floor_price === "number" && !Number.isNaN(item.floor_price)
       ? item.floor_price

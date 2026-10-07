@@ -32,7 +32,7 @@ export default function OnboardingScreen() {
 
   const completeOnboarding = () => {
     markOnboardingSeen();
-    router.replace("/(tabs)");
+    router.replace("/login");
   };
 
   return (

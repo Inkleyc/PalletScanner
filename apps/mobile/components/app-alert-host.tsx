@@ -1,9 +1,11 @@
-import { useSyncExternalStore } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
 import {
   Modal,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   TouchableOpacity,
   View,
 } from "react-native";
@@ -21,6 +23,17 @@ export function AppAlertHost() {
     getAppAlert,
     getAppAlert,
   );
+  const [inputValue, setInputValue] = useState("");
+  useEffect(() => {
+    setInputValue(alert?.input?.initialValue ?? "");
+  }, [alert]);
+  const options = alert?.input?.options ?? [];
+  const normalizedInput = inputValue.trim().toLowerCase();
+  const filteredOptions = options.filter((option) =>
+    normalizedInput.length === 0 || option.toLowerCase().includes(normalizedInput),
+  );
+  const hasValidSelection = options.length === 0 || options.includes(inputValue.trim());
+  const hasSingleExactMatch = hasValidSelection && filteredOptions.length === 1;
 
   return (
     <Modal
@@ -39,18 +52,48 @@ export function AppAlertHost() {
           {alert?.message ? (
             <Text style={styles.message}>{alert.message}</Text>
           ) : null}
+          {alert?.input ? (
+            <>
+              <TextInput
+                autoFocus
+                style={styles.input}
+                value={inputValue}
+                placeholder={options.length > 0 ? "Search available choices" : alert.input.placeholder}
+                placeholderTextColor={AppPalette.textSoft}
+                onChangeText={setInputValue}
+              />
+              {options.length > 0 && !hasSingleExactMatch ? (
+                <ScrollView style={styles.optionList} keyboardShouldPersistTaps="handled">
+                  {filteredOptions.map((option) => (
+                    <TouchableOpacity
+                      key={option}
+                      style={[styles.option, option === inputValue.trim() && styles.selectedOption]}
+                      onPress={() => setInputValue(option)}
+                    >
+                      <Text style={styles.optionText}>{option}</Text>
+                    </TouchableOpacity>
+                  ))}
+                  {filteredOptions.length === 0 ? <Text style={styles.noOptions}>No matching eBay value. Finish later and review the category.</Text> : null}
+                </ScrollView>
+              ) : null}
+            </>
+          ) : null}
           <View style={styles.actions}>
             {alert?.buttons.map((button, index) => (
               <TouchableOpacity
                 key={`${button.text ?? "OK"}-${index}`}
                 style={[
                   styles.button,
+                  button.inputSubmit && !hasValidSelection && styles.disabledButton,
                   button.style === "destructive" && styles.destructiveButton,
                   button.style === "cancel" && styles.cancelButton,
                 ]}
+                disabled={button.inputSubmit && !hasValidSelection}
                 onPress={() => {
+                  const input = alert?.input;
                   dismissAppAlert(false);
-                  button.onPress?.();
+                  if (button.inputSubmit && input) input.onSubmit(inputValue.trim());
+                  else button.onPress?.();
                 }}
               >
                 <Text
@@ -109,6 +152,34 @@ const styles = StyleSheet.create({
   actions: {
     gap: 8,
   },
+  input: {
+    borderColor: AppPalette.border,
+    borderRadius: 8,
+    borderWidth: 1,
+    color: AppPalette.text,
+    fontSize: 16,
+    marginBottom: 14,
+    minHeight: 46,
+    paddingHorizontal: 12,
+  },
+  optionList: {
+    borderColor: AppPalette.border,
+    borderRadius: 8,
+    borderWidth: 1,
+    marginBottom: 14,
+    maxHeight: 220,
+  },
+  option: {
+    borderBottomColor: AppPalette.border,
+    borderBottomWidth: 1,
+    minHeight: 44,
+    justifyContent: "center",
+    paddingHorizontal: 12,
+  },
+  selectedOption: { backgroundColor: AppPalette.infoSoft },
+  optionText: { color: AppPalette.text, fontSize: 15 },
+  noOptions: { color: AppPalette.textMuted, fontSize: 13, lineHeight: 18, padding: 12 },
+  disabledButton: { opacity: 0.45 },
   button: {
     minHeight: 44,
     borderRadius: 8,

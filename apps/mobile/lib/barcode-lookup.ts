@@ -1,3 +1,5 @@
+import { getRuntimeBearerToken } from "@/lib/app-auth";
+
 type BarcodeLookupItem = {
   title?: string;
   description?: string;
@@ -11,12 +13,31 @@ const OPEN_FOOD_FACTS_LOOKUP_URL = "https://world.openfoodfacts.org/api/v0/produ
 const OPEN_FACTS_ALL_LOOKUP_URL =
   "https://world.openfoodfacts.org/api/v3/product";
 const GTINHUB_LOOKUP_URL = "https://gtinhub.com/api/v1/product";
+const BARCODE_API_BASE_URL = (
+  process.env.EXPO_PUBLIC_AI_API_BASE_URL ??
+  process.env.EXPO_PUBLIC_EBAY_API_BASE_URL ??
+  ""
+).replace(/\/$/, "");
+const APP_AUTH_TOKEN = process.env.EXPO_PUBLIC_PALLETSCANNER_AUTH_TOKEN ?? "";
 
 const normalizeBarcode = (barcode: string) => barcode.trim().replace(/[^0-9A-Za-z]/g, "");
 
+const appendUpcACheckDigit = (barcode: string) => {
+  if (!/^\d{11}$/.test(barcode)) return barcode;
+  const sum = [...barcode].reduce((total, digit, index) => {
+    const value = Number(digit);
+    return total + value * (index % 2 === 0 ? 3 : 1);
+  }, 0);
+  return `${barcode}${(10 - (sum % 10)) % 10}`;
+};
+
+export const normalizeLookupBarcode = (barcode: string) =>
+  appendUpcACheckDigit(normalizeBarcode(barcode));
+
 const buildBarcodeCandidates = (barcode: string) => {
   const normalized = normalizeBarcode(barcode);
-  const candidates = [normalized];
+  const completedUpc = normalizeLookupBarcode(normalized);
+  const candidates = [completedUpc, normalized];
 
   if (/^\d{13}$/.test(normalized) && normalized.startsWith("0")) {
     candidates.push(normalized.slice(1));
@@ -176,6 +197,26 @@ const lookupGtinHubCandidate = async (barcode: string) => {
 
 export const lookupBarcodeProduct = async (barcode: string) => {
   const candidates = buildBarcodeCandidates(barcode);
+  if (BARCODE_API_BASE_URL) {
+    const token = (await getRuntimeBearerToken()) || APP_AUTH_TOKEN.trim();
+    const response = await fetch(
+      `${BARCODE_API_BASE_URL}/barcode/lookup?barcode=${encodeURIComponent(candidates[0] ?? barcode)}`,
+      { headers: token ? { Authorization: `Bearer ${token}` } : {} },
+    );
+    const body = await response.text();
+    if (!response.ok) {
+      let message = `Barcode lookup failed (${response.status}).`;
+      try {
+        const payload = JSON.parse(body) as { error?: string };
+        if (payload.error) message = payload.error;
+      } catch {
+        // Keep the status-based message when the gateway did not return JSON.
+      }
+      throw new Error(message);
+    }
+    return JSON.parse(body) as BarcodeLookupItem;
+  }
+
   let lastError: Error | null = null;
   let sawRateLimit = false;
 

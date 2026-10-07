@@ -16,15 +16,19 @@ import {
   getActivePallet,
   getInventory,
   getNextDefaultPalletName,
+  getPallets,
   createPalletSession,
+  setActivePalletSession,
   subscribeInventory,
 } from "@/lib/inventory-store";
 import { AppLayout, AppPalette } from "@/constants/app-palette";
+import { IconSymbol } from "@/components/ui/icon-symbol";
 
 export default function HomeScreen() {
   const router = useRouter();
   const { width } = useWindowDimensions();
   const [createModalVisible, setCreateModalVisible] = useState(false);
+  const [palletSelectorVisible, setPalletSelectorVisible] = useState(false);
   const [newPalletName, setNewPalletName] = useState("");
   const [pendingWorkflowRoute, setPendingWorkflowRoute] = useState<
     "/scan-barcode" | "/capture" | null
@@ -39,6 +43,11 @@ export default function HomeScreen() {
     subscribeInventory,
     getInventory,
     getInventory,
+  );
+  const pallets = useSyncExternalStore(
+    subscribeInventory,
+    getPallets,
+    getPallets,
   );
 
   const openCreatePalletModal = () => {
@@ -71,14 +80,6 @@ export default function HomeScreen() {
     router.push(route);
   };
 
-  const activePalletName = activePallet?.name ?? "No active pallet";
-  const activePalletItems = activePallet
-    ? items.filter((item) => item.palletId === activePallet.id)
-    : [];
-  const lastSavedItem = activePalletItems
-    .slice()
-    .sort((a, b) => b.id - a.id)[0];
-
   return (
     <>
       <ScrollView style={styles.container} contentContainerStyle={styles.content}>
@@ -86,30 +87,36 @@ export default function HomeScreen() {
           <Text style={styles.title}>PalletFlip</Text>
           <Text style={styles.subtitle}>Choose a pallet, scan the item, save it, move on.</Text>
 
-          <View style={styles.primaryCard}>
-            <Text style={styles.cardEyebrow}>ACTIVE PALLET</Text>
-            <Text style={styles.cardTitle}>{activePalletName}</Text>
-            <Text style={styles.cardCopy}>
-              {activePallet
-                ? `${activePalletItems.length} item${activePalletItems.length === 1 ? "" : "s"} saved here.`
-                : "Create a pallet first so new items have somewhere to go."}
-            </Text>
-            {lastSavedItem ? (
-              <View style={styles.lastItemBox}>
-                <Text style={styles.lastItemLabel}>LAST SAVED</Text>
-                <Text style={styles.lastItemName}>{lastSavedItem.name}</Text>
-              </View>
-            ) : null}
-
+          {activePallet ? (
             <TouchableOpacity
-              style={styles.cardAction}
-              onPress={openCreatePalletModal}
+              style={styles.palletSelector}
+              onPress={() => setPalletSelectorVisible(true)}
             >
-              <Text style={styles.cardActionText}>
-                {activePallet ? "Create New Pallet" : "Create Your First Pallet"}
-              </Text>
+              <View>
+                <Text style={styles.palletSelectorLabel}>ACTIVE PALLET</Text>
+                <Text style={styles.palletSelectorName}>{activePallet.name}</Text>
+              </View>
+              <IconSymbol
+                name="chevron.right"
+                size={22}
+                color={AppPalette.primaryStrong}
+              />
             </TouchableOpacity>
-          </View>
+          ) : (
+            <View style={styles.primaryCard}>
+              <Text style={styles.cardEyebrow}>ACTIVE PALLET</Text>
+              <Text style={styles.cardTitle}>No active pallet</Text>
+              <Text style={styles.cardCopy}>
+                Create a pallet first so new items have somewhere to go.
+              </Text>
+              <TouchableOpacity
+                style={styles.cardAction}
+                onPress={openCreatePalletModal}
+              >
+                <Text style={styles.cardActionText}>Create Your First Pallet</Text>
+              </TouchableOpacity>
+            </View>
+          )}
 
           <View style={styles.actionsCard}>
             <TouchableOpacity
@@ -133,16 +140,6 @@ export default function HomeScreen() {
                 {activePallet
                   ? "Use photos when there is no barcode or condition matters most."
                   : "Create a pallet first, then capture photos into it."}
-              </Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.workflowAction}
-              onPress={() => router.push("/explore")}
-            >
-              <Text style={styles.workflowTitle}>Review Inventory</Text>
-              <Text style={styles.workflowCopy}>
-                Check saved items, mark sold, or continue listing work.
               </Text>
             </TouchableOpacity>
           </View>
@@ -188,6 +185,62 @@ export default function HomeScreen() {
           </Pressable>
         </Pressable>
       </Modal>
+
+      <Modal
+        visible={palletSelectorVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setPalletSelectorVisible(false)}
+      >
+        <Pressable
+          style={styles.modalBackdrop}
+          onPress={() => setPalletSelectorVisible(false)}
+        >
+          <Pressable style={styles.modalCard}>
+            <Text style={styles.modalTitle}>Select Pallet</Text>
+            <Text style={styles.modalCopy}>
+              New scans and photos will be saved to the selected pallet.
+            </Text>
+            <ScrollView style={styles.palletList}>
+              {pallets.map((pallet) => {
+                const isActive = pallet.id === activePallet?.id;
+                const itemCount = items.filter(
+                  (item) => item.palletId === pallet.id,
+                ).length;
+                return (
+                  <TouchableOpacity
+                    key={pallet.id}
+                    style={[
+                      styles.palletOption,
+                      isActive && styles.palletOptionActive,
+                    ]}
+                    onPress={() => {
+                      setActivePalletSession(pallet.id);
+                      setPalletSelectorVisible(false);
+                    }}
+                  >
+                    <View style={styles.palletOptionText}>
+                      <Text style={styles.palletOptionName}>{pallet.name}</Text>
+                      <Text style={styles.palletOptionMeta}>
+                        {itemCount} item{itemCount === 1 ? "" : "s"}
+                      </Text>
+                    </View>
+                    {isActive ? (
+                      <Text style={styles.activePalletLabel}>Active</Text>
+                    ) : null}
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+            <TouchableOpacity
+              style={styles.modalSecondaryAction}
+              onPress={() => setPalletSelectorVisible(false)}
+            >
+              <Text style={styles.modalSecondaryActionText}>Cancel</Text>
+            </TouchableOpacity>
+          </Pressable>
+        </Pressable>
+      </Modal>
     </>
   );
 }
@@ -228,24 +281,6 @@ const styles = StyleSheet.create({
     lineHeight: 20,
     marginBottom: 16,
   },
-  lastItemBox: {
-    backgroundColor: "rgba(255,255,255,0.12)",
-    borderRadius: 8,
-    padding: 10,
-    marginBottom: 14,
-  },
-  lastItemLabel: {
-    color: "rgba(255,255,255,0.7)",
-    fontSize: 10,
-    fontWeight: "800",
-    marginBottom: 4,
-  },
-  lastItemName: {
-    color: AppPalette.primaryOn,
-    fontSize: 14,
-    fontWeight: "700",
-    lineHeight: 18,
-  },
   cardAction: {
     backgroundColor: AppPalette.primaryOn,
     borderRadius: 10,
@@ -253,6 +288,30 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   cardActionText: { color: AppPalette.primaryStrong, fontWeight: "700", fontSize: 15 },
+  palletSelector: {
+    alignItems: "center",
+    backgroundColor: AppPalette.surface,
+    borderColor: AppPalette.border,
+    borderWidth: 1,
+    borderRadius: 10,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginBottom: 12,
+    minHeight: 58,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+  },
+  palletSelectorLabel: {
+    color: AppPalette.textMuted,
+    fontSize: 10,
+    fontWeight: "700",
+    marginBottom: 3,
+  },
+  palletSelectorName: {
+    color: AppPalette.primaryStrong,
+    fontSize: 15,
+    fontWeight: "700",
+  },
   actionsCard: {
     backgroundColor: AppPalette.surface,
     borderRadius: 14,
@@ -353,5 +412,41 @@ const styles = StyleSheet.create({
     color: AppPalette.primaryOn,
     fontWeight: "700",
     fontSize: 14,
+  },
+  palletList: {
+    maxHeight: 320,
+    marginBottom: 16,
+  },
+  palletOption: {
+    alignItems: "center",
+    borderBottomColor: AppPalette.border,
+    borderBottomWidth: 1,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    minHeight: 58,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+  palletOptionActive: {
+    backgroundColor: AppPalette.surfaceMuted,
+  },
+  palletOptionText: {
+    flex: 1,
+  },
+  palletOptionName: {
+    color: AppPalette.text,
+    fontSize: 15,
+    fontWeight: "700",
+  },
+  palletOptionMeta: {
+    color: AppPalette.textMuted,
+    fontSize: 12,
+    marginTop: 3,
+  },
+  activePalletLabel: {
+    color: AppPalette.primaryStrong,
+    fontSize: 12,
+    fontWeight: "700",
+    marginLeft: 12,
   },
 });

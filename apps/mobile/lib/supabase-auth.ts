@@ -1,5 +1,4 @@
 import * as FileSystem from "expo-file-system/legacy";
-import * as Linking from "expo-linking";
 import { Platform } from "react-native";
 import {
   createClient,
@@ -8,6 +7,7 @@ import {
 } from "@supabase/supabase-js";
 
 import {
+  clearDemoBearerToken,
   clearRuntimeBearerToken,
   setRuntimeBearerToken,
 } from "@/lib/app-auth";
@@ -19,14 +19,21 @@ import {
 
 const SUPABASE_URL = process.env.EXPO_PUBLIC_SUPABASE_URL ?? "";
 const SUPABASE_ANON_KEY = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY ?? "";
+const TEST_MODE_AVAILABLE =
+  process.env.EXPO_PUBLIC_ENABLE_TEST_MODE === "true";
 const supabaseStorageKey = "supabase-auth";
 const supabaseStorageFile = `${FileSystem.documentDirectory}supabase-auth.json`;
+const testModeStorageKey = "palletflip-test-mode";
+const testModeStorageFile = `${FileSystem.documentDirectory}palletflip-test-mode`;
 
 type SupabaseAuthSnapshot = {
   configured: boolean;
   email: string | null;
+  ready: boolean;
   userId: string | null;
   signedIn: boolean;
+  testMode: boolean;
+  testModeAvailable: boolean;
 };
 
 type SupabaseAuthListener = () => void;
@@ -34,12 +41,15 @@ type SupabaseAuthListener = () => void;
 const listeners = new Set<SupabaseAuthListener>();
 let client: SupabaseClient | null = null;
 let currentSession: Session | null = null;
-let initialized = false;
+let initializationPromise: Promise<void> | null = null;
 let authSnapshot: SupabaseAuthSnapshot = {
   configured: Boolean(SUPABASE_URL.trim() && SUPABASE_ANON_KEY.trim()),
   email: null,
+  ready: false,
   userId: null,
   signedIn: false,
+  testMode: false,
+  testModeAvailable: TEST_MODE_AVAILABLE,
 };
 
 const notify = () => listeners.forEach((listener) => listener());
@@ -89,13 +99,16 @@ const syncSession = (session: Session | null) => {
   authSnapshot = {
     configured: isSupabaseConfigured(),
     email: currentSession?.user.email ?? null,
+    ready: true,
     userId: currentSession?.user.id ?? null,
     signedIn: Boolean(currentSession?.access_token),
+    testMode: session ? false : authSnapshot.testMode,
+    testModeAvailable: TEST_MODE_AVAILABLE,
   };
   if (session?.access_token) {
-    setRuntimeBearerToken(session.access_token);
+    void setRuntimeBearerToken(session.access_token);
   } else {
-    clearRuntimeBearerToken();
+    void clearRuntimeBearerToken();
   }
   notify();
 };
@@ -123,18 +136,38 @@ export const getSupabaseClient = () => {
 };
 
 export const hydrateSupabaseAuth = async () => {
-  if (initialized) {
-    return;
+  if (!initializationPromise) {
+    initializationPromise = (async () => {
+      if (TEST_MODE_AVAILABLE) {
+        try {
+          const storedTestMode =
+            Platform.OS === "web"
+              ? await readWebStorage(testModeStorageKey)
+              : (await FileSystem.getInfoAsync(testModeStorageFile)).exists
+                ? await FileSystem.readAsStringAsync(testModeStorageFile)
+                : null;
+          authSnapshot = {
+            ...authSnapshot,
+            testMode: storedTestMode === "enabled",
+          };
+        } catch {
+          authSnapshot = { ...authSnapshot, testMode: false };
+        }
+      }
+
+      const supabase = getSupabaseClient();
+      if (!supabase) {
+        authSnapshot = { ...authSnapshot, ready: true };
+        notify();
+        return;
+      }
+
+      const { data } = await supabase.auth.getSession();
+      syncSession(data.session);
+    })();
   }
 
-  initialized = true;
-  const supabase = getSupabaseClient();
-  if (!supabase) {
-    return;
-  }
-
-  const { data } = await supabase.auth.getSession();
-  syncSession(data.session);
+  await initializationPromise;
 };
 
 export const getSupabaseAuthSnapshot = (): SupabaseAuthSnapshot => authSnapshot;
@@ -146,7 +179,40 @@ export const subscribeSupabaseAuth = (listener: SupabaseAuthListener) => {
   };
 };
 
-export const sendSupabaseMagicLink = async (email: string) => {
+export const enableTestMode = async () => {
+  if (!TEST_MODE_AVAILABLE) {
+    throw new Error("Test mode is not enabled in this build.");
+  }
+
+  authSnapshot = { ...authSnapshot, ready: true, testMode: true };
+  notify();
+  try {
+    if (Platform.OS === "web") {
+      await writeWebStorage(testModeStorageKey, "enabled");
+    } else {
+      await FileSystem.writeAsStringAsync(testModeStorageFile, "enabled");
+    }
+  } catch {
+    // Test mode still works for the current session if persistence is unavailable.
+  }
+};
+
+export const disableTestMode = async () => {
+  await clearDemoBearerToken();
+  authSnapshot = { ...authSnapshot, testMode: false };
+  notify();
+  try {
+    if (Platform.OS === "web") {
+      await deleteWebStorage(testModeStorageKey);
+    } else {
+      await FileSystem.deleteAsync(testModeStorageFile, { idempotent: true });
+    }
+  } catch {
+    // The in-memory test session is already cleared.
+  }
+};
+
+export const sendSupabaseOtp = async (email: string) => {
   const supabase = getSupabaseClient();
   if (!supabase) {
     throw new Error(
@@ -161,13 +227,36 @@ export const sendSupabaseMagicLink = async (email: string) => {
 
   const { error } = await supabase.auth.signInWithOtp({
     email: trimmedEmail,
-    options: {
-      emailRedirectTo: Linking.createURL("/settings"),
-    },
   });
   if (error) {
     throw error;
   }
+};
+
+export const verifySupabaseOtp = async (email: string, token: string) => {
+  const supabase = getSupabaseClient();
+  if (!supabase) {
+    throw new Error(
+      "Set EXPO_PUBLIC_SUPABASE_URL and EXPO_PUBLIC_SUPABASE_ANON_KEY first.",
+    );
+  }
+
+  const trimmedEmail = email.trim();
+  const trimmedToken = token.replace(/\s/g, "");
+  if (!trimmedEmail || !trimmedToken) {
+    throw new Error("Enter your email and verification code.");
+  }
+
+  const { data, error } = await supabase.auth.verifyOtp({
+    email: trimmedEmail,
+    token: trimmedToken,
+    type: "email",
+  });
+  if (error) {
+    throw error;
+  }
+
+  syncSession(data.session);
 };
 
 export const signOutSupabase = async () => {
@@ -176,32 +265,6 @@ export const signOutSupabase = async () => {
     await supabase.auth.signOut();
   }
   syncSession(null);
-};
-
-export const handleSupabaseCallbackUrl = async (url: string | null) => {
-  if (!url) {
-    return false;
-  }
-
-  const supabase = getSupabaseClient();
-  if (!supabase) {
-    return false;
-  }
-
-  const parsedUrl = Linking.parse(url);
-  const rawCode = parsedUrl.queryParams?.code;
-  const code = Array.isArray(rawCode) ? rawCode[0] : rawCode;
-  if (!code || typeof code !== "string") {
-    return false;
-  }
-
-  const { data, error } = await supabase.auth.exchangeCodeForSession(code);
-  if (error) {
-    throw error;
-  }
-
-  syncSession(data.session);
-  return true;
 };
 
 void hydrateSupabaseAuth();

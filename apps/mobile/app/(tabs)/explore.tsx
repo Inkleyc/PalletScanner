@@ -25,6 +25,7 @@ import {
   getInventory,
   getPallets,
   removeInventoryItem,
+  saveInventoryItem,
   setActivePalletSession,
   subscribeInventory,
   unmarkInventoryItemListed,
@@ -46,7 +47,8 @@ import {
 import { AppLayout, AppPalette } from "@/constants/app-palette";
 import {
   ANTHROPIC_MODEL,
-  readAnthropicMessageText,
+  isAnthropicConfigured,
+  requestAnthropicMessage,
 } from "@/lib/anthropic";
 import {
   filterInventoryItems,
@@ -74,7 +76,16 @@ type BundleSuggestion = {
   reason: string;
 };
 
-const API_KEY = process.env.EXPO_PUBLIC_ANTHROPIC_API_KEY;
+const demoInventorySeed = [
+  { id: 910001, name: "KitchenAid Classic Stand Mixer K45SS", category: "Small kitchen appliances", condition: "Used - good", low: 90, high: 145, floor: 75, list: 129.99, platform: "eBay", photo: "https://i.ebayimg.com/images/g/4uUAAeSwKO1psiam/s-l960.jpg", title: "KitchenAid Classic K45SS 4.5 Qt Tilt-Head Stand Mixer White With Bowl", description: "Tested KitchenAid Classic stand mixer with stainless bowl. Normal cosmetic wear from use; see photos for condition and included pieces." },
+  { id: 910002, name: "DeWalt DCD785 18V Cordless Drill", category: "Power tools", condition: "Used - fair", low: 45, high: 80, floor: 35, list: 69.99, platform: "eBay", photo: "https://cgxuk.co.uk/media/catalog/product/b/0/b0317aac-82e5-4370-b2dc-e5acfc89e1c8.jpeg?height=600&image-type=image&store=default&width=600", title: "DeWalt DCD785 18V XR Cordless Combi Drill Driver Tool", description: "Pre-owned DeWalt cordless drill with visible cosmetic wear. Confirm battery, charger, and accessories shown in photos before purchase." },
+  { id: 910003, name: "Bose QuietComfort Wireless Headphones", category: "Headphones", condition: "Used - good", low: 95, high: 150, floor: 80, list: 139.99, platform: "eBay", photo: "https://i.ebayimg.com/images/g/7LQAAOSwBNNlg5k8/s-l1200.jpg", title: "Bose QuietComfort Wireless Bluetooth Noise Cancelling Headphones Black", description: "Bose QuietComfort over-ear wireless headphones in good working condition with light cosmetic wear. Includes the accessories pictured." },
+  { id: 910004, name: "Electrolux ERB30 Robot Vacuum", category: "Vacuum cleaners", condition: "Open box", low: 75, high: 125, floor: 65, list: 109.99, platform: "Facebook", photo: "https://static.wixstatic.com/media/507b47_d7d1b87453c9462db58dfee0dec8c297~mv2.jpg/v1/fill/w_679%2Ch_711%2Cal_c%2Cq_85%2Cenc_avif%2Cquality_auto/507b47_d7d1b87453c9462db58dfee0dec8c297~mv2.jpg", title: "Electrolux ERB30 Robot Vacuum and Mop", description: "Open-box Electrolux robotic vacuum with remote and charging accessories. Inspect photos for package contents and condition." },
+  { id: 910005, name: "Kobot RV353 Slim Robot Vacuum", category: "Vacuum cleaners", condition: "New - open box", low: 65, high: 110, floor: 55, list: 99.99, platform: "Facebook", photo: "https://media-www.canadiantire.ca/product/living/cleaning/vacuums-and-floorcare/0438152/kobot-rv353-slim-robotic-vacuum-a2801347-ff51-4d6c-ac57-232f2b0098a1.png?imwidth=1024", title: "Kobot RV353 Slim Robotic Vacuum With Charging Dock", description: "Open-box slim robotic vacuum with charging dock. Includes the pieces shown and is ready for final functional verification." },
+  { id: 910006, name: "Samsung VR5000 Robot Vacuum and Mop", category: "Vacuum cleaners", condition: "Used - excellent", low: 115, high: 175, floor: 95, list: 159.99, platform: "eBay", photo: "https://www.galaxus.ch/im/productimages/2/7/1/3/5/3/4/1/5/4/7/5/2/8/6/8/8/2/6/1abccb06-67a7-48c6-a5e2-2453abc039ee_cropped.png", title: "Samsung VR5000 2-in-1 Robot Vacuum and Mop Wi-Fi", description: "Clean Samsung VR5000 robotic vacuum and mop in excellent used condition. Includes charging equipment and accessories pictured." },
+  { id: 910007, name: "Bose QuietComfort Headphones With Case", category: "Headphones", condition: "Seller refurbished", low: 110, high: 165, floor: 95, list: 149.99, platform: "eBay", photo: "https://i.ebayimg.com/images/g/IaoAAeSwNKxptCJe/s-l1200.jpg", title: "Bose QuietComfort Wireless Headphones Beige With Case and Charger", description: "Professionally refurbished Bose QuietComfort headphones with carrying case and charging cable. Tested and ready to use." },
+];
+
 
 const getListedPlatforms = (item: InventoryItem) =>
   Array.isArray(item.listedPlatforms)
@@ -149,8 +160,16 @@ export default function InventoryScreen() {
   const [bundleLoading, setBundleLoading] = useState(false);
   const [bundleModalVisible, setBundleModalVisible] = useState(false);
   const [bundleSuggestions, setBundleSuggestions] = useState<BundleSuggestion[]>([]);
+  const [selectedItemId, setSelectedItemId] = useState<number | null>(null);
+  const [itemDetailDraft, setItemDetailDraft] = useState({
+    name: "", category: "", condition: "", quantity: "1",
+    low: "", high: "", floor: "", listingPrice: "",
+    ebayTitle: "", ebayDescription: "",
+    ebayItemSpecifics: {} as Record<string, string>,
+  });
   const isLargeLayout = width >= 900;
   const previousHasActiveFilters = useRef(false);
+  const demoSeedStarted = useRef(false);
   const listingFilterLabel = getListingFilterLabel(listingFilter);
 
   const selectedPallet =
@@ -159,6 +178,39 @@ export default function InventoryScreen() {
       : pallets.find((pallet) => pallet.id === selectedPalletId) ?? null;
   const activePallet =
     pallets.find((pallet) => pallet.id === activePalletId) ?? null;
+
+  useEffect(() => {
+    if (!__DEV__ || demoSeedStarted.current || items.length === 0 || pallets.length === 0) return;
+    const missing = demoInventorySeed.filter((seed) => !items.some((item) => item.id === seed.id));
+    if (missing.length === 0) return;
+    demoSeedStarted.current = true;
+    const palletId = activePallet?.id ?? pallets[0].id;
+    void Promise.all(missing.map((seed, index) => saveInventoryItem({
+      id: seed.id,
+      photo: seed.photo,
+      photos: [seed.photo],
+      name: seed.name,
+      category: seed.category,
+      condition: seed.condition,
+      quantity: 1,
+      low_price: seed.low,
+      high_price: seed.high,
+      floor_price: seed.floor,
+      listing_price: seed.list,
+      best_platform: seed.platform,
+      listing_title: seed.title,
+      listing_description: seed.description,
+      listing_title_ebay: seed.title,
+      listing_description_ebay: seed.description,
+      listing_title_facebook: seed.name,
+      listing_description_facebook: seed.description,
+      listedPlatforms: [],
+      palletId,
+      soldPrice: null,
+      ebayItemSpecifics: {},
+      capturedAt: new Date(Date.now() - (index + 1) * 86400000).toISOString(),
+    })));
+  }, [activePallet?.id, items, pallets]);
   const getPalletName = (palletId: string) =>
     pallets.find((pallet) => pallet.id === palletId)?.name ?? "Unknown pallet";
   const filterOptions = useMemo(
@@ -174,6 +226,109 @@ export default function InventoryScreen() {
     () => filterInventoryItems(items, filterOptions),
     [filterOptions, items],
   );
+  const selectedItem = items.find((item) => item.id === selectedItemId) ?? null;
+
+  const openItemDetails = (item: InventoryItem) => {
+    setSelectedItemId(item.id);
+    setItemDetailDraft({
+      name: item.name,
+      category: item.category ?? "",
+      condition: item.condition,
+      quantity: String(item.quantity),
+      low: String(item.low_price),
+      high: String(item.high_price),
+      floor: String(item.floor_price),
+      listingPrice: String(item.listing_price ?? item.high_price),
+      ebayTitle: item.listing_title_ebay || item.listing_title,
+      ebayDescription: item.listing_description_ebay || item.listing_description,
+      ebayItemSpecifics: { ...(item.ebayItemSpecifics ?? {}) },
+    });
+  };
+
+  const updateItemDetailDraft = (field: keyof typeof itemDetailDraft, value: string) =>
+    setItemDetailDraft((current) => ({ ...current, [field]: value }));
+
+  const saveItemDetails = async (closeAfterSave = true): Promise<InventoryItem | null> => {
+    if (!selectedItem) return null;
+    const quantity = Number(itemDetailDraft.quantity);
+    const low = Number(itemDetailDraft.low);
+    const high = Number(itemDetailDraft.high);
+    const floor = Number(itemDetailDraft.floor);
+    const listingPrice = Number(itemDetailDraft.listingPrice);
+    if (!itemDetailDraft.name.trim()) {
+      Alert.alert("Name required", "Enter an item name before saving.");
+      return null;
+    }
+    if (!Number.isInteger(quantity) || quantity < 1) {
+      Alert.alert("Invalid quantity", "Quantity must be a whole number of at least one.");
+      return null;
+    }
+    if (![low, high, floor, listingPrice].every((value) => Number.isFinite(value) && value >= 0) || listingPrice === 0) {
+      Alert.alert("Invalid price", "Enter valid prices and a listing price greater than zero.");
+      return null;
+    }
+    if (high < low) {
+      Alert.alert("Invalid price range", "The high estimate cannot be lower than the low estimate.");
+      return null;
+    }
+    const updatedItem: InventoryItem = {
+      ...selectedItem,
+      name: itemDetailDraft.name.trim(),
+      category: itemDetailDraft.category.trim() || "Uncategorized",
+      condition: itemDetailDraft.condition.trim() || "Unknown",
+      quantity, low_price: low, high_price: high, floor_price: floor,
+      listing_price: listingPrice,
+      listing_title: itemDetailDraft.ebayTitle.trim(),
+      listing_title_ebay: itemDetailDraft.ebayTitle.trim(),
+      listing_description: itemDetailDraft.ebayDescription.trim(),
+      listing_description_ebay: itemDetailDraft.ebayDescription.trim(),
+      ebayItemSpecifics: itemDetailDraft.ebayItemSpecifics,
+    };
+    await saveInventoryItem(updatedItem);
+    if (closeAfterSave) {
+      setSelectedItemId(null);
+      Alert.alert("Item updated", "The listing details and eBay price have been saved.");
+    }
+    return updatedItem;
+  };
+
+  const postItemFromDetails = async (platform: "facebook" | "ebay") => {
+    const updatedItem = await saveItemDetails(false);
+    if (!updatedItem) return;
+    setSelectedItemId(null);
+    await openListingDraft(updatedItem, platform);
+  };
+
+  const markSoldFromDetails = (item: InventoryItem) => {
+    setSelectedItemId(null);
+    setTimeout(() => {
+      void (async () => {
+        const answer = await Alert.prompt(
+          item.soldPrice !== null ? "Update sold price" : "Mark item sold",
+          "Enter the final sale price.",
+          item.soldPrice !== null ? String(item.soldPrice) : String(item.listing_price ?? item.high_price),
+          "Sale price",
+        );
+        if (answer === null) return;
+        const soldPrice = Number(answer.trim());
+        if (!Number.isFinite(soldPrice) || soldPrice < 0) {
+          Alert.alert("Invalid sold price", "Enter a valid amount like 25 or 25.50.");
+          return;
+        }
+        try {
+          await endItemEbayListing(item);
+          updateInventoryItemSoldPrice(item.id, soldPrice);
+        } catch (error) {
+          Alert.alert("Could not mark sold", error instanceof Error ? error.message : "The active eBay listing could not be ended.");
+        }
+      })();
+    }, 180);
+  };
+
+  const removeItemFromDetails = (item: InventoryItem) => {
+    setSelectedItemId(null);
+    setTimeout(() => removeItem(item), 180);
+  };
 
   const palletScopedItemCount =
     selectedPalletId === "all"
@@ -214,7 +369,7 @@ export default function InventoryScreen() {
     [filteredItems],
   );
   const hasActiveFilters = hasActiveInventoryFilters(filterOptions);
-  const showItemTools = () => isLargeLayout;
+  const showItemTools = () => false;
   const getWorkflowStatusStyle = (
     status: ReturnType<typeof getInventoryWorkflowStatus>["status"],
   ) => {
@@ -687,8 +842,8 @@ export default function InventoryScreen() {
   };
 
   const suggestBundle = async () => {
-    if (!API_KEY) {
-      Alert.alert("Missing API key", "Set your Anthropic API key before requesting bundle suggestions.");
+    if (!isAnthropicConfigured()) {
+      Alert.alert("AI unavailable", "The secure AI backend is not configured.");
       return;
     }
 
@@ -706,14 +861,7 @@ export default function InventoryScreen() {
         high_price: item.high_price,
       }));
 
-      const response = await fetch("https://api.anthropic.com/v1/messages", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "x-api-key": API_KEY,
-          "anthropic-version": "2023-06-01",
-        } as HeadersInit,
-        body: JSON.stringify({
+      const text = await requestAnthropicMessage({
           model: ANTHROPIC_MODEL,
           max_tokens: 1000,
           messages: [
@@ -740,10 +888,7 @@ ${JSON.stringify(promptItems, null, 2)}`,
               ],
             },
           ],
-        }),
       });
-
-      const text = await readAnthropicMessageText(response);
       const parsed = JSON.parse(text.replace(/```json|```/g, "").trim());
       const bundles = Array.isArray(parsed.bundles) ? parsed.bundles : [];
       setBundleSuggestions(bundles);
@@ -1375,7 +1520,11 @@ ${JSON.stringify(promptItems, null, 2)}`,
                 ) : null}
               </View>
             )}
-            <View style={styles.itemTop}>
+            <TouchableOpacity
+              activeOpacity={0.8}
+              style={styles.itemTop}
+              onPress={() => openItemDetails(item)}
+            >
               {itemPhotoUri ? (
                 <Image source={{ uri: itemPhotoUri }} style={styles.itemPhoto} />
               ) : null}
@@ -1389,6 +1538,9 @@ ${JSON.stringify(promptItems, null, 2)}`,
                   <Text style={styles.quantityBadge}>Qty {itemQuantity}</Text>
                   <Text style={styles.floorBadge}>
                     Floor ${displayNumber(item.floor_price, displayNumber(item.low_price))}
+                  </Text>
+                  <Text style={styles.listingPriceBadge}>
+                    List ${displayNumber(item.listing_price, displayNumber(item.high_price))}
                   </Text>
                   <Text style={styles.conditionBadge}>
                     {displayText(item.condition, "Unknown")}
@@ -1405,8 +1557,8 @@ ${JSON.stringify(promptItems, null, 2)}`,
                   )}
                 </View>
               </View>
-            </View>
-            {!isLargeLayout ? (
+            </TouchableOpacity>
+            {false ? (
               <TouchableOpacity
                 style={styles.listingToolsToggle}
                 onPress={() => showItemActionMenu(item)}
@@ -1594,7 +1746,7 @@ ${JSON.stringify(promptItems, null, 2)}`,
                 ) : null}
               </>
             ) : null}
-            {isLargeLayout ? (
+            {false ? (
             <View style={styles.itemSecondaryActions}>
               <TouchableOpacity
                 style={styles.secondaryActionBtn}
@@ -1659,6 +1811,59 @@ ${JSON.stringify(promptItems, null, 2)}`,
         })}
         </View>
       </ScrollView>
+      <Modal
+        visible={Boolean(selectedItem)}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setSelectedItemId(null)}
+      >
+        <Pressable style={styles.itemDetailBackdrop} onPress={() => setSelectedItemId(null)}>
+          <Pressable style={styles.itemDetailCard} onPress={() => undefined}>
+            <View style={styles.itemDetailHeader}>
+              <View style={styles.itemDetailHeading}>
+                <Text style={styles.itemDetailTitle}>{selectedItem?.name ?? "Item details"}</Text>
+                <Text style={styles.itemDetailSubtitle}>{selectedItem ? getPalletName(selectedItem.palletId) : ""}</Text>
+              </View>
+              <TouchableOpacity style={styles.itemDetailClose} onPress={() => setSelectedItemId(null)}>
+                <Text style={styles.itemDetailCloseText}>Close</Text>
+              </TouchableOpacity>
+            </View>
+            <ScrollView contentContainerStyle={styles.itemDetailContent}>
+              {selectedItem?.photos?.length || selectedItem?.photo ? (
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.itemDetailPhotos}>
+                  {(selectedItem.photos?.length ? selectedItem.photos : selectedItem.photo ? [selectedItem.photo] : []).map((uri, index) => (
+                    <Image key={`${uri}-${index}`} source={{ uri }} style={styles.itemDetailPhoto} />
+                  ))}
+                </ScrollView>
+              ) : null}
+              <View style={styles.itemEditGrid}>
+                <View style={styles.itemEditWide}><Text style={styles.itemDetailLabel}>Item name</Text><TextInput style={styles.itemEditInput} value={itemDetailDraft.name} onChangeText={(value) => updateItemDetailDraft("name", value)} /></View>
+                <View style={styles.itemEditField}><Text style={styles.itemDetailLabel}>Category</Text><TextInput style={styles.itemEditInput} value={itemDetailDraft.category} onChangeText={(value) => updateItemDetailDraft("category", value)} /></View>
+                <View style={styles.itemEditField}><Text style={styles.itemDetailLabel}>Condition</Text><TextInput style={styles.itemEditInput} value={itemDetailDraft.condition} onChangeText={(value) => updateItemDetailDraft("condition", value)} /></View>
+                <View style={styles.itemEditField}><Text style={styles.itemDetailLabel}>Quantity</Text><TextInput style={styles.itemEditInput} value={itemDetailDraft.quantity} onChangeText={(value) => updateItemDetailDraft("quantity", value)} keyboardType="number-pad" /></View>
+                <View style={styles.itemEditField}><Text style={styles.itemDetailLabel}>Low estimate</Text><TextInput style={styles.itemEditInput} value={itemDetailDraft.low} onChangeText={(value) => updateItemDetailDraft("low", value)} keyboardType="decimal-pad" /></View>
+                <View style={styles.itemEditField}><Text style={styles.itemDetailLabel}>High estimate</Text><TextInput style={styles.itemEditInput} value={itemDetailDraft.high} onChangeText={(value) => updateItemDetailDraft("high", value)} keyboardType="decimal-pad" /></View>
+                <View style={styles.itemEditField}><Text style={styles.itemDetailLabel}>Floor price</Text><TextInput style={styles.itemEditInput} value={itemDetailDraft.floor} onChangeText={(value) => updateItemDetailDraft("floor", value)} keyboardType="decimal-pad" /></View>
+              </View>
+              <View style={styles.listingPriceEditor}><Text style={styles.itemDetailLabel}>eBay listing price</Text><Text style={styles.listingPriceHelp}>This exact price is sent to eBay.</Text><View style={styles.listingPriceRow}><Text style={styles.listingPriceCurrency}>$</Text><TextInput style={styles.listingPriceInput} value={itemDetailDraft.listingPrice} onChangeText={(value) => updateItemDetailDraft("listingPrice", value)} keyboardType="decimal-pad" placeholder="0.00" /></View></View>
+              <View style={styles.itemDetailSection}><Text style={styles.itemDetailLabel}>eBay title</Text><TextInput style={styles.itemEditInput} value={itemDetailDraft.ebayTitle} onChangeText={(value) => updateItemDetailDraft("ebayTitle", value)} maxLength={80} /><Text style={styles.characterCount}>{itemDetailDraft.ebayTitle.length}/80</Text></View>
+              <View style={styles.itemDetailSection}><Text style={styles.itemDetailLabel}>eBay description</Text><TextInput style={[styles.itemEditInput, styles.itemEditTextArea]} value={itemDetailDraft.ebayDescription} onChangeText={(value) => updateItemDetailDraft("ebayDescription", value)} multiline textAlignVertical="top" /></View>
+              {Object.keys(itemDetailDraft.ebayItemSpecifics).length > 0 ? (
+                <View style={styles.itemDetailSection}><Text style={styles.itemDetailSectionTitle}>eBay details</Text>{Object.entries(itemDetailDraft.ebayItemSpecifics).map(([key, value]) => <View key={key} style={styles.itemSpecificField}><Text style={styles.itemDetailLabel}>{key}</Text><TextInput style={styles.itemEditInput} value={value} onChangeText={(nextValue) => setItemDetailDraft((current) => ({ ...current, ebayItemSpecifics: { ...current.ebayItemSpecifics, [key]: nextValue } }))} /></View>)}</View>
+              ) : null}
+              {selectedItem ? (
+                <View style={styles.itemDetailActions}>
+                  <TouchableOpacity style={styles.itemDetailPlatformButton} onPress={() => { void postItemFromDetails("facebook"); }}><Text style={styles.itemDetailPlatformText}>Post to Facebook</Text></TouchableOpacity>
+                  <TouchableOpacity style={[styles.itemDetailPlatformButton, styles.itemDetailEbayButton]} onPress={() => { void postItemFromDetails("ebay"); }}><Text style={styles.itemDetailPlatformText}>Post to eBay</Text></TouchableOpacity>
+                  <TouchableOpacity style={styles.itemDetailMoreButton} onPress={() => markSoldFromDetails(selectedItem)}><Text style={styles.itemDetailMoreText}>{selectedItem.soldPrice !== null ? "Edit sold price" : "Mark sold"}</Text></TouchableOpacity>
+                  <TouchableOpacity style={styles.itemDetailRemoveButton} onPress={() => removeItemFromDetails(selectedItem)}><Text style={styles.itemDetailRemoveText}>Remove item</Text></TouchableOpacity>
+                </View>
+              ) : null}
+              <TouchableOpacity style={styles.saveItemChangesButton} onPress={() => { void saveItemDetails(); }}><Text style={styles.saveListingPriceText}>Save changes</Text></TouchableOpacity>
+            </ScrollView>
+          </Pressable>
+        </Pressable>
+      </Modal>
       <Modal
         visible={bundleModalVisible}
         transparent
@@ -2439,6 +2644,72 @@ const styles = StyleSheet.create({
     color: AppPalette.textSoft,
     marginBottom: 2,
   },
+  listingPriceBadge: {
+    backgroundColor: AppPalette.infoSoft,
+    borderRadius: 8,
+    color: AppPalette.info,
+    fontSize: 12,
+    fontWeight: "700",
+    paddingHorizontal: 8,
+    paddingVertical: 5,
+  },
+  itemDetailBackdrop: {
+    backgroundColor: AppPalette.modalBackdrop,
+    flex: 1,
+    justifyContent: "center",
+    padding: 16,
+  },
+  itemDetailCard: {
+    backgroundColor: AppPalette.surface,
+    borderRadius: 8,
+    maxHeight: "90%",
+    overflow: "hidden",
+  },
+  itemDetailHeader: {
+    alignItems: "center",
+    borderBottomColor: AppPalette.border,
+    borderBottomWidth: 1,
+    flexDirection: "row",
+    padding: 16,
+  },
+  itemDetailHeading: { flex: 1, paddingRight: 12 },
+  itemDetailTitle: { color: AppPalette.text, fontSize: 20, fontWeight: "700" },
+  itemDetailSubtitle: { color: AppPalette.textMuted, fontSize: 13, marginTop: 3 },
+  itemDetailClose: { borderColor: AppPalette.border, borderRadius: 8, borderWidth: 1, paddingHorizontal: 12, paddingVertical: 9 },
+  itemDetailCloseText: { color: AppPalette.text, fontSize: 13, fontWeight: "700" },
+  itemDetailContent: { gap: 16, padding: 16 },
+  itemDetailPhotos: { gap: 10 },
+  itemDetailPhoto: { backgroundColor: AppPalette.surfaceMuted, borderRadius: 8, height: 180, resizeMode: "cover", width: 180 },
+  itemDetailFacts: { flexDirection: "row", flexWrap: "wrap", gap: 10 },
+  itemDetailFact: { backgroundColor: AppPalette.surfaceMuted, borderRadius: 8, minWidth: 130, padding: 10 },
+  itemDetailLabel: { color: AppPalette.textSoft, fontSize: 11, fontWeight: "700", textTransform: "uppercase" },
+  itemDetailValue: { color: AppPalette.text, fontSize: 15, fontWeight: "600", marginTop: 4 },
+  listingPriceEditor: { borderColor: AppPalette.border, borderRadius: 8, borderWidth: 1, padding: 12 },
+  listingPriceHelp: { color: AppPalette.textMuted, fontSize: 12, lineHeight: 18, marginTop: 4 },
+  listingPriceRow: { alignItems: "center", flexDirection: "row", gap: 8, marginTop: 10 },
+  listingPriceCurrency: { color: AppPalette.text, fontSize: 20, fontWeight: "700" },
+  listingPriceInput: { borderColor: AppPalette.border, borderRadius: 8, borderWidth: 1, color: AppPalette.text, flex: 1, fontSize: 16, minHeight: 46, paddingHorizontal: 12 },
+  saveListingPriceButton: { backgroundColor: AppPalette.primaryStrong, borderRadius: 8, minHeight: 46, justifyContent: "center", paddingHorizontal: 18 },
+  saveListingPriceText: { color: AppPalette.primaryOn, fontSize: 14, fontWeight: "700" },
+  itemDetailSection: { borderTopColor: AppPalette.border, borderTopWidth: 1, paddingTop: 14 },
+  itemDetailBody: { color: AppPalette.text, fontSize: 14, lineHeight: 21, marginTop: 6 },
+  itemEditGrid: { flexDirection: "row", flexWrap: "wrap", gap: 10 },
+  itemEditField: { flexGrow: 1, minWidth: 135 },
+  itemEditWide: { width: "100%" },
+  itemEditInput: { backgroundColor: AppPalette.surface, borderColor: AppPalette.border, borderRadius: 8, borderWidth: 1, color: AppPalette.text, fontSize: 14, marginTop: 5, minHeight: 46, paddingHorizontal: 12, paddingVertical: 10 },
+  itemEditTextArea: { minHeight: 120 },
+  characterCount: { color: AppPalette.textMuted, fontSize: 11, marginTop: 4, textAlign: "right" },
+  itemDetailSectionTitle: { color: AppPalette.text, fontSize: 16, fontWeight: "700", marginBottom: 4 },
+  itemSpecificField: { marginTop: 10 },
+  itemDetailActions: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
+  itemDetailPlatformButton: { alignItems: "center", backgroundColor: AppPalette.primaryStrong, borderRadius: 8, flexGrow: 1, justifyContent: "center", minHeight: 46, minWidth: 140, paddingHorizontal: 14 },
+  itemDetailEbayButton: { backgroundColor: AppPalette.info },
+  itemDetailPlatformText: { color: AppPalette.primaryOn, fontSize: 13, fontWeight: "700" },
+  itemDetailMoreButton: { alignItems: "center", borderColor: AppPalette.border, borderRadius: 8, borderWidth: 1, justifyContent: "center", minHeight: 46, paddingHorizontal: 14 },
+  itemDetailMoreText: { color: AppPalette.text, fontSize: 13, fontWeight: "700" },
+  itemDetailRemoveButton: { alignItems: "center", backgroundColor: AppPalette.dangerSoft, borderColor: AppPalette.danger, borderRadius: 8, borderWidth: 1, justifyContent: "center", minHeight: 46, paddingHorizontal: 14 },
+  itemDetailRemoveText: { color: AppPalette.dangerStrong, fontSize: 13, fontWeight: "700" },
+  saveItemChangesButton: { alignItems: "center", backgroundColor: AppPalette.primaryStrong, borderRadius: 8, minHeight: 50, justifyContent: "center", paddingHorizontal: 18 },
   bundleModalBackdrop: {
     flex: 1,
     backgroundColor: AppPalette.modalBackdrop,

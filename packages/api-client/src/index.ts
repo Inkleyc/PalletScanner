@@ -54,7 +54,9 @@ export type CreateEbayListingPayload = {
   price: number;
   floorPrice: number;
   condition: string;
+  category?: string;
   quantity: number;
+  itemSpecifics?: Record<string, string>;
   photos: EbayListingPhotoPayload[];
   product: {
     name: string;
@@ -70,6 +72,15 @@ export type CreateEbayListingResponse = {
   categoryName?: string;
   duplicateRecovered?: boolean;
   updated?: boolean;
+};
+
+export type EbayListingRequirements = {
+  status: "ready" | "needs_input";
+  categoryId: string;
+  categoryName: string;
+  itemSpecifics: Record<string, string>;
+  questions: { key: string; label: string; type: "select" | "text"; options: string[]; required: boolean; reason: string }[];
+  fields?: { key: string; label: string; type: "select" | "text"; options: string[]; required: boolean; value: string; source: "saved" | "inferred" | "missing"; reason: string }[];
 };
 
 type FetchLike = typeof fetch;
@@ -166,6 +177,14 @@ export const createEbayApiClient = ({
         headers: await getHeaders(),
       });
       return (await response.json()) as EbayConnectionStatus;
+    },
+    getListingRequirements: async (payload: CreateEbayListingPayload) => {
+      const response = await request("/ebay/listing-requirements", {
+        method: "POST",
+        headers: await getHeaders(true),
+        body: JSON.stringify(payload),
+      });
+      return (await response.json()) as EbayListingRequirements;
     },
     createListing: async (payload: CreateEbayListingPayload) => {
       const response = await request("/ebay/listings", {

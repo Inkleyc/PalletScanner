@@ -18,13 +18,19 @@ Current preview behavior:
 - Overview metrics for item count, sell-through, sold revenue, remaining value, pallet cost, gross profit, and marketplace work counts.
 - Pallet health cards with cost, sold revenue, estimated value, and open issues.
 - Attention queue for items that need a business decision, with a clear empty state.
-- Listings queue for marketplace work across Facebook and eBay, with a clear empty state.
+- A focused Review workspace for decisions, listing readiness, marketplace
+  failures, aging inventory, and listed items.
+- A separate full-width Inventory management table with persistent photo
+  thumbnails, search, platform and pallet filters, bulk changes, exports, and a
+  complete item-record popup.
 - Aging queue for unsold items that have been sitting longer than the review window.
-- Inventory table with search, pallet/status/platform filters, clickable pallet and marketplace drill-ins, filtered pallet context, quantity- and age-aware sortable columns, no-results state, selected-item detail, and filtered CSV export.
+- Inventory table with search, pallet/platform filters, filtered pallet context,
+  quantity- and age-aware sortable columns, no-results state, item-record
+  popups, and filtered CSV export.
 - Repository-backed item editing for identity, condition, pallet assignment, quantity,
   price range, workflow status, platform, sold price, and listing copy.
-- Local pallet and item creation, guarded deletion, active-pallet selection, and
-  quick workflow-state actions.
+- Pallet creation, guarded deletion, phone scan-target selection, and quick
+  inventory workflow-state actions. New inventory intake stays in the mobile app.
 - Local activity history for pallet and inventory mutations.
 - Downloadable and validated/restorable JSON backups of local repository data
   and activity history. Restore requires explicit replacement confirmation.

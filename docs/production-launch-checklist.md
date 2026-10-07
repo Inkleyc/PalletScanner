@@ -98,6 +98,22 @@ These cannot be completed from the repository:
 
 - Enroll in Apple Developer Program before TestFlight/App Store.
 
+## Native App Unlock Before Launch
+
+- Add `expo-local-authentication` to the mobile app and configure the iOS Face ID
+  permission message in `app.json`.
+- After the first successful email-code sign-in, offer to enable Face ID, Touch
+  ID, or the device passcode for future app unlocks.
+- Keep the Supabase session as the account identity. Biometrics only unlock the
+  saved session; require another email code after sign-out, session expiry, or a
+  move to a new device.
+- Provide a clear fallback to the device passcode and then email-code sign-in if
+  local authentication is unavailable or locked out.
+- Test cold launch, background resume, cancellation, failed authentication,
+  lockout, sign-out, and expired-session behavior on physical iPhones.
+- Verify Face ID in an installable development or TestFlight build. Expo Go does
+  not support testing Face ID.
+
 ## Recommended Auth Path
 
 Supabase Auth is wired into the app as the recommended first production auth
@@ -119,8 +135,8 @@ Supabase access tokens use the signed-in user's stable ID as `sub`, which lets
 the eBay backend store one encrypted eBay connection per app user.
 
 Use the manual runtime token field only for production smoke tests. For real
-users, the Supabase login card in Settings obtains the JWT at runtime. The
-backend expects HS256 JWTs with:
+users, the launch sign-in screen obtains the Supabase session and JWT through
+the in-app email verification-code flow. The backend expects HS256 JWTs with:
 
 ```json
 {

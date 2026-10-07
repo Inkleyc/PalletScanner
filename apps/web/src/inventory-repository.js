@@ -7,6 +7,7 @@ const normalizeItem = (item) => ({
   ...item,
   low_price: Number.isFinite(item.low_price) ? item.low_price : item.low ?? 0,
   high_price: Number.isFinite(item.high_price) ? item.high_price : item.high ?? 0,
+  listing_price: Number.isFinite(item.listing_price) ? item.listing_price : (item.high_price ?? item.high ?? 0),
   floor_price: Number.isFinite(item.floor_price) ? item.floor_price : item.floor ?? 0,
   low: Number.isFinite(item.low) ? item.low : item.low_price ?? 0,
   high: Number.isFinite(item.high) ? item.high : item.high_price ?? 0,

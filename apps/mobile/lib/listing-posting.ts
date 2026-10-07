@@ -1,13 +1,19 @@
 import * as Clipboard from "expo-clipboard";
 import * as WebBrowser from "expo-web-browser";
 import { Linking } from "react-native";
+import type { CaptureAnalysisResult } from "@palletscanner/core";
 
 import { AppAlert as Alert } from "@/lib/app-alert";
 import { getAppSettings } from "@/lib/app-settings";
-import { createEbayListing, isEbayApiConfigured } from "@/lib/ebay-integration";
+import {
+  createEbayListing,
+  getEbayListingRequirements,
+  isEbayApiConfigured,
+} from "@/lib/ebay-integration";
 import { triggerCopyFeedback } from "@/lib/feedback";
 import {
   markInventoryItemListed,
+  saveInventoryItem,
   type InventoryItem,
   updateInventoryItemEbayStatus,
   updateInventoryItemFacebookStatus,
@@ -244,6 +250,111 @@ const showFacebookPostingGuide = (
   );
 };
 
+export const completeEbayListingRequirements = async (
+  item: InventoryItem,
+): Promise<InventoryItem | null> => {
+  if (!isEbayApiConfigured()) return item;
+  const requirements = await getEbayListingRequirements(item);
+  const answers = {
+    ...(requirements.itemSpecifics ?? {}),
+    ...(item.ebayItemSpecifics ?? {}),
+  };
+  for (const question of requirements.questions) {
+    const answer = await Alert.prompt(
+      question.label,
+      `${question.reason}. Enter the value shown on the item or packaging.`,
+      answers[question.key] ?? "",
+      /screen\s*size/i.test(question.key) ? "For example: 71 in" : "Enter a value",
+      question.type === "select" ? question.options : [],
+    );
+    if (answer === null) return null;
+    if (question.required && !answer.trim()) {
+      Alert.alert("Answer required", question.label);
+      return null;
+    }
+    answers[question.key] = answer.trim();
+  }
+  return { ...item, ebayItemSpecifics: answers };
+};
+
+export const completeEbayAnalysisRequirements = async (
+  analysis: CaptureAnalysisResult,
+): Promise<CaptureAnalysisResult> => {
+  const item: InventoryItem = {
+    id: Date.now(),
+    photo: null,
+    name: analysis.name,
+    category: analysis.category,
+    condition: analysis.condition,
+    quantity: 1,
+    low_price: analysis.low_price,
+    high_price: analysis.high_price,
+    floor_price: analysis.floor_price ?? analysis.low_price,
+    best_platform: analysis.best_platform,
+    listing_title: analysis.listing_title ?? analysis.name,
+    listing_description: analysis.listing_description ?? analysis.description,
+    listing_title_ebay: analysis.listing_title_ebay,
+    listing_description_ebay: analysis.listing_description_ebay,
+    listedPlatforms: [],
+    palletId: "analysis-preview",
+    soldPrice: null,
+    ebayItemSpecifics: analysis.ebay_item_specifics,
+  };
+  try {
+    if (!isEbayApiConfigured()) return analysis;
+    const requirements = await getEbayListingRequirements(item);
+    const answers = {
+      ...(requirements.itemSpecifics ?? {}),
+      ...(analysis.ebay_item_specifics ?? {}),
+    };
+    const fields = requirements.fields ?? requirements.questions;
+    const missing = requirements.questions;
+    const fieldsToEdit = missing.length > 0
+      ? missing
+      : await new Promise<boolean>((resolve) => {
+          const summary = fields.length > 0
+            ? fields.map((field) => `${field.label}: ${answers[field.key] || "Not found"}`).join("\n")
+            : "eBay does not require any additional item details for this category.";
+          Alert.alert(
+            "eBay details ready",
+            summary,
+            fields.length > 0
+              ? [
+                  { text: "Edit details", style: "cancel", onPress: () => resolve(true) },
+                  { text: "Looks good", onPress: () => resolve(false) },
+                ]
+              : [{ text: "Continue", onPress: () => resolve(false) }],
+            () => resolve(false),
+          );
+        })
+        ? fields
+        : [];
+
+    for (const field of fieldsToEdit) {
+      const answer = await Alert.prompt(
+        field.label,
+        `${field.reason}. Enter the value shown on the item or packaging.`,
+        answers[field.key] ?? ("value" in field ? field.value : ""),
+        /screen\s*size/i.test(field.key) ? "For example: 71 in" : "Enter a value",
+        field.type === "select" ? field.options : [],
+      );
+      if (answer === null) return { ...analysis, ebay_item_specifics: answers };
+      if (field.required && !answer.trim()) {
+        Alert.alert("Answer required", field.label);
+        return { ...analysis, ebay_item_specifics: answers };
+      }
+      answers[field.key] = answer.trim();
+    }
+    return { ...analysis, ebay_item_specifics: answers };
+  } catch {
+    Alert.alert(
+      "eBay details can be finished later",
+      "The item analysis is complete, but PalletFlip could not check eBay's required details right now.",
+    );
+    return analysis;
+  }
+};
+
 export const openListingDraft = async (
   item: InventoryItem,
   platform: "facebook" | "ebay",
@@ -278,13 +389,28 @@ export const openListingDraft = async (
   }
 
   if (platform === "ebay" && isEbayApiConfigured()) {
+    let ebayItem: InventoryItem;
+    try {
+      const completedItem = await completeEbayListingRequirements(item);
+      if (!completedItem) return {
+        status: "cancelled",
+        title: "Publishing cancelled",
+        message: "The required eBay details were left for later.",
+      };
+      ebayItem = completedItem;
+      await saveInventoryItem(ebayItem);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Could not check eBay listing requirements.";
+      Alert.alert("Could not check eBay requirements", message);
+      return { status: "failed", title: "Could not check eBay requirements", message };
+    }
     updateInventoryItemEbayStatus(item.id, {
       status: "posting",
       progress: "Preparing listing",
     });
     options?.onProgress?.("Preparing listing");
     try {
-      const result = await createEbayListing(item, (message) => {
+      const result = await createEbayListing(ebayItem, (message) => {
         updateInventoryItemEbayStatus(item.id, {
           status: "posting",
           progress: message,

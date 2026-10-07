@@ -1,12 +1,21 @@
-import { Tabs } from "expo-router";
-import React from "react";
-import { Platform, Text, View } from "react-native";
+import { Redirect, Tabs } from "expo-router";
+import React, { useSyncExternalStore } from "react";
+import { ActivityIndicator, Platform, Text, View } from "react-native";
 
 import { HapticTab } from "@/components/haptic-tab";
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { AppPalette } from "@/constants/app-palette";
+import {
+  getSupabaseAuthSnapshot,
+  subscribeSupabaseAuth,
+} from "@/lib/supabase-auth";
 
 export default function TabLayout() {
+  const auth = useSyncExternalStore(
+    subscribeSupabaseAuth,
+    getSupabaseAuthSnapshot,
+    getSupabaseAuthSnapshot,
+  );
   const activeTint = AppPalette.primaryStrong;
   const inactiveTint = AppPalette.textMuted;
   const isTablet = Platform.OS === "ios" && Platform.isPad;
@@ -54,6 +63,25 @@ export default function TabLayout() {
     TabLabel.displayName = displayName;
     return TabLabel;
   };
+
+  if (!auth.ready) {
+    return (
+      <View
+        style={{
+          flex: 1,
+          alignItems: "center",
+          justifyContent: "center",
+          backgroundColor: AppPalette.background,
+        }}
+      >
+        <ActivityIndicator size="large" color={AppPalette.primaryStrong} />
+      </View>
+    );
+  }
+
+  if (!auth.signedIn && !auth.testMode) {
+    return <Redirect href="/login" />;
+  }
 
   return (
     <Tabs
@@ -123,6 +151,14 @@ export default function TabLayout() {
           href: null,
           tabBarIcon: createTabIcon("chart.bar.fill", "StatsTabIcon"),
           tabBarLabel: createTabLabel("Stats", "StatsTabLabel"),
+        }}
+      />
+      <Tabs.Screen
+        name="dashboard"
+        options={{
+          title: "Dashboard",
+          tabBarIcon: createTabIcon("rectangle.3.group.fill", "DashboardTabIcon"),
+          tabBarLabel: createTabLabel("Dashboard", "DashboardTabLabel"),
         }}
       />
       <Tabs.Screen

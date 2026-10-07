@@ -19,11 +19,13 @@ const MAPPING = {
   'list.bullet': 'view-list',
   'archivebox.fill': 'inventory-2',
   'chart.bar.fill': 'bar-chart',
+  'rectangle.3.group.fill': 'dashboard',
   'gearshape.fill': 'settings',
   'paperplane.fill': 'send',
   'tag.fill': 'sell',
   'chevron.left.forwardslash.chevron.right': 'code',
   'chevron.right': 'chevron-right',
+  'square.and.pencil': 'edit',
 } as IconMapping;
 
 /**

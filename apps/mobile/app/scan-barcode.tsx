@@ -19,17 +19,21 @@ import {
 
 import { LoadingStatus } from "@/components/loading-status";
 import { PhotoReferenceCards } from "@/components/photo-reference-cards";
+import { WebBarcodeScanner } from "@/components/web-barcode-scanner";
 import { AppPalette } from "@/constants/app-palette";
 import {
   ANTHROPIC_MODEL,
+  getAnalysisImageMediaType,
+  isAnthropicConfigured,
   parseAnthropicJsonObject,
-  readAnthropicMessageText,
+  requestAnthropicMessage,
 } from "@/lib/anthropic";
 import { AppAlert as Alert } from "@/lib/app-alert";
 import { incrementScanCount } from "@/lib/app-meta";
 import { getAppSettings, subscribeAppSettings } from "@/lib/app-settings";
 import {
   lookupBarcodeProduct,
+  normalizeLookupBarcode,
   type BarcodeLookupItem,
 } from "@/lib/barcode-lookup";
 import {
@@ -59,7 +63,11 @@ import {
   type ListingDraftMap,
   type ListingDraftPlatform,
 } from "@/lib/listing-drafts";
-import { openListingDraft } from "@/lib/listing-posting";
+import {
+  completeEbayAnalysisRequirements,
+  completeEbayListingRequirements,
+  openListingDraft,
+} from "@/lib/listing-posting";
 import {
   type CaptureAnalysisResult,
   parseMoneyAmount,
@@ -68,7 +76,6 @@ import {
   sanitizeBarcodeValue,
 } from "@palletscanner/core";
 
-const API_KEY = process.env.EXPO_PUBLIC_ANTHROPIC_API_KEY;
 const LOADING_MESSAGES = [
   "Identifying item...",
   "Checking market prices...",
@@ -175,6 +182,11 @@ const mergeClaudeDraft = (
             typeof query === "string" && query.trim().length > 0,
         )
       : base.photo_example_queries,
+    photo_shot_list: Array.isArray(claudeDraft.photo_shot_list)
+      ? claudeDraft.photo_shot_list.filter(
+          (query): query is string => typeof query === "string" && query.trim().length > 0,
+        )
+      : base.photo_shot_list,
     sellability_score: coerceNumber(
       claudeDraft.sellability_score,
       base.sellability_score ?? 5,
@@ -226,12 +238,12 @@ export default function BarcodeScanScreen() {
     getAppSettings,
   );
   const activePalletName = activePallet?.name ?? "No active pallet";
-  const photoExampleQueries = Array.isArray(result?.photo_example_queries)
-    ? result.photo_example_queries.filter(
+  const photoShots = Array.isArray(result?.photo_shot_list)
+    ? result.photo_shot_list.filter(
         (query: unknown): query is string =>
           typeof query === "string" && query.trim().length > 0,
       )
-    : [];
+    : result?.photo_example_queries ?? [];
   const currentListingDraft = listingDrafts[activeListingPlatform];
   const canSubmitManualBarcode =
     sanitizeBarcodeValue(manualBarcodeDraft).length > 0;
@@ -343,6 +355,47 @@ export default function BarcodeScanScreen() {
     }
   };
 
+  const uploadListingPhoto = async () => {
+    setListingPhotoActionStatus("Opening photo library...");
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== "granted") {
+      Alert.alert(
+        "Photo library permission required",
+        "Allow photo access to upload listing photos.",
+      );
+      setListingPhotoActionStatus("");
+      return;
+    }
+
+    let picked: ImagePicker.ImagePickerResult;
+    try {
+      picked = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        base64: true,
+        quality: 0.7,
+        allowsMultipleSelection: true,
+      });
+    } catch (error) {
+      Alert.alert(
+        "Photo library did not open",
+        error instanceof Error
+          ? error.message
+          : "The photo library could not open. Try again or take a new photo.",
+      );
+      setListingPhotoActionStatus("Photo library could not open.");
+      return;
+    }
+
+    if (!picked.canceled) {
+      setImages((current) =>
+        [...current, ...picked.assets].slice(0, MAX_LISTING_PHOTOS),
+      );
+      setListingPhotoActionStatus("Listing photo added.");
+    } else {
+      setListingPhotoActionStatus("");
+    }
+  };
+
   const applyAnalysisResult = (
     parsed: CaptureAnalysisResult,
     options: {
@@ -382,7 +435,7 @@ export default function BarcodeScanScreen() {
     if (images.length === 0) return;
     setLoading(true);
     setCurrentItemId(null);
-    if (!API_KEY?.trim()) {
+    if (!isAnthropicConfigured()) {
       const fallbackDraft = createPhotoFallbackDraft();
       applyAnalysisResult(fallbackDraft);
       setLoading(false);
@@ -413,23 +466,13 @@ Price range: ${result.low_price}-${result.high_price}
 Platform: ${result.best_platform}`
         : "No barcode draft exists yet. Use the photos as the primary source.";
 
-      const imageContent = imagesWithBase64.map((img) => ({
-        type: "image",
-        source: {
-          type: "base64",
-          media_type: "image/jpeg",
-          data: img.base64,
-        },
-      }));
+      const imageContent = imagesWithBase64.map((img) => {
+        const mediaType = getAnalysisImageMediaType(img.base64!, img.mimeType);
+        if (!mediaType) throw new Error("One of these photos is in HEIC or another unsupported format. Choose a JPEG, PNG, GIF, or WebP copy of that photo.");
+        return { type: "image", source: { type: "base64", media_type: mediaType, data: img.base64 } };
+      });
 
-      const response = await fetch("https://api.anthropic.com/v1/messages", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "x-api-key": API_KEY ?? "",
-          "anthropic-version": "2023-06-01",
-        } as HeadersInit,
-        body: JSON.stringify({
+      const text = await requestAnthropicMessage({
           model: ANTHROPIC_MODEL,
           max_tokens: 1000,
           messages: [
@@ -443,7 +486,7 @@ Platform: ${result.best_platform}`
 
 ${existingDraftContext}
 
-If a barcode draft exists, use it as product identity context and use the photos to improve condition, completeness, accessories, damage notes, pricing confidence, sellability, and listing copy. Do not replace a specific product name with a vague one unless the photos clearly contradict the barcode draft. If no barcode draft exists, analyze the photos like a reseller preparing to list the item online. For pricing, estimate a realistic low_price and high_price by checking the item against current eBay and Facebook Marketplace listings for identical or very similar items whenever that market context is available to you. Favor recent sold or active comparable listings, adjust for condition, brand, completeness, and visible wear, and make sure the suggested price range follows the real market rather than a generic guess. Also provide a floor_price, meaning the lowest reasonable price a seller should accept before walking away during negotiation. Include practical photo tips, 2-3 short web image search queries that would help the user find example listing photos, and a sellability score based on condition, estimated demand, and effort versus return. Also write platform-specific listing copy for Facebook Marketplace and eBay. eBay titles should be keyword-heavy and concise; Facebook copy should sound a little more casual and local-buyer friendly. Then respond ONLY with raw JSON, no markdown:
+If a barcode draft exists, use it as product identity context and use the photos to improve condition, completeness, accessories, damage notes, pricing confidence, sellability, and listing copy. Do not replace a specific product name with a vague one unless the photos clearly contradict the barcode draft. If no barcode draft exists, analyze the photos like a reseller preparing to list the item online. Read labels, model numbers, packaging, and visible specifications carefully. For pricing, estimate a realistic low_price and high_price by checking the item against current eBay and Facebook Marketplace listings for identical or very similar items whenever that market context is available to you. Favor recent sold or active comparable listings, adjust for condition, brand, completeness, and visible wear, and make sure the suggested price range follows the real market rather than a generic guess. Also provide a floor_price, meaning the lowest reasonable price a seller should accept before walking away during negotiation. Include practical photo tips and a product-specific photo_shot_list with 3-6 concise views the seller should capture next, prioritizing identity, condition, included parts, and flaws. Also provide a sellability score based on condition, estimated demand, and effort versus return. Also write platform-specific listing copy for Facebook Marketplace and eBay. Include ebay_item_specifics containing only attributes supported by the barcode data or visible evidence, such as Brand, Model, Screen Size, Storage Capacity, Color, Size, Type, or MPN. Normalize measurements with units and do not guess. eBay titles should be keyword-heavy and concise; Facebook copy should sound a little more casual and local-buyer friendly. Then respond ONLY with raw JSON, no markdown:
 {
   "name": "item name",
   "description": "1-2 sentence description",
@@ -461,18 +504,18 @@ If a barcode draft exists, use it as product identity context and use the photos
   "listing_description_facebook": "3-4 sentence Facebook description",
   "photo_tips": "short practical photo advice",
   "photo_example_queries": ["query one", "query two"],
+  "photo_shot_list": ["Full front view", "Model label", "Visible wear or damage"],
   "sellability_score": 7,
-  "sellability_reason": "one sentence why"
+  "sellability_reason": "one sentence why",
+  "ebay_item_specifics": { "Brand": "visible brand", "Model": "visible model" }
 }`,
                 },
               ],
             },
           ],
-        }),
       });
-      const text = await readAnthropicMessageText(response);
       const parsed = parseAnthropicJsonObject<CaptureAnalysisResult>(text);
-      applyAnalysisResult(parsed, {
+      applyAnalysisResult(await completeEbayAnalysisRequirements(parsed), {
         barcode: barcodeValue,
         productImageUri,
       });
@@ -617,7 +660,9 @@ If a barcode draft exists, use it as product identity context and use the photos
   };
 
   const analyzeBarcode = async (barcode: string) => {
-    const normalizedBarcode = sanitizeBarcodeValue(barcode);
+    const normalizedBarcode = normalizeLookupBarcode(
+      sanitizeBarcodeValue(barcode),
+    );
     if (!normalizedBarcode) {
       Alert.alert("Invalid barcode", "Try scanning the barcode again.");
       return;
@@ -664,7 +709,7 @@ If a barcode draft exists, use it as product identity context and use the photos
       .filter(Boolean)
       .join("\n");
 
-    if (!API_KEY?.trim()) {
+    if (!isAnthropicConfigured()) {
       applyBarcodeLookupDraft(fallbackDraft, {
         barcode: normalizedBarcode,
         productImageUri: productImage,
@@ -679,14 +724,7 @@ If a barcode draft exists, use it as product identity context and use the photos
       setListingPhotoActionStatus(
         "Barcode matched. Claude is writing the listing draft...",
       );
-      const response = await fetch("https://api.anthropic.com/v1/messages", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "x-api-key": API_KEY ?? "",
-          "anthropic-version": "2023-06-01",
-        } as HeadersInit,
-        body: JSON.stringify({
+      const text = await requestAnthropicMessage({
           model: ANTHROPIC_MODEL,
           max_tokens: 1000,
           messages: [
@@ -723,21 +761,21 @@ ${productSummary}
   "listing_description_facebook": "3-4 sentence Facebook description",
   "photo_tips": "short practical photo advice",
   "photo_example_queries": ["query one", "query two"],
+  "photo_shot_list": ["Full front view", "Model label", "Visible wear or damage"],
   "sellability_score": 7,
-  "sellability_reason": "one sentence why"
+  "sellability_reason": "one sentence why",
+  "ebay_item_specifics": { "Brand": "known brand", "Model": "known model" }
 }`,
                 },
               ],
             },
           ],
-        }),
       });
-      const text = await readAnthropicMessageText(response);
       const parsed = mergeClaudeDraft(
         fallbackDraft,
         parseAnthropicJsonObject<Partial<CaptureAnalysisResult>>(text),
       );
-      applyAnalysisResult(parsed, {
+      applyAnalysisResult(await completeEbayAnalysisRequirements(parsed), {
         barcode: normalizedBarcode,
         productImageUri: productImage,
         clearImages: true,
@@ -769,6 +807,15 @@ ${productSummary}
         "Choose a pallet first",
         "Pick or create a pallet before scanning barcodes.",
       );
+      return;
+    }
+
+    if (Platform.OS === "web") {
+      setScannerTroubleVisible(false);
+      resetBarcodeScanState();
+      setManualBarcodeVisible(false);
+      setListingPhotoActionStatus("Opening browser camera...");
+      setScannerOpen(true);
       return;
     }
 
@@ -821,6 +868,12 @@ ${productSummary}
 
     autoOpenedBarcodeMode.current = true;
     void (async () => {
+      if (Platform.OS === "web") {
+        resetBarcodeScanState();
+        setScannerOpen(true);
+        return;
+      }
+
       const permission = cameraPermission?.granted
         ? cameraPermission
         : await requestCameraPermission();
@@ -899,7 +952,7 @@ ${productSummary}
     }
 
     setIsSaving(true);
-    const baseInventoryItem = buildInventoryItemDraft({
+    let baseInventoryItem = buildInventoryItemDraft({
       currentItemId,
       palletId,
       analysis: result,
@@ -909,6 +962,19 @@ ${productSummary}
       priceRange: parsedPriceRange,
       floorPrice: parsedFloorPrice,
     });
+
+    try {
+      baseInventoryItem =
+        (await completeEbayListingRequirements(baseInventoryItem)) ??
+        baseInventoryItem;
+    } catch (requirementsError) {
+      Alert.alert(
+        "eBay details can be finished later",
+        requirementsError instanceof Error
+          ? requirementsError.message
+          : "PalletFlip could not check eBay requirements right now.",
+      );
+    }
 
     try {
       if (currentItemId !== null) {
@@ -1086,7 +1152,7 @@ ${productSummary}
 
         {scannerOpen && (
           <View style={styles.scannerCard}>
-            <CameraView
+            {Platform.OS === "web" ? <WebBarcodeScanner active={scannerOpen} onDetected={(data) => handleBarcodeScanned({ data })} onReady={() => setListingPhotoActionStatus("Scanner ready. Hold the barcode steady inside the frame.")} onError={(message) => { setScannerOpen(false); setListingPhotoActionStatus("Scanner could not start."); Alert.alert("Scanner could not start", `${message}\n\nCheck Safari camera permission, then reopen the scanner.`); }} /> : <CameraView
               style={styles.scannerView}
               active={scannerOpen}
               autofocus="on"
@@ -1110,7 +1176,7 @@ ${productSummary}
               barcodeScannerSettings={{
                 barcodeTypes: [...BARCODE_TYPES],
               }}
-            />
+            />}
             <View style={styles.scannerOverlay}>
               <Text style={styles.scannerTitle}>
                 Center the barcode in the frame
@@ -1439,7 +1505,19 @@ ${productSummary}
                 {photoTipsExpanded ? (
                   <>
                     <Text style={styles.photoTipsBody}>{result.photo_tips}</Text>
-                    <PhotoReferenceCards queries={photoExampleQueries} />
+                    <PhotoReferenceCards
+                      shots={photoShots}
+                      photoCount={images.length}
+                      onCapture={(shot, photo) => {
+                        if (photo) {
+                          setImages((current) => [...current, photo].slice(0, MAX_LISTING_PHOTOS));
+                          setListingPhotoActionStatus("Listing photo added.");
+                          return;
+                        }
+                        void addListingPhoto(shot);
+                      }}
+                      onUpload={() => { void uploadListingPhoto(); }}
+                    />
                   </>
                 ) : null}
               </View>

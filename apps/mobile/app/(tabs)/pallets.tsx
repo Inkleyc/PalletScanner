@@ -1,5 +1,7 @@
 import { useState, useSyncExternalStore } from "react";
 import {
+  Modal,
+  Pressable,
   ScrollView,
   StyleSheet,
   Text,
@@ -24,6 +26,8 @@ import {
 import { AppLayout, AppPalette } from "@/constants/app-palette";
 import { AppAlert as Alert } from "@/lib/app-alert";
 
+type EditField = "name" | "cost";
+
 export default function PalletsScreen() {
   const { width } = useWindowDimensions();
   const pallets = useSyncExternalStore(
@@ -42,19 +46,82 @@ export default function PalletsScreen() {
     getInventory,
   );
   const [newPalletName, setNewPalletName] = useState(getNextDefaultPalletName());
-  const [renameDrafts, setRenameDrafts] = useState<Record<string, string>>({});
-  const [costDrafts, setCostDrafts] = useState<Record<string, string>>({});
-  const [expandedPalletTools, setExpandedPalletTools] = useState<
-    Record<string, boolean>
-  >({});
+  const [editing, setEditing] = useState<{
+    palletId: string;
+    field: EditField;
+  } | null>(null);
+  const [editValue, setEditValue] = useState("");
+  const [selectedPalletId, setSelectedPalletId] = useState<string | null>(null);
+  const [detailName, setDetailName] = useState("");
+  const [detailCost, setDetailCost] = useState("");
   const isLargeLayout = width >= 900;
-  const showPalletTools = (palletId: string) =>
-    isLargeLayout || expandedPalletTools[palletId] === true;
 
   const handleCreatePallet = () => {
     const pallet = createPalletSession(newPalletName);
     setNewPalletName(getNextDefaultPalletName());
     Alert.alert("Pallet created", `${pallet.name} is now active.`);
+  };
+
+  const closeEditModal = () => {
+    setEditing(null);
+    setEditValue("");
+  };
+
+  const saveEdit = () => {
+    if (!editing) return;
+
+    if (editing.field === "name") {
+      if (!editValue.trim()) {
+        Alert.alert("Name required", "Enter a name for this pallet.");
+        return;
+      }
+      renamePalletSession(editing.palletId, editValue);
+    } else {
+      const value = editValue.trim();
+      if (!value) {
+        updatePalletSessionCost(editing.palletId, null);
+      } else {
+        const parsed = Number(value);
+        if (Number.isNaN(parsed) || parsed < 0) {
+          Alert.alert("Invalid cost", "Enter a valid pallet cost.");
+          return;
+        }
+        updatePalletSessionCost(editing.palletId, parsed);
+      }
+    }
+
+    closeEditModal();
+  };
+
+  const selectedPallet = pallets.find((pallet) => pallet.id === selectedPalletId) ?? null;
+  const selectedPalletItems = selectedPallet ? items.filter((item) => item.palletId === selectedPallet.id) : [];
+
+  const openPalletDetails = (pallet: (typeof pallets)[number]) => {
+    setSelectedPalletId(pallet.id);
+    setDetailName(pallet.name);
+    setDetailCost(pallet.palletCost === null ? "" : String(pallet.palletCost));
+  };
+
+  const closePalletDetails = () => setSelectedPalletId(null);
+
+  const savePalletDetails = () => {
+    if (!selectedPallet) return;
+    if (!detailName.trim()) return Alert.alert("Name required", "Enter a name for this pallet.");
+    const cost = detailCost.trim() ? Number(detailCost) : null;
+    if (cost !== null && (!Number.isFinite(cost) || cost < 0)) return Alert.alert("Invalid cost", "Enter a valid pallet cost.");
+    renamePalletSession(selectedPallet.id, detailName.trim());
+    updatePalletSessionCost(selectedPallet.id, cost);
+    closePalletDetails();
+  };
+
+  const confirmDeleteSelectedPallet = () => {
+    if (!selectedPallet) return;
+    const pallet = selectedPallet;
+    closePalletDetails();
+    setTimeout(() => Alert.alert("Delete pallet", pallets.length === 1 ? `Delete ${pallet.name}? This will leave you with no pallets until you create another one.` : `Delete ${pallet.name} and its items?`, [
+      { text: "Cancel", style: "cancel" },
+      { text: "Delete", style: "destructive", onPress: () => deletePalletSession(pallet.id) },
+    ]), 180);
   };
 
   return (
@@ -95,146 +162,81 @@ export default function PalletsScreen() {
             (item) => item.soldPrice !== null,
           ).length;
           return (
-            <View key={pallet.id} style={styles.palletCard}>
-            <View style={styles.cardHeader}>
-              <View>
-                <Text style={styles.cardTitle}>{pallet.name}</Text>
-                <Text style={styles.cardMeta}>
-                  {isActive ? "Active pallet" : "Tap below to make active"}
-                </Text>
-              </View>
-              {isActive && <Text style={styles.activeBadge}>Active</Text>}
-            </View>
-
-            <View style={styles.palletStatsRow}>
-              <View style={styles.palletStatBox}>
-                <Text style={styles.palletStatLabel}>Items</Text>
-                <Text style={styles.palletStatValue}>{palletItems.length}</Text>
-              </View>
-              <View style={styles.palletStatBox}>
-                <Text style={styles.palletStatLabel}>Sold</Text>
-                <Text style={styles.palletStatValue}>{soldCount}</Text>
-              </View>
-              <View style={styles.palletStatBox}>
-                <Text style={styles.palletStatLabel}>Cost</Text>
-                <Text style={styles.palletStatValue}>
-                  {pallet.palletCost === null ? "--" : `$${pallet.palletCost}`}
-                </Text>
-              </View>
-            </View>
-
-            <View style={styles.row}>
-              {!isActive && (
-                <TouchableOpacity
-                  style={styles.secondaryBtn}
-                  onPress={() => setActivePalletSession(pallet.id)}
-                >
-                  <Text style={styles.secondaryBtnText}>Make Active</Text>
-                </TouchableOpacity>
-              )}
-            </View>
-
-            {!isLargeLayout ? (
-              <TouchableOpacity
-                style={styles.manageToggleBtn}
-                onPress={() =>
-                  setExpandedPalletTools((current) => ({
-                    ...current,
-                    [pallet.id]: !current[pallet.id],
-                  }))
-                }
-              >
-                <Text style={styles.manageToggleBtnText}>
-                  {showPalletTools(pallet.id) ? "Hide management" : "Manage pallet"}
-                </Text>
-              </TouchableOpacity>
-            ) : null}
-            {showPalletTools(pallet.id) ? (
-              <View style={styles.managementPanel}>
-                <TextInput
-                  style={styles.input}
-                  value={renameDrafts[pallet.id] ?? pallet.name}
-                  onChangeText={(value) =>
-                    setRenameDrafts((current) => ({ ...current, [pallet.id]: value }))
-                  }
-                  placeholder="Rename pallet"
-                  placeholderTextColor="#9ca3af"
-                />
-                <View style={styles.row}>
-                  <TouchableOpacity
-                    style={styles.secondaryBtn}
-                    onPress={() =>
-                      renamePalletSession(
-                        pallet.id,
-                        renameDrafts[pallet.id] ?? pallet.name,
-                      )
-                    }
-                  >
-                    <Text style={styles.secondaryBtnText}>Save Name</Text>
-                  </TouchableOpacity>
+            <TouchableOpacity key={pallet.id} activeOpacity={0.8} style={styles.palletCard} onPress={() => openPalletDetails(pallet)}>
+              <View style={styles.compactPalletMain}>
+                <View style={styles.compactPalletIdentity}>
+                  <Text style={styles.cardTitle}>{pallet.name}</Text>
+                  <Text style={styles.cardMeta}>{palletItems.length} items · {soldCount} sold</Text>
                 </View>
-                <TextInput
-                  style={styles.input}
-                  value={
-                    costDrafts[pallet.id] ??
-                    (pallet.palletCost !== null ? String(pallet.palletCost) : "")
-                  }
-                  onChangeText={(value) =>
-                    setCostDrafts((current) => ({ ...current, [pallet.id]: value }))
-                  }
-                  placeholder="Pallet cost"
-                  placeholderTextColor="#9ca3af"
-                  keyboardType="decimal-pad"
-                />
-                <View style={styles.row}>
-                  <TouchableOpacity
-                    style={styles.secondaryBtn}
-                    onPress={() => {
-                      const value = (costDrafts[pallet.id] ?? "").trim();
-                      if (!value) {
-                        updatePalletSessionCost(pallet.id, null);
-                        return;
-                      }
-                      const parsed = Number(value);
-                      if (Number.isNaN(parsed) || parsed < 0) {
-                        Alert.alert("Invalid cost", "Enter a valid pallet cost.");
-                        return;
-                      }
-                      updatePalletSessionCost(pallet.id, parsed);
-                    }}
-                  >
-                    <Text style={styles.secondaryBtnText}>Save Cost</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={styles.deleteBtn}
-                    onPress={() => {
-                      Alert.alert(
-                        "Delete pallet",
-                        pallets.length === 1
-                          ? `Delete ${pallet.name}? This will leave you with no pallets until you create another one.`
-                          : `Delete ${pallet.name} and its items?`,
-                        [
-                          { text: "Cancel", style: "cancel" },
-                          {
-                            text: "Delete",
-                            style: "destructive",
-                            onPress: () => {
-                              deletePalletSession(pallet.id);
-                            },
-                          },
-                        ],
-                      );
-                    }}
-                  >
-                    <Text style={styles.deleteBtnText}>Delete</Text>
-                  </TouchableOpacity>
+                <View style={styles.compactPalletSummary}>
+                  <Text style={styles.compactPalletCost}>{pallet.palletCost === null ? "Cost not set" : `$${pallet.palletCost}`}</Text>
+                  {isActive ? <Text style={styles.activeBadge}>Active</Text> : null}
                 </View>
               </View>
-            ) : null}
-            </View>
+            </TouchableOpacity>
           );
         })}
       </View>
+
+      <Modal visible={Boolean(selectedPallet)} transparent animationType="fade" onRequestClose={closePalletDetails}>
+        <Pressable style={styles.modalBackdrop} onPress={closePalletDetails}>
+          <Pressable style={styles.palletDetailCard} onPress={() => undefined}>
+            <View style={styles.palletDetailHeader}>
+              <View style={styles.palletDetailHeading}><Text style={styles.modalTitle}>Pallet details</Text><Text style={styles.cardMeta}>{selectedPallet?.id}</Text></View>
+              <TouchableOpacity style={styles.modalCancelBtn} onPress={closePalletDetails}><Text style={styles.modalCancelText}>Close</Text></TouchableOpacity>
+            </View>
+            <ScrollView contentContainerStyle={styles.palletDetailContent}>
+              <View><Text style={styles.valueLabel}>Name</Text><TextInput style={styles.modalInput} value={detailName} onChangeText={setDetailName} placeholder="Pallet name" /></View>
+              <View><Text style={styles.valueLabel}>Purchase cost</Text><TextInput style={styles.modalInput} value={detailCost} onChangeText={setDetailCost} placeholder="Not set" keyboardType="decimal-pad" /></View>
+              <View style={styles.palletStatsRow}>
+                <View style={styles.palletStatBox}><Text style={styles.palletStatLabel}>Items</Text><Text style={styles.palletStatValue}>{selectedPalletItems.length}</Text></View>
+                <View style={styles.palletStatBox}><Text style={styles.palletStatLabel}>Sold</Text><Text style={styles.palletStatValue}>{selectedPalletItems.filter((item) => item.soldPrice !== null).length}</Text></View>
+                <View style={styles.palletStatBox}><Text style={styles.palletStatLabel}>List value</Text><Text style={styles.palletStatValue}>${selectedPalletItems.reduce((sum, item) => sum + (item.listing_price ?? item.high_price) * item.quantity, 0).toFixed(0)}</Text></View>
+              </View>
+              <View style={styles.palletDetailActions}>
+                {selectedPallet && selectedPallet.id !== activePalletId ? <TouchableOpacity style={styles.secondaryBtn} onPress={() => setActivePalletSession(selectedPallet.id)}><Text style={styles.secondaryBtnText}>Make active</Text></TouchableOpacity> : <Text style={styles.activeDetailNote}>Active scan pallet</Text>}
+                <TouchableOpacity style={styles.deleteBtn} onPress={confirmDeleteSelectedPallet}><Text style={styles.deleteBtnText}>Delete pallet</Text></TouchableOpacity>
+              </View>
+              <TouchableOpacity style={styles.primaryBtn} onPress={savePalletDetails}><Text style={styles.primaryBtnText}>Save changes</Text></TouchableOpacity>
+            </ScrollView>
+          </Pressable>
+        </Pressable>
+      </Modal>
+
+      <Modal
+        visible={editing !== null}
+        transparent
+        animationType="fade"
+        onRequestClose={closeEditModal}
+      >
+        <Pressable style={styles.modalBackdrop} onPress={closeEditModal}>
+          <Pressable style={styles.modalCard}>
+            <Text style={styles.modalTitle}>
+              Edit Pallet {editing?.field === "cost" ? "Cost" : "Name"}
+            </Text>
+            <TextInput
+              style={styles.modalInput}
+              value={editValue}
+              onChangeText={setEditValue}
+              placeholder={editing?.field === "cost" ? "Pallet cost" : "Pallet name"}
+              placeholderTextColor="#9ca3af"
+              keyboardType={editing?.field === "cost" ? "decimal-pad" : "default"}
+              autoFocus
+            />
+            <View style={styles.modalActions}>
+              <TouchableOpacity
+                style={styles.modalCancelBtn}
+                onPress={closeEditModal}
+              >
+                <Text style={styles.modalCancelText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.modalSaveBtn} onPress={saveEdit}>
+                <Text style={styles.modalSaveText}>Save</Text>
+              </TouchableOpacity>
+            </View>
+          </Pressable>
+        </Pressable>
+      </Modal>
     </ScrollView>
   );
 }
@@ -272,8 +274,8 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: AppPalette.border,
     borderRadius: 10,
-    padding: 16,
-    marginBottom: 12,
+    padding: 14,
+    marginBottom: 8,
     shadowColor: AppPalette.shadow,
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 1,
@@ -299,6 +301,10 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: "700",
   },
+  compactPalletMain: { alignItems: "center", flexDirection: "row", gap: 12 },
+  compactPalletIdentity: { flex: 1, minWidth: 0 },
+  compactPalletSummary: { alignItems: "flex-end", gap: 6 },
+  compactPalletCost: { color: AppPalette.text, fontSize: 14, fontWeight: "700" },
   palletStatsRow: {
     flexDirection: "row",
     gap: 8,
@@ -372,6 +378,41 @@ const styles = StyleSheet.create({
     paddingTop: 12,
     marginTop: 2,
   },
+  valueLabel: {
+    color: AppPalette.textMuted,
+    fontSize: 12,
+    fontWeight: "700",
+    marginBottom: 6,
+  },
+  valueBox: {
+    alignItems: "center",
+    backgroundColor: AppPalette.surfaceMuted,
+    borderColor: AppPalette.border,
+    borderRadius: 8,
+    borderWidth: 1,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginBottom: 12,
+    minHeight: 46,
+    paddingLeft: 12,
+  },
+  valueText: {
+    color: AppPalette.text,
+    flex: 1,
+    fontSize: 14,
+  },
+  editBtn: {
+    alignItems: "center",
+    alignSelf: "stretch",
+    borderLeftColor: AppPalette.border,
+    borderLeftWidth: 1,
+    justifyContent: "center",
+    minWidth: 48,
+  },
+  deleteRow: {
+    alignItems: "flex-start",
+    marginTop: 2,
+  },
   deleteBtn: {
     backgroundColor: AppPalette.dangerSoft,
     borderWidth: 1,
@@ -382,4 +423,66 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   deleteBtnText: { color: AppPalette.dangerStrong, fontWeight: "600", fontSize: 13 },
+  modalBackdrop: {
+    backgroundColor: AppPalette.modalBackdrop,
+    flex: 1,
+    justifyContent: "center",
+    padding: 20,
+  },
+  modalCard: {
+    backgroundColor: AppPalette.surface,
+    borderRadius: 12,
+    padding: 20,
+  },
+  palletDetailCard: { backgroundColor: AppPalette.surface, borderRadius: 10, maxHeight: "88%", overflow: "hidden" },
+  palletDetailHeader: { alignItems: "center", borderBottomColor: AppPalette.border, borderBottomWidth: 1, flexDirection: "row", padding: 16 },
+  palletDetailHeading: { flex: 1 },
+  palletDetailContent: { gap: 4, padding: 16 },
+  palletDetailActions: { alignItems: "center", flexDirection: "row", justifyContent: "space-between", gap: 10, marginBottom: 12 },
+  activeDetailNote: { backgroundColor: AppPalette.successSoft, borderRadius: 8, color: AppPalette.text, fontSize: 13, fontWeight: "700", overflow: "hidden", paddingHorizontal: 12, paddingVertical: 10 },
+  modalTitle: {
+    color: AppPalette.text,
+    fontSize: 20,
+    fontWeight: "700",
+    marginBottom: 16,
+  },
+  modalInput: {
+    backgroundColor: AppPalette.surface,
+    borderColor: AppPalette.borderStrong,
+    borderRadius: 8,
+    borderWidth: 1,
+    color: AppPalette.text,
+    fontSize: 15,
+    marginBottom: 16,
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+  },
+  modalActions: {
+    flexDirection: "row",
+    gap: 10,
+    justifyContent: "flex-end",
+  },
+  modalCancelBtn: {
+    borderColor: AppPalette.borderStrong,
+    borderRadius: 8,
+    borderWidth: 1,
+    paddingHorizontal: 16,
+    paddingVertical: 11,
+  },
+  modalCancelText: {
+    color: AppPalette.text,
+    fontSize: 14,
+    fontWeight: "600",
+  },
+  modalSaveBtn: {
+    backgroundColor: AppPalette.primaryStrong,
+    borderRadius: 8,
+    paddingHorizontal: 20,
+    paddingVertical: 11,
+  },
+  modalSaveText: {
+    color: AppPalette.primaryOn,
+    fontSize: 14,
+    fontWeight: "700",
+  },
 });
