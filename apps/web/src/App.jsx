@@ -15,6 +15,8 @@ import {
 import { getRepositoryMode, repository, useCloudRepository, useLocalRepository } from "./repository-router.js";
 import { isSupabaseConfigured, supabase } from "./supabase.js";
 import { buildAnalytics } from "./analytics-model.js";
+import { ActivityPanel } from "./activity-panel.jsx";
+import { PalletManager } from "./pallet-manager.jsx";
 import {
   EbayRequirementsDialog,
   ItemThumbnail,
@@ -41,59 +43,6 @@ const matchesWorkFilter = (item, filter) => {
   if (filter === "aging") return getItemAgeDays(item) > 14;
   return Boolean(getDisplayIssue(item));
 };
-
-function PalletManager({ pallets, summaries, activePalletId, selectedPalletId, onFilter }) {
-  const [creating, setCreating] = useState(false);
-  const [editingId, setEditingId] = useState(null);
-  const [name, setName] = useState("");
-  const [cost, setCost] = useState("");
-  const [error, setError] = useState("");
-  const [saving, setSaving] = useState(false);
-
-  const startEdit = (pallet) => {
-    setEditingId(pallet.id);
-    setName(pallet.name);
-    setCost(pallet.palletCost == null ? "" : String(pallet.palletCost));
-    setCreating(false);
-    setError("");
-  };
-  const cancel = () => { setCreating(false); setEditingId(null); setName(""); setCost(""); setError(""); };
-  const save = async (event) => {
-    event.preventDefault();
-    const trimmedName = name.trim();
-    const parsedCost = cost.trim() === "" ? null : Number(cost);
-    if (!trimmedName) return setError("Pallet name is required.");
-    if (parsedCost !== null && (!Number.isFinite(parsedCost) || parsedCost < 0)) return setError("Pallet cost must be blank or a valid non-negative number.");
-    setSaving(true); setError("");
-    try {
-      if (editingId) await repository.updatePallet(editingId, { name: trimmedName, palletCost: parsedCost });
-      else {
-        const pallet = await repository.createPallet(trimmedName);
-        if (!pallet) throw new Error("The pallet was saved but could not be reloaded.");
-        if (parsedCost !== null) await repository.updatePallet(pallet.id, { palletCost: parsedCost });
-      }
-      cancel();
-    } catch (saveError) {
-      setError(saveError instanceof Error ? saveError.message : "Could not save the pallet.");
-    } finally { setSaving(false); }
-  };
-  const remove = async (pallet) => {
-    const summary = summaries.find((entry) => entry.id === pallet.id);
-    const detail = summary?.itemCount ? ` This will also remove ${summary.itemCount} item${summary.itemCount === 1 ? "" : "s"} from local preview data.` : "";
-    if (!window.confirm(`Delete ${pallet.name}?${detail}`)) return;
-    await repository.removePallet(pallet.id);
-    if (selectedPalletId === pallet.id) onFilter("all");
-    if (editingId === pallet.id) cancel();
-  };
-
-  return (
-    <section className="panel" id="pallets">
-      <div className="panel-heading"><div><h3>Pallet health</h3><span>Cost, recovery, estimated value, and open issues.</span></div><button onClick={() => { cancel(); setCreating(true); }}>New pallet</button></div>
-<div className="pallet-grid">{summaries.map((pallet) => <article tabIndex="0" className={`pallet-card ${selectedPalletId === pallet.id ? "selected-card" : ""}`} key={pallet.id} onClick={() => onFilter(pallet.id)} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") onFilter(pallet.id); }}><div className="pallet-card-heading"><div className="pallet-title-row"><strong>{pallet.name}</strong></div><button className="compact-edit-button" aria-label={`Edit ${pallet.name}`} title="Edit pallet" onClick={(event) => { event.stopPropagation(); startEdit(pallet); }}>Edit</button></div><dl><div><dt>Items</dt><dd>{pallet.itemCount}</dd></div><div><dt>Cost</dt><dd>{currency(pallet.cost)}</dd></div><div><dt>Sold</dt><dd>{currency(pallet.soldRevenue)}</dd></div><div><dt>Issues</dt><dd>{pallet.unresolved}</dd></div></dl></article>)}</div>
-      {(creating || editingId) && <div className="modal-backdrop" role="presentation" onMouseDown={cancel}><form className="edit-modal" role="dialog" aria-modal="true" aria-labelledby="edit-pallet-title" onSubmit={save} onMouseDown={(event) => event.stopPropagation()}><div><h3 id="edit-pallet-title">{editingId ? "Edit pallet" : "New pallet"}</h3><p>{editingId ? "Update this pallet's name or purchase cost." : "Create a pallet for grouping inventory and purchase cost."}</p></div><label><span>Name</span><input autoFocus value={name} onChange={(event) => setName(event.target.value)} placeholder="Pallet name" /></label><label><span>Purchase cost</span><input type="number" min="0" step="0.01" value={cost} onChange={(event) => setCost(event.target.value)} placeholder="Optional" /></label>{error && <p className="error-text">{error}</p>}<div className="button-row">{editingId && <button type="button" className="danger-button" disabled={saving} onClick={() => { const pallet = pallets.find((entry) => entry.id === editingId); if (pallet) void remove(pallet); }}>Delete pallet</button>}<button type="button" disabled={saving} onClick={cancel}>Cancel</button><button className="primary-button" type="submit" disabled={saving}>{saving ? "Saving…" : editingId ? "Save" : "Create pallet"}</button></div></form></div>}
-    </section>
-  );
-}
 
 const itemDraft = (item) => ({
   name: item.name ?? "",
@@ -718,24 +667,6 @@ function EbaySettings({ mode = "all" }) {
       {mode !== "settings" && configOpen && <div className="modal-backdrop" role="presentation" onMouseDown={cancelConfig}><div className="edit-modal" role="dialog" aria-modal="true" aria-labelledby="backend-config-title" onMouseDown={(event) => event.stopPropagation()}><div><h3 id="backend-config-title">Backend configuration</h3><p>These connection settings apply only to this browser session.</p></div><label><span>Backend URL</span><input autoFocus value={baseUrl} onChange={(event) => setBaseUrl(event.target.value)} placeholder="https://api.example.com" /></label><label><span>App auth token</span><input type="password" value={token} onChange={(event) => setToken(event.target.value)} placeholder="Session-only token" /></label><div className="button-row"><button type="button" onClick={cancelConfig}>Cancel</button><button className="primary-button" type="button" onClick={save}>Save</button></div></div></div>}
     </section>
   );
-}
-
-const activityLabels = {
-  "pallet.created": "Pallet created",
-  "pallet.updated": "Pallet updated",
-  "pallet.deleted": "Pallet deleted",
-  "item.created": "Item created",
-  "item.updated": "Item updated",
-  "item.deleted": "Item removed",
-  "listing.updated": "Marketplace status updated",
-  "sale.recorded": "Sale recorded",
-  "data.restored": "Local backup restored",
-};
-
-function ActivityPanel({ snapshot }) {
-  const [events, setEvents] = useState([]);
-  useEffect(() => { repository.listActivity().then(setEvents).catch(() => setEvents([])); }, [snapshot]);
-  return <section className="panel"><div className="panel-heading"><div><h3>Recent activity</h3><span>Shared history of important inventory and listing changes.</span></div></div><div className="activity-list">{events.length === 0 ? <div className="empty-queue"><strong>No changes yet</strong><span>Item, pallet, and listing changes will appear here.</span></div> : events.slice(0, 10).map((event) => <div className="activity-row" key={event.id}><div><strong>{activityLabels[event.type] ?? event.type}</strong><span>{event.details?.name ?? event.entityId}</span></div><time dateTime={new Date(event.occurredAt).toISOString()}>{new Date(event.occurredAt).toLocaleString()}</time></div>)}</div></section>;
 }
 
 function AnalysisPanel({ snapshot }) {
