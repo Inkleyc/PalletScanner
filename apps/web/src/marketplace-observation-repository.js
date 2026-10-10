@@ -164,6 +164,54 @@ export const importObservedEbayOrders = async ({ preview, reconciliation }) => {
   return { orders: orderRows.length, lines: lineRows.length };
 };
 
+const mapEbayReturnState = (entry) => {
+  const value = String(entry.state || entry.status || "").toUpperCase();
+  if (value.includes("CANCEL")) return "cancelled";
+  if (value === "CLOSED") return "closed";
+  if (value.includes("DELIVERED")) return "received";
+  if (value.includes("SHIP")) return "in_transit";
+  if (value.includes("REQUESTED") || value.includes("STARTED") || entry.actionDueDate) return "action_required";
+  if (value.includes("APPROV")) return "approved";
+  return "requested";
+};
+
+export const importObservedEbayReturns = async (preview) => {
+  if (!supabase) throw new Error("Supabase is not configured for this dashboard.");
+  const userResult = await supabase.auth.getUser();
+  if (userResult.error || !userResult.data.user) throw new Error("Sign in before importing observed returns.");
+  const ownerId = userResult.data.user.id;
+  const [orderResult, lineResult] = await Promise.all([
+    supabase.from("orders").select("id,business_id,external_order_id,raw_payload").eq("owner_id", ownerId).eq("source", "ebay"),
+    supabase.from("order_lines").select("id,business_id,order_id,inventory_item_id,raw_payload").eq("owner_id", ownerId),
+  ]);
+  throwIfError(orderResult); throwIfError(lineResult);
+  const orderByExternalId = new Map((orderResult.data ?? []).map((order) => [order.external_order_id, order]));
+  let imported = 0; let unmatched = 0;
+  for (const observed of preview.returns ?? []) {
+    const order = orderByExternalId.get(observed.orderId);
+    if (!order || !observed.returnId) { unmatched += 1; continue; }
+    const candidates = (lineResult.data ?? []).filter((line) => line.order_id === order.id && String(line.raw_payload?.legacyItemId ?? "") === String(observed.item?.legacyItemId ?? "") && (!observed.item?.legacyTransactionId || !line.raw_payload?.legacyTransactionId || String(line.raw_payload.legacyTransactionId) === String(observed.item.legacyTransactionId)));
+    if (candidates.length !== 1) { unmatched += 1; continue; }
+    const line = candidates[0];
+    const existingResult = await supabase.from("returns").select("id,state").eq("business_id", order.business_id).eq("source", "ebay").eq("external_return_id", observed.returnId).maybeSingle();
+    throwIfError(existingResult);
+    const marketplaceValues = { reason: observed.reason || observed.reasonType || null, requested_resolution: observed.requestedResolution || null, action_due_at: observed.actionDueDate || null, raw_payload: observed.raw ?? observed, external_created_at: observed.creationDate || null, external_updated_at: new Date().toISOString() };
+    let returnId;
+    if (existingResult.data) {
+      returnId = existingResult.data.id;
+      const protectedState = ["received", "inspecting", "resolved", "closed"].includes(existingResult.data.state);
+      const updateResult = await supabase.from("returns").update({ ...marketplaceValues, ...(protectedState ? {} : { state: mapEbayReturnState(observed) }) }).eq("id", returnId);
+      throwIfError(updateResult);
+    } else {
+      const insertResult = await supabase.from("returns").insert({ business_id: order.business_id, owner_id: ownerId, order_id: order.id, source: "ebay", external_return_id: observed.returnId, state: mapEbayReturnState(observed), responsibility: "unknown", ...marketplaceValues }).select("id").single();
+      throwIfError(insertResult); returnId = insertResult.data.id;
+    }
+    const returnLineResult = await supabase.from("return_lines").upsert({ business_id: order.business_id, owner_id: ownerId, return_id: returnId, order_line_id: line.id, external_return_line_id: `${observed.returnId}:${observed.item?.legacyItemId || line.id}:${observed.item?.legacyTransactionId || "line"}`, quantity: Math.max(1, Math.floor(Number(observed.item?.quantity || 1))), inventory_item_id: line.inventory_item_id, inventory_state: "unavailable" }, { onConflict: "return_id,external_return_line_id", ignoreDuplicates: true });
+    throwIfError(returnLineResult); imported += 1;
+  }
+  return { imported, unmatched };
+};
+
 export const listImportedEbayOrders = async () => {
   if (!supabase) throw new Error("Supabase is not configured for this dashboard.");
   const userResult = await supabase.auth.getUser();

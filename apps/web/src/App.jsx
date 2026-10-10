@@ -16,7 +16,7 @@ import { getRepositoryMode, repository, useCloudRepository, useLocalRepository }
 import { isSupabaseConfigured, supabase } from "./supabase.js";
 import { buildAnalytics } from "./analytics-model.js";
 import { reconcileEbayPreview } from "./ebay-reconciliation.js";
-import { archivePackagePreset, confirmShipmentPackage, confirmShipmentPicked, confirmShipmentShipped, createManualReturn, createUnverifiedInventoryFromObservation, dispositionReturnLine, getEbayMarketplaceControl, importObservedEbayOrders, inspectReturnLine, listEbayObservationSnapshots, listImportedEbayOrders, listMarketplaceActionJobs, listMarketplaceQuantityQueue, listPackagePresets, listReturns, loadEbayObservationSnapshot, matchImportedOrderLine, queueEbayQuantitySync, receiveReturnLine, recordEbayReconciliationDecision, recordReturnFinancialEvent, recordShipmentLabel, recordTrackingEvent, releaseCancelledOrderReservations, reserveImportedOrder, retryFailedMarketplaceActionJob, saveEbayObservationSnapshot, savePackagePreset, setEbayOutboundPause, startOrderFulfillment } from "./marketplace-observation-repository.js";
+import { archivePackagePreset, confirmShipmentPackage, confirmShipmentPicked, confirmShipmentShipped, createManualReturn, createUnverifiedInventoryFromObservation, dispositionReturnLine, getEbayMarketplaceControl, importObservedEbayOrders, importObservedEbayReturns, inspectReturnLine, listEbayObservationSnapshots, listImportedEbayOrders, listMarketplaceActionJobs, listMarketplaceQuantityQueue, listPackagePresets, listReturns, loadEbayObservationSnapshot, matchImportedOrderLine, queueEbayQuantitySync, receiveReturnLine, recordEbayReconciliationDecision, recordReturnFinancialEvent, recordShipmentLabel, recordTrackingEvent, releaseCancelledOrderReservations, reserveImportedOrder, retryFailedMarketplaceActionJob, saveEbayObservationSnapshot, savePackagePreset, setEbayOutboundPause, startOrderFulfillment } from "./marketplace-observation-repository.js";
 import { ActivityPanel } from "./activity-panel.jsx";
 import { PalletManager } from "./pallet-manager.jsx";
 import {
@@ -715,6 +715,7 @@ function EbaySettings({ mode = "all" }) {
   const [previewLoading, setPreviewLoading] = useState(false);
   const [snapshotSaving, setSnapshotSaving] = useState(false);
   const [ordersImporting, setOrdersImporting] = useState(false);
+  const [returnsImporting, setReturnsImporting] = useState(false);
   const [savedSnapshots, setSavedSnapshots] = useState(null);
   const [snapshotsLoading, setSnapshotsLoading] = useState(false);
   const [snapshotReview, setSnapshotReview] = useState(null);
@@ -806,6 +807,7 @@ function EbaySettings({ mode = "all" }) {
         inventoryOffset: String(current?.inventoryItems?.length ?? 0),
         offerOffset: String(current?.offers?.length ?? 0),
         orderOffset: String(current?.orders?.length ?? 0),
+        returnOffset: String(current?.returns?.length ?? 0),
       });
       const preview = await request(`/ebay/import-preview?${parameters}`);
       setImportPreview(current ? {
@@ -813,6 +815,7 @@ function EbaySettings({ mode = "all" }) {
         inventoryItems: [...(current.inventoryItems ?? []), ...(preview.inventoryItems ?? [])],
         offers: [...(current.offers ?? []), ...(preview.offers ?? [])],
         orders: [...(current.orders ?? []), ...(preview.orders ?? [])],
+        returns: [...(current.returns ?? []), ...(preview.returns ?? [])],
       } : preview);
       setMessage("Observe-only preview refreshed. Nothing was changed.");
     } catch (error) { setMessage(error instanceof Error ? error.message : "Could not preview eBay data."); }
@@ -832,6 +835,7 @@ function EbaySettings({ mode = "all" }) {
     [importPreview.inventoryItems?.length ?? 0, importPreview.pagination?.inventoryTotal ?? 0],
     [importPreview.offers?.length ?? 0, importPreview.pagination?.offerTotal ?? 0],
     [importPreview.orders?.length ?? 0, importPreview.pagination?.orderTotal ?? 0],
+    [importPreview.returns?.length ?? 0, importPreview.pagination?.returnTotal ?? 0],
   ].some(([shown, total]) => shown < total);
 
   const saveObservationSnapshot = async () => {
@@ -851,6 +855,15 @@ function EbaySettings({ mode = "all" }) {
       setMessage(`Observe-only order import saved ${result.orders} orders and ${result.lines} lines. No stock was reserved.`);
     } catch (error) { setMessage(error instanceof Error ? error.message : "Could not import observed eBay orders."); }
     finally { setOrdersImporting(false); }
+  };
+  const importObservedReturns = async () => {
+    setReturnsImporting(true); setMessage("");
+    try {
+      const result = await importObservedEbayReturns(importPreview);
+      const unmatched = result.unmatched ? ` ${result.unmatched} could not be matched to an imported order line.` : "";
+      setMessage(`Observe-only return import saved ${result.imported} returns.${unmatched} No inventory was restocked.`);
+    } catch (error) { setMessage(error instanceof Error ? error.message : "Could not import observed eBay returns."); }
+    finally { setReturnsImporting(false); }
   };
 
   const loadSavedSnapshots = async () => {
@@ -968,6 +981,7 @@ function EbaySettings({ mode = "all" }) {
               <div className="check-row"><span className="check-dot ok" /><span>{importPreview.pagination?.inventoryTotal ?? importPreview.inventoryItems?.length ?? 0} eBay inventory records ({importPreview.inventoryItems?.length ?? 0} shown)</span></div>
               <div className="check-row"><span className="check-dot ok" /><span>{importPreview.pagination?.offerTotal ?? importPreview.offers?.length ?? 0} eBay offers ({importPreview.offers?.length ?? 0} shown)</span></div>
               <div className="check-row"><span className="check-dot ok" /><span>{importPreview.pagination?.orderTotal ?? importPreview.orders?.length ?? 0} recent eBay orders ({importPreview.orders?.length ?? 0} shown)</span></div>
+              {importPreview.returnsUnavailable ? <div className="check-row"><span className="check-dot" /><span>eBay returns unavailable: {importPreview.returnsUnavailable}</span></div> : <div className="check-row"><span className="check-dot ok" /><span>{importPreview.pagination?.returnTotal ?? importPreview.returns?.length ?? 0} eBay returns ({importPreview.returns?.length ?? 0} shown)</span></div>}
               <div className="check-row"><span className="check-dot ok" /><span>{reconciliation.summary.matched} records matched by seller SKU</span></div>
               <div className="check-row"><span className={`check-dot ${reconciliation.summary.conflicting === 0 ? "ok" : ""}`} /><span>{reconciliation.summary.conflicting} quantity conflict{reconciliation.summary.conflicting === 1 ? "" : "s"}</span></div>
               <div className="check-row"><span className={`check-dot ${reconciliation.summary.uncertain === 0 ? "ok" : ""}`} /><span>{reconciliation.summary.uncertain} uncertain match{reconciliation.summary.uncertain === 1 ? "" : "es"}</span></div>
@@ -978,8 +992,9 @@ function EbaySettings({ mode = "all" }) {
             <div className="check-list reconciliation-records">{visibleReconciliationRecords.length === 0 ? <small>No records in this view.</small> : visibleReconciliationRecords.map((record, index) => <div className="check-row" key={`${record.resourceType}-${record.external.offerId ?? record.external.lineItemId ?? record.external.sku ?? index}`}><span className={`check-dot ${record.state === "matched" ? "ok" : ""}`} /><span><strong>{record.external.sku || "No SKU"}</strong> · {record.resourceType} · {record.state.replaceAll("_", " ")}{record.matchReason === "external_id" ? " by known listing / offer ID" : record.matchReason === "product_identifier" ? " by exact product identifier" : ""}{record.quantityConflict ? ` · eBay ${record.external.quantity}, PalletFlip ${record.localItem?.available ?? record.localItem?.quantity ?? 0}` : ""}{record.external.title ? ` · ${record.external.title}` : ""}</span></div>)}</div>
             {filteredReconciliationRecords.length > 100 && <small>Showing the first 100 records in this view. Refine the filter to inspect the remainder.</small>}
             <div className="button-row">{hasMorePreviewRecords && <button type="button" onClick={() => loadImportPreview(true)} disabled={previewLoading}>{previewLoading ? "Reading next batch..." : "Load next 50"}</button>}<small>Fetched {new Date(importPreview.fetchedAt).toLocaleString()} · up to {importPreview.pagination?.limit ?? 50} more records per batch</small></div>
-            <div className="button-row"><button type="button" onClick={saveObservationSnapshot} disabled={snapshotSaving || snapshotsLoading || ordersImporting || getRepositoryMode() !== "cloud"}>{snapshotSaving ? "Saving audit snapshot..." : "Save audit snapshot"}</button><button type="button" onClick={importObservedOrders} disabled={snapshotSaving || ordersImporting || getRepositoryMode() !== "cloud"}>{ordersImporting ? "Importing observed orders..." : "Import observed orders"}</button><button type="button" onClick={loadSavedSnapshots} disabled={snapshotSaving || snapshotsLoading || ordersImporting || getRepositoryMode() !== "cloud"}>{snapshotsLoading ? "Loading history..." : "View saved snapshots"}</button></div>
+            <div className="button-row"><button type="button" onClick={saveObservationSnapshot} disabled={snapshotSaving || snapshotsLoading || ordersImporting || returnsImporting || getRepositoryMode() !== "cloud"}>{snapshotSaving ? "Saving audit snapshot..." : "Save audit snapshot"}</button><button type="button" onClick={importObservedOrders} disabled={snapshotSaving || ordersImporting || returnsImporting || getRepositoryMode() !== "cloud"}>{ordersImporting ? "Importing observed orders..." : "Import observed orders"}</button><button type="button" onClick={importObservedReturns} disabled={snapshotSaving || ordersImporting || returnsImporting || importPreview.returnsUnavailable || !(importPreview.returns?.length > 0) || getRepositoryMode() !== "cloud"}>{returnsImporting ? "Importing observed returns..." : "Import observed returns"}</button><button type="button" onClick={loadSavedSnapshots} disabled={snapshotSaving || snapshotsLoading || ordersImporting || returnsImporting || getRepositoryMode() !== "cloud"}>{snapshotsLoading ? "Loading history..." : "View saved snapshots"}</button></div>
             <small>Observed order import is idempotent and does not reserve or change inventory.</small>
+            <small>Import orders first so returns can be matched exactly. Return import is idempotent and does not restock or change inventory.</small>
             {getRepositoryMode() !== "cloud" && <small>Sign in to cloud inventory to preserve this preview as append-only audit history.</small>}
             {savedSnapshots && <div className="check-list reconciliation-records"><strong>Recent reconciliation snapshots</strong>{savedSnapshots.length === 0 ? <small>No audit snapshots saved yet.</small> : savedSnapshots.map((run) => <div className="check-row snapshot-history-row" key={run.id}><span className={`check-dot ${run.status === "completed" ? "ok" : ""}`} /><span><strong>{new Date(run.started_at).toLocaleString()}</strong> · {run.status} · {run.inventory_count} inventory · {run.offer_count} offers · {run.order_count} orders · {run.matched_count} matched · {Number(run.uncertain_count) + Number(run.unmatched_count) + Number(run.conflicting_count)} need review{run.error_message ? ` · ${run.error_message}` : ""}</span><button type="button" onClick={() => openSnapshotReview(run.id)} disabled={reviewLoading}>{reviewLoading ? "Loading..." : "Review decisions"}</button></div>)}</div>}
             {snapshotReview && <div className="check-list reconciliation-records"><strong>Saved snapshot decisions</strong>{snapshotReview.observations.slice(0, 100).map((observation) => { const decision = latestDecisionByObservation.get(observation.id); const importedItem = importedItemByObservation.get(observation.id); const isOrder = observation.resource_type === "order"; const quantityStillConflicts = observation.reconciliation_state === "conflicting" && decision?.decision_type === "match_existing"; const resolved = (decision || observation.reconciliation_state === "matched") && !quantityStillConflicts; return <div className="reconciliation-decision-row" key={observation.id}><div className="check-row"><span className={`check-dot ${resolved ? "ok" : ""}`} /><span><strong>{observation.seller_sku || observation.external_id}</strong> · {observation.resource_type.replaceAll("_", " ")} · {importedItem ? `unverified item ${importedItem.client_id} created` : decision ? decision.decision_type.replaceAll("_", " ") : observation.reconciliation_state}{quantityStillConflicts ? " · quantity still needs physical confirmation" : ""}</span></div><div className="reconciliation-actions">{!isOrder && !importedItem && <button type="button" disabled={decisionSaving} onClick={() => { setDecisionTarget(observation); setDecisionItemId(""); }}>Match item</button>}{!isOrder && !importedItem && decision?.decision_type !== "create_new" && <button type="button" disabled={decisionSaving} onClick={() => recordDecision(observation, "create_new")}>Queue unverified item</button>}{!isOrder && !importedItem && decision?.decision_type === "create_new" && <button className="primary-button" type="button" disabled={decisionSaving} onClick={() => createUnverifiedItem(observation)}>Create zero-stock item</button>}<button type="button" disabled={decisionSaving || Boolean(importedItem)} onClick={() => recordDecision(observation, "defer")}>Defer</button><button type="button" disabled={decisionSaving || Boolean(importedItem)} onClick={() => recordDecision(observation, "ignore")}>Ignore</button></div></div>; })}{snapshotReview.observations.length > 100 && <small>Showing the first 100 observations from this snapshot.</small>}</div>}

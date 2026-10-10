@@ -1397,6 +1397,7 @@ const server = createServer(async (req, res) => {
         inventoryOffset: url.searchParams.get("inventoryOffset"),
         offerOffset: url.searchParams.get("offerOffset"),
         orderOffset: url.searchParams.get("orderOffset"),
+        returnOffset: url.searchParams.get("returnOffset"),
       }));
       return;
     }

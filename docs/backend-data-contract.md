@@ -175,9 +175,19 @@ quarantined units through an explicit negative movement. Every transition is
 audited and idempotent where it affects quantity.
 
 Manual return intake is available for launch and writes the same records used
-by future eBay return imports. It accepts only a shipped order line, cannot
+by eBay return imports. It accepts only a shipped order line, cannot
 exceed the sold quantity, and uses a client request key for idempotency. Creating
 the return still leaves its inventory unavailable until physical receipt.
+
+The observe-only eBay preview also reads seller returns and imports them only
+when the return can be matched to exactly one previously imported order line.
+Unmatched or ambiguous cases remain visible for review instead of guessing.
+Repeated imports update marketplace state and deadlines without resetting a
+local return that has already been received, inspected, resolved, or closed.
+Import never receives, inspects, disposes, or restocks physical inventory.
+Because eBay does not support return search in its Sandbox environment, a
+return-read failure is reported separately and does not block inventory,
+offer, or order reconciliation.
 
 Return financial events are append-only and idempotent by external or client
 event key. Refunds, partial refunds, fee credits, return shipping, replacement

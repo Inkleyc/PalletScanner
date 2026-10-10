@@ -132,6 +132,8 @@ for (const marker of [
   "Verify physical inventory",
   "Import observed orders",
   "does not reserve or change inventory",
+  "Import observed returns",
+  "does not restock or change inventory",
   "Observed eBay orders",
   "Lines needing match",
   "This records identity only; it does not reserve or reduce stock",
