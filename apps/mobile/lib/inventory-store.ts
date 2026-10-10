@@ -1,11 +1,13 @@
-import * as FileSystem from "expo-file-system/legacy";
-import { Platform } from "react-native";
-
-import { readWebStorage, writeWebStorage } from "@/lib/web-storage";
 import {
   deleteStoredInventoryPhoto,
   storeInventoryPhoto,
 } from "@/lib/inventory-photo-storage";
+import {
+  readActivePalletStorage,
+  readInventoryStorage,
+  writeActivePalletStorage,
+  writeInventoryStorage,
+} from "@/lib/inventory-persistence";
 import type { InventoryItem, PalletSession } from "@palletscanner/core";
 
 type ResetBackup = {
@@ -31,10 +33,6 @@ type InventoryPersistence = {
 type InventoryListener = () => void;
 
 const inventoryListeners = new Set<InventoryListener>();
-const inventoryFile = `${FileSystem.documentDirectory}inventory.json`;
-const activePalletFile = `${FileSystem.documentDirectory}active-pallet.txt`;
-const inventoryWebKey = "inventory";
-const activePalletWebKey = "active-pallet-id";
 const legacyPalletId = "pallet-1";
 const threeDaysMs = 3 * 24 * 60 * 60 * 1000;
 
@@ -292,15 +290,7 @@ const persistInventory = async () => {
       activePalletId,
       resetBackup: resetBackupState,
     };
-    if (Platform.OS === "web") {
-      await writeWebStorage(inventoryWebKey, JSON.stringify(payload));
-      return;
-    }
-    await FileSystem.writeAsStringAsync(
-      inventoryFile,
-      JSON.stringify(payload),
-      { encoding: "utf8" },
-    );
+    await writeInventoryStorage(JSON.stringify(payload));
   } catch {
     // Best-effort persistence; keep working in memory if writing fails.
   }
@@ -309,13 +299,7 @@ const persistInventory = async () => {
 const persistActivePalletId = async () => {
   try {
     const value = activePalletId ?? "";
-    if (Platform.OS === "web") {
-      await writeWebStorage(activePalletWebKey, value);
-      return;
-    }
-    await FileSystem.writeAsStringAsync(activePalletFile, value, {
-      encoding: "utf8",
-    });
+    await writeActivePalletStorage(value);
   } catch {
     // Best-effort persistence; the full inventory file still has a fallback.
   }
@@ -323,14 +307,7 @@ const persistActivePalletId = async () => {
 
 const hydrateActivePalletId = async () => {
   try {
-    const raw =
-      Platform.OS === "web"
-        ? await readWebStorage(activePalletWebKey)
-        : (await FileSystem.getInfoAsync(activePalletFile)).exists
-          ? await FileSystem.readAsStringAsync(activePalletFile, {
-              encoding: "utf8",
-            })
-          : null;
+    const raw = await readActivePalletStorage();
     const persistedActivePalletId = raw?.trim() || null;
     if (
       persistedActivePalletId &&
@@ -432,52 +409,8 @@ export const hydrateInventory = async () => {
 
   hydratePromise = (async () => {
     try {
-      if (Platform.OS === "web") {
-        const raw = await readWebStorage(inventoryWebKey);
-        if (!raw) {
-          return;
-        }
-        const parsed = JSON.parse(raw) as
-          | InventoryItem[]
-          | InventoryPersistence;
-        if (Array.isArray(parsed)) {
-          const normalizedItems = parsed.map(normalizeInventoryItem);
-          setInventoryStateAndPersist(normalizedItems);
-          const normalizedState = normalizePalletState(
-            ensureMigrationPallet(normalizedItems, []),
-            legacyPalletId,
-          );
-          palletState = normalizedState.pallets;
-          activePalletId = normalizedState.activePalletId;
-          setResetBackupState(null);
-        } else {
-          const normalizedItems = Array.isArray(parsed.items)
-            ? parsed.items.map(normalizeInventoryItem)
-            : [];
-          setInventoryStateAndPersist(normalizedItems);
-          const normalizedState = normalizePalletState(
-            ensureMigrationPallet(
-              normalizedItems,
-              Array.isArray(parsed.pallets) ? parsed.pallets : [],
-            ),
-            parsed.activePalletId,
-          );
-          palletState = normalizedState.pallets;
-          activePalletId = normalizedState.activePalletId;
-          setResetBackupState(parsed.resetBackup ?? null);
-        }
-        await hydrateActivePalletId();
-        notifyInventoryListeners();
-        return;
-      }
-      const fileInfo = await FileSystem.getInfoAsync(inventoryFile);
-      if (!fileInfo.exists) {
-        return;
-      }
-
-      const raw = await FileSystem.readAsStringAsync(inventoryFile, {
-        encoding: "utf8",
-      });
+      const raw = await readInventoryStorage();
+      if (!raw) return;
       const parsed = JSON.parse(raw) as InventoryItem[] | InventoryPersistence;
 
       if (Array.isArray(parsed)) {
