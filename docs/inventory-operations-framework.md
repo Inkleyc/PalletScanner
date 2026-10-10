@@ -1198,6 +1198,14 @@ Exit: a seller can fulfill an eBay order without losing operational context.
 
 Exit: every return has an owner, deadline, financial result, and inventory result.
 
+Implementation status: the guarded application and data contract is complete.
+The automated return-lifecycle contract check covers intake, decisions,
+communications, return shipping, receipt, inspection, identity evidence,
+disposition, finances, replacement fulfillment, and closure. Market-release
+exit still requires the staged owner acceptance run documented in
+`docs/return-lifecycle-validation.md`, including production-only eBay Post-Order
+validation.
+
 ### Phase 6: Pricing and Marketplace Expansion
 
 - add guarded repricing, buyer offers, promotions, and performance analytics;
