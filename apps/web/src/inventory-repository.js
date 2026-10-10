@@ -63,6 +63,7 @@ const load = () => {
         activity: Array.isArray(saved.activity) ? saved.activity : [],
         sales,
         movements: Array.isArray(saved.movements) ? saved.movements : buildOpeningMovements(normalizedItems, sales),
+        reservations: Array.isArray(saved.reservations) ? saved.reservations : [],
       };
     }
   } catch {
@@ -76,6 +77,7 @@ const load = () => {
     activity: [],
     sales: [],
     movements: buildOpeningMovements(initialItems, []),
+    reservations: [],
   };
 };
 
@@ -226,6 +228,41 @@ export const repository = {
       .filter((movement) => movement.itemId === itemId)
       .sort((first, second) => second.occurredAt - first.occurredAt);
   },
+  async listReservations(itemId) {
+    return clone(state.reservations)
+      .filter((reservation) => reservation.itemId === itemId)
+      .sort((first, second) => second.createdAt - first.createdAt);
+  },
+  async reserveItem(itemId, quantity, reason) {
+    const item = items.find((entry) => entry.id === itemId);
+    if (!item) throw new Error("The inventory item could not be found.");
+    if (!Number.isInteger(quantity) || quantity < 1) throw new Error("Hold quantity must be a whole number of at least 1.");
+    const available = Number.isInteger(item.available) ? item.available : item.quantity;
+    const reservedQuantity = Math.min(quantity, available);
+    const reservation = { id: `hold-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`, itemId, requestedQuantity: quantity, reservedQuantity, shortageQuantity: quantity - reservedQuantity, state: quantity > reservedQuantity ? "shortage" : "active", reason: reason?.trim() || "Manual inventory hold", createdAt: Date.now() };
+    state.reservations.push(reservation);
+    item.reserved = (item.reserved ?? 0) + reservedQuantity;
+    item.available = Math.max(available - reservedQuantity, 0);
+    item.shortage = (item.shortage ?? 0) + reservation.shortageQuantity;
+    recordActivity("inventory.held", itemId, { name: item.name, quantity, reason: reservation.reason });
+    persist();
+    return clone(reservation);
+  },
+  async releaseReservation(reservationId) {
+    const reservation = state.reservations.find((entry) => entry.id === reservationId);
+    if (!reservation || !["active", "shortage"].includes(reservation.state)) throw new Error("Active reservation was not found.");
+    const item = items.find((entry) => entry.id === reservation.itemId);
+    reservation.state = "released";
+    reservation.releasedQuantity = reservation.reservedQuantity;
+    reservation.shortageQuantity = 0;
+    if (item) {
+      item.reserved = Math.max((item.reserved ?? 0) - reservation.reservedQuantity, 0);
+      item.available = Math.max((item.available ?? item.quantity) + reservation.reservedQuantity, 0);
+      item.shortage = Math.max((item.shortage ?? 0) - (reservation.requestedQuantity - reservation.reservedQuantity), 0);
+    }
+    persist();
+    return clone(reservation);
+  },
   async replaceSnapshot(snapshot) {
     if (!snapshot || !Array.isArray(snapshot.items) || !Array.isArray(snapshot.pallets)) {
       throw new Error("Backup must contain items and pallets arrays.");
@@ -245,6 +282,7 @@ export const repository = {
     state.activity = Array.isArray(snapshot.activity) ? clone(snapshot.activity) : [];
     state.sales = Array.isArray(snapshot.sales) ? clone(snapshot.sales) : [];
     state.movements = Array.isArray(snapshot.movements) ? clone(snapshot.movements) : buildOpeningMovements(restoredItems, state.sales);
+    state.reservations = Array.isArray(snapshot.reservations) ? clone(snapshot.reservations) : [];
     recordActivity("data.restored", "repository", { itemCount: items.length, palletCount: pallets.length });
     persist();
   },

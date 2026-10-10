@@ -54,6 +54,9 @@ export const repository = {
   recordSale: (...args) => activeRepository.recordSale(...args),
   listActivity: (...args) => activeRepository.listActivity(...args),
   listMovements: (...args) => activeRepository.listMovements(...args),
+  listReservations: (...args) => activeRepository.listReservations(...args),
+  reserveItem: (...args) => activeRepository.reserveItem(...args),
+  releaseReservation: (...args) => activeRepository.releaseReservation(...args),
   replaceSnapshot: (...args) => {
     if (typeof activeRepository.replaceSnapshot !== "function") {
       throw new Error("Backup restore is only available for local preview data.");

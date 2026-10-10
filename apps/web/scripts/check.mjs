@@ -110,6 +110,8 @@ for (const marker of [
   "Enable location tracking",
   "Storage location",
   "sellerSku",
+  "Place inventory hold",
+  "Release hold",
   "Report filters",
   "Category / item type",
   "Export CSV report",
@@ -209,6 +211,17 @@ if (!(await repository.listMovements(originalItem.id)).some((movement) => moveme
 }
 await repository.saveItem(originalItem);
 unsubscribe();
+
+const holdItem = repository.getSnapshot().items.find((item) => item.soldPrice === null && getQuantity(item) >= 2);
+const startingAvailable = getQuantity(holdItem);
+const hold = await repository.reserveItem(holdItem.id, 2, "Awaiting local pickup");
+if (hold.reservedQuantity !== 2 || repository.getSnapshot().items.find((item) => item.id === holdItem.id)?.available !== startingAvailable - 2) {
+  throw new Error("Local repository did not reserve available inventory.");
+}
+await repository.releaseReservation(hold.id);
+if (repository.getSnapshot().items.find((item) => item.id === holdItem.id)?.available !== startingAvailable) {
+  throw new Error("Local repository did not restore availability after releasing a hold.");
+}
 
 const removableItem = { ...originalItem, id: 999999, name: "Repository removal test" };
 await repository.saveItem(removableItem);

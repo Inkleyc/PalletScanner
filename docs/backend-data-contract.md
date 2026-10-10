@@ -62,6 +62,9 @@ the inventory row, allocates no more than the available balance, records any
 unfilled demand as shortage, and returns the original reservation when an
 idempotency key is retried. Releasing a reservation restores availability while
 preserving the reservation record and audit timestamps.
+The web item History panel exposes the same contract as a lightweight manual
+hold workflow so reservations and shortages can be exercised before automated
+marketplace orders are enabled.
 
 ## Local-to-Server IDs
 
