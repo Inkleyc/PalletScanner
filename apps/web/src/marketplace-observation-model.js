@@ -19,8 +19,8 @@ export const buildEbayObservationRows = ({ businessId, ownerId, accountId, runId
     seller_sku: record.external.sku || null,
     reconciliation_state: record.state,
     inventory_item_id: record.localItem?.serverId || null,
-    observed_quantity: record.external.quantity == null ? null : Number(record.external.quantity),
-    observed_payload: record.external.raw ?? record.external,
+    observed_quantity: record.external.quantity == null && record.external.availableQuantity == null ? null : Number(record.external.quantity ?? record.external.availableQuantity),
+    observed_payload: record.external,
     observed_at: observedAt,
   }));
   const orderRows = (preview.orders ?? []).map((order, index) => {

@@ -16,7 +16,7 @@ import { getRepositoryMode, repository, useCloudRepository, useLocalRepository }
 import { isSupabaseConfigured, supabase } from "./supabase.js";
 import { buildAnalytics } from "./analytics-model.js";
 import { reconcileEbayPreview } from "./ebay-reconciliation.js";
-import { createUnverifiedInventoryFromObservation, importObservedEbayOrders, listEbayObservationSnapshots, listImportedEbayOrders, loadEbayObservationSnapshot, matchImportedOrderLine, recordEbayReconciliationDecision, releaseCancelledOrderReservations, reserveImportedOrder, saveEbayObservationSnapshot } from "./marketplace-observation-repository.js";
+import { createUnverifiedInventoryFromObservation, importObservedEbayOrders, listEbayObservationSnapshots, listImportedEbayOrders, listMarketplaceQuantityQueue, loadEbayObservationSnapshot, matchImportedOrderLine, recordEbayReconciliationDecision, releaseCancelledOrderReservations, reserveImportedOrder, saveEbayObservationSnapshot } from "./marketplace-observation-repository.js";
 import { ActivityPanel } from "./activity-panel.jsx";
 import { PalletManager } from "./pallet-manager.jsx";
 import {
@@ -584,6 +584,29 @@ function SellingDefaults() {
   return <article className="admin-card integration-card"><span className="admin-kicker">Selling defaults</span><strong>New listing preferences</strong><p>These choices are applied when AI analyzes new inventory. You can still change any item before posting.</p><label><span>Listing price</span><select value={priceRule} onChange={(event) => setPriceRule(event.target.value)}><option value="high">High estimate</option><option value="midpoint">Middle of range</option><option value="low">Low estimate</option></select><small>The exact price initially sent to eBay.</small></label><label><span>Preferred marketplace</span><select value={marketplace} onChange={(event) => setMarketplace(event.target.value)}><option value="ai">Use AI recommendation</option><option value="eBay">Prefer eBay</option><option value="Facebook">Prefer Facebook</option></select><small>Sets the initial marketplace recommendation on new items.</small></label><button className="primary-button" type="button" onClick={saveDefaults}>{saved ? "Saved" : "Save defaults"}</button></article>;
 }
 
+function QuantitySyncQueue() {
+  const [rows, setRows] = useState(null);
+  const [error, setError] = useState("");
+  const load = async () => {
+    setError("");
+    try { setRows(await listMarketplaceQuantityQueue()); }
+    catch (loadError) { setError(loadError instanceof Error ? loadError.message : "Could not load the quantity queue."); }
+  };
+  if (getRepositoryMode() !== "cloud") return null;
+  const mismatches = (rows ?? []).filter((row) => row.advertised_quantity !== row.desired_quantity);
+  return <article className="admin-card integration-card">
+    <div className="status-line"><strong>eBay quantity protection</strong><span className="badge warning">Outbound paused</span></div>
+    <p>PalletFlip calculates the quantity eBay should advertise from available inventory. This review queue cannot change eBay.</p>
+    <button type="button" onClick={load}>{rows ? "Refresh quantity queue" : "Review quantity queue"}</button>
+    {error && <p className="error-text">{error}</p>}
+    {rows && <div className="check-list reconciliation-records">
+      <strong>{mismatches.length} quantity mismatch{mismatches.length === 1 ? "" : "es"}</strong>
+      {mismatches.length === 0 ? <small>All observed eBay quantities match currently available inventory.</small> : mismatches.slice(0, 50).map((row) => <div className="check-row" key={row.id}><span className="check-dot" /><span><strong>{row.inventory_items?.seller_sku || row.sku || "No SKU"}</strong> · {row.inventory_items?.name || "Unknown item"} · eBay {row.advertised_quantity ?? "unknown"} · PalletFlip {row.desired_quantity ?? row.inventory_items?.available ?? "unknown"} · {row.quantity_sync_state.replaceAll("_", " ")}</span></div>)}
+      {mismatches.length > 50 && <small>Showing the first 50 mismatches.</small>}
+    </div>}
+  </article>;
+}
+
 function EbaySettings({ mode = "all" }) {
   const [baseUrl, setBaseUrl] = useState(() => readPreference("palletscanner.ebayApiBaseUrl", ""));
   const [token, setToken] = useState(() => sessionStorage.getItem("palletscanner.authToken") ?? "");
@@ -866,6 +889,7 @@ function EbaySettings({ mode = "all" }) {
             {snapshotReview && <div className="check-list reconciliation-records"><strong>Saved snapshot decisions</strong>{snapshotReview.observations.slice(0, 100).map((observation) => { const decision = latestDecisionByObservation.get(observation.id); const importedItem = importedItemByObservation.get(observation.id); const isOrder = observation.resource_type === "order"; const quantityStillConflicts = observation.reconciliation_state === "conflicting" && decision?.decision_type === "match_existing"; const resolved = (decision || observation.reconciliation_state === "matched") && !quantityStillConflicts; return <div className="reconciliation-decision-row" key={observation.id}><div className="check-row"><span className={`check-dot ${resolved ? "ok" : ""}`} /><span><strong>{observation.seller_sku || observation.external_id}</strong> · {observation.resource_type.replaceAll("_", " ")} · {importedItem ? `unverified item ${importedItem.client_id} created` : decision ? decision.decision_type.replaceAll("_", " ") : observation.reconciliation_state}{quantityStillConflicts ? " · quantity still needs physical confirmation" : ""}</span></div><div className="reconciliation-actions">{!isOrder && !importedItem && <button type="button" disabled={decisionSaving} onClick={() => { setDecisionTarget(observation); setDecisionItemId(""); }}>Match item</button>}{!isOrder && !importedItem && decision?.decision_type !== "create_new" && <button type="button" disabled={decisionSaving} onClick={() => recordDecision(observation, "create_new")}>Queue unverified item</button>}{!isOrder && !importedItem && decision?.decision_type === "create_new" && <button className="primary-button" type="button" disabled={decisionSaving} onClick={() => createUnverifiedItem(observation)}>Create zero-stock item</button>}<button type="button" disabled={decisionSaving || Boolean(importedItem)} onClick={() => recordDecision(observation, "defer")}>Defer</button><button type="button" disabled={decisionSaving || Boolean(importedItem)} onClick={() => recordDecision(observation, "ignore")}>Ignore</button></div></div>; })}{snapshotReview.observations.length > 100 && <small>Showing the first 100 observations from this snapshot.</small>}</div>}
           </>}
         </article>}
+        {mode !== "settings" && <QuantitySyncQueue />}
         <div className="settings-group-heading"><h4>Data</h4><p>Keep a portable backup of your pallets and inventory.</p></div>
         {mode !== "ebay" && <article className="admin-card"><strong>Data export</strong><p>Download a portable JSON copy of the currently loaded pallets and inventory.</p><button onClick={downloadBackup}>Download JSON backup</button>{getRepositoryMode() === "local" && <><button className="danger-button" onClick={() => backupInput.current?.click()}>Restore local backup</button><input ref={backupInput} className="visually-hidden" type="file" accept="application/json,.json" onChange={restoreBackup} /></>}</article>}
       </div>

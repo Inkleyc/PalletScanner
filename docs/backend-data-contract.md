@@ -75,6 +75,12 @@ order can release its active inventory reservations through one atomic,
 idempotent command. Cancellation-pending or cancelled orders cannot acquire new
 reservations, and released reservation records remain available for audit.
 
+Each matched eBay offer preserves both its last confirmed advertised quantity
+and PalletFlip's desired quantity, calculated from ledger-backed available
+inventory. Inventory changes refresh that intent immediately. Differences remain
+`paused` while either the marketplace account or listing is paused, so observing
+and calculating a correction cannot cause an outbound eBay write.
+
 ## Local-to-Server IDs
 
 Current mobile data uses numeric item IDs and string pallet IDs. The server uses

@@ -140,6 +140,8 @@ for (const marker of [
   "Verification required",
   "Cancellation confirmed by eBay",
   "Release reserved inventory",
+  "eBay quantity protection",
+  "This review queue cannot change eBay",
   "/ebay/import-preview",
   "Report filters",
   "Category / item type",
@@ -193,7 +195,7 @@ if (getStaleInventoryItems(items, new Date("2026-07-15T12:00:00Z")).length === 0
 
 const reconciliation = reconcileEbayPreview({
   inventoryItems: [{ sku: "PF-1", quantity: 2 }, { sku: "PF-2", quantity: 1 }, { sku: "PF-DUPLICATE", quantity: 1 }, { sku: "missing", quantity: 1 }, { sku: "", quantity: 1, productIdentifiers: { upc: ["0-12345-67890-5"] } }],
-  offers: [{ sku: "pf-1" }, { sku: "", offerId: "offer-known" }, { sku: "PF-1", offerId: "offer-known" }],
+  offers: [{ sku: "pf-1", offerId: "offer-1", availableQuantity: 2 }, { sku: "", offerId: "offer-known" }, { sku: "PF-1", offerId: "offer-known" }],
   orders: [{ orderId: "order-1", lineItems: [{ sku: "PF-1" }, { sku: "", legacyItemId: "listing-known" }, { sku: "" }] }],
 }, [
   { id: 1, serverId: "inventory-server-1", sellerSku: "pf-1", available: 2 },
@@ -229,6 +231,9 @@ if (observationRows.length !== 12 || !observationRows.some((row) => row.resource
 }
 if (!observationRows.some((row) => row.inventory_item_id && row.reconciliation_state === "matched")) {
   throw new Error("Marketplace observation snapshot did not retain matched cloud inventory links.");
+}
+if (!observationRows.some((row) => row.resource_type === "offer" && row.external_id === "offer-1" && row.observed_quantity === 2 && row.observed_payload.offerId === "offer-1")) {
+  throw new Error("Marketplace observation snapshot did not preserve normalized offer identity and quantity.");
 }
 
 const snapshot = repository.getSnapshot();
