@@ -15,6 +15,8 @@ Read the detailed roadmap:
 - [Current Code Audit](docs/current-code-audit.md)
 - [Mobile Testing And Expo Strategy](docs/mobile-testing-and-expo-strategy.md)
 - [Backend Data Contract](docs/backend-data-contract.md)
+- [Inventory Operations Framework](docs/inventory-operations-framework.md)
+- [Inventory Operations Data Model](docs/inventory-operations-data-model.md)
 
 ## Workspace Commands
 
