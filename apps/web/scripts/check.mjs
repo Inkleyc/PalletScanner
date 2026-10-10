@@ -138,6 +138,8 @@ for (const marker of [
   "Imported orders never change inventory automatically",
   "Reserve inventory",
   "Verification required",
+  "Cancellation confirmed by eBay",
+  "Release reserved inventory",
   "/ebay/import-preview",
   "Report filters",
   "Category / item type",

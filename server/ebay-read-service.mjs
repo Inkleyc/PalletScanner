@@ -38,6 +38,7 @@ const summarizeOrder = (order) => ({
   lastModifiedDate: order.lastModifiedDate ?? null,
   orderFulfillmentStatus: order.orderFulfillmentStatus ?? null,
   orderPaymentStatus: order.orderPaymentStatus ?? null,
+  cancellationState: order.cancelStatus?.cancelState ?? "NONE_REQUESTED",
   pricingSummary: order.pricingSummary ?? null,
   lineItems: (order.lineItems ?? []).map((line) => ({
     lineItemId: line.lineItemId ?? null,

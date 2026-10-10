@@ -1257,6 +1257,12 @@ Exit: new channels do not duplicate core inventory or order logic.
     after retries are exhausted.
 15. The owner can use mobile for intake and physical work and web for review and
     operations without either product becoming a duplicate of the other.
+16. PalletFlip provides a cohesive, approachable experience across both products:
+    mobile is optimized for quick physical intake and field work, while web is
+    optimized for review and business operations. Both share a recognizable
+    design system, consistent terminology, accessible interaction patterns,
+    clear status and error feedback, and polished workflows without duplicating
+    each other.
 
 ## Recorded Launch Decisions
 

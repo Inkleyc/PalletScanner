@@ -70,6 +70,11 @@ The web item History panel exposes the same contract as a lightweight manual
 hold workflow so reservations and shortages can be exercised before automated
 marketplace orders are enabled.
 
+Imported orders preserve eBay's cancellation state. A confirmed `CANCELED`
+order can release its active inventory reservations through one atomic,
+idempotent command. Cancellation-pending or cancelled orders cannot acquire new
+reservations, and released reservation records remain available for audit.
+
 ## Local-to-Server IDs
 
 Current mobile data uses numeric item IDs and string pallet IDs. The server uses

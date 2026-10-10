@@ -95,6 +95,10 @@ const importedOrderReservation = await readFile(
   new URL("../supabase/migrations/202610100017_reserve_imported_order.sql", import.meta.url),
   "utf8",
 );
+const cancelledOrderRelease = await readFile(
+  new URL("../supabase/migrations/202610100018_cancelled_order_release.sql", import.meta.url),
+  "utf8",
+);
 
 for (const table of ["pallets", "inventory_items", "item_photos", "marketplace_listings", "sales", "activity_events"]) {
   if (!schema.includes(`create table public.${table}`)) {
@@ -155,6 +159,9 @@ for (const marker of ["match_order_line", "for update", "order_line.manually_mat
 }
 for (const marker of ["reserve_imported_order", "protect_reserved_order_line", "A reserved order line cannot be rematched or changed", "Only paid orders can reserve inventory", "Every order line must be matched", "verification_state <> 'verified'", "order by item.id for update", "reservation_id is null", "order-line:", "No reservations were saved", "reserved_line_count > 0", "order.inventory_reserved"]) {
   if (!importedOrderReservation.includes(marker)) throw new Error(`Imported-order reservation is missing safety marker: ${marker}`);
+}
+for (const marker of ["cancellation_state", "release_cancelled_order_reservations", "eBay confirms cancellation", "release_inventory_reservation", "order.cancelled_inventory_released", "released_count > 0", "Cancelled or cancellation-pending orders cannot reserve inventory"]) {
+  if (!cancelledOrderRelease.includes(marker)) throw new Error(`Cancelled-order release is missing safety marker: ${marker}`);
 }
 
 for (const marker of [

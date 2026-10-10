@@ -129,6 +129,7 @@ export const importObservedEbayOrders = async ({ preview, reconciliation }) => {
     external_order_id: order.orderId,
     payment_state: order.orderPaymentStatus || "unknown",
     fulfillment_state: order.orderFulfillmentStatus || "unknown",
+    cancellation_state: (order.cancellationState || "NONE_REQUESTED").toLowerCase(),
     currency: order.pricingSummary?.total?.currency ?? order.pricingSummary?.priceSubtotal?.currency ?? null,
     pricing_summary: order.pricingSummary ?? {},
     raw_payload: order.raw ?? order,
@@ -169,7 +170,7 @@ export const listImportedEbayOrders = async () => {
   if (userResult.error || !userResult.data.user) throw new Error("Sign in to view imported orders.");
   const [orderResult, lineResult] = await Promise.all([
     supabase.from("orders").select("*").eq("owner_id", userResult.data.user.id).order("external_created_at", { ascending: false }),
-    supabase.from("order_lines").select("*").eq("owner_id", userResult.data.user.id).order("created_at"),
+    supabase.from("order_lines").select("*, inventory_reservations(state)").eq("owner_id", userResult.data.user.id).order("created_at"),
   ]);
   throwIfError(orderResult); throwIfError(lineResult);
   const linesByOrder = new Map();
@@ -192,6 +193,14 @@ export const reserveImportedOrder = async (orderId) => {
   if (!supabase) throw new Error("Supabase is not configured for this dashboard.");
   if (!orderId) throw new Error("Select an imported order before reserving inventory.");
   const result = await supabase.rpc("reserve_imported_order", { target_order_id: orderId });
+  throwIfError(result);
+  return Number(result.data ?? 0);
+};
+
+export const releaseCancelledOrderReservations = async (orderId) => {
+  if (!supabase) throw new Error("Supabase is not configured for this dashboard.");
+  if (!orderId) throw new Error("Select a cancelled order before releasing inventory.");
+  const result = await supabase.rpc("release_cancelled_order_reservations", { target_order_id: orderId });
   throwIfError(result);
   return Number(result.data ?? 0);
 };
