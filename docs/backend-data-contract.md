@@ -42,6 +42,11 @@ Normal item removal is an archive operation. It sets
 day-to-day dashboard totals, and preserves photos, sales, listings, and movement
 history. The web inventory filter can reveal and restore archived records.
 
+Storage location is an optional free-text inventory field. Location tracking is
+off by default so a hobbyist can ignore it; when enabled in web settings, the
+item editor accepts practical labels such as `Garage / Rack 2` without imposing
+a warehouse hierarchy.
+
 Each sale records the number of units sold. Its database trigger locks the
 inventory row, rejects a quantity above the current available balance, and
 appends an idempotent negative `sale` movement. Partial sales leave the

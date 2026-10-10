@@ -52,6 +52,7 @@ const itemDraft = (item) => ({
   palletId: item.palletId ?? "",
   quantity: String(getQuantity(item)),
   quantityReason: "",
+  storageLocation: item.storageLocation ?? "",
   low: String(price(item, "low")),
   high: String(price(item, "high")),
   floor: String(price(item, "floor")),
@@ -327,7 +328,7 @@ function InventoryHistory({ item }) {
   return <div><div className="detail-grid"><div><span>On hand</span><strong>{item.onHand ?? item.quantity}</strong></div><div><span>Reserved</span><strong>{item.reserved ?? 0}</strong></div><div><span>Available</span><strong>{item.available ?? item.quantity}</strong></div><div><span>Shortage</span><strong>{item.shortage ?? 0}</strong></div></div>{error && <p className="error-text">{error}</p>}{!error && movements.length === 0 && <p>No quantity movements have been recorded yet.</p>}{movements.map((movement) => <section className="sale-card" key={movement.id}><div><strong>{movement.quantity > 0 ? "+" : ""}{movement.quantity} · {movement.type.replaceAll("_", " ")}</strong><span>{movement.reason || "Inventory movement"} · {new Date(movement.occurredAt).toLocaleString()}</span></div></section>)}</div>;
 }
 
-function InventoryDetail({ item, palletName, pallets, onSave, onRemove, onSaleRecorded, onClose, allowEditing = true, showWorkflowActions = true }) {
+function InventoryDetail({ item, palletName, pallets, onSave, onRemove, onSaleRecorded, onClose, allowEditing = true, showWorkflowActions = true, locationTrackingEnabled = false }) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(() => item ? itemDraft(item) : null);
   const [detailTab, setDetailTab] = useState("details");
@@ -366,6 +367,7 @@ function InventoryDetail({ item, palletName, pallets, onSave, onRemove, onSaleRe
         category: draft.category.trim() || "Uncategorized",
         condition: draft.condition.trim(),
         palletId: draft.palletId,
+        storageLocation: locationTrackingEnabled ? draft.storageLocation.trim() || undefined : item.storageLocation,
         quantity: persistedQuantity,
         low,
         high,
@@ -409,6 +411,7 @@ function InventoryDetail({ item, palletName, pallets, onSave, onRemove, onSaleRe
         <label><span>Category</span><input value={draft.category} onChange={update("category")} placeholder="Tools, Electronics, Furniture…" /></label>
         <label><span>Condition</span><input value={draft.condition} onChange={update("condition")} /></label>
         <label><span>Pallet</span><select value={draft.palletId} onChange={update("palletId")}>{pallets.map((pallet) => <option key={pallet.id} value={pallet.id}>{pallet.name}</option>)}</select></label>
+        {locationTrackingEnabled && <label><span>Storage location</span><input value={draft.storageLocation} onChange={update("storageLocation")} placeholder="Garage / Rack 2" /></label>}
         <label><span>Available quantity</span><input type="number" min="1" step="1" value={draft.quantity} onChange={update("quantity")} /></label>
         {Number(draft.quantity) !== getQuantity(item) && <label className="wide-field"><span>Quantity adjustment reason</span><select required value={draft.quantityReason} onChange={update("quantityReason")}><option value="">Choose a reason</option><option>Count correction</option><option>Found additional units</option><option>Damaged or lost</option><option>Returned to supplier</option><option>Other manual adjustment</option></select></label>}
         <label><span>Low price</span><input type="number" min="0" step="0.01" value={draft.low} onChange={update("low")} /></label>
@@ -756,6 +759,7 @@ export function App() {
   const [platformFilter, setPlatformFilter] = useState(() => readPreference("palletscanner.inventoryPlatformFilter", "all"));
   const [palletFilter, setPalletFilter] = useState(() => readPreference("palletscanner.inventoryPalletFilter", "all"));
   const [archiveFilter, setArchiveFilter] = useState(() => readPreference("palletscanner.inventoryArchiveFilter", "active"));
+  const [locationTrackingEnabled, setLocationTrackingEnabled] = useState(() => readPreference("palletscanner.locationTrackingEnabled", "false") === "true");
   const [overviewPalletId, setOverviewPalletId] = useState("all");
   const [overviewMenuOpen, setOverviewMenuOpen] = useState(false);
   const [sort, setSort] = useState(() => ({ column: readPreference("palletscanner.inventorySortColumn", "name"), direction: readPreference("palletscanner.inventorySortDirection", "asc") }));
@@ -784,9 +788,10 @@ export function App() {
     localStorage.setItem("palletscanner.inventoryPlatformFilter", platformFilter);
     localStorage.setItem("palletscanner.inventoryPalletFilter", palletFilter);
     localStorage.setItem("palletscanner.inventoryArchiveFilter", archiveFilter);
+    localStorage.setItem("palletscanner.locationTrackingEnabled", String(locationTrackingEnabled));
     localStorage.setItem("palletscanner.inventorySortColumn", sort.column);
     localStorage.setItem("palletscanner.inventorySortDirection", sort.direction);
-  }, [query, platformFilter, palletFilter, archiveFilter, sort]);
+  }, [query, platformFilter, palletFilter, archiveFilter, locationTrackingEnabled, sort]);
   useEffect(() => {
     const handleShortcut = (event) => {
       if (event.key === "/" && !["INPUT", "TEXTAREA", "SELECT"].includes(document.activeElement?.tagName)) {
@@ -903,9 +908,9 @@ export function App() {
           <div className="inventory-workspace"><div className="table-scroll"><table><thead><tr><th><input type="checkbox" aria-label="Select all visible items" checked={visibleItems.length > 0 && visibleItems.every((item) => selectedIds.has(item.id))} onChange={(event) => setSelectedIds((current) => { const next = new Set(current); visibleItems.forEach((item) => event.target.checked ? next.add(item.id) : next.delete(item.id)); return next; })} /></th><th>Photo</th><th><SortButton column="name">Item</SortButton></th><th><SortButton column="pallet">Pallet</SortButton></th><th>Status</th><th>Platform</th><th><SortButton column="quantity">Qty</SortButton></th><th><SortButton column="age">Age</SortButton></th></tr></thead><tbody>{visibleItems.length === 0 ? <tr><td className="empty-table-cell" colSpan="8">No inventory matches these filters.</td></tr> : visibleItems.map((item) => <tr data-inventory-row tabIndex="0" key={item.id} onClick={() => setInventoryModalId(item.id)} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") setInventoryModalId(item.id); }}><td><input type="checkbox" aria-label={`Select ${item.name}`} checked={selectedIds.has(item.id)} onClick={(event) => event.stopPropagation()} onChange={() => toggleSelected(item.id)} /></td><td><ItemThumbnail item={item} /></td><td><strong>{item.name}</strong></td><td>{palletName(item.palletId)}</td><td><span className={`badge ${statusClass[getDisplayStatus(item)]}`}>{statusLabel[getDisplayStatus(item)]}</span></td><td>{getDisplayPlatform(item)}</td><td>{getQuantity(item)}</td><td>{getItemAgeDays(item)}d</td></tr>)}</tbody></table></div>
           </div>
         </section>}
-        {inventoryModalItem && <div className="modal-backdrop" role="presentation" onMouseDown={() => setInventoryModalId(null)}><div className="inventory-detail-modal" role="dialog" aria-modal="true" aria-label={`${inventoryModalItem.name} inventory record`} onMouseDown={(event) => event.stopPropagation()}><InventoryDetail item={inventoryModalItem} palletName={palletName(inventoryModalItem.palletId)} pallets={pallets} showWorkflowActions={false} onClose={() => setInventoryModalId(null)} onSave={async (item, options) => { await repository.saveItem(item, options); notify(item.archivedAt === null ? "Inventory item restored." : "Changes saved."); }} onRemove={async (id) => { await repository.removeItem(id); setInventoryModalId(null); notify("Inventory item archived."); }} onSaleRecorded={() => notify("Sale recorded. Analysis is updated.")} /></div></div>}
+        {inventoryModalItem && <div className="modal-backdrop" role="presentation" onMouseDown={() => setInventoryModalId(null)}><div className="inventory-detail-modal" role="dialog" aria-modal="true" aria-label={`${inventoryModalItem.name} inventory record`} onMouseDown={(event) => event.stopPropagation()}><InventoryDetail item={inventoryModalItem} palletName={palletName(inventoryModalItem.palletId)} pallets={pallets} locationTrackingEnabled={locationTrackingEnabled} showWorkflowActions={false} onClose={() => setInventoryModalId(null)} onSave={async (item, options) => { await repository.saveItem(item, options); notify(item.archivedAt === null ? "Inventory item restored." : "Changes saved."); }} onRemove={async (id) => { await repository.removeItem(id); setInventoryModalId(null); notify("Inventory item archived."); }} onSaleRecorded={() => notify("Sale recorded. Analysis is updated.")} /></div></div>}
         {addingItem && <AddItemDialog pallets={pallets} activePalletId={snapshot.activePalletId} onCancel={() => setAddingItem(false)} onCreate={async (item) => { await repository.saveItem(item); setAddingItem(false); setInventoryModalId(item.id); notify("Item added. Add photos or edit its details."); }} />}
-        <div className="settings-mount" hidden={view !== "settings"}><div className="view-stack"><EbaySettings /><ActivityPanel snapshot={snapshot} /></div></div>
+        <div className="settings-mount" hidden={view !== "settings"}><div className="view-stack"><section className="panel"><div className="panel-heading"><div><p className="eyebrow">Inventory preferences</p><h3>Storage locations</h3><span>Optional for garages, shelves, bins, or racks.</span></div><label><input type="checkbox" checked={locationTrackingEnabled} onChange={(event) => setLocationTrackingEnabled(event.target.checked)} /> Enable location tracking</label></div></section><EbaySettings /><ActivityPanel snapshot={snapshot} /></div></div>
         {toast && <div className="toast" role="status">{toast}</div>}
       </main>
     </div>

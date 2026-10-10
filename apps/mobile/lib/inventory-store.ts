@@ -83,6 +83,10 @@ const normalizeInventoryItem = (item: InventoryItem): InventoryItem => ({
   reserved: Number.isInteger(item.reserved) ? item.reserved : undefined,
   available: Number.isInteger(item.available) ? item.available : undefined,
   shortage: Number.isInteger(item.shortage) ? item.shortage : undefined,
+  storageLocation:
+    typeof item.storageLocation === "string" && item.storageLocation.trim()
+      ? item.storageLocation.trim()
+      : undefined,
   name: coerceText(item.name, "Unnamed item"),
   barcode:
     typeof item.barcode === "string" && item.barcode.trim()

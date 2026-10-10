@@ -42,6 +42,7 @@ export type InventoryItem = {
   available?: number;
   shortage?: number;
   archivedAt?: string | null;
+  storageLocation?: string;
   low_price: number;
   high_price: number;
   floor_price: number;

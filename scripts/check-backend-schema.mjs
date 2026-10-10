@@ -32,6 +32,13 @@ const quantityAdjustmentReasons = await readFile(
   ),
   "utf8",
 );
+const optionalStorageLocations = await readFile(
+  new URL(
+    "../supabase/migrations/202610100006_optional_storage_locations.sql",
+    import.meta.url,
+  ),
+  "utf8",
+);
 
 for (const table of ["pallets", "inventory_items", "item_photos", "marketplace_listings", "sales", "activity_events"]) {
   if (!schema.includes(`create table public.${table}`)) {
@@ -70,6 +77,10 @@ for (const marker of [
   if (!inventoryAuthority.includes(marker)) {
     throw new Error(`Inventory authority schema is missing safety marker: ${marker}`);
   }
+}
+
+if (!optionalStorageLocations.includes("add column if not exists storage_location text")) {
+  throw new Error("Optional storage-location schema is missing its inventory field.");
 }
 
 for (const marker of [

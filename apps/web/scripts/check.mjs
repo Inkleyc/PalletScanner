@@ -107,6 +107,8 @@ for (const marker of [
   "Quantity adjustment reason",
   "Archived inventory",
   "Restore item",
+  "Enable location tracking",
+  "Storage location",
   "Report filters",
   "Category / item type",
   "Export CSV report",
