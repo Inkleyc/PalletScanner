@@ -118,6 +118,10 @@ the system `Loose Items` acquisition. It starts as `unverified_import` with zero
 on-hand and available quantity, so marketplace-reported stock never becomes
 trusted physical stock. The owner must physically verify and adjust quantity
 before the item can participate in availability synchronization.
+The originating eBay SKU, offer ID, listing ID, observed quantity, and raw
+payload are linked to the created inventory record automatically. That listing
+remains `sync_paused`; physical verification does not silently enable outbound
+marketplace changes.
 
 ## Adapter Mapping
 

@@ -75,6 +75,10 @@ const verifyImportedInventory = await readFile(
   new URL("../supabase/migrations/202610100012_verify_imported_inventory.sql", import.meta.url),
   "utf8",
 );
+const importedMarketplaceListing = await readFile(
+  new URL("../supabase/migrations/202610100013_link_imported_marketplace_listing.sql", import.meta.url),
+  "utf8",
+);
 
 for (const table of ["pallets", "inventory_items", "item_photos", "marketplace_listings", "sales", "activity_events"]) {
   if (!schema.includes(`create table public.${table}`)) {
@@ -117,6 +121,9 @@ for (const marker of [
 
 for (const marker of ["verify_imported_inventory", "physical_import_verification", "for update", "inventory.import_verified", "counted_quantity < 0"]) {
   if (!verifyImportedInventory.includes(marker)) throw new Error(`Imported inventory verification is missing safety marker: ${marker}`);
+}
+for (const marker of ["link_imported_marketplace_listing", "inventory_items_link_imported_listing", "sync_paused = true", "on conflict (item_id, platform)"]) {
+  if (!importedMarketplaceListing.includes(marker)) throw new Error(`Imported marketplace listing link is missing safety marker: ${marker}`);
 }
 
 for (const marker of [
