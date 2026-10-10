@@ -42,6 +42,7 @@ import {
   normalizeLookupBarcode,
   type BarcodeLookupItem,
 } from "@/lib/barcode-lookup";
+import { mergeBarcodeAnalysisDraft } from "@/lib/barcode-draft-merge";
 import {
   triggerAnalysisCompleteFeedback,
   triggerCopyFeedback,
@@ -90,107 +91,6 @@ const BARCODE_TYPES = [
   "code128",
   "code39",
 ] as const;
-
-const coerceText = (value: unknown, fallback: string) =>
-  typeof value === "string" && value.trim().length > 0
-    ? value.trim()
-    : fallback;
-
-const coerceNumber = (value: unknown, fallback: number) => {
-  if (typeof value === "number" && Number.isFinite(value)) {
-    return value;
-  }
-
-  if (typeof value === "string") {
-    const match = value.match(/\d+(?:\.\d+)?/);
-    if (match) {
-      const parsed = Number(match[0]);
-      if (Number.isFinite(parsed)) {
-        return parsed;
-      }
-    }
-  }
-
-  return fallback;
-};
-
-const mergeClaudeDraft = (
-  base: CaptureAnalysisResult,
-  claudeDraft: Partial<CaptureAnalysisResult>,
-): CaptureAnalysisResult => {
-  const lowPrice = coerceNumber(claudeDraft.low_price, base.low_price);
-  const highPrice = Math.max(
-    lowPrice,
-    coerceNumber(claudeDraft.high_price, base.high_price),
-  );
-
-  return {
-    ...base,
-    ...claudeDraft,
-    name: coerceText(claudeDraft.name, base.name),
-    description: coerceText(claudeDraft.description, base.description),
-    condition: coerceText(claudeDraft.condition, base.condition),
-    low_price: lowPrice,
-    high_price: highPrice,
-    floor_price: Math.min(
-      coerceNumber(claudeDraft.floor_price, base.floor_price ?? lowPrice),
-      highPrice,
-    ),
-    best_platform: coerceText(claudeDraft.best_platform, base.best_platform),
-    platform_reason: coerceText(
-      claudeDraft.platform_reason,
-      base.platform_reason ?? "",
-    ),
-    listing_title: coerceText(
-      claudeDraft.listing_title,
-      base.listing_title ?? base.name,
-    ),
-    listing_description: coerceText(
-      claudeDraft.listing_description,
-      base.listing_description ?? base.description,
-    ),
-    listing_title_facebook: coerceText(
-      claudeDraft.listing_title_facebook,
-      base.listing_title_facebook ?? base.listing_title ?? base.name,
-    ),
-    listing_description_facebook: coerceText(
-      claudeDraft.listing_description_facebook,
-      base.listing_description_facebook ??
-        base.listing_description ??
-        base.description,
-    ),
-    listing_title_ebay: coerceText(
-      claudeDraft.listing_title_ebay,
-      base.listing_title_ebay ?? base.listing_title ?? base.name,
-    ),
-    listing_description_ebay: coerceText(
-      claudeDraft.listing_description_ebay,
-      base.listing_description_ebay ??
-        base.listing_description ??
-        base.description,
-    ),
-    photo_tips: coerceText(claudeDraft.photo_tips, base.photo_tips ?? ""),
-    photo_example_queries: Array.isArray(claudeDraft.photo_example_queries)
-      ? claudeDraft.photo_example_queries.filter(
-          (query): query is string =>
-            typeof query === "string" && query.trim().length > 0,
-        )
-      : base.photo_example_queries,
-    photo_shot_list: Array.isArray(claudeDraft.photo_shot_list)
-      ? claudeDraft.photo_shot_list.filter(
-          (query): query is string => typeof query === "string" && query.trim().length > 0,
-        )
-      : base.photo_shot_list,
-    sellability_score: coerceNumber(
-      claudeDraft.sellability_score,
-      base.sellability_score ?? 5,
-    ),
-    sellability_reason: coerceText(
-      claudeDraft.sellability_reason,
-      base.sellability_reason ?? "",
-    ),
-  };
-};
 
 export default function BarcodeScanScreen() {
   const router = useRouter();
@@ -765,7 +665,7 @@ ${productSummary}
             },
           ],
       });
-      const parsed = mergeClaudeDraft(
+      const parsed = mergeBarcodeAnalysisDraft(
         fallbackDraft,
         parseAnthropicJsonObject<Partial<CaptureAnalysisResult>>(text),
       );
