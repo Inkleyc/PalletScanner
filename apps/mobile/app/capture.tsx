@@ -28,6 +28,12 @@ import { AppAlert as Alert } from "@/lib/app-alert";
 import { incrementScanCount } from "@/lib/app-meta";
 import { getAppSettings, subscribeAppSettings } from "@/lib/app-settings";
 import {
+  CAPTURE_LOADING_MESSAGES,
+  MAX_LISTING_PHOTOS,
+  RECOMMENDED_LISTING_PHOTOS,
+  getImageUri,
+} from "@/lib/capture-config";
+import {
   triggerAnalysisCompleteFeedback,
   triggerCopyFeedback,
   triggerInventorySaveFeedback,
@@ -61,19 +67,6 @@ import {
   parsePositiveInteger,
   parsePriceRange as parseCorePriceRange,
 } from "@palletscanner/core";
-
-const LOADING_MESSAGES = [
-  "Identifying item...",
-  "Checking market prices...",
-  "Writing your listing...",
-];
-const MAX_LISTING_PHOTOS = 5;
-const RECOMMENDED_LISTING_PHOTOS = 3;
-
-const getImageUri = (image: ImageAssetLike) =>
-  typeof image.uri === "string" && image.uri.trim().length > 0
-    ? image.uri
-    : null;
 
 export default function CaptureScreen() {
   const router = useRouter();
@@ -668,7 +661,7 @@ export default function CaptureScreen() {
           </View>
         )}
 
-        {loading && <LoadingStatus messages={LOADING_MESSAGES} />}
+        {loading && <LoadingStatus messages={CAPTURE_LOADING_MESSAGES} />}
 
         {result && (
           <View style={styles.resultCard}>

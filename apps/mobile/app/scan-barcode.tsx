@@ -32,6 +32,12 @@ import { AppAlert as Alert } from "@/lib/app-alert";
 import { incrementScanCount } from "@/lib/app-meta";
 import { getAppSettings, subscribeAppSettings } from "@/lib/app-settings";
 import {
+  CAPTURE_LOADING_MESSAGES,
+  MAX_LISTING_PHOTOS,
+  RECOMMENDED_LISTING_PHOTOS,
+  getImageUri,
+} from "@/lib/capture-config";
+import {
   lookupBarcodeProduct,
   normalizeLookupBarcode,
   type BarcodeLookupItem,
@@ -76,13 +82,6 @@ import {
   sanitizeBarcodeValue,
 } from "@palletscanner/core";
 
-const LOADING_MESSAGES = [
-  "Identifying item...",
-  "Checking market prices...",
-  "Writing your listing...",
-];
-const MAX_LISTING_PHOTOS = 5;
-const RECOMMENDED_LISTING_PHOTOS = 3;
 const BARCODE_TYPES = [
   "upc_a",
   "upc_e",
@@ -91,11 +90,6 @@ const BARCODE_TYPES = [
   "code128",
   "code39",
 ] as const;
-
-const getImageUri = (image: ImageAssetLike) =>
-  typeof image.uri === "string" && image.uri.trim().length > 0
-    ? image.uri
-    : null;
 
 const coerceText = (value: unknown, fallback: string) =>
   typeof value === "string" && value.trim().length > 0
@@ -1300,7 +1294,7 @@ ${productSummary}
           </View>
         )}
 
-        {loading && <LoadingStatus messages={LOADING_MESSAGES} />}
+        {loading && <LoadingStatus messages={CAPTURE_LOADING_MESSAGES} />}
 
         {result && (
           <View style={styles.resultCard}>
