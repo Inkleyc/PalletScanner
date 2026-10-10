@@ -53,6 +53,12 @@ export const getDisplayPlatform = (item) =>
   item.platform ?? item.best_platform ?? "Review";
 
 export const getDisplayIssue = (item) => {
+  if ((item.shortage ?? 0) > 0) {
+    return `Urgent inventory shortage: ${item.shortage} unit${item.shortage === 1 ? "" : "s"}`;
+  }
+  if ((item.available ?? item.quantity ?? 0) < 0 || (item.reserved ?? 0) < 0 || (item.onHand ?? item.quantity ?? 0) < 0) {
+    return "Urgent inventory balance discrepancy";
+  }
   if (item.issue) {
     return item.issue;
   }

@@ -68,6 +68,7 @@ for (const marker of [
   "inventory-detail-modal",
   "onClick={() => setInventoryModalId(item.id)}",
   "Needs decision",
+  "Inventory risks",
   "Publishing issues",
   "isReviewEligible",
   "Mark Facebook listed",
@@ -139,6 +140,9 @@ if (getDisplayPlatform(items[0]) !== "Facebook") {
 }
 if (!getDisplayIssue(items.find((item) => item.name === "Unknown Barcode Item"))) {
   throw new Error("Display issue helper should identify mock cleanup work.");
+}
+if (!getDisplayIssue({ quantity: 1, shortage: 2 }).startsWith("Urgent inventory shortage")) {
+  throw new Error("Inventory shortage did not become an urgent display issue.");
 }
 if (getMarketplaceQueueItems(items).length === 0) {
   throw new Error("Expected marketplace queue items.");

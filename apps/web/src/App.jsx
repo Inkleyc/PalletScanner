@@ -37,6 +37,7 @@ import {
 const price = (item, field) => item[field] ?? item[`${field}_price`] ?? 0;
 const isReviewEligible = (item) => item.soldPrice === null && !["ready", "sold"].includes(getDisplayStatus(item));
 const matchesWorkFilter = (item, filter) => {
+  if (filter === "inventory") return (item.shortage ?? 0) > 0 || (item.available ?? item.quantity ?? 0) < 0 || (item.reserved ?? 0) < 0 || (item.onHand ?? item.quantity ?? 0) < 0;
   if (!isReviewEligible(item)) return false;
   if (filter === "decision") return Boolean(getDisplayIssue(item));
   if (filter === "failed") return item.ebayStatus === "error" || item.facebookStatus === "error";
@@ -812,8 +813,9 @@ export function App() {
   const overviewPallets = overviewScope === "all" ? pallets : pallets.filter((pallet) => pallet.id === overviewScope);
   const overviewTotals = useMemo(() => summarizeInventory(overviewItems, overviewPallets), [overviewItems, overviewPallets]);
   const palletSummaries = useMemo(() => pallets.map((pallet) => summarizePallet(items, pallet)), [items, pallets]);
-  const attention = items.filter((item) => isReviewEligible(item) && (Boolean(getDisplayIssue(item)) || item.ebayStatus === "error" || item.facebookStatus === "error" || getItemAgeDays(item) > 14));
+  const attention = items.filter((item) => matchesWorkFilter(item, "inventory") || (isReviewEligible(item) && (Boolean(getDisplayIssue(item)) || item.ebayStatus === "error" || item.facebookStatus === "error" || getItemAgeDays(item) > 14)));
   const workViews = [
+    { id: "inventory", label: "Inventory risks" },
     { id: "decision", label: "Needs decision" },
     { id: "failed", label: "Publishing issues" },
     { id: "aging", label: "Aging" },
