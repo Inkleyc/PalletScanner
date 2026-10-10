@@ -171,6 +171,10 @@ const confirmedReturnDecisions = await readFile(
   new URL("../supabase/migrations/202610100036_confirmed_return_decisions.sql", import.meta.url),
   "utf8",
 );
+const returnCommunications = await readFile(
+  new URL("../supabase/migrations/202610100037_return_communications.sql", import.meta.url),
+  "utf8",
+);
 
 for (const table of ["pallets", "inventory_items", "item_photos", "marketplace_listings", "sales", "activity_events"]) {
   if (!schema.includes(`create table public.${table}`)) {
@@ -296,6 +300,9 @@ for (const marker of ["record_return_shipping_handoff", "label_payer", "state = 
 }
 for (const marker of ["create table public.return_decisions", "record_confirmed_return_decision", "marketplace_confirmation is not true", "Confirm the decision succeeded in eBay", "changes_inventory', false", "records_financial_event', false", "return.marketplace_decision_confirmed"]) {
   if (!confirmedReturnDecisions.includes(marker)) throw new Error(`Confirmed return decision is missing safety marker: ${marker}`);
+}
+for (const marker of ["create table public.return_communications", "record_return_communication", "Confirm the message exists in eBay", "unique (return_id, external_event_id)", "message_submitted_by_palletflip', false", "return.communication_recorded"]) {
+  if (!returnCommunications.includes(marker)) throw new Error(`Return communication history is missing safety marker: ${marker}`);
 }
 
 for (const marker of [

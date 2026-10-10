@@ -222,6 +222,13 @@ then undated open work; resolved and closed history remains available below
 active work. Deadline priority changes presentation only and never performs a
 marketplace action automatically.
 
+Return communication history is append-only and idempotent by external or
+client event key. At launch, the owner copies a message already visible in the
+eBay return conversation and explicitly confirms that fact. PalletFlip records
+direction, source, body, and timestamp but never claims to have sent the
+message. Direct message submission remains behind the same production API and
+digital-signature validation gate as return decisions.
+
 ## Local-to-Server IDs
 
 Current mobile data uses numeric item IDs and string pallet IDs. The server uses

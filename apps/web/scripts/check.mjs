@@ -143,6 +143,8 @@ for (const marker of [
   "Overdue actions",
   "Due next 24 hours",
   "OVERDUE",
+  "Record eBay message",
+  "PalletFlip records the history but does not send the message",
   "Observed eBay orders",
   "Lines needing match",
   "This records identity only; it does not reserve or reduce stock",

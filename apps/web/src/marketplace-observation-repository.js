@@ -360,7 +360,7 @@ export const listReturns = async () => {
   const userResult = await supabase.auth.getUser();
   if (userResult.error || !userResult.data.user) throw new Error("Sign in to manage returns.");
   const result = await supabase.from("returns")
-    .select("*, orders(external_order_id), return_lines(*, order_lines(title,seller_sku), return_inspections(*)), return_financial_events(*), return_decisions(*)")
+    .select("*, orders(external_order_id), return_lines(*, order_lines(title,seller_sku), return_inspections(*)), return_financial_events(*), return_decisions(*), return_communications(*)")
     .eq("owner_id", userResult.data.user.id)
     .order("created_at", { ascending: false });
   throwIfError(result);
@@ -424,6 +424,21 @@ export const recordConfirmedReturnDecision = async ({ returnId, decisionType, ev
     confirmed_decision_type: decisionType,
     confirmed_event_key: eventKey,
     confirmed_notes: notes,
+    marketplace_confirmation: true,
+  });
+  throwIfError(result);
+  return result.data;
+};
+
+export const recordReturnCommunication = async ({ returnId, direction, body, eventKey, sentAt = new Date().toISOString() }) => {
+  if (!supabase) throw new Error("Supabase is not configured for this dashboard.");
+  const result = await supabase.rpc("record_return_communication", {
+    target_return_id: returnId,
+    communication_direction: direction,
+    communication_source: "ebay_confirmed",
+    communication_body: body,
+    communication_event_key: eventKey,
+    communication_sent_at: sentAt,
     marketplace_confirmation: true,
   });
   throwIfError(result);
