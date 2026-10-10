@@ -91,6 +91,10 @@ const orderLineMatching = await readFile(
   new URL("../supabase/migrations/202610100016_match_order_line.sql", import.meta.url),
   "utf8",
 );
+const importedOrderReservation = await readFile(
+  new URL("../supabase/migrations/202610100017_reserve_imported_order.sql", import.meta.url),
+  "utf8",
+);
 
 for (const table of ["pallets", "inventory_items", "item_photos", "marketplace_listings", "sales", "activity_events"]) {
   if (!schema.includes(`create table public.${table}`)) {
@@ -148,6 +152,9 @@ for (const marker of ["unique (business_id, source, external_order_id)", "unique
 }
 for (const marker of ["match_order_line", "for update", "order_line.manually_matched", "'inventory_reserved', false", "business_id = line_row.business_id"]) {
   if (!orderLineMatching.includes(marker)) throw new Error(`Order-line matching is missing safety marker: ${marker}`);
+}
+for (const marker of ["reserve_imported_order", "protect_reserved_order_line", "A reserved order line cannot be rematched or changed", "Only paid orders can reserve inventory", "Every order line must be matched", "verification_state <> 'verified'", "order by item.id for update", "reservation_id is null", "order-line:", "No reservations were saved", "reserved_line_count > 0", "order.inventory_reserved"]) {
+  if (!importedOrderReservation.includes(marker)) throw new Error(`Imported-order reservation is missing safety marker: ${marker}`);
 }
 
 for (const marker of [

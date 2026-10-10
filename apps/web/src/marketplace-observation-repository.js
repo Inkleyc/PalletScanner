@@ -187,3 +187,11 @@ export const matchImportedOrderLine = async ({ lineId, inventoryItemId }) => {
   throwIfError(result);
   return result.data;
 };
+
+export const reserveImportedOrder = async (orderId) => {
+  if (!supabase) throw new Error("Supabase is not configured for this dashboard.");
+  if (!orderId) throw new Error("Select an imported order before reserving inventory.");
+  const result = await supabase.rpc("reserve_imported_order", { target_order_id: orderId });
+  throwIfError(result);
+  return Number(result.data ?? 0);
+};
