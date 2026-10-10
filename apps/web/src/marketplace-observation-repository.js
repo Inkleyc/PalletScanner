@@ -414,6 +414,13 @@ export const resolveReturnIdentityDiscrepancy = async ({ returnLineId, resolutio
   return result.data;
 };
 
+export const closeReturnCase = async ({ returnId, inventoryNotApplicable, financialNotApplicable, notes }) => {
+  if (!supabase) throw new Error("Supabase is not configured for this dashboard.");
+  const result = await supabase.rpc("close_return_case", { target_return_id: returnId, inventory_not_applicable: inventoryNotApplicable, financial_not_applicable: financialNotApplicable, return_closure_notes: notes });
+  throwIfError(result);
+  return result.data;
+};
+
 export const dispositionReturnLine = async ({ returnLineId, disposition, note }) => {
   if (!supabase) throw new Error("Supabase is not configured for this dashboard.");
   const result = await supabase.rpc("disposition_return_line", { target_return_line_id: returnLineId, selected_disposition: disposition, disposition_note: note });

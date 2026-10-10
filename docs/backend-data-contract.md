@@ -244,6 +244,14 @@ restock, revise, and repair; it permits only parts, supplier return, discard,
 or loss. The database trigger enforces this distinction even if a client skips
 the interface.
 
+`close_return_case` is the only completed-return closure path. Every received
+unit must leave quarantine through inspection and disposition. An unreceived
+line can close only when the owner explicitly confirms that no physical
+inventory will return. The financial outcome must contain at least one
+append-only event or an explicit not-applicable confirmation. Closure stores
+both outcome classifications, notes, timestamp, and an audit event; it never
+deletes the original return, sale, inventory, or financial history.
+
 ## Local-to-Server IDs
 
 Current mobile data uses numeric item IDs and string pallet IDs. The server uses

@@ -183,6 +183,10 @@ const returnIdentityResolution = await readFile(
   new URL("../supabase/migrations/202610100039_return_identity_resolution.sql", import.meta.url),
   "utf8",
 );
+const closeReturnCase = await readFile(
+  new URL("../supabase/migrations/202610100040_close_return_case.sql", import.meta.url),
+  "utf8",
+);
 
 for (const table of ["pallets", "inventory_items", "item_photos", "marketplace_listings", "sales", "activity_events"]) {
   if (!schema.includes(`create table public.${table}`)) {
@@ -317,6 +321,9 @@ for (const marker of ["serial_number", "create table public.return_evidence", "r
 }
 for (const marker of ["create table public.return_identity_resolutions", "resolve_return_identity_discrepancy", "identity_verified", "wrong_item_nonstock", "No identity mismatch is recorded", "restock_permitted", "A confirmed wrong item cannot be returned to sellable inventory"]) {
   if (!returnIdentityResolution.includes(marker)) throw new Error(`Return identity resolution is missing safety marker: ${marker}`);
+}
+for (const marker of ["close_return_case", "inventory_outcome", "financial_outcome", "Record the confirmed return decision before closure", "Received return inventory must be inspected and dispositioned", "explicitly confirm that no inventory will return", "explicitly mark it not applicable", "return.case_closed"]) {
+  if (!closeReturnCase.includes(marker)) throw new Error(`Return closure command is missing safety marker: ${marker}`);
 }
 
 for (const marker of [
