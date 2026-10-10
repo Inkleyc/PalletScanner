@@ -60,6 +60,13 @@ const marketplaceObservationFoundation = await readFile(
   ),
   "utf8",
 );
+const marketplaceReconciliationDecisions = await readFile(
+  new URL(
+    "../supabase/migrations/202610100010_marketplace_reconciliation_decisions.sql",
+    import.meta.url,
+  ),
+  "utf8",
+);
 
 for (const table of ["pallets", "inventory_items", "item_photos", "marketplace_listings", "sales", "activity_events"]) {
   if (!schema.includes(`create table public.${table}`)) {
@@ -97,6 +104,20 @@ for (const marker of [
 ]) {
   if (!inventoryAuthority.includes(marker)) {
     throw new Error(`Inventory authority schema is missing safety marker: ${marker}`);
+  }
+}
+
+if (!marketplaceReconciliationDecisions.includes("create table public.marketplace_reconciliation_decisions")) {
+  throw new Error("Marketplace reconciliation decision schema is missing its decision table.");
+}
+for (const marker of [
+  "decision_type in ('match_existing', 'create_new', 'ignore', 'defer')",
+  "decision_type = 'match_existing' and inventory_item_id is not null",
+  "alter table public.marketplace_reconciliation_decisions enable row level security",
+  "owners append marketplace reconciliation decisions",
+]) {
+  if (!marketplaceReconciliationDecisions.includes(marker)) {
+    throw new Error(`Marketplace reconciliation decision schema is missing safety marker: ${marker}`);
   }
 }
 

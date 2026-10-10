@@ -58,6 +58,7 @@ create table public.marketplace_observations (
   observed_quantity integer check (observed_quantity is null or observed_quantity >= 0),
   observed_payload jsonb not null default '{}',
   observed_at timestamptz not null default now(),
+  unique (id, business_id),
   unique (import_run_id, resource_type, external_id),
   foreign key (import_run_id, business_id)
     references public.marketplace_import_runs(id, business_id) on delete cascade,

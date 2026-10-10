@@ -106,6 +106,13 @@ an import run with immutable raw observations and an explicit `matched`,
 listing rows can remain unmatched until the owner approves a strong identity;
 no observation table or import run authorizes a change on eBay.
 
+Manual reconciliation choices are stored separately from immutable marketplace
+observations. Each append-only decision records whether the owner matched an
+existing item, requested creation of unverified inventory, ignored the record,
+or deferred it. Matching an existing item requires a business-scoped inventory
+UUID. Recording a decision still does not change quantity or authorize an eBay
+write.
+
 ## Adapter Mapping
 
 The future Supabase repository adapter will implement the existing
