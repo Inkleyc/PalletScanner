@@ -138,6 +138,12 @@ three dimensions; it never promotes an estimate. Only after every package is
 confirmed does the shipment become `ready_for_label`. Both transitions append
 auditable activity events.
 
+Label purchase remains an eBay or external handoff. After purchase,
+`record_shipment_label` requires final package confirmation and records the
+actual source, carrier, service, tracking number, and cost. It advances the
+shipment to `label_purchased` and appends an audit event; it does not claim that
+PalletFlip purchased or insured the shipment.
+
 ## Local-to-Server IDs
 
 Current mobile data uses numeric item IDs and string pallet IDs. The server uses

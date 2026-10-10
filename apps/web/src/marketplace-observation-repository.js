@@ -238,6 +238,20 @@ export const confirmShipmentPackage = async ({ packageId, weightGrams, lengthMm,
   return result.data;
 };
 
+export const recordShipmentLabel = async ({ shipmentId, source, carrier, service, trackingNumber, cost }) => {
+  if (!supabase) throw new Error("Supabase is not configured for this dashboard.");
+  const result = await supabase.rpc("record_shipment_label", {
+    target_shipment_id: shipmentId,
+    purchased_label_source: source,
+    purchased_carrier: carrier,
+    purchased_service: service,
+    purchased_tracking_number: trackingNumber,
+    purchased_cost: cost,
+  });
+  throwIfError(result);
+  return result.data;
+};
+
 export const listMarketplaceQuantityQueue = async () => {
   if (!supabase) throw new Error("Supabase is not configured for this dashboard.");
   const userResult = await supabase.auth.getUser();
