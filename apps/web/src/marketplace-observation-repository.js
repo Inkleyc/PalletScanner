@@ -218,6 +218,26 @@ export const startOrderFulfillment = async (orderId, packagePresetId = null) => 
   return result.data;
 };
 
+export const confirmShipmentPicked = async (shipmentId) => {
+  if (!supabase) throw new Error("Supabase is not configured for this dashboard.");
+  const result = await supabase.rpc("confirm_shipment_picked", { target_shipment_id: shipmentId });
+  throwIfError(result);
+  return result.data;
+};
+
+export const confirmShipmentPackage = async ({ packageId, weightGrams, lengthMm, widthMm, heightMm }) => {
+  if (!supabase) throw new Error("Supabase is not configured for this dashboard.");
+  const result = await supabase.rpc("confirm_shipment_package", {
+    target_package_id: packageId,
+    confirmed_weight_grams: weightGrams,
+    confirmed_length_mm: lengthMm,
+    confirmed_width_mm: widthMm,
+    confirmed_height_mm: heightMm,
+  });
+  throwIfError(result);
+  return result.data;
+};
+
 export const listMarketplaceQuantityQueue = async () => {
   if (!supabase) throw new Error("Supabase is not configured for this dashboard.");
   const userResult = await supabase.auth.getUser();

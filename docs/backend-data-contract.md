@@ -132,6 +132,12 @@ no fictional package. A packed-weight estimate is created only when every line's
 inventory item has a recorded weight. Otherwise the package remains incomplete
 until fulfillment supplies real measurements.
 
+Pick confirmation moves a shipping record from `ready_to_pick` to
+`ready_to_pack`. Package confirmation requires positive final weight and all
+three dimensions; it never promotes an estimate. Only after every package is
+confirmed does the shipment become `ready_for_label`. Both transitions append
+auditable activity events.
+
 ## Local-to-Server IDs
 
 Current mobile data uses numeric item IDs and string pallet IDs. The server uses

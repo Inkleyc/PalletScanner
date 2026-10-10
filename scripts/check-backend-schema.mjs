@@ -131,6 +131,10 @@ const startOrderFulfillment = await readFile(
   new URL("../supabase/migrations/202610100026_start_order_fulfillment.sql", import.meta.url),
   "utf8",
 );
+const pickPackConfirmation = await readFile(
+  new URL("../supabase/migrations/202610100027_pick_pack_confirmation.sql", import.meta.url),
+  "utf8",
+);
 
 for (const table of ["pallets", "inventory_items", "item_photos", "marketplace_listings", "sales", "activity_events"]) {
   if (!schema.includes(`create table public.${table}`)) {
@@ -222,6 +226,9 @@ for (const marker of ["item_weight_grams", "estimated_weight_grams", "final_weig
 }
 for (const marker of ["start_order_fulfillment", "Only paid orders can enter fulfillment", "Every order line must have an active inventory reservation", "weighted_line_count = total_line_count", "shipment.fulfillment_started"]) {
   if (!startOrderFulfillment.includes(marker)) throw new Error(`Start-fulfillment command is missing safety marker: ${marker}`);
+}
+for (const marker of ["confirm_shipment_picked", "shipment.pick_confirmed", "confirm_shipment_package", "measurement_state = 'confirmed'", "state = 'ready_for_label'", "shipment.package_confirmed"]) {
+  if (!pickPackConfirmation.includes(marker)) throw new Error(`Pick/pack confirmation is missing safety marker: ${marker}`);
 }
 
 for (const marker of [
