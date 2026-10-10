@@ -151,6 +151,10 @@ const returnsFoundation = await readFile(
   new URL("../supabase/migrations/202610100031_returns_foundation.sql", import.meta.url),
   "utf8",
 );
+const returnInventoryWorkflow = await readFile(
+  new URL("../supabase/migrations/202610100032_return_receipt_inspection_disposition.sql", import.meta.url),
+  "utf8",
+);
 
 for (const table of ["pallets", "inventory_items", "item_photos", "marketplace_listings", "sales", "activity_events"]) {
   if (!schema.includes(`create table public.${table}`)) {
@@ -261,6 +265,9 @@ for (const table of ["returns", "return_lines", "return_inspections", "return_fi
 }
 for (const marker of ["action_due_at", "inventory_state", "recommended_disposition", "partial_refund", "return_shipping", "returns_work_queue_idx"]) {
   if (!returnsFoundation.includes(marker)) throw new Error(`Returns foundation is missing contract marker: ${marker}`);
+}
+for (const marker of ["receive_return_line", "return_quarantine", "return.inventory_received_quarantined", "inspect_return_line", "return.inventory_inspected", "disposition_return_line", "Inspect the return before choosing its disposition", "return.inventory_dispositioned"]) {
+  if (!returnInventoryWorkflow.includes(marker)) throw new Error(`Return inventory workflow is missing safety marker: ${marker}`);
 }
 
 for (const marker of [

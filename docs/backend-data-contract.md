@@ -167,6 +167,13 @@ parts, quarantine, supplier return, discard, and loss. Refunds, fee credits,
 return shipping, and replacement shipping are append-only financial events so
 the original sale is never erased.
 
+Physical receipt appends a positive `return_receipt` movement and immediately
+places an equal reservation on the units, leaving them on hand but unavailable.
+Inspection does not alter quantity. Restock, revise, or repair releases the
+quarantine reservation; parts, supplier return, discard, and loss consume the
+quarantined units through an explicit negative movement. Every transition is
+audited and idempotent where it affects quantity.
+
 ## Local-to-Server IDs
 
 Current mobile data uses numeric item IDs and string pallet IDs. The server uses
