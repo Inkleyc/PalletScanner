@@ -252,6 +252,16 @@ export const recordShipmentLabel = async ({ shipmentId, source, carrier, service
   return result.data;
 };
 
+export const confirmShipmentShipped = async (shipmentId) => {
+  if (!supabase) throw new Error("Supabase is not configured for this dashboard.");
+  const result = await supabase.rpc("confirm_shipment_shipped", {
+    target_shipment_id: shipmentId,
+    carrier_handoff_at: new Date().toISOString(),
+  });
+  throwIfError(result);
+  return result.data;
+};
+
 export const listMarketplaceQuantityQueue = async () => {
   if (!supabase) throw new Error("Supabase is not configured for this dashboard.");
   const userResult = await supabase.auth.getUser();

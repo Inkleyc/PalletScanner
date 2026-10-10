@@ -144,6 +144,12 @@ actual source, carrier, service, tracking number, and cost. It advances the
 shipment to `label_purchased` and appends an audit event; it does not claim that
 PalletFlip purchased or insured the shipment.
 
+Carrier handoff is a separate explicit confirmation after label recording.
+`confirm_shipment_shipped` locks the order inventory, appends one idempotent sale
+movement per line, consumes each active reservation, timestamps the shipment,
+and records an audit event in one transaction. Repeating the command cannot
+double-consume inventory.
+
 ## Local-to-Server IDs
 
 Current mobile data uses numeric item IDs and string pallet IDs. The server uses
