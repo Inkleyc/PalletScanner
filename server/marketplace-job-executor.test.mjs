@@ -38,3 +38,25 @@ test("records a retry after an eBay quantity failure", async () => {
   assert.equal(calls.at(-1)[0], "fail_marketplace_action_job");
   assert.equal(calls.at(-1)[1].failure_message, "Rejected");
 });
+
+test("withdraws a reviewed listing after its final available unit is gone", async () => {
+  const calls = [];
+  const executor = createMarketplaceJobExecutor({
+    callRpc: async (name) => {
+      calls.push(name);
+      if (name === "claim_marketplace_action_job") return { id: "job-3", action_type: "withdraw_listing", payload: { offer_id: "offer/final", quantity: 0 } };
+      return { id: "job-3", status: "succeeded" };
+    },
+    getUserAccessToken: async () => "ebay-token",
+    ebayFetch: async (path, options) => {
+      assert.equal(path, "/sell/inventory/v1/offer/offer%2Ffinal/withdraw");
+      assert.equal(options.method, "POST");
+      assert.equal(options.headers.Authorization, "Bearer ebay-token");
+      assert.equal(options.body, undefined);
+      return null;
+    },
+  });
+  const result = await executor.execute("owner-1", "job-3");
+  assert.equal(result.job.status, "succeeded");
+  assert.deepEqual(calls, ["claim_marketplace_action_job", "complete_marketplace_action_job"]);
+});

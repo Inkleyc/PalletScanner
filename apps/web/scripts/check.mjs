@@ -146,6 +146,8 @@ for (const marker of [
   "Turning off the pause does not enable automatic synchronization",
   "PalletFlip will queue durable work before contacting eBay",
   "Approve update",
+  "Withdraw final-unit listing",
+  "last available unit is gone",
   "Marketplace action exceptions",
   "Retry failed action",
   "Run due retry",

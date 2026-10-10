@@ -98,6 +98,13 @@ Failures enter bounded exponential retry waits and become persistent failed
 exceptions after the maximum attempt count. A stale running claim can be safely
 reclaimed because setting the same absolute eBay quantity is idempotent.
 
+When verified available quantity reaches zero, approval creates a
+`withdraw_listing` job instead of sending a zero-quantity adjustment. The
+executor withdraws the specific eBay offer, marks the local listing ended only
+after eBay succeeds, and records `marketplace.final_unit_withdrawn`. This final
+unit rule uses the same account pause, explicit review, durable job, retry, and
+audit protections as ordinary quantity synchronization.
+
 The web exception panel keeps pending, running, retry-wait, and exhausted jobs
 visible. Due retries and stale claims can be run again without creating another
 job. An exhausted job requires explicit owner approval, resets its bounded

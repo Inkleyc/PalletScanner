@@ -616,7 +616,11 @@ function QuantitySyncQueue() {
     finally { setSaving(false); }
   };
   const queueQuantity = async (row) => {
-    if (!window.confirm(`Send the reviewed eBay quantity update from ${row.advertised_quantity} to ${row.desired_quantity}? PalletFlip will queue durable work before contacting eBay.`)) return;
+    const finalUnit = Number(row.desired_quantity) === 0;
+    const prompt = finalUnit
+      ? "Withdraw this eBay listing because its last available unit is gone? PalletFlip will queue durable work before contacting eBay. The listing can be reviewed and relisted later if inventory returns."
+      : `Send the reviewed eBay quantity update from ${row.advertised_quantity} to ${row.desired_quantity}? PalletFlip will queue durable work before contacting eBay.`;
+    if (!window.confirm(prompt)) return;
     setQueueingId(row.id); setError("");
     try {
       const job = await queueEbayQuantitySync(row.id);
@@ -648,7 +652,7 @@ function QuantitySyncQueue() {
     {error && <p className="error-text">{error}</p>}
     {rows && <div className="check-list reconciliation-records">
       <strong>{mismatches.length} quantity mismatch{mismatches.length === 1 ? "" : "es"}</strong>
-      {mismatches.length === 0 ? <small>All observed eBay quantities match currently available inventory.</small> : mismatches.slice(0, 50).map((row) => <div className="check-row" key={row.id}><span className="check-dot" /><span><strong>{row.inventory_items?.seller_sku || row.sku || "No SKU"}</strong> · {row.inventory_items?.name || "Unknown item"} · eBay {row.advertised_quantity ?? "unknown"} · PalletFlip {row.desired_quantity ?? row.inventory_items?.available ?? "unknown"} · {row.quantity_sync_state.replaceAll("_", " ")}{row.last_error ? ` · ${row.last_error}` : ""}</span>{account && !account.outbound_paused && <button type="button" disabled={queueingId === row.id || row.quantity_sync_state === "pending"} onClick={() => queueQuantity(row)}>{queueingId === row.id ? "Sending..." : row.quantity_sync_state === "pending" ? "Queued" : "Approve update"}</button>}</div>)}
+      {mismatches.length === 0 ? <small>All observed eBay quantities match currently available inventory.</small> : mismatches.slice(0, 50).map((row) => <div className="check-row" key={row.id}><span className="check-dot" /><span><strong>{row.inventory_items?.seller_sku || row.sku || "No SKU"}</strong> · {row.inventory_items?.name || "Unknown item"} · eBay {row.advertised_quantity ?? "unknown"} · PalletFlip {row.desired_quantity ?? row.inventory_items?.available ?? "unknown"} · {row.quantity_sync_state.replaceAll("_", " ")}{row.last_error ? ` · ${row.last_error}` : ""}</span>{account && !account.outbound_paused && <button type="button" disabled={queueingId === row.id || row.quantity_sync_state === "pending"} onClick={() => queueQuantity(row)}>{queueingId === row.id ? "Sending..." : row.quantity_sync_state === "pending" ? "Queued" : Number(row.desired_quantity) === 0 ? "Withdraw final-unit listing" : "Approve update"}</button>}</div>)}
       {mismatches.length > 50 && <small>Showing the first 50 mismatches.</small>}
       {account && <small>Mode: {account.sync_mode.replaceAll("_", " ")}. Turning off the pause does not enable automatic synchronization.</small>}
     </div>}

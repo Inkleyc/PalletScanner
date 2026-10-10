@@ -119,6 +119,10 @@ const marketplaceJobRetry = await readFile(
   new URL("../supabase/migrations/202610100023_marketplace_job_retry.sql", import.meta.url),
   "utf8",
 );
+const finalUnitWithdrawal = await readFile(
+  new URL("../supabase/migrations/202610100024_final_unit_withdrawal.sql", import.meta.url),
+  "utf8",
+);
 
 for (const table of ["pallets", "inventory_items", "item_photos", "marketplace_listings", "sales", "activity_events"]) {
   if (!schema.includes(`create table public.${table}`)) {
@@ -197,6 +201,9 @@ for (const marker of ["claim_marketplace_action_job", "complete_marketplace_acti
 }
 for (const marker of ["retry_failed_marketplace_action_job", "status = 'failed' for update", "attempt_count = 0", "next_attempt_at = now()", "marketplace.action_retry_approved"]) {
   if (!marketplaceJobRetry.includes(marker)) throw new Error(`Marketplace job retry is missing safety marker: ${marker}`);
+}
+for (const marker of ["withdraw_listing", "desired_quantity = 0", "selected_action", "status = case when job_row.action_type = 'withdraw_listing' then 'ended'", "marketplace.final_unit_withdrawn"]) {
+  if (!finalUnitWithdrawal.includes(marker)) throw new Error(`Final-unit withdrawal is missing safety marker: ${marker}`);
 }
 
 for (const marker of [
