@@ -360,7 +360,7 @@ export const listReturns = async () => {
   const userResult = await supabase.auth.getUser();
   if (userResult.error || !userResult.data.user) throw new Error("Sign in to manage returns.");
   const result = await supabase.from("returns")
-    .select("*, orders(external_order_id), return_lines(*, order_lines(title,seller_sku), return_inspections(*)), return_financial_events(*)")
+    .select("*, orders(external_order_id), return_lines(*, order_lines(title,seller_sku), return_inspections(*)), return_financial_events(*), return_decisions(*)")
     .eq("owner_id", userResult.data.user.id)
     .order("created_at", { ascending: false });
   throwIfError(result);
@@ -412,6 +412,19 @@ export const recordReturnShippingHandoff = async ({ returnId, source, payer, car
     shipping_tracking_number: trackingNumber,
     shipping_label_cost: cost,
     shipping_currency: currency,
+  });
+  throwIfError(result);
+  return result.data;
+};
+
+export const recordConfirmedReturnDecision = async ({ returnId, decisionType, eventKey, notes = "" }) => {
+  if (!supabase) throw new Error("Supabase is not configured for this dashboard.");
+  const result = await supabase.rpc("record_confirmed_return_decision", {
+    target_return_id: returnId,
+    confirmed_decision_type: decisionType,
+    confirmed_event_key: eventKey,
+    confirmed_notes: notes,
+    marketplace_confirmation: true,
   });
   throwIfError(result);
   return result.data;

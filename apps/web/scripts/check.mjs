@@ -138,6 +138,8 @@ for (const marker of [
   "Return shipment recorded",
   "Return financial impact",
   "operational estimate from recorded return events",
+  "Record confirmed eBay decision",
+  "PalletFlip will not submit a marketplace action",
   "Observed eBay orders",
   "Lines needing match",
   "This records identity only; it does not reserve or reduce stock",

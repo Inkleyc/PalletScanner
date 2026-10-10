@@ -16,7 +16,7 @@ import { getRepositoryMode, repository, useCloudRepository, useLocalRepository }
 import { isSupabaseConfigured, supabase } from "./supabase.js";
 import { buildAnalytics } from "./analytics-model.js";
 import { reconcileEbayPreview } from "./ebay-reconciliation.js";
-import { archivePackagePreset, confirmShipmentPackage, confirmShipmentPicked, confirmShipmentShipped, createManualReturn, createUnverifiedInventoryFromObservation, dispositionReturnLine, getEbayMarketplaceControl, importObservedEbayOrders, importObservedEbayReturns, inspectReturnLine, listEbayObservationSnapshots, listImportedEbayOrders, listMarketplaceActionJobs, listMarketplaceQuantityQueue, listPackagePresets, listReturns, loadEbayObservationSnapshot, matchImportedOrderLine, queueEbayQuantitySync, receiveReturnLine, recordEbayReconciliationDecision, recordReturnFinancialEvent, recordReturnShippingHandoff, recordShipmentLabel, recordTrackingEvent, releaseCancelledOrderReservations, reserveImportedOrder, retryFailedMarketplaceActionJob, saveEbayObservationSnapshot, savePackagePreset, setEbayOutboundPause, startOrderFulfillment } from "./marketplace-observation-repository.js";
+import { archivePackagePreset, confirmShipmentPackage, confirmShipmentPicked, confirmShipmentShipped, createManualReturn, createUnverifiedInventoryFromObservation, dispositionReturnLine, getEbayMarketplaceControl, importObservedEbayOrders, importObservedEbayReturns, inspectReturnLine, listEbayObservationSnapshots, listImportedEbayOrders, listMarketplaceActionJobs, listMarketplaceQuantityQueue, listPackagePresets, listReturns, loadEbayObservationSnapshot, matchImportedOrderLine, queueEbayQuantitySync, receiveReturnLine, recordConfirmedReturnDecision, recordEbayReconciliationDecision, recordReturnFinancialEvent, recordReturnShippingHandoff, recordShipmentLabel, recordTrackingEvent, releaseCancelledOrderReservations, reserveImportedOrder, retryFailedMarketplaceActionJob, saveEbayObservationSnapshot, savePackagePreset, setEbayOutboundPause, startOrderFulfillment } from "./marketplace-observation-repository.js";
 import { ActivityPanel } from "./activity-panel.jsx";
 import { PalletManager } from "./pallet-manager.jsx";
 import {
@@ -1283,6 +1283,12 @@ function ReturnsContent() {
     const cost = Number(costAnswer); if (!Number.isFinite(cost) || cost < 0) return setError("Enter a non-negative return label cost.");
     run(() => recordReturnShippingHandoff({ returnId: returnEntry.id, source: source.trim().toLowerCase(), payer: payer.trim().toLowerCase(), carrier: carrier.trim(), trackingNumber: trackingNumber.trim(), cost }));
   };
+  const recordDecision = (returnEntry) => {
+    const decisionType = window.prompt("Confirmed eBay outcome: approve_return, decline, partial_refund, refund_without_return, or replacement", "approve_return"); if (!decisionType?.trim()) return;
+    const notes = window.prompt("Decision notes", "Confirmed in eBay"); if (notes === null) return;
+    if (!window.confirm("Record this only if eBay already confirmed the outcome. PalletFlip will not submit a marketplace action, change inventory, or create a refund entry.")) return;
+    run(() => recordConfirmedReturnDecision({ returnId: returnEntry.id, decisionType: decisionType.trim().toLowerCase(), eventKey: `ebay-confirmed:${crypto.randomUUID()}`, notes: notes.trim() }));
+  };
   const financialImpact = (returnEntry) => (returnEntry.return_financial_events ?? []).reduce((sum, event) => sum + (event.event_type === "fee_credit" ? Number(event.amount) : -Number(event.amount)), 0);
   const urgent = returns.filter((entry) => entry.action_due_at && Date.parse(entry.action_due_at) <= Date.now() + 86400000 && !["resolved", "closed", "cancelled"].includes(entry.state)).length;
   const totalFinancialImpact = returns.reduce((sum, entry) => sum + financialImpact(entry), 0);
@@ -1300,11 +1306,13 @@ function ReturnsContent() {
       {returns.length === 0 ? <p className="empty-table-cell">No returns recorded.</p> : returns.map((entry) => <section className="sale-card" key={entry.id}><div>
         <strong>Order {entry.orders?.external_order_id || entry.order_id} · {entry.state.replaceAll("_", " ")}</strong>
         <span>{entry.reason || "No reason recorded"}{entry.action_due_at ? ` · action due ${new Date(entry.action_due_at).toLocaleString()}` : ""}</span>
+        {entry.approved_resolution && <span>Confirmed outcome: {entry.approved_resolution.replaceAll("_", " ")}</span>}
+        {(entry.return_decisions ?? []).length > 0 && <span>{entry.return_decisions.length} confirmed decision{entry.return_decisions.length === 1 ? "" : "s"} recorded</span>}
         {entry.tracking_number && <span>Return shipment: {entry.carrier} {entry.tracking_number} · paid by {entry.label_payer || "unknown"}{entry.label_cost !== null ? ` · ${currency(Number(entry.label_cost))}` : ""}</span>}
         {entry.return_financial_events.length > 0 && <span>{entry.return_financial_events.map((financialEvent) => `${financialEvent.event_type.replaceAll("_", " ")} ${currency(Number(financialEvent.amount))}`).join(" · ")}</span>}
         {entry.return_financial_events.length > 0 && <span>Recorded return impact: {currency(financialImpact(entry))}</span>}
         {entry.return_lines.map((line) => <div className="check-row" key={line.id}><span className={`check-dot ${["restocked", "revised", "repaired", "parts", "supplier_return", "discarded", "lost"].includes(line.inventory_state) ? "ok" : ""}`} /><span>{line.order_lines?.seller_sku || line.order_lines?.title || "Returned item"} · qty {line.quantity} · {line.inventory_state.replaceAll("_", " ")}</span>{line.inventory_state === "unavailable" && <button type="button" disabled={working} onClick={() => receive(line)}>Receive</button>}{line.inventory_state === "quarantined" && line.return_inspections.length === 0 && <button type="button" disabled={working} onClick={() => inspect(line)}>Inspect</button>}{line.inventory_state === "quarantined" && line.return_inspections.length > 0 && <button className="primary-button" type="button" disabled={working} onClick={() => disposition(line)}>Choose disposition</button>}</div>)}
-        <div className="button-row">{canRecordShipping(entry) && <button type="button" disabled={working || Boolean(entry.tracking_number)} onClick={() => recordReturnShipping(entry)}>{entry.tracking_number ? "Return shipment recorded" : "Record eBay return label"}</button>}<button type="button" disabled={working} onClick={() => recordMoney(entry)}>Record refund or return cost</button></div>
+        <div className="button-row">{["requested", "action_required"].includes(entry.state) && <button className="primary-button" type="button" disabled={working} onClick={() => recordDecision(entry)}>Record confirmed eBay decision</button>}{canRecordShipping(entry) && <button type="button" disabled={working || Boolean(entry.tracking_number)} onClick={() => recordReturnShipping(entry)}>{entry.tracking_number ? "Return shipment recorded" : "Record eBay return label"}</button>}<button type="button" disabled={working} onClick={() => recordMoney(entry)}>Record refund or return cost</button></div>
       </div></section>)}
       {returns.length > 0 && <p className="analysis-disclaimer">Return financial impact is an operational estimate from recorded return events, not accounting or tax advice.</p>}
     </section>

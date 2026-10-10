@@ -207,6 +207,15 @@ shipping, and other recorded costs decrease it. This remains labeled as an
 operational estimate rather than accounting or tax advice and never erases the
 original sale.
 
+Launch return decisions use a guided eBay handoff. The owner completes the
+action in eBay and then explicitly confirms its outcome in PalletFlip.
+`record_confirmed_return_decision` appends an idempotent decision record and
+updates workflow state, but it never submits an eBay action, changes physical
+inventory, or fabricates a refund event. Refund money remains a separate
+confirmed financial record. Direct marketplace decisions stay deferred until
+production-only Post-Order behavior and applicable digital-signature rules can
+be validated safely.
+
 ## Local-to-Server IDs
 
 Current mobile data uses numeric item IDs and string pallet IDs. The server uses
