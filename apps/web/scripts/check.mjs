@@ -134,6 +134,8 @@ for (const marker of [
   "does not reserve or change inventory",
   "Import observed returns",
   "does not restock or change inventory",
+  "Record eBay return label",
+  "Return shipment recorded",
   "Observed eBay orders",
   "Lines needing match",
   "This records identity only; it does not reserve or reduce stock",

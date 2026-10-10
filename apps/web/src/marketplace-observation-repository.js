@@ -402,6 +402,21 @@ export const recordReturnFinancialEvent = async ({ returnId, type, amount, curre
   return result.data;
 };
 
+export const recordReturnShippingHandoff = async ({ returnId, source, payer, carrier, trackingNumber, cost = 0, currency = "USD" }) => {
+  if (!supabase) throw new Error("Supabase is not configured for this dashboard.");
+  const result = await supabase.rpc("record_return_shipping_handoff", {
+    target_return_id: returnId,
+    shipping_label_source: source,
+    shipping_label_payer: payer,
+    shipping_carrier: carrier,
+    shipping_tracking_number: trackingNumber,
+    shipping_label_cost: cost,
+    shipping_currency: currency,
+  });
+  throwIfError(result);
+  return result.data;
+};
+
 export const listMarketplaceQuantityQueue = async () => {
   if (!supabase) throw new Error("Supabase is not configured for this dashboard.");
   const userResult = await supabase.auth.getUser();

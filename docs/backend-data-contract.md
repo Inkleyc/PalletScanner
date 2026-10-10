@@ -194,6 +194,13 @@ event key. Refunds, partial refunds, fee credits, return shipping, replacement
 shipping, and other adjustments remain separate from the original sale so
 realized reporting can show the complete economic history.
 
+Launch return-label purchase remains an eBay or external-carrier handoff.
+`record_return_shipping_handoff` captures the source, payer, carrier, tracking
+number, and cost, then moves the case to `in_transit`. An exact replay is
+idempotent and conflicting replacement details are rejected. Seller-paid label
+costs append one stable `return_shipping` financial event; buyer- or
+marketplace-paid labels do not create a seller expense.
+
 ## Local-to-Server IDs
 
 Current mobile data uses numeric item IDs and string pallet IDs. The server uses
