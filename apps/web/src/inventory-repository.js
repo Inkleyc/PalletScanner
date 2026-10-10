@@ -23,9 +23,9 @@ const normalizeItem = (item) => ({
   floor: Number.isFinite(item.floor) ? item.floor : item.floor_price ?? 0,
   listedPlatforms: Array.isArray(item.listedPlatforms) ? item.listedPlatforms : [],
   category: item.category?.trim() || "Uncategorized",
-  onHand: Number.isInteger(item.onHand) ? item.onHand : item.quantity,
+  onHand: Number.isInteger(item.onHand) ? item.onHand : item.soldPrice === null ? item.quantity : 0,
   reserved: Number.isInteger(item.reserved) ? item.reserved : 0,
-  available: Number.isInteger(item.available) ? item.available : item.quantity,
+  available: Number.isInteger(item.available) ? item.available : item.soldPrice === null ? item.quantity : 0,
   shortage: Number.isInteger(item.shortage) ? item.shortage : 0,
 });
 const normalizePallet = (pallet) => ({
@@ -37,28 +37,43 @@ const ensureLooseItems = (pallets) => [
   normalizePallet(looseItemsPallet),
   ...pallets.filter((pallet) => pallet.id !== looseItemsPallet.id).map(normalizePallet),
 ];
+const buildOpeningMovements = (items, sales) => items.flatMap((item) => {
+  const movements = [{ id: `opening-${item.id}`, itemId: item.id, quantity: item.quantity, type: "receipt", reason: "Opening local balance", occurredAt: item.id }];
+  const itemSales = sales.filter((sale) => sale.itemId === item.id);
+  if (itemSales.length > 0) {
+    movements.push(...itemSales.map((sale) => ({ id: `sale-${sale.id}`, itemId: item.id, quantity: -(sale.quantity ?? 1), type: "sale", reason: "Recorded sale", occurredAt: sale.soldAt })));
+  } else if (item.soldPrice !== null) {
+    movements.push({ id: `legacy-sale-${item.id}`, itemId: item.id, quantity: -item.quantity, type: "sale", reason: "Legacy sold item", occurredAt: item.id });
+  }
+  return movements;
+});
 
 const load = () => {
   try {
     const saved = JSON.parse(localStorage.getItem(storageKey) ?? "null");
     if (saved && Array.isArray(saved.items) && Array.isArray(saved.pallets)) {
+      const normalizedItems = saved.items.map(normalizeItem);
+      const sales = Array.isArray(saved.sales) ? saved.sales : [];
       return {
         ...saved,
-        items: saved.items.map(normalizeItem),
+        items: normalizedItems,
         pallets: ensureLooseItems(saved.pallets),
         activity: Array.isArray(saved.activity) ? saved.activity : [],
-        sales: Array.isArray(saved.sales) ? saved.sales : [],
+        sales,
+        movements: Array.isArray(saved.movements) ? saved.movements : buildOpeningMovements(normalizedItems, sales),
       };
     }
   } catch {
     // Invalid preview data falls back to the checked-in fixture.
   }
+  const initialItems = clone(seedItems).map(normalizeItem);
   return {
-    items: clone(seedItems).map(normalizeItem),
+    items: initialItems,
     pallets: ensureLooseItems(clone(seedPallets)),
     activePalletId: looseItemsPallet.id,
     activity: [],
     sales: [],
+    movements: buildOpeningMovements(initialItems, []),
   };
 };
 
@@ -96,8 +111,12 @@ export const repository = {
       const quantityDelta = normalizedItem.quantity - previousItem.quantity;
       normalizedItem.onHand = Math.max((previousItem.onHand ?? previousItem.quantity) + quantityDelta, 0);
       normalizedItem.available = Math.max((previousItem.available ?? previousItem.quantity) + quantityDelta, 0);
+      state.movements.push({ id: `correction-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`, itemId: item.id, quantity: quantityDelta, type: "correction", reason: "Quantity edited", occurredAt: Date.now() });
     }
-    if (index < 0) items.push(normalizedItem);
+    if (index < 0) {
+      items.push(normalizedItem);
+      state.movements.push({ id: `receipt-${item.id}`, itemId: item.id, quantity: normalizedItem.quantity, type: "receipt", reason: "Inventory received", occurredAt: Date.now() });
+    }
     else items[index] = { ...items[index], ...normalizedItem };
     recordActivity(index < 0 ? "item.created" : "item.updated", item.id, { name: normalizedItem.name });
     persist();
@@ -184,6 +203,7 @@ export const repository = {
     }
     const recorded = { ...clone(sale), id: sale.id ?? `sale-${Date.now()}-${Math.random().toString(36).slice(2, 8)}` };
     state.sales.push(recorded);
+    state.movements.push({ id: `sale-${recorded.id}`, itemId: item.id, quantity: -recorded.quantity, type: "sale", reason: "Recorded sale", occurredAt: recorded.soldAt });
     item.available = available - recorded.quantity;
     item.onHand = Math.max((item.onHand ?? item.quantity) - recorded.quantity, 0);
     if (item.available === 0) {
@@ -197,6 +217,11 @@ export const repository = {
   async listActivity(entityId) {
     return clone(state.activity)
       .filter((event) => entityId === undefined || event.entityId === String(entityId))
+      .sort((first, second) => second.occurredAt - first.occurredAt);
+  },
+  async listMovements(itemId) {
+    return clone(state.movements)
+      .filter((movement) => movement.itemId === itemId)
       .sort((first, second) => second.occurredAt - first.occurredAt);
   },
   async replaceSnapshot(snapshot) {
@@ -217,6 +242,7 @@ export const repository = {
     state.activePalletId = palletIds.has(snapshot.activePalletId) ? snapshot.activePalletId : restoredPallets[0]?.id ?? null;
     state.activity = Array.isArray(snapshot.activity) ? clone(snapshot.activity) : [];
     state.sales = Array.isArray(snapshot.sales) ? clone(snapshot.sales) : [];
+    state.movements = Array.isArray(snapshot.movements) ? clone(snapshot.movements) : buildOpeningMovements(restoredItems, state.sales);
     recordActivity("data.restored", "repository", { itemCount: items.length, palletCount: pallets.length });
     persist();
   },

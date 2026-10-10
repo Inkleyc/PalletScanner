@@ -107,6 +107,7 @@ export const createSupabaseInventoryRepository = (client) => {
       return { ...sale, id: result.data.id };
     },
     async listActivity(entityId) { let query = client.from("activity_events").select("*").order("occurred_at", { ascending: false }); if (entityId !== undefined) query = query.eq("entity_id", String(entityId)); const result = await query; throwIfError(result); return (result.data ?? []).map((row) => ({ id: row.id, type: row.event_type, entityId: row.entity_id, occurredAt: Date.parse(row.occurred_at), details: row.details })); },
+    async listMovements(itemId) { const item = state.items.find((entry) => entry.id === itemId); if (!item?.serverId) return []; const result = await client.from("inventory_movements").select("*").eq("inventory_item_id", item.serverId).order("occurred_at", { ascending: false }); throwIfError(result); return (result.data ?? []).map((row) => ({ id: row.id, itemId, quantity: Number(row.quantity), type: row.movement_type, reason: row.reason ?? "", occurredAt: Date.parse(row.occurred_at) })); },
   };
   return repository;
 };

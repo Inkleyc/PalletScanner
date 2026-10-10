@@ -101,6 +101,8 @@ for (const marker of [
   "Condition performance",
   "Marketplace performance",
   "Record sale",
+  "InventoryHistory",
+  "History",
   "Report filters",
   "Category / item type",
   "Export CSV report",
@@ -188,6 +190,9 @@ if (repositoryNotificationCount !== 1) {
 }
 if (!(await repository.listActivity(String(originalItem.id))).some((event) => event.type === "item.updated")) {
   throw new Error("Local repository did not record inventory activity.");
+}
+if (!(await repository.listMovements(originalItem.id)).some((movement) => movement.type === "correction")) {
+  throw new Error("Local repository did not record a quantity correction movement.");
 }
 await repository.saveItem(originalItem);
 unsubscribe();

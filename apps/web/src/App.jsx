@@ -305,6 +305,26 @@ function RecordSale({ item, onRecorded }) {
   return <><section className="sale-card"><div><strong>{item.soldPrice === null ? "Did this item sell?" : `Sold for ${currency(item.soldPrice)}`}</strong><span>{item.soldPrice === null ? "Record the marketplace, quantity, and costs to improve your analysis." : "Add the missing marketplace, costs, and date so this sale can be analyzed accurately."}</span></div><button className="primary-button" onClick={() => setOpen(true)}>{item.soldPrice === null ? "Record sale" : "Complete sale details"}</button></section>{open && <div className="modal-backdrop" role="presentation" onMouseDown={() => setOpen(false)}><form className="edit-modal item-edit-modal" role="dialog" aria-modal="true" aria-labelledby="record-sale-title" onSubmit={save} onMouseDown={(event) => event.stopPropagation()}><div><h3 id="record-sale-title">Record sale</h3><p>Gross price minus fees and shipping becomes net proceeds.</p></div><div className="edit-grid"><label><span>Marketplace</span><select value={draft.marketplace} onChange={update("marketplace")}><option value="facebook">Facebook</option><option value="ebay">eBay</option><option value="other">Other</option></select></label><label><span>Quantity</span><input required type="number" min="1" max={getQuantity(item)} step="1" value={draft.quantity} onChange={update("quantity")} /></label><label><span>Total sold price</span><input autoFocus required type="number" min="0" step="0.01" value={draft.soldPrice} onChange={update("soldPrice")} /></label><label><span>Marketplace fees</span><input type="number" min="0" step="0.01" value={draft.fees} onChange={update("fees")} /></label><label><span>Shipping cost</span><input type="number" min="0" step="0.01" value={draft.shippingCost} onChange={update("shippingCost")} /></label><label><span>Sold date</span><input required type="date" value={draft.soldAt} onChange={update("soldAt")} /></label></div>{error && <p className="error-text">{error}</p>}<div className="button-row"><button type="button" onClick={() => setOpen(false)}>Cancel</button><button className="primary-button" type="submit" disabled={saving}>{saving ? "Recording…" : "Save sale"}</button></div></form></div>}</>;
 }
 
+function InventoryHistory({ item }) {
+  const [movements, setMovements] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    let active = true;
+    setLoading(true);
+    setError("");
+    repository.listMovements(item.id)
+      .then((rows) => { if (active) setMovements(rows); })
+      .catch((historyError) => { if (active) setError(historyError instanceof Error ? historyError.message : "Could not load inventory history."); })
+      .finally(() => { if (active) setLoading(false); });
+    return () => { active = false; };
+  }, [item.id, item.available, item.quantity]);
+
+  if (loading) return <p>Loading inventory history…</p>;
+  return <div><div className="detail-grid"><div><span>On hand</span><strong>{item.onHand ?? item.quantity}</strong></div><div><span>Reserved</span><strong>{item.reserved ?? 0}</strong></div><div><span>Available</span><strong>{item.available ?? item.quantity}</strong></div><div><span>Shortage</span><strong>{item.shortage ?? 0}</strong></div></div>{error && <p className="error-text">{error}</p>}{!error && movements.length === 0 && <p>No quantity movements have been recorded yet.</p>}{movements.map((movement) => <section className="sale-card" key={movement.id}><div><strong>{movement.quantity > 0 ? "+" : ""}{movement.quantity} · {movement.type.replaceAll("_", " ")}</strong><span>{movement.reason || "Inventory movement"} · {new Date(movement.occurredAt).toLocaleString()}</span></div></section>)}</div>;
+}
+
 function InventoryDetail({ item, palletName, pallets, onSave, onRemove, onSaleRecorded, onClose, allowEditing = true, showWorkflowActions = true }) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(() => item ? itemDraft(item) : null);
@@ -403,10 +423,11 @@ function InventoryDetail({ item, palletName, pallets, onSave, onRemove, onSaleRe
       <div className="item-detail-workspace">
         <PhotoReview item={item} onSave={onSave} />
         <div className="item-detail-content">
-          <div className="detail-tabs" role="tablist" aria-label="Item details"><button role="tab" aria-selected={detailTab === "details"} onClick={() => setDetailTab("details")}>Details</button><button role="tab" aria-selected={detailTab === "marketplace"} onClick={() => setDetailTab("marketplace")}>Marketplace</button><button role="tab" aria-selected={detailTab === "sale"} onClick={() => setDetailTab("sale")}>Sale</button></div>
+          <div className="detail-tabs" role="tablist" aria-label="Item details"><button role="tab" aria-selected={detailTab === "details"} onClick={() => setDetailTab("details")}>Details</button><button role="tab" aria-selected={detailTab === "marketplace"} onClick={() => setDetailTab("marketplace")}>Marketplace</button><button role="tab" aria-selected={detailTab === "sale"} onClick={() => setDetailTab("sale")}>Sale</button><button role="tab" aria-selected={detailTab === "history"} onClick={() => setDetailTab("history")}>History</button></div>
           {detailTab === "details" && <div className="detail-tab-panel" role="tabpanel"><div className="detail-grid"><div><span>Pallet</span><strong>{palletName}</strong></div><div><span>Condition</span><strong>{item.condition}</strong></div><div><span>Category</span><strong>{item.category ?? "Uncategorized"}</strong></div><div><span>Quantity</span><strong>{getQuantity(item)}</strong></div><div><span>Low</span><strong>{currency(price(item, "low"))}</strong></div><div><span>High</span><strong>{currency(price(item, "high"))}</strong></div><div><span>Floor</span><strong>{currency(price(item, "floor"))}</strong></div><div><span>Status</span><strong>{statusLabel[getDisplayStatus(item)]}</strong></div><div><span>Platform</span><strong>{getDisplayPlatform(item)}</strong></div><div><span>Age</span><strong>{getItemAgeDays(item)} days</strong></div>{item.soldPrice !== null && <div><span>Sold price</span><strong>{currency(item.soldPrice)}</strong></div>}{Object.entries(item.ebayItemSpecifics ?? {}).filter(([, value]) => String(value).trim()).map(([key, value]) => <div key={key}><span>{key}</span><strong>{value}</strong></div>)}</div><p className={getDisplayIssue(item) ? "detail-issue" : "detail-ready"}>{getDisplayIssue(item) ?? "Ready for the next marketplace action."}</p><section className="listing-copy"><div><span>Listing title</span><strong>{item.listing_title || item.name}</strong></div><div><span>Listing description</span><p>{item.listing_description || "No listing description saved."}</p></div></section>{showWorkflowActions && item.soldPrice === null && <div className="button-row workflow-actions"><button onClick={() => setWorkflowStatus("needs_photos")}>Needs photos</button><button onClick={() => setWorkflowStatus("needs_research")}>Needs research</button><button onClick={() => setWorkflowStatus("ready")}>Mark ready</button></div>}</div>}
           {detailTab === "marketplace" && <div className="detail-tab-panel" role="tabpanel"><ListingReview item={item} onSave={onSave} /></div>}
           {detailTab === "sale" && <div className="detail-tab-panel" role="tabpanel"><RecordSale item={item} onRecorded={onSaleRecorded} /><button className="danger-button remove-item-button" onClick={remove}>Remove item</button></div>}
+          {detailTab === "history" && <div className="detail-tab-panel" role="tabpanel"><InventoryHistory item={item} /></div>}
         </div>
       </div>
       {error && <p className="error-text">{error}</p>}
