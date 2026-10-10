@@ -53,6 +53,13 @@ const inventoryReservationCommands = await readFile(
   ),
   "utf8",
 );
+const marketplaceObservationFoundation = await readFile(
+  new URL(
+    "../supabase/migrations/202610100009_marketplace_observation_foundation.sql",
+    import.meta.url,
+  ),
+  "utf8",
+);
 
 for (const table of ["pallets", "inventory_items", "item_photos", "marketplace_listings", "sales", "activity_events"]) {
   if (!schema.includes(`create table public.${table}`)) {
@@ -90,6 +97,28 @@ for (const marker of [
 ]) {
   if (!inventoryAuthority.includes(marker)) {
     throw new Error(`Inventory authority schema is missing safety marker: ${marker}`);
+  }
+}
+
+for (const table of ["marketplace_accounts", "marketplace_import_runs", "marketplace_observations"]) {
+  if (!marketplaceObservationFoundation.includes(`create table public.${table}`)) {
+    throw new Error(`Marketplace observation schema is missing ${table}.`);
+  }
+  if (!marketplaceObservationFoundation.includes(`alter table public.${table} enable row level security`)) {
+    throw new Error(`Marketplace observation schema is missing row-level security for ${table}.`);
+  }
+}
+
+for (const marker of [
+  "sync_mode in ('observe_only', 'review_required', 'active', 'paused')",
+  "outbound_paused boolean not null default true",
+  "check (mode = 'observe_only')",
+  "reconciliation_state in ('matched', 'uncertain', 'unmatched', 'conflicting')",
+  "marketplace_listings_external_listing_idx",
+  "marketplace_listings_external_offer_idx",
+]) {
+  if (!marketplaceObservationFoundation.includes(marker)) {
+    throw new Error(`Marketplace observation schema is missing safety marker: ${marker}`);
   }
 }
 

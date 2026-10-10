@@ -99,6 +99,13 @@ edit listing drafts and status, but eBay publication still goes through the
 protected backend. Mobile publication is allowed after the final readiness
 confirmation; there is no separate web approval state.
 
+Marketplace observation begins in a deliberately inert state. Accounts default
+to `observe_only` with outbound writes paused. Each preview can be preserved as
+an import run with immutable raw observations and an explicit `matched`,
+`uncertain`, `unmatched`, or `conflicting` reconciliation state. Existing
+listing rows can remain unmatched until the owner approves a strong identity;
+no observation table or import run authorizes a change on eBay.
+
 ## Adapter Mapping
 
 The future Supabase repository adapter will implement the existing
