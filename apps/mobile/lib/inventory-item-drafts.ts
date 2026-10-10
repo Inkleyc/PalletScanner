@@ -19,6 +19,8 @@ type BuildInventoryItemDraftInput = {
     high: number;
   };
   floorPrice: number;
+  quantity: number;
+  barcode?: string;
 };
 
 export const buildInventoryItemDraft = ({
@@ -30,6 +32,8 @@ export const buildInventoryItemDraft = ({
   productImageUri,
   priceRange,
   floorPrice,
+  quantity,
+  barcode,
 }: BuildInventoryItemDraftInput): InventoryItem => {
   const imageUris = images
     .map((image) => image.uri)
@@ -44,7 +48,8 @@ export const buildInventoryItemDraft = ({
     photos,
     name: analysis.name?.trim() || "Untitled item",
     condition: analysis.condition?.trim() || "Unknown",
-    quantity: 1,
+    quantity,
+    barcode: barcode?.trim() || undefined,
     low_price: priceRange.low,
     high_price: priceRange.high,
     floor_price: Math.min(floorPrice, priceRange.high),
@@ -62,12 +67,3 @@ export const buildInventoryItemDraft = ({
     soldPrice: null,
   };
 };
-
-export const duplicateInventoryItemDraft = (
-  item: InventoryItem,
-  quantity: number,
-) =>
-  Array.from({ length: quantity }, (_, index) => ({
-    ...item,
-    id: item.id + index,
-  }));

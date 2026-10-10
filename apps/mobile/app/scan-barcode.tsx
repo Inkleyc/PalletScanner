@@ -50,7 +50,6 @@ import {
 } from "@/lib/feedback";
 import {
   buildInventoryItemDraft,
-  duplicateInventoryItemDraft,
   type ImageAssetLike,
 } from "@/lib/inventory-item-drafts";
 import {
@@ -59,6 +58,7 @@ import {
 } from "@/lib/offline-drafts";
 import {
   getActivePallet,
+  getInventory,
   saveInventoryItem,
   subscribeInventory,
   type InventoryItem,
@@ -125,6 +125,11 @@ export default function BarcodeScanScreen() {
     subscribeInventory,
     getActivePallet,
     getActivePallet,
+  );
+  const inventory = useSyncExternalStore(
+    subscribeInventory,
+    getInventory,
+    getInventory,
   );
   const { promptToPostOnSave } = useSyncExternalStore(
     subscribeAppSettings,
@@ -553,13 +558,67 @@ If a barcode draft exists, use it as product identity context and use the photos
     void triggerAnalysisCompleteFeedback();
   };
 
-  const analyzeBarcode = async (barcode: string) => {
+  const chooseExistingBarcodeAction = (item: InventoryItem) =>
+    new Promise<"add" | "separate" | "review">((resolve) => {
+      Alert.alert(
+        "This barcode is already in inventory",
+        `${item.name} currently has ${item.quantity} unit${item.quantity === 1 ? "" : "s"}. Add one unit to that card, create a separate card, or review the existing item first.`,
+        [
+          { text: "Review existing", onPress: () => resolve("review") },
+          { text: "Create separate", onPress: () => resolve("separate") },
+          { text: "Add quantity", onPress: () => resolve("add") },
+        ],
+        () => resolve("review"),
+      );
+    });
+
+  const analyzeBarcode = async (barcode: string, skipExistingCheck = false) => {
     const normalizedBarcode = normalizeLookupBarcode(
       sanitizeBarcodeValue(barcode),
     );
     if (!normalizedBarcode) {
       Alert.alert("Invalid barcode", "Try scanning the barcode again.");
       return;
+    }
+
+    if (!skipExistingCheck) {
+      const matchingItems = inventory.filter(
+        (item) => normalizeLookupBarcode(item.barcode ?? "") === normalizedBarcode,
+      );
+      const existingItem =
+        matchingItems.find((item) => item.palletId === activePallet?.id) ??
+        matchingItems[0];
+
+      if (existingItem) {
+        const action = await chooseExistingBarcodeAction(existingItem);
+        if (action === "review") {
+          resetBarcodeScanState();
+          router.replace("/(tabs)/explore");
+          return;
+        }
+        if (action === "add") {
+          try {
+            await saveInventoryItem({
+              ...existingItem,
+              quantity: existingItem.quantity + 1,
+            });
+            clearAll();
+            void triggerInventorySaveFeedback();
+            Alert.alert(
+              "Quantity updated",
+              `${existingItem.name} now has ${existingItem.quantity + 1} units. Its existing price and listing details were kept.`,
+            );
+          } catch (error) {
+            Alert.alert(
+              "Quantity update failed",
+              error instanceof Error
+                ? error.message
+                : "The existing item could not be updated.",
+            );
+          }
+          return;
+        }
+      }
     }
 
     setLoading(true);
@@ -855,6 +914,8 @@ ${productSummary}
       productImageUri,
       priceRange: parsedPriceRange,
       floorPrice: parsedFloorPrice,
+      quantity: parsedQuantity,
+      barcode: barcodeValue,
     });
 
     try {
@@ -879,14 +940,10 @@ ${productSummary}
           void openBarcodeScanner();
         }
       } else {
-        const itemsToSave = duplicateInventoryItemDraft(
-          baseInventoryItem,
-          parsedQuantity,
-        );
-        await Promise.all(itemsToSave.map((item) => saveInventoryItem(item)));
+        await saveInventoryItem(baseInventoryItem);
         void triggerInventorySaveFeedback();
         if (promptToPostOnSave) {
-          promptForListingDestination(itemsToSave[0]);
+          promptForListingDestination(baseInventoryItem);
         }
         if (afterSave === "next") {
           clearAll();
@@ -917,7 +974,7 @@ ${productSummary}
     }
     const quantity = parseQuantity();
     return quantity && quantity > 1
-      ? `Save ${quantity} Copies & Next`
+      ? `Save ${quantity} Units & Next`
       : "Save & Next Item";
   };
 

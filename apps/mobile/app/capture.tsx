@@ -36,7 +36,6 @@ import {
 } from "@/lib/feedback";
 import {
   buildInventoryItemDraft,
-  duplicateInventoryItemDraft,
   type ImageAssetLike,
 } from "@/lib/inventory-item-drafts";
 import {
@@ -419,6 +418,8 @@ export default function CaptureScreen() {
       productImageUri: null,
       priceRange: parsedPriceRange,
       floorPrice: parsedFloorPrice,
+      quantity: parsedQuantity,
+      barcode: undefined,
     });
 
     try {
@@ -442,14 +443,10 @@ export default function CaptureScreen() {
           clearAll();
         }
       } else {
-        const itemsToSave = duplicateInventoryItemDraft(
-          baseInventoryItem,
-          parsedQuantity,
-        );
-        await Promise.all(itemsToSave.map((item) => saveInventoryItem(item)));
+        await saveInventoryItem(baseInventoryItem);
         void triggerInventorySaveFeedback();
         if (promptToPostOnSave) {
-          promptForListingDestination(itemsToSave[0]);
+          promptForListingDestination(baseInventoryItem);
         }
         if (afterSave === "next") {
           clearAll();
@@ -479,7 +476,7 @@ export default function CaptureScreen() {
     }
     const quantity = parseQuantity();
     return quantity && quantity > 1
-      ? `Save ${quantity} Copies & Next`
+      ? `Save ${quantity} Units & Next`
       : "Save & Next Item";
   };
 

@@ -80,6 +80,10 @@ const normalizeInventoryItem = (item: InventoryItem): InventoryItem => ({
       ? Math.floor(item.quantity)
       : 1,
   name: coerceText(item.name, "Unnamed item"),
+  barcode:
+    typeof item.barcode === "string" && item.barcode.trim()
+      ? item.barcode.trim()
+      : undefined,
   condition: coerceText(item.condition, "Unknown"),
   low_price: coerceNumber(item.low_price, 0),
   high_price: coerceNumber(item.high_price, coerceNumber(item.low_price, 0)),

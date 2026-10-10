@@ -87,6 +87,7 @@ const mapCloudItem = (row: Record<string, unknown>, palletId: string): Inventory
   photo: null,
   photos: [],
   name: String(row.name ?? "Unnamed item"),
+  barcode: row.product_barcode ? String(row.product_barcode) : undefined,
   condition: String(row.condition ?? "Unknown"),
   quantity: Number(row.quantity ?? 1),
   low_price: Number(row.low_price ?? 0),
@@ -245,7 +246,7 @@ const pushLocalSnapshot = async () => {
   const palletServerIdByClientId = new Map((palletResult.data ?? []).map((row) => [row.client_id, row.id]));
   if (changedItems.length > 0) {
     const result = await supabase.from("inventory_items").upsert(
-      changedItems.map((item) => ({ owner_id: auth.userId, pallet_id: palletServerIdByClientId.get(item.palletId), client_id: item.id, name: item.name, condition: item.condition, quantity: item.quantity, low_price: item.low_price, high_price: item.high_price, floor_price: item.floor_price, best_platform: item.best_platform, workflow_status: getCloudWorkflowStatus(item), listing_title: item.listing_title, listing_description: item.listing_description, facebook_title: item.listing_title_facebook ?? null, facebook_description: item.listing_description_facebook ?? null, ebay_title: item.listing_title_ebay ?? null, ebay_description: item.listing_description_ebay ?? null, listed_platforms: item.listedPlatforms, sold_price: item.soldPrice })),
+      changedItems.map((item) => ({ owner_id: auth.userId, pallet_id: palletServerIdByClientId.get(item.palletId), client_id: item.id, name: item.name, product_barcode: item.barcode ?? null, condition: item.condition, quantity: item.quantity, low_price: item.low_price, high_price: item.high_price, floor_price: item.floor_price, best_platform: item.best_platform, workflow_status: getCloudWorkflowStatus(item), listing_title: item.listing_title, listing_description: item.listing_description, facebook_title: item.listing_title_facebook ?? null, facebook_description: item.listing_description_facebook ?? null, ebay_title: item.listing_title_ebay ?? null, ebay_description: item.listing_description_ebay ?? null, listed_platforms: item.listedPlatforms, sold_price: item.soldPrice })),
       { onConflict: "owner_id,client_id" },
     );
     if (result.error) throw result.error;
