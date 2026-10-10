@@ -171,7 +171,7 @@ export const listImportedEbayOrders = async () => {
   const [orderResult, lineResult, shipmentResult] = await Promise.all([
     supabase.from("orders").select("*").eq("owner_id", userResult.data.user.id).order("external_created_at", { ascending: false }),
     supabase.from("order_lines").select("*, inventory_reservations(state)").eq("owner_id", userResult.data.user.id).order("created_at"),
-    supabase.from("shipments").select("*, shipment_packages(*)").eq("owner_id", userResult.data.user.id).order("created_at"),
+    supabase.from("shipments").select("*, shipment_packages(*), tracking_events(*)").eq("owner_id", userResult.data.user.id).order("created_at"),
   ]);
   throwIfError(orderResult); throwIfError(lineResult); throwIfError(shipmentResult);
   const linesByOrder = new Map();
@@ -257,6 +257,20 @@ export const confirmShipmentShipped = async (shipmentId) => {
   const result = await supabase.rpc("confirm_shipment_shipped", {
     target_shipment_id: shipmentId,
     carrier_handoff_at: new Date().toISOString(),
+  });
+  throwIfError(result);
+  return result.data;
+};
+
+export const recordTrackingEvent = async ({ shipmentId, eventKey, status, description = "", location = "", occurredAt = new Date().toISOString() }) => {
+  if (!supabase) throw new Error("Supabase is not configured for this dashboard.");
+  const result = await supabase.rpc("record_tracking_event", {
+    target_shipment_id: shipmentId,
+    tracking_event_key: eventKey,
+    tracking_status: status,
+    tracking_description: description,
+    tracking_location: location,
+    tracking_occurred_at: occurredAt,
   });
   throwIfError(result);
   return result.data;

@@ -150,6 +150,12 @@ movement per line, consumes each active reservation, timestamps the shipment,
 and records an audit event in one transaction. Repeating the command cannot
 double-consume inventory.
 
+Tracking history is append-only and keyed by a stable carrier, marketplace, or
+client event identifier. Replaying an event is idempotent. Delivered events set
+the delivery timestamp; exception events keep the shipment visibly blocked and
+retain the carrier description. This command supports manual launch workflows
+and later eBay event ingestion through the same contract.
+
 ## Local-to-Server IDs
 
 Current mobile data uses numeric item IDs and string pallet IDs. The server uses

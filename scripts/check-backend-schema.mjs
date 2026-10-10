@@ -143,6 +143,10 @@ const confirmShipmentShipped = await readFile(
   new URL("../supabase/migrations/202610100029_confirm_shipment_shipped.sql", import.meta.url),
   "utf8",
 );
+const trackingEventCommand = await readFile(
+  new URL("../supabase/migrations/202610100030_tracking_event_command.sql", import.meta.url),
+  "utf8",
+);
 
 for (const table of ["pallets", "inventory_items", "item_photos", "marketplace_listings", "sales", "activity_events"]) {
   if (!schema.includes(`create table public.${table}`)) {
@@ -243,6 +247,9 @@ for (const marker of ["record_shipment_label", "state <> 'ready_for_label'", "st
 }
 for (const marker of ["confirm_shipment_shipped", "state <> 'label_purchased'", "reservation_row.inventory_item_id <> line_row.inventory_item_id", "reservation_row.source_type <> 'marketplace_order_line'", "Inventory consumed at confirmed carrier handoff", "state = 'consumed'", "state = 'shipped'", "shipment.carrier_handoff_confirmed"]) {
   if (!confirmShipmentShipped.includes(marker)) throw new Error(`Shipment confirmation is missing safety marker: ${marker}`);
+}
+for (const marker of ["record_tracking_event", "out_for_delivery", "external_event_id = trim(tracking_event_key)", "state = case when tracking_status = 'delivered'", "then 'shipped'", "shipment.tracking_event_recorded"]) {
+  if (!trackingEventCommand.includes(marker)) throw new Error(`Tracking-event command is missing safety marker: ${marker}`);
 }
 
 for (const marker of [
