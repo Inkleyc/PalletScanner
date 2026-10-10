@@ -162,3 +162,17 @@ export const importObservedEbayOrders = async ({ preview, reconciliation }) => {
   }
   return { orders: orderRows.length, lines: lineRows.length };
 };
+
+export const listImportedEbayOrders = async () => {
+  if (!supabase) throw new Error("Supabase is not configured for this dashboard.");
+  const userResult = await supabase.auth.getUser();
+  if (userResult.error || !userResult.data.user) throw new Error("Sign in to view imported orders.");
+  const [orderResult, lineResult] = await Promise.all([
+    supabase.from("orders").select("*").eq("owner_id", userResult.data.user.id).order("external_created_at", { ascending: false }),
+    supabase.from("order_lines").select("*").eq("owner_id", userResult.data.user.id).order("created_at"),
+  ]);
+  throwIfError(orderResult); throwIfError(lineResult);
+  const linesByOrder = new Map();
+  for (const line of lineResult.data ?? []) linesByOrder.set(line.order_id, [...(linesByOrder.get(line.order_id) ?? []), line]);
+  return (orderResult.data ?? []).map((order) => ({ ...order, lines: linesByOrder.get(order.id) ?? [] }));
+};

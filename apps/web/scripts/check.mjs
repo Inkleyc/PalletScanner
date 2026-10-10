@@ -132,6 +132,8 @@ for (const marker of [
   "Verify physical inventory",
   "Import observed orders",
   "does not reserve or change inventory",
+  "Observed eBay orders",
+  "Lines needing match",
   "/ebay/import-preview",
   "Report filters",
   "Category / item type",

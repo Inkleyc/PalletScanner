@@ -16,7 +16,7 @@ import { getRepositoryMode, repository, useCloudRepository, useLocalRepository }
 import { isSupabaseConfigured, supabase } from "./supabase.js";
 import { buildAnalytics } from "./analytics-model.js";
 import { reconcileEbayPreview } from "./ebay-reconciliation.js";
-import { createUnverifiedInventoryFromObservation, importObservedEbayOrders, listEbayObservationSnapshots, loadEbayObservationSnapshot, recordEbayReconciliationDecision, saveEbayObservationSnapshot } from "./marketplace-observation-repository.js";
+import { createUnverifiedInventoryFromObservation, importObservedEbayOrders, listEbayObservationSnapshots, listImportedEbayOrders, loadEbayObservationSnapshot, recordEbayReconciliationDecision, saveEbayObservationSnapshot } from "./marketplace-observation-repository.js";
 import { ActivityPanel } from "./activity-panel.jsx";
 import { PalletManager } from "./pallet-manager.jsx";
 import {
@@ -910,16 +910,34 @@ function AnalysisPanel({ snapshot }) {
   </div>;
 }
 
-const dashboardViews = ["overview", "review", "inventory", "pallets", "analysis", "settings"];
+function OrdersPanel() {
+  const [orders, setOrders] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  useEffect(() => {
+    let active = true;
+    if (getRepositoryMode() !== "cloud") { setLoading(false); return () => { active = false; }; }
+    listImportedEbayOrders().then((rows) => { if (active) setOrders(rows); }).catch((loadError) => { if (active) setError(loadError instanceof Error ? loadError.message : "Could not load orders."); }).finally(() => { if (active) setLoading(false); });
+    return () => { active = false; };
+  }, []);
+  if (getRepositoryMode() !== "cloud") return <section className="panel getting-started"><h3>Orders require cloud inventory</h3><p>Sign in from Settings to preserve marketplace orders across devices.</p></section>;
+  if (loading) return <section className="panel"><strong>Loading imported orders...</strong></section>;
+  const lines = orders.flatMap((order) => order.lines);
+  const unmatched = lines.filter((line) => line.match_state !== "matched").length;
+  return <div className="view-stack"><section className="metrics-grid"><Metric label="Imported orders" value={orders.length} /><Metric label="Order lines" value={lines.length} /><Metric label="Lines needing match" value={unmatched} tone={unmatched > 0 ? "warning" : "success"} /></section><section className="panel table-panel"><div className="panel-heading"><div><h3>Observed eBay orders</h3><span>Read-only intake. Inventory has not been reserved.</span></div></div>{error && <p className="error-text">{error}</p>}<div className="table-scroll"><table><thead><tr><th>Order</th><th>Created</th><th>Payment</th><th>Fulfillment</th><th>Lines</th><th>Matching</th></tr></thead><tbody>{orders.length === 0 ? <tr><td className="empty-table-cell" colSpan="6">No observed orders imported yet. Use the eBay reconciliation panel in Settings.</td></tr> : orders.map((order) => { const unresolved = order.lines.filter((line) => line.match_state !== "matched").length; return <tr key={order.id}><td><strong>{order.external_order_id}</strong><span>eBay</span></td><td>{order.external_created_at ? new Date(order.external_created_at).toLocaleString() : "Unknown"}</td><td>{order.payment_state.replaceAll("_", " ")}</td><td>{order.fulfillment_state.replaceAll("_", " ")}</td><td>{order.lines.reduce((sum, line) => sum + Number(line.quantity), 0)} units / {order.lines.length} lines</td><td><span className={`badge ${unresolved === 0 ? "success" : "warning"}`}>{unresolved === 0 ? "Matched" : `${unresolved} need review`}</span></td></tr>; })}</tbody></table></div></section></div>;
+}
+
+const dashboardViews = ["overview", "review", "inventory", "orders", "pallets", "analysis", "settings"];
 const viewCopy = {
   overview: ["Business overview", "Know what is selling, what is stuck, and what needs your decision."],
   review: ["Review", "Work through inventory decisions one item at a time."],
   pallets: ["Pallets", "Track the cost, recovery, and health of each purchase."],
   inventory: ["Inventory", "Search, filter, and manage the complete inventory record."],
+  orders: ["Orders", "Review imported marketplace orders and unresolved item matches."],
   analysis: ["Data & Analysis", "Learn what sells, where it sells, and what actually returns a profit."],
   settings: ["Settings", "Manage your account, backups, and activity history."],
 };
-const navLabels = { overview: "Overview", review: "Review", inventory: "Inventory", pallets: "Pallets", analysis: "Data / Analysis", settings: "Settings" };
+const navLabels = { overview: "Overview", review: "Review", inventory: "Inventory", orders: "Orders", pallets: "Pallets", analysis: "Data / Analysis", settings: "Settings" };
 const navItems = dashboardViews.map((id) => [id, navLabels[id]]);
 
 export function App() {
@@ -1072,6 +1090,7 @@ export function App() {
         {view === "review" && <section className="panel review-panel"><div className="saved-views" aria-label="Review queues">{workViews.map((workView) => <button key={workView.id} aria-pressed={workFilter === workView.id} onClick={() => setWorkFilter(workView.id)}><span>{workView.label}</span><strong>{workView.count}</strong></button>)}</div><div className="review-workspace"><div className="review-list" aria-label="Items to review">{reviewItems.length === 0 ? <div className="empty-queue"><strong>This queue is clear</strong><span>Choose another review category.</span></div> : reviewItems.map((item) => <button key={item.id} onClick={() => setInventoryModalId(item.id)}><ItemThumbnail item={item} /><div><strong>{item.name}</strong><span>{palletName(item.palletId)} · {getDisplayPlatform(item)}</span></div><span className={`badge ${statusClass[getDisplayStatus(item)]}`}>{statusLabel[getDisplayStatus(item)]}</span></button>)}</div></div></section>}
         {view === "pallets" && <PalletManager pallets={pallets} summaries={palletSummaries} activePalletId={snapshot.activePalletId} selectedPalletId={palletFilter} onFilter={(id) => { setPalletFilter(id); navigate("inventory"); }} />}
         {view === "analysis" && <AnalysisPanel snapshot={snapshot} />}
+        {view === "orders" && <OrdersPanel />}
         {view === "inventory" && <section className="panel table-panel" id="inventory">
           <div className="panel-heading inventory-heading"><div><strong>{visibleItems.length} of {archiveFilter === "active" ? items.length : allItems.length} items</strong><span>Select an item to view its complete record and photos.</span></div><button className="reset-filter-button" onClick={resetFilters}>Clear filters</button></div>
           <div className="inventory-tools"><input ref={searchInput} aria-label="Search inventory" placeholder="Search inventory (press /)" value={query} onChange={(event) => setQuery(event.target.value)} /><select aria-label="Inventory state filter" value={archiveFilter} onChange={(event) => setArchiveFilter(event.target.value)}><option value="active">Active inventory</option><option value="archived">Archived inventory</option><option value="all">Active and archived</option></select><select aria-label="Platform filter" value={platformFilter} onChange={(event) => setPlatformFilter(event.target.value)}><option value="all">All platforms</option><option>Facebook</option><option>eBay</option><option>Review</option></select><select aria-label="Pallet filter" value={palletFilter} onChange={(event) => setPalletFilter(event.target.value)}><option value="all">All pallets</option>{pallets.map((pallet) => <option key={pallet.id} value={pallet.id}>{pallet.name}</option>)}</select></div>
