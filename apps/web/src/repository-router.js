@@ -57,6 +57,10 @@ export const repository = {
   listReservations: (...args) => activeRepository.listReservations(...args),
   reserveItem: (...args) => activeRepository.reserveItem(...args),
   releaseReservation: (...args) => activeRepository.releaseReservation(...args),
+  verifyImportedItem: (...args) => {
+    if (typeof activeRepository.verifyImportedItem !== "function") throw new Error("Imported inventory verification requires cloud inventory.");
+    return activeRepository.verifyImportedItem(...args);
+  },
   replaceSnapshot: (...args) => {
     if (typeof activeRepository.replaceSnapshot !== "function") {
       throw new Error("Backup restore is only available for local preview data.");

@@ -129,6 +129,7 @@ for (const marker of [
   "Queue unverified item",
   "Record match",
   "Create zero-stock item",
+  "Verify physical inventory",
   "/ebay/import-preview",
   "Report filters",
   "Category / item type",
