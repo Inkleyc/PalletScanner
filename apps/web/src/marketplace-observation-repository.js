@@ -176,3 +176,14 @@ export const listImportedEbayOrders = async () => {
   for (const line of lineResult.data ?? []) linesByOrder.set(line.order_id, [...(linesByOrder.get(line.order_id) ?? []), line]);
   return (orderResult.data ?? []).map((order) => ({ ...order, lines: linesByOrder.get(order.id) ?? [] }));
 };
+
+export const matchImportedOrderLine = async ({ lineId, inventoryItemId }) => {
+  if (!supabase) throw new Error("Supabase is not configured for this dashboard.");
+  if (!lineId || !inventoryItemId) throw new Error("Select an order line and inventory item before recording the match.");
+  const result = await supabase.rpc("match_order_line", {
+    target_line_id: lineId,
+    target_item_id: inventoryItemId,
+  });
+  throwIfError(result);
+  return result.data;
+};
