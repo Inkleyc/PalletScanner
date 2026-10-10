@@ -130,6 +130,8 @@ for (const marker of [
   "Record match",
   "Create zero-stock item",
   "Verify physical inventory",
+  "Import observed orders",
+  "does not reserve or change inventory",
   "/ebay/import-preview",
   "Report filters",
   "Category / item type",

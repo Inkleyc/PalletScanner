@@ -108,3 +108,57 @@ export const createUnverifiedInventoryFromObservation = async (observationId) =>
   throwIfError(result);
   return result.data;
 };
+
+export const importObservedEbayOrders = async ({ preview, reconciliation }) => {
+  if (!supabase) throw new Error("Supabase is not configured for this dashboard.");
+  const userResult = await supabase.auth.getUser();
+  if (userResult.error || !userResult.data.user) throw new Error("Sign in before importing observed orders.");
+  const ownerId = userResult.data.user.id;
+  const [businessResult, accountResult] = await Promise.all([
+    supabase.from("businesses").select("id").eq("owner_id", ownerId).single(),
+    supabase.from("marketplace_accounts").select("id,business_id").eq("owner_id", ownerId).eq("channel", "ebay").eq("marketplace_region", "EBAY_US").single(),
+  ]);
+  throwIfError(businessResult); throwIfError(accountResult);
+  const businessId = businessResult.data.id;
+  if (accountResult.data.business_id !== businessId) throw new Error("The eBay account does not belong to the active business.");
+  const orderRows = (preview.orders ?? []).filter((order) => order.orderId).map((order) => ({
+    business_id: businessId,
+    owner_id: ownerId,
+    marketplace_account_id: accountResult.data.id,
+    source: "ebay",
+    external_order_id: order.orderId,
+    payment_state: order.orderPaymentStatus || "unknown",
+    fulfillment_state: order.orderFulfillmentStatus || "unknown",
+    currency: order.pricingSummary?.total?.currency ?? order.pricingSummary?.priceSubtotal?.currency ?? null,
+    pricing_summary: order.pricingSummary ?? {},
+    raw_payload: order.raw ?? order,
+    external_created_at: order.creationDate,
+    external_updated_at: order.lastModifiedDate,
+    imported_at: new Date().toISOString(),
+  }));
+  if (orderRows.length === 0) return { orders: 0, lines: 0 };
+  const orderResult = await supabase.from("orders").upsert(orderRows, { onConflict: "business_id,source,external_order_id" }).select("id,external_order_id");
+  throwIfError(orderResult);
+  const orderIdByExternalId = new Map((orderResult.data ?? []).map((order) => [order.external_order_id, order.id]));
+  const lineRows = reconciliation.orderLines.flatMap((record, index) => {
+    const orderId = orderIdByExternalId.get(record.external.orderId);
+    if (!orderId) return [];
+    return [{
+      business_id: businessId,
+      owner_id: ownerId,
+      order_id: orderId,
+      external_line_id: record.external.lineItemId || `${record.external.legacyItemId || record.external.sku || "line"}-${index}`,
+      seller_sku: record.external.sku || null,
+      title: record.external.title || null,
+      quantity: Math.max(1, Math.floor(Number(record.external.quantity ?? 1) || 1)),
+      inventory_item_id: record.localItem?.serverId || null,
+      match_state: record.state,
+      line_cost: record.external.lineItemCost ?? {},
+      raw_payload: record.external,
+    }];
+  });
+  if (lineRows.length > 0) {
+    throwIfError(await supabase.from("order_lines").upsert(lineRows, { onConflict: "order_id,external_line_id" }));
+  }
+  return { orders: orderRows.length, lines: lineRows.length };
+};
