@@ -174,6 +174,9 @@ const pullCloudSnapshot = async () => {
     name: row.name,
     createdAt: Date.parse(row.created_at),
     palletCost: row.purchase_cost == null ? null : Number(row.purchase_cost),
+    isSystem: row.is_system === true,
+    acquisitionType:
+      row.acquisition_type === "loose_system" ? "loose_system" : "pallet",
   }));
   const palletClientIdByServerId = new Map((palletResult.data ?? []).map((row) => [row.id, row.client_id]));
   const listingsByItemId = new Map<string, Record<string, (typeof listingResult.data)[number]>>();
@@ -232,7 +235,7 @@ const pushLocalSnapshot = async () => {
   const changedItems = changedSinceBaseline(items, baselineItems, (item) => item.id, comparableItem);
   if (changedPallets.length > 0) {
     const result = await supabase.from("pallets").upsert(
-      changedPallets.map((pallet) => ({ owner_id: auth.userId, client_id: pallet.id, name: pallet.name, purchase_cost: pallet.palletCost })),
+      changedPallets.map((pallet) => ({ owner_id: auth.userId, client_id: pallet.id, name: pallet.name, purchase_cost: pallet.palletCost, is_system: pallet.isSystem === true, acquisition_type: pallet.acquisitionType ?? "pallet" })),
       { onConflict: "owner_id,client_id" },
     );
     if (result.error) throw result.error;

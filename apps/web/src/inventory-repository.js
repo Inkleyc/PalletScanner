@@ -1,6 +1,15 @@
 import { items as seedItems, pallets as seedPallets } from "./mock-data.js";
 
 const storageKey = "palletscanner.inventoryRepository.v1";
+const looseItemsPallet = {
+  id: "loose-items",
+  name: "Loose Items",
+  createdAt: 0,
+  palletCost: null,
+  cost: 0,
+  isSystem: true,
+  acquisitionType: "loose_system",
+};
 
 const clone = (value) => JSON.parse(JSON.stringify(value));
 const normalizeItem = (item) => ({
@@ -20,6 +29,10 @@ const normalizePallet = (pallet) => ({
   palletCost: Number.isFinite(pallet.palletCost) ? pallet.palletCost : pallet.cost ?? null,
   cost: Number.isFinite(pallet.cost) ? pallet.cost : pallet.palletCost ?? 0,
 });
+const ensureLooseItems = (pallets) => [
+  normalizePallet(looseItemsPallet),
+  ...pallets.filter((pallet) => pallet.id !== looseItemsPallet.id).map(normalizePallet),
+];
 
 const load = () => {
   try {
@@ -28,7 +41,7 @@ const load = () => {
       return {
         ...saved,
         items: saved.items.map(normalizeItem),
-        pallets: saved.pallets.map(normalizePallet),
+        pallets: ensureLooseItems(saved.pallets),
         activity: Array.isArray(saved.activity) ? saved.activity : [],
         sales: Array.isArray(saved.sales) ? saved.sales : [],
       };
@@ -38,8 +51,8 @@ const load = () => {
   }
   return {
     items: clone(seedItems).map(normalizeItem),
-    pallets: clone(seedPallets).map(normalizePallet),
-    activePalletId: seedPallets[0]?.id ?? null,
+    pallets: ensureLooseItems(clone(seedPallets)),
+    activePalletId: looseItemsPallet.id,
     activity: [],
     sales: [],
   };
@@ -102,6 +115,7 @@ export const repository = {
     return clone(pallet);
   },
   async updatePallet(palletId, update) {
+    if (palletId === looseItemsPallet.id) return;
     const pallet = pallets.find((entry) => entry.id === palletId);
     if (pallet) {
       Object.assign(pallet, update);
@@ -111,6 +125,7 @@ export const repository = {
     persist();
   },
   async removePallet(palletId) {
+    if (palletId === looseItemsPallet.id) return false;
     const index = pallets.findIndex((entry) => entry.id === palletId);
     if (index < 0) return false;
     const [removedPallet] = pallets.splice(index, 1);
@@ -169,7 +184,7 @@ export const repository = {
     if (!snapshot || !Array.isArray(snapshot.items) || !Array.isArray(snapshot.pallets)) {
       throw new Error("Backup must contain items and pallets arrays.");
     }
-    const restoredPallets = snapshot.pallets.map(normalizePallet);
+    const restoredPallets = ensureLooseItems(snapshot.pallets);
     const palletIds = new Set(restoredPallets.map((pallet) => pallet.id));
     if (restoredPallets.some((pallet) => typeof pallet.id !== "string" || !pallet.id.trim() || typeof pallet.name !== "string" || !pallet.name.trim())) {
       throw new Error("Every restored pallet must have a valid ID and name.");

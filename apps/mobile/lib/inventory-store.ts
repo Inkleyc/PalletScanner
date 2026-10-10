@@ -8,7 +8,11 @@ import {
   writeActivePalletStorage,
   writeInventoryStorage,
 } from "@/lib/inventory-persistence";
-import type { InventoryItem, PalletSession } from "@palletscanner/core";
+import {
+  LOOSE_ITEMS_PALLET_ID,
+  type InventoryItem,
+  type PalletSession,
+} from "@palletscanner/core";
 
 type ResetBackup = {
   items: InventoryItem[];
@@ -35,6 +39,14 @@ type InventoryListener = () => void;
 const inventoryListeners = new Set<InventoryListener>();
 const legacyPalletId = "pallet-1";
 const threeDaysMs = 3 * 24 * 60 * 60 * 1000;
+const looseItemsPallet: PalletSession = {
+  id: LOOSE_ITEMS_PALLET_ID,
+  name: "Loose Items",
+  createdAt: 0,
+  palletCost: null,
+  isSystem: true,
+  acquisitionType: "loose_system",
+};
 
 const formatPalletName = (createdAt: number, sequence: number) => {
   const date = new Date(createdAt);
@@ -208,6 +220,11 @@ const normalizePalletSession = (
       typeof pallet.palletCost === "number" && !Number.isNaN(pallet.palletCost)
         ? pallet.palletCost
         : null,
+    isSystem: pallet.id === LOOSE_ITEMS_PALLET_ID || pallet.isSystem === true,
+    acquisitionType:
+      pallet.id === LOOSE_ITEMS_PALLET_ID || pallet.acquisitionType === "loose_system"
+        ? "loose_system"
+        : "pallet",
   };
 };
 
@@ -225,7 +242,12 @@ const normalizePalletState = (
   pallets: PalletSession[],
   nextActivePalletId?: string | null,
 ) => {
-  const normalizedPallets = pallets.map(normalizePalletSession);
+  const normalizedPallets = [
+    looseItemsPallet,
+    ...pallets
+      .filter((pallet) => pallet.id !== LOOSE_ITEMS_PALLET_ID)
+      .map(normalizePalletSession),
+  ];
   const resolvedActivePalletId =
     normalizedPallets.length === 0
       ? null
@@ -272,8 +294,8 @@ const getGlobalInventory = (): InventoryItem[] => {
 };
 
 let inventoryState: InventoryItem[] = getGlobalInventory();
-let palletState: PalletSession[] = [];
-let activePalletId: string | null = null;
+let palletState: PalletSession[] = [looseItemsPallet];
+let activePalletId: string | null = LOOSE_ITEMS_PALLET_ID;
 let resetBackupState: ResetBackup | null = null;
 let resetBackupSummaryState: ResetBackupSummary | null = null;
 let hydratePromise: Promise<void> | null = null;
@@ -593,6 +615,9 @@ export const replaceInventorySnapshot = (
 };
 
 export const deletePalletSession = (palletId: string) => {
+  if (palletId === LOOSE_ITEMS_PALLET_ID) {
+    return false;
+  }
   if (!palletState.some((pallet) => pallet.id === palletId)) {
     return false;
   }
@@ -648,6 +673,7 @@ export const restoreResetBackup = () => {
 };
 
 export const renamePalletSession = (palletId: string, name: string) => {
+  if (palletId === LOOSE_ITEMS_PALLET_ID) return;
   const trimmedName = name.trim();
   if (!trimmedName) {
     return;
@@ -670,6 +696,7 @@ export const updatePalletSessionCost = (
   palletId: string,
   palletCost: number | null,
 ) => {
+  if (palletId === LOOSE_ITEMS_PALLET_ID) return;
   commitState(
     palletState.map((pallet) =>
       pallet.id === palletId

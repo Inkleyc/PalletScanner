@@ -106,6 +106,7 @@ export default function PalletsScreen() {
 
   const savePalletDetails = () => {
     if (!selectedPallet) return;
+    if (selectedPallet.isSystem) return closePalletDetails();
     if (!detailName.trim()) return Alert.alert("Name required", "Enter a name for this pallet.");
     const cost = detailCost.trim() ? Number(detailCost) : null;
     if (cost !== null && (!Number.isFinite(cost) || cost < 0)) return Alert.alert("Invalid cost", "Enter a valid pallet cost.");
@@ -116,6 +117,7 @@ export default function PalletsScreen() {
 
   const confirmDeleteSelectedPallet = () => {
     if (!selectedPallet) return;
+    if (selectedPallet.isSystem) return;
     const pallet = selectedPallet;
     closePalletDetails();
     setTimeout(() => Alert.alert("Delete pallet", pallets.length === 1 ? `Delete ${pallet.name}? This will leave you with no pallets until you create another one.` : `Delete ${pallet.name} and its items?`, [
@@ -186,8 +188,8 @@ export default function PalletsScreen() {
               <TouchableOpacity style={styles.modalCancelBtn} onPress={closePalletDetails}><Text style={styles.modalCancelText}>Close</Text></TouchableOpacity>
             </View>
             <ScrollView contentContainerStyle={styles.palletDetailContent}>
-              <View><Text style={styles.valueLabel}>Name</Text><TextInput style={styles.modalInput} value={detailName} onChangeText={setDetailName} placeholder="Pallet name" /></View>
-              <View><Text style={styles.valueLabel}>Purchase cost</Text><TextInput style={styles.modalInput} value={detailCost} onChangeText={setDetailCost} placeholder="Not set" keyboardType="decimal-pad" /></View>
+              <View><Text style={styles.valueLabel}>Name</Text><TextInput editable={!selectedPallet?.isSystem} style={styles.modalInput} value={detailName} onChangeText={setDetailName} placeholder="Pallet name" /></View>
+              <View><Text style={styles.valueLabel}>Purchase cost</Text><TextInput editable={!selectedPallet?.isSystem} style={styles.modalInput} value={detailCost} onChangeText={setDetailCost} placeholder="Not set" keyboardType="decimal-pad" /></View>
               <View style={styles.palletStatsRow}>
                 <View style={styles.palletStatBox}><Text style={styles.palletStatLabel}>Items</Text><Text style={styles.palletStatValue}>{selectedPalletItems.length}</Text></View>
                 <View style={styles.palletStatBox}><Text style={styles.palletStatLabel}>Sold</Text><Text style={styles.palletStatValue}>{selectedPalletItems.filter((item) => item.soldPrice !== null).length}</Text></View>
@@ -195,9 +197,9 @@ export default function PalletsScreen() {
               </View>
               <View style={styles.palletDetailActions}>
                 {selectedPallet && selectedPallet.id !== activePalletId ? <TouchableOpacity style={styles.secondaryBtn} onPress={() => setActivePalletSession(selectedPallet.id)}><Text style={styles.secondaryBtnText}>Make active</Text></TouchableOpacity> : <Text style={styles.activeDetailNote}>Active scan pallet</Text>}
-                <TouchableOpacity style={styles.deleteBtn} onPress={confirmDeleteSelectedPallet}><Text style={styles.deleteBtnText}>Delete pallet</Text></TouchableOpacity>
+                {!selectedPallet?.isSystem ? <TouchableOpacity style={styles.deleteBtn} onPress={confirmDeleteSelectedPallet}><Text style={styles.deleteBtnText}>Delete pallet</Text></TouchableOpacity> : <Text style={styles.activeDetailNote}>Built-in container</Text>}
               </View>
-              <TouchableOpacity style={styles.primaryBtn} onPress={savePalletDetails}><Text style={styles.primaryBtnText}>Save changes</Text></TouchableOpacity>
+              {!selectedPallet?.isSystem ? <TouchableOpacity style={styles.primaryBtn} onPress={savePalletDetails}><Text style={styles.primaryBtnText}>Save changes</Text></TouchableOpacity> : null}
             </ScrollView>
           </Pressable>
         </Pressable>

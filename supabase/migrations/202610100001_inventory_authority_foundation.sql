@@ -78,6 +78,9 @@ after insert on auth.users
 for each row execute function public.create_owner_business();
 
 alter table public.pallets add column business_id uuid;
+alter table public.pallets add column is_system boolean not null default false;
+alter table public.pallets add column acquisition_type text not null default 'pallet'
+  check (acquisition_type in ('pallet', 'loose_system'));
 alter table public.inventory_items add column business_id uuid;
 alter table public.marketplace_listings add column business_id uuid;
 alter table public.sales add column business_id uuid;
@@ -99,6 +102,14 @@ alter table public.inventory_items alter column business_id set not null;
 alter table public.marketplace_listings alter column business_id set not null;
 alter table public.sales alter column business_id set not null;
 alter table public.activity_events alter column business_id set not null;
+
+insert into public.pallets (
+  owner_id, business_id, client_id, name, purchase_cost, is_system, acquisition_type
+)
+select owner_id, id, 'loose-items', 'Loose Items', null, true, 'loose_system'
+from public.businesses
+on conflict (owner_id, client_id) do update
+set is_system = true, acquisition_type = 'loose_system', name = 'Loose Items';
 
 create table public.acquisitions (
   id uuid primary key default gen_random_uuid(),
@@ -126,7 +137,7 @@ on public.acquisitions(business_id) where type = 'loose_system';
 insert into public.acquisitions (
   id, business_id, owner_id, legacy_pallet_id, type, name, purchase_price, created_at
 )
-select id, business_id, owner_id, id, 'pallet', name, purchase_cost, created_at
+select id, business_id, owner_id, id, acquisition_type, name, purchase_cost, created_at
 from public.pallets
 on conflict (id) do nothing;
 
@@ -226,6 +237,48 @@ create table public.inventory_reservations (
   foreign key (business_id, owner_id)
     references public.businesses(id, owner_id) on delete cascade
 );
+
+create or replace function public.assign_owner_business()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if new.business_id is null then
+    select id into new.business_id from public.businesses where owner_id = new.owner_id;
+  end if;
+  return new;
+end;
+$$;
+
+create or replace function public.assign_inventory_authority()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if new.business_id is null then
+    select id into new.business_id from public.businesses where owner_id = new.owner_id;
+  end if;
+  if new.acquisition_id is null and new.pallet_id is not null then
+    new.acquisition_id := new.pallet_id;
+  end if;
+  return new;
+end;
+$$;
+
+create trigger pallets_assign_business before insert or update on public.pallets
+for each row execute function public.assign_owner_business();
+create trigger inventory_items_assign_authority before insert or update on public.inventory_items
+for each row execute function public.assign_inventory_authority();
+create trigger marketplace_listings_assign_business before insert or update on public.marketplace_listings
+for each row execute function public.assign_owner_business();
+create trigger sales_assign_business before insert or update on public.sales
+for each row execute function public.assign_owner_business();
+create trigger activity_events_assign_business before insert or update on public.activity_events
+for each row execute function public.assign_owner_business();
 
 create index inventory_movements_item_time_idx
 on public.inventory_movements(inventory_item_id, occurred_at);

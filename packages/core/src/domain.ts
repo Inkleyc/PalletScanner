@@ -73,7 +73,11 @@ export type PalletSession = {
   name: string;
   createdAt: number;
   palletCost: number | null;
+  isSystem?: boolean;
+  acquisitionType?: "pallet" | "loose_system";
 };
+
+export const LOOSE_ITEMS_PALLET_ID = "loose-items";
 
 export type ItemPhoto = {
   id: string;
