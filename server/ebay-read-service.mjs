@@ -10,6 +10,13 @@ const summarizeInventoryItem = (item) => ({
   title: item.product?.title ?? null,
   condition: item.condition ?? null,
   quantity: Number(item.availability?.shipToLocationAvailability?.quantity ?? 0),
+  productIdentifiers: {
+    upc: item.product?.upc ?? [],
+    ean: item.product?.ean ?? [],
+    isbn: item.product?.isbn ?? [],
+    mpn: item.product?.mpn ?? null,
+    brand: item.product?.brand ?? null,
+  },
   imageUrl: item.product?.imageUrls?.[0] ?? null,
   raw: item,
 });

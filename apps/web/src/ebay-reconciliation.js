@@ -1,4 +1,6 @@
 const normalizeSku = (value) => String(value ?? "").trim().toUpperCase();
+const normalizeProductIdentifier = (value) => String(value ?? "").replace(/[^a-z0-9]/gi, "").toUpperCase();
+const ignoredProductIdentifiers = new Set(["", "NA", "NONE", "DOESNOTAPPLY", "NOTAPPLICABLE", "UNKNOWN"]);
 
 const localQuantity = (item) => Number(item.available ?? item.quantity ?? 0);
 
@@ -24,14 +26,22 @@ const matchExternal = (external, indexes) => {
   const skuCandidates = normalizedSku ? indexes.bySku.get(normalizedSku) ?? [] : [];
   const externalIds = [external.offerId, external.listingId, external.legacyItemId].map((value) => String(value ?? "").trim()).filter(Boolean);
   const idCandidates = [...new Map(externalIds.flatMap((id) => indexes.byExternalId.get(id) ?? []).map((item) => [item.id, item])).values()];
-  if (skuCandidates.length === 1 && idCandidates.length > 0 && !idCandidates.some((item) => item.id === skuCandidates[0].id)) {
-    return { state: "conflicting", matchReason: "identifier_conflict", normalizedSku, candidates: [...skuCandidates, ...idCandidates] };
+  const productIds = [external.productIdentifiers?.upc, external.productIdentifiers?.ean, external.productIdentifiers?.isbn].flat().map(normalizeProductIdentifier).filter((value) => !ignoredProductIdentifiers.has(value));
+  const productCandidates = [...new Map(productIds.flatMap((id) => indexes.byProductId.get(id) ?? []).map((item) => [item.id, item])).values()];
+  const sources = [
+    { reason: "seller_sku", candidates: skuCandidates },
+    { reason: "external_id", candidates: idCandidates },
+    { reason: "product_identifier", candidates: productCandidates },
+  ];
+  const selectedSource = sources.find((source) => source.candidates.length === 1);
+  if (selectedSource) {
+    const selected = selectedSource.candidates[0];
+    const disagreement = sources.some((source) => source.candidates.length > 0 && !source.candidates.some((item) => item.id === selected.id));
+    if (disagreement) return { state: "conflicting", matchReason: "identifier_conflict", normalizedSku, candidates: [...new Map(sources.flatMap((source) => source.candidates).map((item) => [item.id, item])).values()] };
+    return { state: "matched", matchReason: selectedSource.reason, normalizedSku, candidates: [selected] };
   }
-  if (skuCandidates.length === 1) return { state: "matched", matchReason: "seller_sku", normalizedSku, candidates: skuCandidates };
-  if (skuCandidates.length > 1 && idCandidates.length === 1) return { state: "matched", matchReason: "external_id", normalizedSku, candidates: idCandidates };
-  if (skuCandidates.length > 1) return { state: "uncertain", matchReason: "duplicate_seller_sku", normalizedSku, candidates: skuCandidates };
-  if (idCandidates.length === 1) return { state: "matched", matchReason: "external_id", normalizedSku, candidates: idCandidates };
-  if (idCandidates.length > 1) return { state: "uncertain", matchReason: "duplicate_external_id", normalizedSku, candidates: idCandidates };
+  const duplicateSource = sources.find((source) => source.candidates.length > 1);
+  if (duplicateSource) return { state: "uncertain", matchReason: `duplicate_${duplicateSource.reason}`, normalizedSku, candidates: duplicateSource.candidates };
   return { state: "unmatched", matchReason: "no_strong_identifier", normalizedSku, candidates: [] };
 };
 
@@ -40,6 +50,11 @@ export const reconcileEbayPreview = (preview, localItems) => {
   const indexes = {
     bySku: indexItemsBySku(activeItems),
     byExternalId: indexItemsByIdentity(activeItems, ["ebayOfferId", "ebayListingId"]),
+    byProductId: activeItems.reduce((index, item) => {
+      const identifier = normalizeProductIdentifier(item.barcode);
+      if (!ignoredProductIdentifiers.has(identifier)) index.set(identifier, [...(index.get(identifier) ?? []), item]);
+      return index;
+    }, new Map()),
   };
   const inventory = (preview?.inventoryItems ?? []).map((external) => {
     const match = matchExternal(external, indexes);

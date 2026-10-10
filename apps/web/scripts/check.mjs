@@ -168,7 +168,7 @@ if (getStaleInventoryItems(items, new Date("2026-07-15T12:00:00Z")).length === 0
 }
 
 const reconciliation = reconcileEbayPreview({
-  inventoryItems: [{ sku: "PF-1", quantity: 2 }, { sku: "PF-2", quantity: 1 }, { sku: "PF-DUPLICATE", quantity: 1 }, { sku: "missing", quantity: 1 }],
+  inventoryItems: [{ sku: "PF-1", quantity: 2 }, { sku: "PF-2", quantity: 1 }, { sku: "PF-DUPLICATE", quantity: 1 }, { sku: "missing", quantity: 1 }, { sku: "", quantity: 1, productIdentifiers: { upc: ["0-12345-67890-5"] } }],
   offers: [{ sku: "pf-1" }, { sku: "", offerId: "offer-known" }, { sku: "PF-1", offerId: "offer-known" }],
   orders: [{ orderId: "order-1", lineItems: [{ sku: "PF-1" }, { sku: "", legacyItemId: "listing-known" }, { sku: "" }] }],
 }, [
@@ -177,8 +177,9 @@ const reconciliation = reconcileEbayPreview({
   { id: 3, sellerSku: "PF-DUPLICATE", available: 1 },
   { id: 4, sellerSku: "pf-duplicate", available: 1 },
   { id: 5, ebayOfferId: "offer-known", ebayListingId: "listing-known", available: 1 },
+  { id: 6, barcode: "012345678905", available: 1 },
 ]);
-if (reconciliation.summary.matched !== 5 || reconciliation.summary.conflicting !== 2 || reconciliation.summary.uncertain !== 1 || reconciliation.summary.unmatched !== 2) {
+if (reconciliation.summary.matched !== 6 || reconciliation.summary.conflicting !== 2 || reconciliation.summary.uncertain !== 1 || reconciliation.summary.unmatched !== 2) {
   throw new Error("eBay reconciliation did not classify strong SKU matches and quantity conflicts correctly.");
 }
 if (reconciliation.offers[1].matchReason !== "external_id" || reconciliation.orderLines[1].matchReason !== "external_id") {
@@ -186,6 +187,9 @@ if (reconciliation.offers[1].matchReason !== "external_id" || reconciliation.ord
 }
 if (reconciliation.offers[2].matchReason !== "identifier_conflict") {
   throw new Error("eBay reconciliation did not quarantine disagreeing strong identifiers.");
+}
+if (reconciliation.inventory[4].matchReason !== "product_identifier") {
+  throw new Error("eBay reconciliation did not match a normalized exact product identifier.");
 }
 
 const snapshot = repository.getSnapshot();
