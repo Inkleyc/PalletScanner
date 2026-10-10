@@ -127,6 +127,10 @@ const shippingFoundation = await readFile(
   new URL("../supabase/migrations/202610100025_shipping_foundation.sql", import.meta.url),
   "utf8",
 );
+const startOrderFulfillment = await readFile(
+  new URL("../supabase/migrations/202610100026_start_order_fulfillment.sql", import.meta.url),
+  "utf8",
+);
 
 for (const table of ["pallets", "inventory_items", "item_photos", "marketplace_listings", "sales", "activity_events"]) {
   if (!schema.includes(`create table public.${table}`)) {
@@ -215,6 +219,9 @@ for (const table of ["package_presets", "shipments", "shipment_packages", "shipm
 }
 for (const marker of ["item_weight_grams", "estimated_weight_grams", "final_weight_grams", "measurement_state", "ship_by_at", "local_pickup", "insurance_requested boolean not null default false"]) {
   if (!shippingFoundation.includes(marker)) throw new Error(`Shipping foundation is missing contract marker: ${marker}`);
+}
+for (const marker of ["start_order_fulfillment", "Only paid orders can enter fulfillment", "Every order line must have an active inventory reservation", "weighted_line_count = total_line_count", "shipment.fulfillment_started"]) {
+  if (!startOrderFulfillment.includes(marker)) throw new Error(`Start-fulfillment command is missing safety marker: ${marker}`);
 }
 
 for (const marker of [

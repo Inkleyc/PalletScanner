@@ -125,6 +125,13 @@ delivery, and local-pickup confirmation. Label purchase remains in eBay. The
 schema reserves insurance fields, but recommendations and purchasing remain
 intentionally inactive.
 
+`start_order_fulfillment` is an explicit, idempotent transition. It accepts only
+a paid, non-cancelled order whose every line has an active reservation. Shipping
+orders receive one default package and line allocations; local pickup receives
+no fictional package. A packed-weight estimate is created only when every line's
+inventory item has a recorded weight. Otherwise the package remains incomplete
+until fulfillment supplies real measurements.
+
 ## Local-to-Server IDs
 
 Current mobile data uses numeric item IDs and string pallet IDs. The server uses

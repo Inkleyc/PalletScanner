@@ -168,14 +168,16 @@ export const listImportedEbayOrders = async () => {
   if (!supabase) throw new Error("Supabase is not configured for this dashboard.");
   const userResult = await supabase.auth.getUser();
   if (userResult.error || !userResult.data.user) throw new Error("Sign in to view imported orders.");
-  const [orderResult, lineResult] = await Promise.all([
+  const [orderResult, lineResult, shipmentResult] = await Promise.all([
     supabase.from("orders").select("*").eq("owner_id", userResult.data.user.id).order("external_created_at", { ascending: false }),
     supabase.from("order_lines").select("*, inventory_reservations(state)").eq("owner_id", userResult.data.user.id).order("created_at"),
+    supabase.from("shipments").select("*, shipment_packages(*)").eq("owner_id", userResult.data.user.id).order("created_at"),
   ]);
-  throwIfError(orderResult); throwIfError(lineResult);
+  throwIfError(orderResult); throwIfError(lineResult); throwIfError(shipmentResult);
   const linesByOrder = new Map();
   for (const line of lineResult.data ?? []) linesByOrder.set(line.order_id, [...(linesByOrder.get(line.order_id) ?? []), line]);
-  return (orderResult.data ?? []).map((order) => ({ ...order, lines: linesByOrder.get(order.id) ?? [] }));
+  const shipmentByOrder = new Map((shipmentResult.data ?? []).map((shipment) => [shipment.order_id, shipment]));
+  return (orderResult.data ?? []).map((order) => ({ ...order, lines: linesByOrder.get(order.id) ?? [], shipment: shipmentByOrder.get(order.id) ?? null }));
 };
 
 export const matchImportedOrderLine = async ({ lineId, inventoryItemId }) => {
@@ -203,6 +205,17 @@ export const releaseCancelledOrderReservations = async (orderId) => {
   const result = await supabase.rpc("release_cancelled_order_reservations", { target_order_id: orderId });
   throwIfError(result);
   return Number(result.data ?? 0);
+};
+
+export const startOrderFulfillment = async (orderId, packagePresetId = null) => {
+  if (!supabase) throw new Error("Supabase is not configured for this dashboard.");
+  if (!orderId) throw new Error("Select an order before starting fulfillment.");
+  const result = await supabase.rpc("start_order_fulfillment", {
+    target_order_id: orderId,
+    target_package_preset_id: packagePresetId,
+  });
+  throwIfError(result);
+  return result.data;
 };
 
 export const listMarketplaceQuantityQueue = async () => {
