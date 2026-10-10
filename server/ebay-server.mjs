@@ -4,6 +4,8 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { authenticateRequest, getAuthMode } from "./auth.mjs";
+import { createAiService } from "./ai-service.mjs";
+import { lookupBarcode } from "./barcode-service.mjs";
 import { createEbayTokenStore } from "./ebay-token-store.mjs";
 
 const __filename = fileURLToPath(import.meta.url);
@@ -72,10 +74,7 @@ const rehearsalOrigin = process.env.PALLETSCANNER_REHEARSAL_ORIGIN ?? "";
 const listingRateLimit = Number(
   process.env.PALLETSCANNER_LISTING_RATE_LIMIT_PER_MINUTE ?? 20,
 );
-const aiRateLimit = Number(
-  process.env.PALLETSCANNER_AI_RATE_LIMIT_PER_MINUTE ?? 10,
-);
-const anthropicModel = process.env.ANTHROPIC_MODEL ?? "claude-sonnet-5";
+const createAiMessage = createAiService();
 
 const ebayScopes =
   process.env.EBAY_SCOPE ??
@@ -89,7 +88,6 @@ let appTokenCache = null;
 let categoryTreeCache = null;
 const categoryMetadataCache = new Map();
 const listingRateLimits = new Map();
-const aiRateLimits = new Map();
 
 const requireEnv = (name) => {
   const value = process.env[name];
@@ -385,122 +383,6 @@ const enforceListingRateLimit = (userId) => {
   }
   recent.push(now);
   listingRateLimits.set(userId, recent);
-};
-
-const enforceAiRateLimit = (userId) => {
-  const now = Date.now();
-  const windowStart = now - 60_000;
-  const recent = (aiRateLimits.get(userId) ?? []).filter(
-    (timestamp) => timestamp > windowStart,
-  );
-  if (recent.length >= aiRateLimit) {
-    const error = new Error("Too many AI requests. Wait a minute and try again.");
-    error.statusCode = 429;
-    throw error;
-  }
-  recent.push(now);
-  aiRateLimits.set(userId, recent);
-};
-
-const createAiMessage = async (userId, payload) => {
-  enforceAiRateLimit(userId);
-  const apiKey = process.env.ANTHROPIC_API_KEY;
-  if (!apiKey) {
-    const error = new Error("Anthropic is not configured on the backend.");
-    error.statusCode = 503;
-    throw error;
-  }
-  if (!Array.isArray(payload?.messages) || payload.messages.length === 0) {
-    const error = new Error("AI messages are required.");
-    error.statusCode = 400;
-    throw error;
-  }
-
-  const response = await fetch("https://api.anthropic.com/v1/messages", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "x-api-key": apiKey,
-      "anthropic-version": "2023-06-01",
-    },
-    body: JSON.stringify({
-      model: anthropicModel,
-      max_tokens: Math.min(Math.max(Number(payload.max_tokens) || 1000, 1), 2000),
-      messages: payload.messages,
-    }),
-  });
-  const body = await response.text();
-  if (!response.ok) {
-    const error = new Error(`Anthropic request failed (${response.status}): ${body.slice(0, 300)}`);
-    error.statusCode = response.status;
-    throw error;
-  }
-  return JSON.parse(body);
-};
-
-const firstText = (...values) =>
-  values.find((value) => typeof value === "string" && value.trim())?.trim();
-
-const normalizeFactsProduct = (product) => {
-  const title = firstText(product?.product_name, product?.product_name_en);
-  if (!title) throw new Error("No product found.");
-  return {
-    title,
-    description: firstText(product.generic_name, product.generic_name_en),
-    brand: firstText(product.brands),
-    category: firstText(product.categories, product.categories_old),
-    images: [product.image_front_url, product.image_url].filter(Boolean),
-  };
-};
-
-const fetchBarcodeSource = async (url, normalize) => {
-  const response = await fetch(url, { signal: AbortSignal.timeout(7000) });
-  if (!response.ok) throw new Error(`Lookup failed (${response.status}).`);
-  return normalize(await response.json());
-};
-
-const lookupBarcode = async (rawBarcode) => {
-  const barcode = String(rawBarcode ?? "").trim().replace(/[^0-9A-Za-z]/g, "");
-  if (!barcode) {
-    const error = new Error("A barcode is required.");
-    error.statusCode = 400;
-    throw error;
-  }
-
-  const attempts = [
-    fetchBarcodeSource(
-      `https://api.upcitemdb.com/prod/trial/lookup?upc=${encodeURIComponent(barcode)}`,
-      (payload) => {
-        if (!Array.isArray(payload.items) || !payload.items[0]) throw new Error("No product found.");
-        return payload.items[0];
-      },
-    ),
-    fetchBarcodeSource(
-      `https://world.openfoodfacts.org/api/v3/product/${encodeURIComponent(barcode)}?product_type=all&fields=product_name,product_name_en,generic_name,generic_name_en,brands,categories,categories_old,image_front_url,image_url`,
-      (payload) => normalizeFactsProduct(payload.product),
-    ),
-    fetchBarcodeSource(
-      `https://gtinhub.com/api/v1/product/${encodeURIComponent(barcode)}`,
-      (payload) => {
-        if (!payload.found || !payload.product?.name) throw new Error("No product found.");
-        return {
-          title: payload.product.name,
-          description: firstText(payload.product.description),
-          brand: firstText(payload.product.brand),
-          category: firstText(payload.product.category),
-          images: [payload.product.image_url].filter(Boolean),
-        };
-      },
-    ),
-  ];
-
-  try {
-    return await Promise.any(attempts);
-  } catch {
-    const error = new Error("No product information was found for that barcode.");
-    error.statusCode = 404;
-    throw error;
-  }
 };
 
 const getAppAccessToken = async () => {
