@@ -144,6 +144,8 @@ for (const marker of [
   "This review queue cannot change eBay",
   "Allow reviewed outbound actions",
   "Turning off the pause does not enable automatic synchronization",
+  "This creates durable work but does not contact eBay yet",
+  "Approve update",
   "/ebay/import-preview",
   "Report filters",
   "Category / item type",

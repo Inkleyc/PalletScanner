@@ -86,6 +86,12 @@ or previously paused account only into `review_required`; it does not silently
 enable active synchronization. Every pause change is audited, while inbound
 marketplace observation remains available.
 
+Approving one quantity mismatch creates a durable `marketplace_action_jobs`
+record rather than calling eBay from the browser. The job captures SKU, offer,
+observed quantity transition, desired quantity, retry state, and a business-wide
+idempotency key. Only verified inventory on an unpaused, review-approved account
+can enter the queue. External execution is a separate server responsibility.
+
 ## Local-to-Server IDs
 
 Current mobile data uses numeric item IDs and string pallet IDs. The server uses

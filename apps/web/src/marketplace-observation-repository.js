@@ -240,3 +240,10 @@ export const setEbayOutboundPause = async ({ accountId, paused }) => {
   throwIfError(result);
   return result.data;
 };
+
+export const queueEbayQuantitySync = async (listingId) => {
+  if (!supabase) throw new Error("Supabase is not configured for this dashboard.");
+  const result = await supabase.rpc("queue_ebay_quantity_sync", { target_listing_id: listingId });
+  throwIfError(result);
+  return result.data;
+};
