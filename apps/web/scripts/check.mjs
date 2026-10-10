@@ -142,6 +142,8 @@ for (const marker of [
   "Release reserved inventory",
   "eBay quantity protection",
   "This review queue cannot change eBay",
+  "Allow reviewed outbound actions",
+  "Turning off the pause does not enable automatic synchronization",
   "/ebay/import-preview",
   "Report filters",
   "Category / item type",

@@ -103,6 +103,10 @@ const marketplaceQuantityQueue = await readFile(
   new URL("../supabase/migrations/202610100019_marketplace_quantity_queue.sql", import.meta.url),
   "utf8",
 );
+const marketplacePauseControl = await readFile(
+  new URL("../supabase/migrations/202610100020_marketplace_pause_control.sql", import.meta.url),
+  "utf8",
+);
 
 for (const table of ["pallets", "inventory_items", "item_photos", "marketplace_listings", "sales", "activity_events"]) {
   if (!schema.includes(`create table public.${table}`)) {
@@ -169,6 +173,9 @@ for (const marker of ["cancellation_state", "release_cancelled_order_reservation
 }
 for (const marker of ["desired_quantity", "quantity_sync_state", "refresh_marketplace_quantity_intent", "after update of available", "observe_ebay_offer_quantity", "listing.sync_paused", "account.outbound_paused", "account.sync_mode from public.marketplace_accounts", "<> 'active'"]) {
   if (!marketplaceQuantityQueue.includes(marker)) throw new Error(`Marketplace quantity queue is missing safety marker: ${marker}`);
+}
+for (const marker of ["set_marketplace_outbound_pause", "for update", "when should_pause then 'paused'", "then 'review_required'", "marketplace.outbound_pause_changed", "outbound_paused', should_pause"]) {
+  if (!marketplacePauseControl.includes(marker)) throw new Error(`Marketplace pause control is missing safety marker: ${marker}`);
 }
 
 for (const marker of [

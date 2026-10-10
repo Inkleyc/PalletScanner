@@ -16,7 +16,7 @@ import { getRepositoryMode, repository, useCloudRepository, useLocalRepository }
 import { isSupabaseConfigured, supabase } from "./supabase.js";
 import { buildAnalytics } from "./analytics-model.js";
 import { reconcileEbayPreview } from "./ebay-reconciliation.js";
-import { createUnverifiedInventoryFromObservation, importObservedEbayOrders, listEbayObservationSnapshots, listImportedEbayOrders, listMarketplaceQuantityQueue, loadEbayObservationSnapshot, matchImportedOrderLine, recordEbayReconciliationDecision, releaseCancelledOrderReservations, reserveImportedOrder, saveEbayObservationSnapshot } from "./marketplace-observation-repository.js";
+import { createUnverifiedInventoryFromObservation, getEbayMarketplaceControl, importObservedEbayOrders, listEbayObservationSnapshots, listImportedEbayOrders, listMarketplaceQuantityQueue, loadEbayObservationSnapshot, matchImportedOrderLine, recordEbayReconciliationDecision, releaseCancelledOrderReservations, reserveImportedOrder, saveEbayObservationSnapshot, setEbayOutboundPause } from "./marketplace-observation-repository.js";
 import { ActivityPanel } from "./activity-panel.jsx";
 import { PalletManager } from "./pallet-manager.jsx";
 import {
@@ -586,23 +586,35 @@ function SellingDefaults() {
 
 function QuantitySyncQueue() {
   const [rows, setRows] = useState(null);
+  const [account, setAccount] = useState(null);
+  const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const load = async () => {
     setError("");
-    try { setRows(await listMarketplaceQuantityQueue()); }
+    try { const [nextRows, nextAccount] = await Promise.all([listMarketplaceQuantityQueue(), getEbayMarketplaceControl()]); setRows(nextRows); setAccount(nextAccount); }
     catch (loadError) { setError(loadError instanceof Error ? loadError.message : "Could not load the quantity queue."); }
+  };
+  const changePause = async () => {
+    if (!account) return;
+    const paused = !account.outbound_paused;
+    if (!paused && !window.confirm("Allow reviewed outbound marketplace actions? Queued quantity changes will still require review until active synchronization is separately enabled.")) return;
+    setSaving(true); setError("");
+    try { setAccount(await setEbayOutboundPause({ accountId: account.id, paused })); setRows(await listMarketplaceQuantityQueue()); }
+    catch (saveError) { setError(saveError instanceof Error ? saveError.message : "Could not update the outbound pause."); }
+    finally { setSaving(false); }
   };
   if (getRepositoryMode() !== "cloud") return null;
   const mismatches = (rows ?? []).filter((row) => row.advertised_quantity !== row.desired_quantity);
   return <article className="admin-card integration-card">
-    <div className="status-line"><strong>eBay quantity protection</strong><span className="badge warning">Outbound paused</span></div>
+    <div className="status-line"><strong>eBay quantity protection</strong><span className={`badge ${account && !account.outbound_paused ? "success" : "warning"}`}>{account && !account.outbound_paused ? "Review required" : "Outbound paused"}</span></div>
     <p>PalletFlip calculates the quantity eBay should advertise from available inventory. This review queue cannot change eBay.</p>
-    <button type="button" onClick={load}>{rows ? "Refresh quantity queue" : "Review quantity queue"}</button>
+    <div className="button-row"><button type="button" onClick={load}>{rows ? "Refresh quantity queue" : "Review quantity queue"}</button>{account && <button type="button" className={account.outbound_paused ? "primary-button" : "danger-button"} disabled={saving} onClick={changePause}>{saving ? "Saving..." : account.outbound_paused ? "Allow reviewed outbound actions" : "Pause outbound automation"}</button>}</div>
     {error && <p className="error-text">{error}</p>}
     {rows && <div className="check-list reconciliation-records">
       <strong>{mismatches.length} quantity mismatch{mismatches.length === 1 ? "" : "es"}</strong>
       {mismatches.length === 0 ? <small>All observed eBay quantities match currently available inventory.</small> : mismatches.slice(0, 50).map((row) => <div className="check-row" key={row.id}><span className="check-dot" /><span><strong>{row.inventory_items?.seller_sku || row.sku || "No SKU"}</strong> · {row.inventory_items?.name || "Unknown item"} · eBay {row.advertised_quantity ?? "unknown"} · PalletFlip {row.desired_quantity ?? row.inventory_items?.available ?? "unknown"} · {row.quantity_sync_state.replaceAll("_", " ")}</span></div>)}
       {mismatches.length > 50 && <small>Showing the first 50 mismatches.</small>}
+      {account && <small>Mode: {account.sync_mode.replaceAll("_", " ")}. Turning off the pause does not enable automatic synchronization.</small>}
     </div>}
   </article>;
 }

@@ -81,6 +81,11 @@ inventory. Inventory changes refresh that intent immediately. Differences remain
 `paused` while either the marketplace account or listing is paused, so observing
 and calculating a correction cannot cause an outbound eBay write.
 
+The owner has one account-level outbound pause. Disabling the pause moves a new
+or previously paused account only into `review_required`; it does not silently
+enable active synchronization. Every pause change is audited, while inbound
+marketplace observation remains available.
+
 ## Local-to-Server IDs
 
 Current mobile data uses numeric item IDs and string pallet IDs. The server uses

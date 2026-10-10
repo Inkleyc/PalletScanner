@@ -217,3 +217,26 @@ export const listMarketplaceQuantityQueue = async () => {
   throwIfError(result);
   return result.data ?? [];
 };
+
+export const getEbayMarketplaceControl = async () => {
+  if (!supabase) throw new Error("Supabase is not configured for this dashboard.");
+  const userResult = await supabase.auth.getUser();
+  if (userResult.error || !userResult.data.user) throw new Error("Sign in to manage marketplace automation.");
+  const result = await supabase.from("marketplace_accounts")
+    .select("id,channel,sync_mode,outbound_paused,connection_state,last_observed_at")
+    .eq("owner_id", userResult.data.user.id)
+    .eq("channel", "ebay")
+    .maybeSingle();
+  throwIfError(result);
+  return result.data;
+};
+
+export const setEbayOutboundPause = async ({ accountId, paused }) => {
+  if (!supabase) throw new Error("Supabase is not configured for this dashboard.");
+  const result = await supabase.rpc("set_marketplace_outbound_pause", {
+    target_account_id: accountId,
+    should_pause: paused,
+  });
+  throwIfError(result);
+  return result.data;
+};
