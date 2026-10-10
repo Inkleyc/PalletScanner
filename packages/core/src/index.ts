@@ -1,5 +1,6 @@
 export * from "./domain";
 export * from "./inventory-query";
+export * from "./inventory-ledger";
 export * from "./inventory-repository";
 export * from "./inventory-report";
 export * from "./item-status";
