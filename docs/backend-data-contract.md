@@ -12,10 +12,27 @@ not inferred from inventory fields.
 
 ## Ownership
 
-The first production version is user-owned. Every business row carries the
-authenticated Supabase user ID as `owner_id`, and row-level security restricts
-reads and writes to that owner. This fits the current one-seller-per-login app
-without preventing an organization/team migration later.
+The first production version has one owner but introduces a hidden business
+boundary. Every operational row carries `business_id` and the authenticated
+Supabase user ID as `owner_id`; row-level security restricts reads and writes to
+that owner. Membership rows preserve a clean path to multiple users per account
+without adding team-management UI at launch.
+
+## Inventory Authority
+
+`inventory_movements` is the immutable explanation for on-hand quantity, and
+`inventory_reservations` explains committed and short inventory. The
+`inventory_items` balance columns are caches for efficient screens, not an
+independent source of truth.
+
+Compatibility clients may still write `inventory_items.quantity` while mobile
+and web migrate to explicit movement commands. Database triggers translate each
+insert or quantity delta into a receipt or correction movement and refresh the
+cached balances. Repeated upserts with an unchanged quantity do not create a
+movement. Reservation changes also refresh available and shortage balances.
+
+Normal clients may append movements but cannot update or delete movement
+history through row-level-security policies.
 
 ## Local-to-Server IDs
 
@@ -24,6 +41,7 @@ UUID primary keys and preserves those values as `client_id`:
 
 - `PalletSession.id` maps to `pallets.client_id`.
 - `InventoryItem.id` maps to `inventory_items.client_id`.
+- `InventoryItem.barcode` maps to `inventory_items.product_barcode`.
 - Related server tables use the UUID primary keys.
 
 This allows existing local inventory to upload without changing identifiers in

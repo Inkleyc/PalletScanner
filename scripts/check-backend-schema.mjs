@@ -11,6 +11,13 @@ const inventoryAuthority = await readFile(
   ),
   "utf8",
 );
+const quantityAudit = await readFile(
+  new URL(
+    "../supabase/migrations/202610100003_inventory_quantity_audit.sql",
+    import.meta.url,
+  ),
+  "utf8",
+);
 
 for (const table of ["pallets", "inventory_items", "item_photos", "marketplace_listings", "sales", "activity_events"]) {
   if (!schema.includes(`create table public.${table}`)) {
@@ -48,6 +55,19 @@ for (const marker of [
 ]) {
   if (!inventoryAuthority.includes(marker)) {
     throw new Error(`Inventory authority schema is missing safety marker: ${marker}`);
+  }
+}
+
+for (const marker of [
+  "refresh_inventory_item_balance",
+  "inventory_items_audit_quantity",
+  "inventory_movements_refresh_balance",
+  "inventory_reservations_refresh_balance",
+  "Quantity changed through compatibility client",
+  "greatest(calculated_on_hand - calculated_reserved, 0)",
+]) {
+  if (!quantityAudit.includes(marker)) {
+    throw new Error(`Quantity audit schema is missing safety marker: ${marker}`);
   }
 }
 
