@@ -111,6 +111,10 @@ const marketplaceActionJobs = await readFile(
   new URL("../supabase/migrations/202610100021_marketplace_action_jobs.sql", import.meta.url),
   "utf8",
 );
+const marketplaceJobExecution = await readFile(
+  new URL("../supabase/migrations/202610100022_marketplace_job_execution.sql", import.meta.url),
+  "utf8",
+);
 
 for (const table of ["pallets", "inventory_items", "item_photos", "marketplace_listings", "sales", "activity_events"]) {
   if (!schema.includes(`create table public.${table}`)) {
@@ -183,6 +187,9 @@ for (const marker of ["set_marketplace_outbound_pause", "for update", "when shou
 }
 for (const marker of ["create table public.marketplace_action_jobs", "unique (business_id, idempotency_key)", "queue_ebay_quantity_sync", "Outbound marketplace actions are paused or not approved", "verification_state <> 'verified'", "sku', listing_row.sku", "offer_id', listing_row.offer_id", "marketplace.quantity_sync_queued"]) {
   if (!marketplaceActionJobs.includes(marker)) throw new Error(`Marketplace action jobs are missing safety marker: ${marker}`);
+}
+for (const marker of ["claim_marketplace_action_job", "complete_marketplace_action_job", "fail_marketplace_action_job", "status = 'running'", "interval '5 minutes'", "attempt_count = attempt_count + 1", "power(2, attempt_count)", "marketplace.quantity_sync_succeeded", "marketplace.quantity_sync_failed"]) {
+  if (!marketplaceJobExecution.includes(marker)) throw new Error(`Marketplace job execution is missing safety marker: ${marker}`);
 }
 
 for (const marker of [

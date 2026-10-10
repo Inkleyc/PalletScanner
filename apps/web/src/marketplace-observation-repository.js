@@ -210,7 +210,7 @@ export const listMarketplaceQuantityQueue = async () => {
   const userResult = await supabase.auth.getUser();
   if (userResult.error || !userResult.data.user) throw new Error("Sign in to review marketplace quantities.");
   const result = await supabase.from("marketplace_listings")
-    .select("id,platform,status,sku,external_listing_id,offer_id,advertised_quantity,desired_quantity,quantity_sync_state,sync_paused,updated_at,inventory_items(name,seller_sku,available)")
+    .select("id,platform,status,sku,external_listing_id,offer_id,advertised_quantity,desired_quantity,quantity_sync_state,sync_paused,last_error,updated_at,inventory_items(name,seller_sku,available)")
     .eq("owner_id", userResult.data.user.id)
     .eq("platform", "ebay")
     .order("updated_at", { ascending: false });

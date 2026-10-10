@@ -8,6 +8,7 @@ import { createAiService } from "./ai-service.mjs";
 import { lookupBarcode } from "./barcode-service.mjs";
 import { createEbayTokenStore } from "./ebay-token-store.mjs";
 import { createEbayReadService } from "./ebay-read-service.mjs";
+import { createMarketplaceJobExecutor } from "./marketplace-job-executor.mjs";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -432,6 +433,22 @@ const ebayFetch = async (pathname, options) => {
   }
 
   return response.json();
+};
+
+const callSupabaseRpc = async (authorization, functionName, payload) => {
+  const supabaseUrl = process.env.SUPABASE_URL ?? process.env.EXPO_PUBLIC_SUPABASE_URL;
+  const anonKey = process.env.SUPABASE_ANON_KEY ?? process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
+  if (!supabaseUrl || !anonKey) throw new Error("SUPABASE_URL and SUPABASE_ANON_KEY are required to execute marketplace jobs.");
+  if (!authorization?.startsWith("Bearer ")) throw new Error("A signed-in Supabase session is required to execute marketplace jobs.");
+  const response = await fetch(`${supabaseUrl.replace(/\/$/, "")}/rest/v1/rpc/${functionName}`, {
+    method: "POST",
+    signal: AbortSignal.timeout(30_000),
+    headers: { apikey: anonKey, Authorization: authorization, "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  const body = await response.json().catch(() => null);
+  if (!response.ok) throw new Error(body?.message || body?.error || `Inventory backend returned ${response.status}.`);
+  return body;
 };
 
 const ebayReadService = createEbayReadService({
@@ -1481,6 +1498,19 @@ const server = createServer(async (req, res) => {
       const payload = JSON.parse(rawBody);
       const result = await createListing(userId, payload);
       sendJson(req, res, 200, result);
+      return;
+    }
+
+    if (req.method === "POST" && url.pathname === "/ebay/jobs/execute") {
+      const { userId } = authenticateRequest(req);
+      const rawBody = await readRequestBody(req);
+      const payload = JSON.parse(rawBody);
+      const executor = createMarketplaceJobExecutor({
+        callRpc: (functionName, parameters) => callSupabaseRpc(req.headers.authorization, functionName, parameters),
+        ebayFetch,
+        getUserAccessToken,
+      });
+      sendJson(req, res, 200, await executor.execute(userId, payload.jobId));
       return;
     }
 

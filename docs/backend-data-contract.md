@@ -92,6 +92,12 @@ observed quantity transition, desired quantity, retry state, and a business-wide
 idempotency key. Only verified inventory on an unpaused, review-approved account
 can enter the queue. External execution is a separate server responsibility.
 
+The protected server claims one due job through the signed-in Supabase session,
+updates both eBay inventory-item and offer quantity, and then records success.
+Failures enter bounded exponential retry waits and become persistent failed
+exceptions after the maximum attempt count. A stale running claim can be safely
+reclaimed because setting the same absolute eBay quantity is idempotent.
+
 ## Local-to-Server IDs
 
 Current mobile data uses numeric item IDs and string pallet IDs. The server uses

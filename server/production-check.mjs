@@ -39,6 +39,8 @@ const requiredProductionValues = [
   "PALLETSCANNER_JWT_SECRET",
   "EBAY_TOKEN_ENCRYPTION_KEY",
   "PALLETSCANNER_ALLOWED_ORIGIN",
+  "SUPABASE_URL",
+  "SUPABASE_ANON_KEY",
 ];
 
 const failures = [];
