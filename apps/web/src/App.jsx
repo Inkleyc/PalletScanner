@@ -655,11 +655,23 @@ function EbaySettings({ mode = "all" }) {
     finally { setLoading(false); }
   };
 
-  const loadImportPreview = async () => {
+  const loadImportPreview = async (append = false) => {
     setPreviewLoading(true); setMessage("");
     try {
-      const preview = await request("/ebay/import-preview?limit=50");
-      setImportPreview(preview);
+      const current = append ? importPreview : null;
+      const parameters = new URLSearchParams({
+        limit: "50",
+        inventoryOffset: String(current?.inventoryItems?.length ?? 0),
+        offerOffset: String(current?.offers?.length ?? 0),
+        orderOffset: String(current?.orders?.length ?? 0),
+      });
+      const preview = await request(`/ebay/import-preview?${parameters}`);
+      setImportPreview(current ? {
+        ...preview,
+        inventoryItems: [...(current.inventoryItems ?? []), ...(preview.inventoryItems ?? [])],
+        offers: [...(current.offers ?? []), ...(preview.offers ?? [])],
+        orders: [...(current.orders ?? []), ...(preview.orders ?? [])],
+      } : preview);
       setMessage("Observe-only preview refreshed. Nothing was changed.");
     } catch (error) { setMessage(error instanceof Error ? error.message : "Could not preview eBay data."); }
     finally { setPreviewLoading(false); }
@@ -667,6 +679,11 @@ function EbaySettings({ mode = "all" }) {
 
   const reconciliation = reconcileEbayPreview(importPreview, repository.getSnapshot().items);
   const reviewRecords = [...reconciliation.inventory, ...reconciliation.offers, ...reconciliation.orderLines].filter((record) => record.state !== "matched");
+  const hasMorePreviewRecords = Boolean(importPreview) && [
+    [importPreview.inventoryItems?.length ?? 0, importPreview.pagination?.inventoryTotal ?? 0],
+    [importPreview.offers?.length ?? 0, importPreview.pagination?.offerTotal ?? 0],
+    [importPreview.orders?.length ?? 0, importPreview.pagination?.orderTotal ?? 0],
+  ].some(([shown, total]) => shown < total);
   const messageIsSuccess = message.includes("saved") || message.includes("refreshed") || message.includes("restored");
 
   const save = () => {
@@ -738,7 +755,7 @@ function EbaySettings({ mode = "all" }) {
         {mode !== "settings" && <article className="admin-card integration-card">
           <div className="status-line"><strong>Observe-only reconciliation</strong><span className="badge primary">Observe only</span></div>
           <p>Compare eBay inventory, offers, and recent orders with PalletFlip SKUs. This preview cannot import records or change quantities.</p>
-          <button type="button" onClick={loadImportPreview} disabled={previewLoading || !status?.connected}>{previewLoading ? "Reading eBay data..." : "Preview eBay data"}</button>
+          <button type="button" onClick={() => loadImportPreview(false)} disabled={previewLoading || !status?.connected}>{previewLoading ? "Reading eBay data..." : "Preview eBay data"}</button>
           {!status?.connected && <small>Connect eBay and check its status before loading a preview.</small>}
           {importPreview && <>
             <div className="check-list">
@@ -751,7 +768,7 @@ function EbaySettings({ mode = "all" }) {
               <div className="check-row"><span className={`check-dot ${reconciliation.summary.unmatched === 0 ? "ok" : ""}`} /><span>{reconciliation.summary.unmatched} unmatched record{reconciliation.summary.unmatched === 1 ? "" : "s"}</span></div>
             </div>
             {reviewRecords.length > 0 && <div className="setup-warning"><strong>{reconciliation.summary.needsReview} records need review</strong><span>{reviewRecords.slice(0, 5).map((record) => `${record.external.sku || "No SKU"} (${record.state}${record.quantityConflict ? `: eBay ${record.external.quantity}, PalletFlip ${record.localItem?.available ?? record.localItem?.quantity ?? 0}` : ""})`).join(" | ")}</span><small>No automatic action is available until matching review is built and proven.</small></div>}
-            <small>Fetched {new Date(importPreview.fetchedAt).toLocaleString()} · first {importPreview.pagination?.limit ?? 50} records per category</small>
+            <div className="button-row">{hasMorePreviewRecords && <button type="button" onClick={() => loadImportPreview(true)} disabled={previewLoading}>{previewLoading ? "Reading next batch..." : "Load next 50"}</button>}<small>Fetched {new Date(importPreview.fetchedAt).toLocaleString()} · up to {importPreview.pagination?.limit ?? 50} more records per batch</small></div>
           </>}
         </article>}
         <div className="settings-group-heading"><h4>Data</h4><p>Keep a portable backup of your pallets and inventory.</p></div>

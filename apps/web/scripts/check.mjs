@@ -116,6 +116,7 @@ for (const marker of [
   "Release hold",
   "Observe-only reconciliation",
   "Preview eBay data",
+  "Load next 50",
   "/ebay/import-preview",
   "Report filters",
   "Category / item type",
