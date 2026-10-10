@@ -79,6 +79,10 @@ const importedMarketplaceListing = await readFile(
   new URL("../supabase/migrations/202610100013_link_imported_marketplace_listing.sql", import.meta.url),
   "utf8",
 );
+const legacyQuantitySync = await readFile(
+  new URL("../supabase/migrations/202610100014_keep_legacy_quantity_in_sync.sql", import.meta.url),
+  "utf8",
+);
 
 for (const table of ["pallets", "inventory_items", "item_photos", "marketplace_listings", "sales", "activity_events"]) {
   if (!schema.includes(`create table public.${table}`)) {
@@ -124,6 +128,9 @@ for (const marker of ["verify_imported_inventory", "physical_import_verification
 }
 for (const marker of ["link_imported_marketplace_listing", "inventory_items_link_imported_listing", "sync_paused = true", "on conflict (item_id, platform)"]) {
   if (!importedMarketplaceListing.includes(marker)) throw new Error(`Imported marketplace listing link is missing safety marker: ${marker}`);
+}
+for (const marker of ["palletflip.skip_quantity_audit", "quantity = calculated_on_hand", "item-quantity-correction:", "set_config('palletflip.skip_quantity_audit', 'off'"]) {
+  if (!legacyQuantitySync.includes(marker)) throw new Error(`Legacy quantity synchronization is missing safety marker: ${marker}`);
 }
 
 for (const marker of [

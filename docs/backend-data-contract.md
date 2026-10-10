@@ -30,6 +30,10 @@ and web migrate to explicit movement commands. Database triggers translate each
 insert or quantity delta into a receipt or correction movement and refresh the
 cached balances. Repeated upserts with an unchanged quantity do not create a
 movement. Reservation changes also refresh available and shortage balances.
+Ledger balance refreshes update the legacy `quantity` cache behind a
+transaction-local guard, preventing that internal cache write from creating a
+second movement. This keeps older clients compatible after imported inventory
+is physically verified.
 The web workhorse requires a reason for a manual available-quantity adjustment;
 the compatibility row carries that reason into the resulting correction
 movement. Automated mobile synchronization supplies its own source reason.
