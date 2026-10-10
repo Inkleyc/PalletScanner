@@ -147,6 +147,10 @@ const trackingEventCommand = await readFile(
   new URL("../supabase/migrations/202610100030_tracking_event_command.sql", import.meta.url),
   "utf8",
 );
+const returnsFoundation = await readFile(
+  new URL("../supabase/migrations/202610100031_returns_foundation.sql", import.meta.url),
+  "utf8",
+);
 
 for (const table of ["pallets", "inventory_items", "item_photos", "marketplace_listings", "sales", "activity_events"]) {
   if (!schema.includes(`create table public.${table}`)) {
@@ -250,6 +254,13 @@ for (const marker of ["confirm_shipment_shipped", "state <> 'label_purchased'", 
 }
 for (const marker of ["record_tracking_event", "out_for_delivery", "external_event_id = trim(tracking_event_key)", "state = case when tracking_status = 'delivered'", "then 'shipped'", "shipment.tracking_event_recorded"]) {
   if (!trackingEventCommand.includes(marker)) throw new Error(`Tracking-event command is missing safety marker: ${marker}`);
+}
+for (const table of ["returns", "return_lines", "return_inspections", "return_financial_events"]) {
+  if (!returnsFoundation.includes(`create table public.${table}`)) throw new Error(`Returns foundation is missing ${table}.`);
+  if (!returnsFoundation.includes(`alter table public.${table} enable row level security`)) throw new Error(`Returns foundation is missing row-level security for ${table}.`);
+}
+for (const marker of ["action_due_at", "inventory_state", "recommended_disposition", "partial_refund", "return_shipping", "returns_work_queue_idx"]) {
+  if (!returnsFoundation.includes(marker)) throw new Error(`Returns foundation is missing contract marker: ${marker}`);
 }
 
 for (const marker of [

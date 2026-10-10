@@ -156,6 +156,17 @@ the delivery timestamp; exception events keep the shipment visibly blocked and
 retain the carrier description. This command supports manual launch workflows
 and later eBay event ingestion through the same contract.
 
+## Returns Foundation
+
+Returns preserve marketplace state and deadlines separately from physical
+inventory decisions. A returned line remains unavailable until receipt and
+inspection; importing or approving a return never silently increases stock.
+Inspection history records received condition, completeness, notes, and a
+recommended disposition. Final inventory outcomes include restock, repair,
+parts, quarantine, supplier return, discard, and loss. Refunds, fee credits,
+return shipping, and replacement shipping are append-only financial events so
+the original sale is never erased.
+
 ## Local-to-Server IDs
 
 Current mobile data uses numeric item IDs and string pallet IDs. The server uses
