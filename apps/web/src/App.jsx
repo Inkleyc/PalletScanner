@@ -16,7 +16,7 @@ import { getRepositoryMode, repository, useCloudRepository, useLocalRepository }
 import { isSupabaseConfigured, supabase } from "./supabase.js";
 import { buildAnalytics } from "./analytics-model.js";
 import { reconcileEbayPreview } from "./ebay-reconciliation.js";
-import { listEbayObservationSnapshots, saveEbayObservationSnapshot } from "./marketplace-observation-repository.js";
+import { listEbayObservationSnapshots, loadEbayObservationSnapshot, recordEbayReconciliationDecision, saveEbayObservationSnapshot } from "./marketplace-observation-repository.js";
 import { ActivityPanel } from "./activity-panel.jsx";
 import { PalletManager } from "./pallet-manager.jsx";
 import {
@@ -585,6 +585,11 @@ function EbaySettings({ mode = "all" }) {
   const [snapshotSaving, setSnapshotSaving] = useState(false);
   const [savedSnapshots, setSavedSnapshots] = useState(null);
   const [snapshotsLoading, setSnapshotsLoading] = useState(false);
+  const [snapshotReview, setSnapshotReview] = useState(null);
+  const [reviewLoading, setReviewLoading] = useState(false);
+  const [decisionTarget, setDecisionTarget] = useState(null);
+  const [decisionItemId, setDecisionItemId] = useState("");
+  const [decisionSaving, setDecisionSaving] = useState(false);
   const [previewFilter, setPreviewFilter] = useState("review");
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
@@ -714,6 +719,26 @@ function EbaySettings({ mode = "all" }) {
     catch (error) { setMessage(error instanceof Error ? error.message : "Could not load reconciliation history."); }
     finally { setSnapshotsLoading(false); }
   };
+  const openSnapshotReview = async (runId) => {
+    setReviewLoading(true); setMessage("");
+    try { setSnapshotReview({ runId, ...(await loadEbayObservationSnapshot(runId)) }); }
+    catch (error) { setMessage(error instanceof Error ? error.message : "Could not load snapshot decisions."); }
+    finally { setReviewLoading(false); }
+  };
+  const recordDecision = async (observation, decisionType, inventoryItemId = null) => {
+    setDecisionSaving(true); setMessage("");
+    try {
+      await recordEbayReconciliationDecision({ observation, decisionType, inventoryItemId });
+      setSnapshotReview({ runId: snapshotReview.runId, ...(await loadEbayObservationSnapshot(snapshotReview.runId)) });
+      setDecisionTarget(null); setDecisionItemId("");
+      setMessage("Reconciliation decision saved. Inventory and eBay were not changed.");
+    } catch (error) { setMessage(error instanceof Error ? error.message : "Could not save the reconciliation decision."); }
+    finally { setDecisionSaving(false); }
+  };
+  const latestDecisionByObservation = new Map();
+  for (const decision of snapshotReview?.decisions ?? []) {
+    if (!latestDecisionByObservation.has(decision.observation_id)) latestDecisionByObservation.set(decision.observation_id, decision);
+  }
   const messageIsSuccess = message.includes("saved") || message.includes("refreshed") || message.includes("restored");
 
   const save = () => {
@@ -804,13 +829,15 @@ function EbaySettings({ mode = "all" }) {
             <div className="button-row">{hasMorePreviewRecords && <button type="button" onClick={() => loadImportPreview(true)} disabled={previewLoading}>{previewLoading ? "Reading next batch..." : "Load next 50"}</button>}<small>Fetched {new Date(importPreview.fetchedAt).toLocaleString()} · up to {importPreview.pagination?.limit ?? 50} more records per batch</small></div>
             <div className="button-row"><button type="button" onClick={saveObservationSnapshot} disabled={snapshotSaving || snapshotsLoading || getRepositoryMode() !== "cloud"}>{snapshotSaving ? "Saving audit snapshot..." : "Save audit snapshot"}</button><button type="button" onClick={loadSavedSnapshots} disabled={snapshotSaving || snapshotsLoading || getRepositoryMode() !== "cloud"}>{snapshotsLoading ? "Loading history..." : "View saved snapshots"}</button></div>
             {getRepositoryMode() !== "cloud" && <small>Sign in to cloud inventory to preserve this preview as append-only audit history.</small>}
-            {savedSnapshots && <div className="check-list reconciliation-records"><strong>Recent reconciliation snapshots</strong>{savedSnapshots.length === 0 ? <small>No audit snapshots saved yet.</small> : savedSnapshots.map((run) => <div className="check-row" key={run.id}><span className={`check-dot ${run.status === "completed" ? "ok" : ""}`} /><span><strong>{new Date(run.started_at).toLocaleString()}</strong> · {run.status} · {run.inventory_count} inventory · {run.offer_count} offers · {run.order_count} orders · {run.matched_count} matched · {Number(run.uncertain_count) + Number(run.unmatched_count) + Number(run.conflicting_count)} need review{run.error_message ? ` · ${run.error_message}` : ""}</span></div>)}</div>}
+            {savedSnapshots && <div className="check-list reconciliation-records"><strong>Recent reconciliation snapshots</strong>{savedSnapshots.length === 0 ? <small>No audit snapshots saved yet.</small> : savedSnapshots.map((run) => <div className="check-row snapshot-history-row" key={run.id}><span className={`check-dot ${run.status === "completed" ? "ok" : ""}`} /><span><strong>{new Date(run.started_at).toLocaleString()}</strong> · {run.status} · {run.inventory_count} inventory · {run.offer_count} offers · {run.order_count} orders · {run.matched_count} matched · {Number(run.uncertain_count) + Number(run.unmatched_count) + Number(run.conflicting_count)} need review{run.error_message ? ` · ${run.error_message}` : ""}</span><button type="button" onClick={() => openSnapshotReview(run.id)} disabled={reviewLoading}>{reviewLoading ? "Loading..." : "Review decisions"}</button></div>)}</div>}
+            {snapshotReview && <div className="check-list reconciliation-records"><strong>Saved snapshot decisions</strong>{snapshotReview.observations.slice(0, 100).map((observation) => { const decision = latestDecisionByObservation.get(observation.id); const isOrder = observation.resource_type === "order"; const quantityStillConflicts = observation.reconciliation_state === "conflicting" && decision?.decision_type === "match_existing"; const resolved = (decision || observation.reconciliation_state === "matched") && !quantityStillConflicts; return <div className="reconciliation-decision-row" key={observation.id}><div className="check-row"><span className={`check-dot ${resolved ? "ok" : ""}`} /><span><strong>{observation.seller_sku || observation.external_id}</strong> · {observation.resource_type.replaceAll("_", " ")} · {decision ? decision.decision_type.replaceAll("_", " ") : observation.reconciliation_state}{quantityStillConflicts ? " · quantity still needs physical confirmation" : ""}</span></div><div className="reconciliation-actions">{!isOrder && <button type="button" disabled={decisionSaving} onClick={() => { setDecisionTarget(observation); setDecisionItemId(""); }}>Match item</button>}{!isOrder && <button type="button" disabled={decisionSaving} onClick={() => recordDecision(observation, "create_new")}>Queue unverified item</button>}<button type="button" disabled={decisionSaving} onClick={() => recordDecision(observation, "defer")}>Defer</button><button type="button" disabled={decisionSaving} onClick={() => recordDecision(observation, "ignore")}>Ignore</button></div></div>; })}{snapshotReview.observations.length > 100 && <small>Showing the first 100 observations from this snapshot.</small>}</div>}
           </>}
         </article>}
         <div className="settings-group-heading"><h4>Data</h4><p>Keep a portable backup of your pallets and inventory.</p></div>
         {mode !== "ebay" && <article className="admin-card"><strong>Data export</strong><p>Download a portable JSON copy of the currently loaded pallets and inventory.</p><button onClick={downloadBackup}>Download JSON backup</button>{getRepositoryMode() === "local" && <><button className="danger-button" onClick={() => backupInput.current?.click()}>Restore local backup</button><input ref={backupInput} className="visually-hidden" type="file" accept="application/json,.json" onChange={restoreBackup} /></>}</article>}
       </div>
       {mode !== "settings" && configOpen && <div className="modal-backdrop" role="presentation" onMouseDown={cancelConfig}><div className="edit-modal" role="dialog" aria-modal="true" aria-labelledby="backend-config-title" onMouseDown={(event) => event.stopPropagation()}><div><h3 id="backend-config-title">Backend configuration</h3><p>These connection settings apply only to this browser session.</p></div><label><span>Backend URL</span><input autoFocus value={baseUrl} onChange={(event) => setBaseUrl(event.target.value)} placeholder="https://api.example.com" /></label><label><span>App auth token</span><input type="password" value={token} onChange={(event) => setToken(event.target.value)} placeholder="Session-only token" /></label><div className="button-row"><button type="button" onClick={cancelConfig}>Cancel</button><button className="primary-button" type="button" onClick={save}>Save</button></div></div></div>}
+      {decisionTarget && <div className="modal-backdrop" role="presentation" onMouseDown={() => setDecisionTarget(null)}><div className="edit-modal" role="dialog" aria-modal="true" aria-labelledby="manual-match-title" onMouseDown={(event) => event.stopPropagation()}><div><h3 id="manual-match-title">Match eBay record</h3><p>Select the existing PalletFlip item that represents {decisionTarget.seller_sku || decisionTarget.external_id}. This records identity only; it does not change quantity or eBay.</p></div><label><span>Inventory item</span><select autoFocus value={decisionItemId} onChange={(event) => setDecisionItemId(event.target.value)}><option value="">Select an item</option>{repository.getSnapshot().items.filter((item) => !item.archivedAt && item.serverId).map((item) => <option value={item.serverId} key={item.serverId}>{item.sellerSku || `PF-${item.id}`} · {item.name}</option>)}</select></label><div className="button-row"><button type="button" disabled={decisionSaving} onClick={() => setDecisionTarget(null)}>Cancel</button><button className="primary-button" type="button" disabled={decisionSaving || !decisionItemId} onClick={() => recordDecision(decisionTarget, "match_existing", decisionItemId)}>{decisionSaving ? "Saving..." : "Record match"}</button></div></div></div>}
     </section>
   );
 }

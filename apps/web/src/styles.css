@@ -1294,6 +1294,30 @@ button {
   padding-bottom: 0;
 }
 
+.snapshot-history-row span:nth-child(2) {
+  flex: 1;
+}
+
+.snapshot-history-row button,
+.reconciliation-actions button {
+  margin: 0;
+  width: auto;
+}
+
+.reconciliation-decision-row {
+  border-bottom: 1px solid #edf0e9;
+  display: grid;
+  gap: 8px;
+  padding-bottom: 10px;
+}
+
+.reconciliation-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding-left: 18px;
+}
+
 .button-row {
   display: flex;
   flex-wrap: wrap;

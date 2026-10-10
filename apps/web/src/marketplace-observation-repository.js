@@ -65,3 +65,39 @@ export const listEbayObservationSnapshots = async () => {
   throwIfError(result);
   return result.data ?? [];
 };
+
+export const loadEbayObservationSnapshot = async (runId) => {
+  if (!supabase) throw new Error("Supabase is not configured for this dashboard.");
+  const userResult = await supabase.auth.getUser();
+  if (userResult.error || !userResult.data.user) throw new Error("Sign in before reviewing reconciliation decisions.");
+  const observationResult = await supabase.from("marketplace_observations")
+    .select("id,business_id,resource_type,external_id,seller_sku,reconciliation_state,inventory_item_id,observed_quantity,observed_payload,observed_at")
+    .eq("import_run_id", runId)
+    .order("observed_at");
+  throwIfError(observationResult);
+  const observations = observationResult.data ?? [];
+  if (observations.length === 0) return { observations: [], decisions: [] };
+  const decisionResult = await supabase.from("marketplace_reconciliation_decisions")
+    .select("*")
+    .in("observation_id", observations.map((observation) => observation.id))
+    .order("decided_at", { ascending: false });
+  throwIfError(decisionResult);
+  return { observations, decisions: decisionResult.data ?? [] };
+};
+
+export const recordEbayReconciliationDecision = async ({ observation, decisionType, inventoryItemId = null, reason = null }) => {
+  if (!supabase) throw new Error("Supabase is not configured for this dashboard.");
+  const userResult = await supabase.auth.getUser();
+  if (userResult.error || !userResult.data.user) throw new Error("Sign in before recording a reconciliation decision.");
+  if (decisionType === "match_existing" && !inventoryItemId) throw new Error("Select an inventory item before recording this match.");
+  const result = await supabase.from("marketplace_reconciliation_decisions").insert({
+    business_id: observation.business_id,
+    owner_id: userResult.data.user.id,
+    observation_id: observation.id,
+    decision_type: decisionType,
+    inventory_item_id: inventoryItemId,
+    reason: reason?.trim() || null,
+  }).select("*").single();
+  throwIfError(result);
+  return result.data;
+};
