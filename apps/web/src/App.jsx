@@ -16,7 +16,7 @@ import { getRepositoryMode, repository, useCloudRepository, useLocalRepository }
 import { isSupabaseConfigured, supabase } from "./supabase.js";
 import { buildAnalytics } from "./analytics-model.js";
 import { reconcileEbayPreview } from "./ebay-reconciliation.js";
-import { createUnverifiedInventoryFromObservation, getEbayMarketplaceControl, importObservedEbayOrders, listEbayObservationSnapshots, listImportedEbayOrders, listMarketplaceActionJobs, listMarketplaceQuantityQueue, loadEbayObservationSnapshot, matchImportedOrderLine, queueEbayQuantitySync, recordEbayReconciliationDecision, releaseCancelledOrderReservations, reserveImportedOrder, retryFailedMarketplaceActionJob, saveEbayObservationSnapshot, setEbayOutboundPause, startOrderFulfillment } from "./marketplace-observation-repository.js";
+import { confirmShipmentPackage, confirmShipmentPicked, createUnverifiedInventoryFromObservation, getEbayMarketplaceControl, importObservedEbayOrders, listEbayObservationSnapshots, listImportedEbayOrders, listMarketplaceActionJobs, listMarketplaceQuantityQueue, loadEbayObservationSnapshot, matchImportedOrderLine, queueEbayQuantitySync, recordEbayReconciliationDecision, releaseCancelledOrderReservations, reserveImportedOrder, retryFailedMarketplaceActionJob, saveEbayObservationSnapshot, setEbayOutboundPause, startOrderFulfillment } from "./marketplace-observation-repository.js";
 import { ActivityPanel } from "./activity-panel.jsx";
 import { PalletManager } from "./pallet-manager.jsx";
 import {
@@ -997,6 +997,8 @@ function OrdersPanel() {
   const [matchItemId, setMatchItemId] = useState("");
   const [savingMatch, setSavingMatch] = useState(false);
   const [reservingOrder, setReservingOrder] = useState(false);
+  const [packageTarget, setPackageTarget] = useState(null);
+  const [packageDraft, setPackageDraft] = useState({ pounds: "", ounces: "", lengthIn: "", widthIn: "", heightIn: "" });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const loadOrders = async () => setOrders(await listImportedEbayOrders());
@@ -1035,6 +1037,35 @@ function OrdersPanel() {
     catch (fulfillmentError) { setError(fulfillmentError instanceof Error ? fulfillmentError.message : "Could not start fulfillment for this order."); }
     finally { setReservingOrder(false); }
   };
+  const confirmPick = async (shipment) => {
+    setReservingOrder(true); setError("");
+    try { await confirmShipmentPicked(shipment.id); await loadOrders(); }
+    catch (pickError) { setError(pickError instanceof Error ? pickError.message : "Could not confirm the pick."); }
+    finally { setReservingOrder(false); }
+  };
+  const openPackageConfirmation = (shipmentPackage) => {
+    const ounces = Number(shipmentPackage.final_weight_grams || shipmentPackage.estimated_weight_grams || 0) / 28.349523125;
+    setPackageTarget(shipmentPackage);
+    setPackageDraft({
+      pounds: ounces ? String(Math.floor(ounces / 16)) : "",
+      ounces: ounces ? String(Math.round((ounces % 16) * 10) / 10) : "",
+      lengthIn: shipmentPackage.length_mm ? String(Math.round((shipmentPackage.length_mm / 25.4) * 10) / 10) : "",
+      widthIn: shipmentPackage.width_mm ? String(Math.round((shipmentPackage.width_mm / 25.4) * 10) / 10) : "",
+      heightIn: shipmentPackage.height_mm ? String(Math.round((shipmentPackage.height_mm / 25.4) * 10) / 10) : "",
+    });
+  };
+  const savePackageConfirmation = async (event) => {
+    event.preventDefault();
+    const pounds = Number(packageDraft.pounds || 0); const ounces = Number(packageDraft.ounces || 0);
+    const lengthIn = Number(packageDraft.lengthIn); const widthIn = Number(packageDraft.widthIn); const heightIn = Number(packageDraft.heightIn);
+    if (![pounds, ounces, lengthIn, widthIn, heightIn].every((value) => Number.isFinite(value) && value >= 0) || pounds * 16 + ounces <= 0 || [lengthIn, widthIn, heightIn].some((value) => value <= 0)) return setError("Enter a final package weight and all three dimensions.");
+    setReservingOrder(true); setError("");
+    try {
+      await confirmShipmentPackage({ packageId: packageTarget.id, weightGrams: Math.round((pounds * 16 + ounces) * 28.349523125), lengthMm: Math.round(lengthIn * 25.4), widthMm: Math.round(widthIn * 25.4), heightMm: Math.round(heightIn * 25.4) });
+      await loadOrders(); setPackageTarget(null);
+    } catch (packageError) { setError(packageError instanceof Error ? packageError.message : "Could not confirm package measurements."); }
+    finally { setReservingOrder(false); }
+  };
   if (getRepositoryMode() !== "cloud") return <section className="panel getting-started"><h3>Orders require cloud inventory</h3><p>Sign in from Settings to preserve marketplace orders across devices.</p></section>;
   if (loading) return <section className="panel"><strong>Loading imported orders...</strong></section>;
   const lines = orders.flatMap((order) => order.lines);
@@ -1061,6 +1092,29 @@ function OrdersPanel() {
       </div>
     </section>
   </div>;
+  if (selectedOrder?.shipment) {
+    const shipment = selectedOrder.shipment;
+    const shipmentPackage = shipment.shipment_packages?.[0];
+    const estimatedOunces = Number(shipmentPackage?.estimated_weight_grams || 0) / 28.349523125;
+    return <div className="view-stack">
+      <section className="panel getting-started">
+        <span className="admin-kicker">Fulfillment · {shipment.state.replaceAll("_", " ")}</span>
+        <h3>Order {selectedOrder.external_order_id}</h3>
+        <p>{shipment.state === "ready_to_pick" ? "Gather the sold items and confirm the included parts before packing." : shipment.state === "ready_to_pack" ? "Pack the order, then enter the measurements from the sealed package." : shipment.state === "ready_for_label" ? "Final measurements are confirmed. Purchase the shipping label in eBay, then return to record the result." : "This shipment is being tracked in PalletFlip."}</p>
+        {shipment.ship_by_at && <p><strong>Ship by:</strong> {new Date(shipment.ship_by_at).toLocaleString()}</p>}
+        {shipmentPackage && <div className="analysis-note"><strong>Package measurements: {shipmentPackage.measurement_state.replaceAll("_", " ")}</strong><span>{shipmentPackage.final_weight_grams ? `Final weight ${shipmentPackage.final_weight_grams} g` : estimatedOunces ? `Estimated packed weight ${Math.floor(estimatedOunces / 16)} lb ${Math.round((estimatedOunces % 16) * 10) / 10} oz` : "No reliable estimate—final measurements are required."}</span></div>}
+        {error && <p className="error-text">{error}</p>}
+        <div className="button-row">
+          <button type="button" onClick={() => setSelectedOrderId(null)}>Back to orders</button>
+          {shipment.state === "ready_to_pick" && <button className="primary-button" type="button" disabled={reservingOrder} onClick={() => confirmPick(shipment)}>{reservingOrder ? "Confirming..." : "Confirm items picked"}</button>}
+          {shipment.state === "ready_to_pack" && shipmentPackage && <button className="primary-button" type="button" disabled={reservingOrder} onClick={() => openPackageConfirmation(shipmentPackage)}>Enter final package measurements</button>}
+          {shipment.state === "ready_for_label" && <a className="button-link primary-button" href="https://www.ebay.com/sh/ord/?filter=status:AWAITING_SHIPMENT" target="_blank" rel="noreferrer">Purchase label in eBay</a>}
+        </div>
+      </section>
+      <section className="panel table-panel"><div className="panel-heading"><div><h3>Pick list</h3><span>Confirm the exact items and quantities before sealing the package.</span></div></div><div className="table-scroll"><table><thead><tr><th>SKU</th><th>Item</th><th>Quantity</th><th>Reservation</th></tr></thead><tbody>{selectedOrder.lines.map((line) => <tr key={line.id}><td><strong>{line.seller_sku || "No SKU"}</strong></td><td>{line.title || "Untitled order line"}</td><td>{line.quantity}</td><td>{line.inventory_reservations?.state?.replaceAll("_", " ") || "Missing"}</td></tr>)}</tbody></table></div></section>
+      {packageTarget && <div className="modal-backdrop" role="presentation" onMouseDown={() => setPackageTarget(null)}><form className="edit-modal item-edit-modal" role="dialog" aria-modal="true" aria-labelledby="package-confirm-title" onSubmit={savePackageConfirmation} onMouseDown={(event) => event.stopPropagation()}><div><h3 id="package-confirm-title">Confirm final package</h3><p>Measure the sealed package. These values replace any estimate and make the shipment ready for label purchase.</p></div><div className="edit-grid"><label><span>Pounds</span><input autoFocus type="number" min="0" step="1" value={packageDraft.pounds} onChange={(event) => setPackageDraft((current) => ({ ...current, pounds: event.target.value }))} /></label><label><span>Ounces</span><input type="number" min="0" step="0.1" value={packageDraft.ounces} onChange={(event) => setPackageDraft((current) => ({ ...current, ounces: event.target.value }))} /></label><label><span>Length (in)</span><input required type="number" min="0.1" step="0.1" value={packageDraft.lengthIn} onChange={(event) => setPackageDraft((current) => ({ ...current, lengthIn: event.target.value }))} /></label><label><span>Width (in)</span><input required type="number" min="0.1" step="0.1" value={packageDraft.widthIn} onChange={(event) => setPackageDraft((current) => ({ ...current, widthIn: event.target.value }))} /></label><label><span>Height (in)</span><input required type="number" min="0.1" step="0.1" value={packageDraft.heightIn} onChange={(event) => setPackageDraft((current) => ({ ...current, heightIn: event.target.value }))} /></label></div><p className="analysis-disclaimer">Insurance recommendations are not enabled. Review coverage options directly in eBay when purchasing the label.</p><div className="button-row"><button type="button" disabled={reservingOrder} onClick={() => setPackageTarget(null)}>Cancel</button><button className="primary-button" type="submit" disabled={reservingOrder}>{reservingOrder ? "Confirming..." : "Confirm final measurements"}</button></div></form></div>}
+    </div>;
+  }
   return <div className="view-stack"><section className="metrics-grid"><Metric label="Imported orders" value={orders.length} /><Metric label="In fulfillment" value={orders.filter((order) => order.shipment && !["delivered", "picked_up", "cancelled"].includes(order.shipment.state)).length} /><Metric label="Lines needing match" value={unmatched} tone={unmatched > 0 ? "warning" : "success"} /></section><section className="panel table-panel"><div className="panel-heading"><div><h3>Observed eBay orders</h3><span>Imported orders never change inventory automatically.</span></div></div>{error && <p className="error-text">{error}</p>}<div className="table-scroll"><table><thead><tr><th>Order</th><th>Created</th><th>Payment</th><th>Fulfillment</th><th>Lines</th><th>Matching</th><th /></tr></thead><tbody>{orders.length === 0 ? <tr><td className="empty-table-cell" colSpan="7">No observed orders imported yet. Use the eBay reconciliation panel in Settings.</td></tr> : orders.map((order) => { const unresolved = order.lines.filter((line) => line.match_state !== "matched").length; return <tr key={order.id}><td><strong>{order.external_order_id}</strong><span>eBay</span></td><td>{order.external_created_at ? new Date(order.external_created_at).toLocaleString() : "Unknown"}</td><td>{order.payment_state.replaceAll("_", " ")}</td><td>{order.shipment?.state?.replaceAll("_", " ") || order.fulfillment_state.replaceAll("_", " ")}</td><td>{order.lines.reduce((sum, line) => sum + Number(line.quantity), 0)} units / {order.lines.length} lines</td><td><span className={`badge ${unresolved === 0 ? "success" : "warning"}`}>{unresolved === 0 ? "Matched" : `${unresolved} need review`}</span></td><td><button type="button" onClick={() => setSelectedOrderId(order.id === selectedOrderId ? null : order.id)}>{order.id === selectedOrderId ? "Hide" : "Inspect"}</button></td></tr>; })}</tbody></table></div></section>{selectedOrder && <section className="panel table-panel"><div className="panel-heading"><div><h3>Order {selectedOrder.external_order_id}</h3><span>{selectedOrder.shipment ? `Fulfillment: ${selectedOrder.shipment.state.replaceAll("_", " ")}` : "Review every line, reserve inventory, then start fulfillment."}</span></div><div className="button-row"><button className="primary-button" type="button" disabled={!selectedCanReserve || reservingOrder} onClick={() => reserveOrder(selectedOrder)}>{reservingOrder && selectedOpenLines.length > 0 ? "Reserving..." : selectedOpenLines.length === 0 ? "Inventory reserved" : "Reserve inventory"}</button>{selectedOpenLines.length === 0 && <button className="primary-button" type="button" disabled={!selectedCanFulfill || reservingOrder} onClick={() => startFulfillment(selectedOrder)}>{selectedOrder.shipment ? "Fulfillment started" : reservingOrder ? "Starting..." : "Start fulfillment"}</button>}</div></div>{selectedOrder.shipment?.shipment_packages?.[0] && <p className="analysis-note"><strong>Package measurements: {selectedOrder.shipment.shipment_packages[0].measurement_state.replaceAll("_", " ")}</strong><span>{selectedOrder.shipment.shipment_packages[0].estimated_weight_grams ? `Estimated packed weight: ${selectedOrder.shipment.shipment_packages[0].estimated_weight_grams} g. Confirm during packing before purchasing a label.` : "Item weight is incomplete. Enter final package weight and dimensions during packing."}</span></p>}<div className="table-scroll"><table><thead><tr><th>SKU</th><th>Item</th><th>Quantity</th><th>Match state</th><th>Available</th><th>Preflight</th><th /></tr></thead><tbody>{selectedOrder.lines.map((line) => { const item = inventoryByServerId.get(line.inventory_item_id); const available = Number(item?.available ?? item?.quantity ?? 0); const verified = item?.verificationState !== "unverified_import"; const ready = line.match_state === "matched" && item && verified && available >= Number(line.quantity); return <tr key={line.id}><td><strong>{line.seller_sku || "No SKU"}</strong></td><td>{line.title || "Untitled order line"}{item && <span>Matched to {item.name}</span>}</td><td>{line.quantity}</td><td><span className={`badge ${line.match_state === "matched" ? "success" : "warning"}`}>{line.match_state.replaceAll("_", " ")}</span></td><td>{item ? available : "—"}</td><td><span className={`badge ${line.reservation_id || ready ? "success" : "warning"}`}>{line.reservation_id ? "Reserved" : ready ? "Ready" : line.match_state !== "matched" ? "Match required" : !verified ? "Verification required" : "Stock shortage"}</span></td><td><button type="button" disabled={Boolean(line.reservation_id)} onClick={() => { setMatchTarget(line); setMatchItemId(line.inventory_item_id || ""); }}>{line.match_state === "matched" ? "Change match" : "Match item"}</button></td></tr>; })}</tbody></table></div></section>}{matchTarget && <div className="modal-backdrop" role="presentation" onMouseDown={() => setMatchTarget(null)}><div className="edit-modal" role="dialog" aria-modal="true" aria-labelledby="order-line-match-title" onMouseDown={(event) => event.stopPropagation()}><div><h3 id="order-line-match-title">Match order line</h3><p>Select the inventory item sold as {matchTarget.seller_sku || matchTarget.title || "this order line"}. This records identity only; it does not reserve or reduce stock.</p></div><label><span>Inventory item</span><select autoFocus value={matchItemId} onChange={(event) => setMatchItemId(event.target.value)}><option value="">Select an item</option>{repository.getSnapshot().items.filter((item) => !item.archivedAt && item.serverId).map((item) => <option value={item.serverId} key={item.serverId}>{item.sellerSku || `PF-${item.id}`} · {item.name}</option>)}</select></label><div className="button-row"><button type="button" disabled={savingMatch} onClick={() => setMatchTarget(null)}>Cancel</button><button className="primary-button" type="button" disabled={savingMatch || !matchItemId} onClick={saveMatch}>{savingMatch ? "Saving..." : "Record line match"}</button></div></div></div>}</div>;
 }
 
