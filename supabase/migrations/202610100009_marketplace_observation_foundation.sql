@@ -108,8 +108,15 @@ alter table public.marketplace_observations enable row level security;
 
 create policy "owners manage marketplace accounts" on public.marketplace_accounts
 for all using (owner_id = auth.uid()) with check (owner_id = auth.uid());
-create policy "owners manage marketplace import runs" on public.marketplace_import_runs
-for all using (owner_id = auth.uid()) with check (owner_id = auth.uid());
-create policy "owners manage marketplace observations" on public.marketplace_observations
-for all using (owner_id = auth.uid()) with check (owner_id = auth.uid());
+create policy "owners read marketplace import runs" on public.marketplace_import_runs
+for select using (owner_id = auth.uid());
+create policy "owners append marketplace import runs" on public.marketplace_import_runs
+for insert with check (owner_id = auth.uid());
+create policy "owners complete marketplace import runs" on public.marketplace_import_runs
+for update using (owner_id = auth.uid() and status = 'running')
+with check (owner_id = auth.uid() and status in ('completed', 'failed'));
+create policy "owners read marketplace observations" on public.marketplace_observations
+for select using (owner_id = auth.uid());
+create policy "owners append marketplace observations" on public.marketplace_observations
+for insert with check (owner_id = auth.uid());
 

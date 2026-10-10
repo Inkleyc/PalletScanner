@@ -116,6 +116,8 @@ for (const marker of [
   "reconciliation_state in ('matched', 'uncertain', 'unmatched', 'conflicting')",
   "marketplace_listings_external_listing_idx",
   "marketplace_listings_external_offer_idx",
+  "owners append marketplace observations",
+  "owners complete marketplace import runs",
 ]) {
   if (!marketplaceObservationFoundation.includes(marker)) {
     throw new Error(`Marketplace observation schema is missing safety marker: ${marker}`);
