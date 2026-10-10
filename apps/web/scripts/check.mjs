@@ -104,6 +104,8 @@ for (const marker of [
   "InventoryHistory",
   "History",
   "Quantity adjustment reason",
+  "Archived inventory",
+  "Restore item",
   "Report filters",
   "Category / item type",
   "Export CSV report",
@@ -201,8 +203,13 @@ unsubscribe();
 const removableItem = { ...originalItem, id: 999999, name: "Repository removal test" };
 await repository.saveItem(removableItem);
 await repository.removeItem(removableItem.id);
-if (repository.getSnapshot().items.some((item) => item.id === removableItem.id)) {
-  throw new Error("Local repository did not remove an inventory item.");
+const archivedItem = repository.getSnapshot().items.find((item) => item.id === removableItem.id);
+if (!archivedItem?.archivedAt) {
+  throw new Error("Local repository did not archive an inventory item.");
+}
+await repository.saveItem({ ...archivedItem, archivedAt: null });
+if (repository.getSnapshot().items.find((item) => item.id === removableItem.id)?.archivedAt) {
+  throw new Error("Local repository did not restore an archived inventory item.");
 }
 
 const roundTripSnapshot = repository.getSnapshot();

@@ -37,6 +37,11 @@ movement. Automated mobile synchronization supplies its own source reason.
 Normal clients may append movements but cannot update or delete movement
 history through row-level-security policies.
 
+Normal item removal is an archive operation. It sets
+`inventory_items.archived_at`, excludes the record from active mobile sync and
+day-to-day dashboard totals, and preserves photos, sales, listings, and movement
+history. The web inventory filter can reveal and restore archived records.
+
 Each sale records the number of units sold. Its database trigger locks the
 inventory row, rejects a quantity above the current available balance, and
 appends an idempotent negative `sale` movement. Partial sales leave the

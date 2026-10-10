@@ -41,6 +41,7 @@ export type InventoryItem = {
   reserved?: number;
   available?: number;
   shortage?: number;
+  archivedAt?: string | null;
   low_price: number;
   high_price: number;
   floor_price: number;

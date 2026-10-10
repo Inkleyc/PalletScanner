@@ -27,6 +27,7 @@ const normalizeItem = (item) => ({
   reserved: Number.isInteger(item.reserved) ? item.reserved : 0,
   available: Number.isInteger(item.available) ? item.available : item.soldPrice === null ? item.quantity : 0,
   shortage: Number.isInteger(item.shortage) ? item.shortage : 0,
+  archivedAt: item.archivedAt ?? null,
 });
 const normalizePallet = (pallet) => ({
   ...pallet,
@@ -122,10 +123,10 @@ export const repository = {
     persist();
   },
   async removeItem(itemId) {
-    const index = items.findIndex((entry) => entry.id === itemId);
-    if (index >= 0) {
-      const [removed] = items.splice(index, 1);
-      recordActivity("item.deleted", itemId, { name: removed.name });
+    const item = items.find((entry) => entry.id === itemId);
+    if (item) {
+      item.archivedAt = new Date().toISOString();
+      recordActivity("item.archived", itemId, { name: item.name });
     }
     persist();
   },

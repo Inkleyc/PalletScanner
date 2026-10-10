@@ -152,7 +152,7 @@ const pullCloudSnapshot = async () => {
   updateState({ enabled: true, syncing: true, error: null });
   const [palletResult, itemResult, photoResult, listingResult] = await Promise.all([
     supabase.from("pallets").select("*").order("created_at"),
-    supabase.from("inventory_items").select("*").order("captured_at"),
+    supabase.from("inventory_items").select("*").is("archived_at", null).order("captured_at"),
     supabase.from("item_photos").select("*").order("position"),
     supabase.from("marketplace_listings").select("*").order("updated_at", { ascending: false }),
   ]);
@@ -305,7 +305,7 @@ const pushLocalSnapshot = async () => {
     }
   }
   const remotePallets = await supabase.from("pallets").select("client_id");
-  const remoteItems = await supabase.from("inventory_items").select("id,client_id");
+  const remoteItems = await supabase.from("inventory_items").select("id,client_id").is("archived_at", null);
   if (remotePallets.error) throw remotePallets.error;
   if (remoteItems.error) throw remoteItems.error;
   const localItemIds = new Set(items.map((item) => item.id));
@@ -319,7 +319,7 @@ const pushLocalSnapshot = async () => {
       const removeObjects = await supabase.storage.from("item-photos").remove(deletedPaths);
       if (removeObjects.error) throw removeObjects.error;
     }
-    const result = await supabase.from("inventory_items").delete().in("client_id", deletedItems.map((row) => row.client_id));
+    const result = await supabase.from("inventory_items").update({ archived_at: new Date().toISOString() }).in("client_id", deletedItems.map((row) => row.client_id));
     if (result.error) throw result.error;
   }
   const localPalletIds = new Set(pallets.map((pallet) => pallet.id));

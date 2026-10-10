@@ -391,8 +391,11 @@ function InventoryDetail({ item, palletName, pallets, onSave, onRemove, onSaleRe
     catch (workflowError) { setError(workflowError instanceof Error ? workflowError.message : "Could not update status."); }
   };
   const remove = async () => {
-    if (!window.confirm(`Remove ${item.name} from inventory? This cannot be undone.`)) return;
+    if (!window.confirm(`Archive ${item.name}? It will leave active inventory but keep its history.`)) return;
     await onRemove(item.id);
+  };
+  const restore = async () => {
+    await onSave({ ...item, archivedAt: null });
   };
 
   const closeEdit = () => { setDraft(itemDraft(item)); setEditing(false); setError(""); };
@@ -431,7 +434,7 @@ function InventoryDetail({ item, palletName, pallets, onSave, onRemove, onSaleRe
           <div className="detail-tabs" role="tablist" aria-label="Item details"><button role="tab" aria-selected={detailTab === "details"} onClick={() => setDetailTab("details")}>Details</button><button role="tab" aria-selected={detailTab === "marketplace"} onClick={() => setDetailTab("marketplace")}>Marketplace</button><button role="tab" aria-selected={detailTab === "sale"} onClick={() => setDetailTab("sale")}>Sale</button><button role="tab" aria-selected={detailTab === "history"} onClick={() => setDetailTab("history")}>History</button></div>
           {detailTab === "details" && <div className="detail-tab-panel" role="tabpanel"><div className="detail-grid"><div><span>Pallet</span><strong>{palletName}</strong></div><div><span>Condition</span><strong>{item.condition}</strong></div><div><span>Category</span><strong>{item.category ?? "Uncategorized"}</strong></div><div><span>Quantity</span><strong>{getQuantity(item)}</strong></div><div><span>Low</span><strong>{currency(price(item, "low"))}</strong></div><div><span>High</span><strong>{currency(price(item, "high"))}</strong></div><div><span>Floor</span><strong>{currency(price(item, "floor"))}</strong></div><div><span>Status</span><strong>{statusLabel[getDisplayStatus(item)]}</strong></div><div><span>Platform</span><strong>{getDisplayPlatform(item)}</strong></div><div><span>Age</span><strong>{getItemAgeDays(item)} days</strong></div>{item.soldPrice !== null && <div><span>Sold price</span><strong>{currency(item.soldPrice)}</strong></div>}{Object.entries(item.ebayItemSpecifics ?? {}).filter(([, value]) => String(value).trim()).map(([key, value]) => <div key={key}><span>{key}</span><strong>{value}</strong></div>)}</div><p className={getDisplayIssue(item) ? "detail-issue" : "detail-ready"}>{getDisplayIssue(item) ?? "Ready for the next marketplace action."}</p><section className="listing-copy"><div><span>Listing title</span><strong>{item.listing_title || item.name}</strong></div><div><span>Listing description</span><p>{item.listing_description || "No listing description saved."}</p></div></section>{showWorkflowActions && item.soldPrice === null && <div className="button-row workflow-actions"><button onClick={() => setWorkflowStatus("needs_photos")}>Needs photos</button><button onClick={() => setWorkflowStatus("needs_research")}>Needs research</button><button onClick={() => setWorkflowStatus("ready")}>Mark ready</button></div>}</div>}
           {detailTab === "marketplace" && <div className="detail-tab-panel" role="tabpanel"><ListingReview item={item} onSave={onSave} /></div>}
-          {detailTab === "sale" && <div className="detail-tab-panel" role="tabpanel"><RecordSale item={item} onRecorded={onSaleRecorded} /><button className="danger-button remove-item-button" onClick={remove}>Remove item</button></div>}
+          {detailTab === "sale" && <div className="detail-tab-panel" role="tabpanel">{item.archivedAt ? <section className="sale-card"><div><strong>Archived inventory</strong><span>This item is preserved with its history and excluded from active work.</span></div><button className="primary-button" onClick={restore}>Restore item</button></section> : <><RecordSale item={item} onRecorded={onSaleRecorded} /><button className="danger-button remove-item-button" onClick={remove}>Archive item</button></>}</div>}
           {detailTab === "history" && <div className="detail-tab-panel" role="tabpanel"><InventoryHistory item={item} /></div>}
         </div>
       </div>
@@ -751,6 +754,7 @@ export function App() {
   const [workFilter, setWorkFilter] = useState("decision");
   const [platformFilter, setPlatformFilter] = useState(() => readPreference("palletscanner.inventoryPlatformFilter", "all"));
   const [palletFilter, setPalletFilter] = useState(() => readPreference("palletscanner.inventoryPalletFilter", "all"));
+  const [archiveFilter, setArchiveFilter] = useState(() => readPreference("palletscanner.inventoryArchiveFilter", "active"));
   const [overviewPalletId, setOverviewPalletId] = useState("all");
   const [overviewMenuOpen, setOverviewMenuOpen] = useState(false);
   const [sort, setSort] = useState(() => ({ column: readPreference("palletscanner.inventorySortColumn", "name"), direction: readPreference("palletscanner.inventorySortDirection", "asc") }));
@@ -778,9 +782,10 @@ export function App() {
     localStorage.setItem("palletscanner.inventorySearch", query);
     localStorage.setItem("palletscanner.inventoryPlatformFilter", platformFilter);
     localStorage.setItem("palletscanner.inventoryPalletFilter", palletFilter);
+    localStorage.setItem("palletscanner.inventoryArchiveFilter", archiveFilter);
     localStorage.setItem("palletscanner.inventorySortColumn", sort.column);
     localStorage.setItem("palletscanner.inventorySortDirection", sort.direction);
-  }, [query, platformFilter, palletFilter, sort]);
+  }, [query, platformFilter, palletFilter, archiveFilter, sort]);
   useEffect(() => {
     const handleShortcut = (event) => {
       if (event.key === "/" && !["INPUT", "TEXTAREA", "SELECT"].includes(document.activeElement?.tagName)) {
@@ -799,7 +804,8 @@ export function App() {
     return () => window.removeEventListener("keydown", closeOnEscape);
   }, [inventoryModalId]);
 
-  const { items, pallets } = snapshot;
+  const { items: allItems, pallets } = snapshot;
+  const items = useMemo(() => allItems.filter((item) => !item.archivedAt), [allItems]);
   const palletName = (id) => pallets.find((pallet) => pallet.id === id)?.name ?? "Unassigned";
   const overviewScope = overviewPalletId === "all" || pallets.some((pallet) => pallet.id === overviewPalletId) ? overviewPalletId : "all";
   const overviewItems = overviewScope === "all" ? items : items.filter((item) => item.palletId === overviewScope);
@@ -819,7 +825,8 @@ export function App() {
 
   const visibleItems = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase();
-    const filtered = items.filter((item) => {
+    const inventoryItems = archiveFilter === "all" ? allItems : archiveFilter === "archived" ? allItems.filter((item) => item.archivedAt) : items;
+    const filtered = inventoryItems.filter((item) => {
       const text = [item.name, item.category, palletName(item.palletId), item.condition, getDisplayPlatform(item), statusLabel[getDisplayStatus(item)]].join(" ").toLowerCase();
       return (!normalizedQuery || text.includes(normalizedQuery)) &&
         (platformFilter === "all" || getDisplayPlatform(item).toLowerCase() === platformFilter.toLowerCase()) &&
@@ -831,10 +838,10 @@ export function App() {
       const comparison = first < second ? -1 : first > second ? 1 : 0;
       return sort.direction === "asc" ? comparison : -comparison;
     });
-  }, [items, pallets, query, platformFilter, palletFilter, sort]);
+  }, [allItems, items, pallets, query, platformFilter, palletFilter, archiveFilter, sort]);
 
   const reviewItems = items.filter((item) => matchesWorkFilter(item, workFilter));
-  const inventoryModalItem = items.find((item) => item.id === inventoryModalId) ?? null;
+  const inventoryModalItem = allItems.find((item) => item.id === inventoryModalId) ?? null;
   const navigate = (nextView) => {
     setView(nextView);
     window.history.replaceState(null, "", `#${nextView}`);
@@ -863,7 +870,7 @@ export function App() {
     } finally { setBulkSaving(false); }
   };
   const changeSort = (column) => setSort((current) => ({ column, direction: current.column === column && current.direction === "asc" ? "desc" : "asc" }));
-  const resetFilters = () => { setQuery(""); setPlatformFilter("all"); setPalletFilter("all"); };
+  const resetFilters = () => { setQuery(""); setPlatformFilter("all"); setPalletFilter("all"); setArchiveFilter("active"); };
   const exportCsv = () => {
     const rows = [["Name", "Category", "Pallet", "Status", "Platform", "Quantity", "Low", "High", "Sold", "Age Days"], ...visibleItems.map((item) => [item.name, item.category ?? "Uncategorized", palletName(item.palletId), statusLabel[getDisplayStatus(item)], getDisplayPlatform(item), getQuantity(item), price(item, "low"), price(item, "high"), item.soldPrice ?? "", getItemAgeDays(item)])];
     const csv = rows.map((row) => row.map((cell) => `"${String(cell).replaceAll('"', '""')}"`).join(",")).join("\n");
@@ -887,14 +894,14 @@ export function App() {
         {view === "pallets" && <PalletManager pallets={pallets} summaries={palletSummaries} activePalletId={snapshot.activePalletId} selectedPalletId={palletFilter} onFilter={(id) => { setPalletFilter(id); navigate("inventory"); }} />}
         {view === "analysis" && <AnalysisPanel snapshot={snapshot} />}
         {view === "inventory" && <section className="panel table-panel" id="inventory">
-          <div className="panel-heading inventory-heading"><div><strong>{visibleItems.length} of {items.length} items</strong><span>Select an item to view its complete record and photos.</span></div><button className="reset-filter-button" onClick={resetFilters}>Clear filters</button></div>
-          <div className="inventory-tools"><input ref={searchInput} aria-label="Search inventory" placeholder="Search inventory (press /)" value={query} onChange={(event) => setQuery(event.target.value)} /><select aria-label="Platform filter" value={platformFilter} onChange={(event) => setPlatformFilter(event.target.value)}><option value="all">All platforms</option><option>Facebook</option><option>eBay</option><option>Review</option></select><select aria-label="Pallet filter" value={palletFilter} onChange={(event) => setPalletFilter(event.target.value)}><option value="all">All pallets</option>{pallets.map((pallet) => <option key={pallet.id} value={pallet.id}>{pallet.name}</option>)}</select></div>
+          <div className="panel-heading inventory-heading"><div><strong>{visibleItems.length} of {archiveFilter === "active" ? items.length : allItems.length} items</strong><span>Select an item to view its complete record and photos.</span></div><button className="reset-filter-button" onClick={resetFilters}>Clear filters</button></div>
+          <div className="inventory-tools"><input ref={searchInput} aria-label="Search inventory" placeholder="Search inventory (press /)" value={query} onChange={(event) => setQuery(event.target.value)} /><select aria-label="Inventory state filter" value={archiveFilter} onChange={(event) => setArchiveFilter(event.target.value)}><option value="active">Active inventory</option><option value="archived">Archived inventory</option><option value="all">Active and archived</option></select><select aria-label="Platform filter" value={platformFilter} onChange={(event) => setPlatformFilter(event.target.value)}><option value="all">All platforms</option><option>Facebook</option><option>eBay</option><option>Review</option></select><select aria-label="Pallet filter" value={palletFilter} onChange={(event) => setPalletFilter(event.target.value)}><option value="all">All pallets</option>{pallets.map((pallet) => <option key={pallet.id} value={pallet.id}>{pallet.name}</option>)}</select></div>
           {selectedIds.size > 0 && <div className="bulk-bar"><strong>{selectedIds.size} selected</strong><button disabled={bulkSaving} onClick={() => bulkUpdate("marked ready", (item) => ({ ...item, status: "ready", soldPrice: null }))}>Mark ready</button><button disabled={bulkSaving} onClick={() => bulkUpdate("marked listed on Facebook", (item) => ({ ...item, facebookStatus: "listed", facebookUpdatedAt: Date.now(), listedPlatforms: [...new Set([...(item.listedPlatforms ?? []), "facebook"])] }))}>Mark Facebook listed</button><button disabled={bulkSaving} onClick={() => bulkUpdate("marked listed on eBay", (item) => ({ ...item, ebayStatus: "active", ebayUpdatedAt: Date.now(), listedPlatforms: [...new Set([...(item.listedPlatforms ?? []), "ebay"])] }))}>Mark eBay listed</button><button disabled={bulkSaving} onClick={() => setSelectedIds(new Set())}>Clear</button></div>}
           {palletFilter !== "all" && <div className="inventory-context"><strong>Filtered Pallet: {palletName(palletFilter)}</strong><button onClick={() => setPalletFilter("all")}>Show all</button></div>}
           <div className="inventory-workspace"><div className="table-scroll"><table><thead><tr><th><input type="checkbox" aria-label="Select all visible items" checked={visibleItems.length > 0 && visibleItems.every((item) => selectedIds.has(item.id))} onChange={(event) => setSelectedIds((current) => { const next = new Set(current); visibleItems.forEach((item) => event.target.checked ? next.add(item.id) : next.delete(item.id)); return next; })} /></th><th>Photo</th><th><SortButton column="name">Item</SortButton></th><th><SortButton column="pallet">Pallet</SortButton></th><th>Status</th><th>Platform</th><th><SortButton column="quantity">Qty</SortButton></th><th><SortButton column="age">Age</SortButton></th></tr></thead><tbody>{visibleItems.length === 0 ? <tr><td className="empty-table-cell" colSpan="8">No inventory matches these filters.</td></tr> : visibleItems.map((item) => <tr data-inventory-row tabIndex="0" key={item.id} onClick={() => setInventoryModalId(item.id)} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") setInventoryModalId(item.id); }}><td><input type="checkbox" aria-label={`Select ${item.name}`} checked={selectedIds.has(item.id)} onClick={(event) => event.stopPropagation()} onChange={() => toggleSelected(item.id)} /></td><td><ItemThumbnail item={item} /></td><td><strong>{item.name}</strong></td><td>{palletName(item.palletId)}</td><td><span className={`badge ${statusClass[getDisplayStatus(item)]}`}>{statusLabel[getDisplayStatus(item)]}</span></td><td>{getDisplayPlatform(item)}</td><td>{getQuantity(item)}</td><td>{getItemAgeDays(item)}d</td></tr>)}</tbody></table></div>
           </div>
         </section>}
-        {inventoryModalItem && <div className="modal-backdrop" role="presentation" onMouseDown={() => setInventoryModalId(null)}><div className="inventory-detail-modal" role="dialog" aria-modal="true" aria-label={`${inventoryModalItem.name} inventory record`} onMouseDown={(event) => event.stopPropagation()}><InventoryDetail item={inventoryModalItem} palletName={palletName(inventoryModalItem.palletId)} pallets={pallets} showWorkflowActions={false} onClose={() => setInventoryModalId(null)} onSave={async (item, options) => { await repository.saveItem(item, options); notify("Changes saved."); }} onRemove={async (id) => { await repository.removeItem(id); setInventoryModalId(null); notify("Inventory item removed."); }} onSaleRecorded={() => notify("Sale recorded. Analysis is updated.")} /></div></div>}
+        {inventoryModalItem && <div className="modal-backdrop" role="presentation" onMouseDown={() => setInventoryModalId(null)}><div className="inventory-detail-modal" role="dialog" aria-modal="true" aria-label={`${inventoryModalItem.name} inventory record`} onMouseDown={(event) => event.stopPropagation()}><InventoryDetail item={inventoryModalItem} palletName={palletName(inventoryModalItem.palletId)} pallets={pallets} showWorkflowActions={false} onClose={() => setInventoryModalId(null)} onSave={async (item, options) => { await repository.saveItem(item, options); notify(item.archivedAt === null ? "Inventory item restored." : "Changes saved."); }} onRemove={async (id) => { await repository.removeItem(id); setInventoryModalId(null); notify("Inventory item archived."); }} onSaleRecorded={() => notify("Sale recorded. Analysis is updated.")} /></div></div>}
         {addingItem && <AddItemDialog pallets={pallets} activePalletId={snapshot.activePalletId} onCancel={() => setAddingItem(false)} onCreate={async (item) => { await repository.saveItem(item); setAddingItem(false); setInventoryModalId(item.id); notify("Item added. Add photos or edit its details."); }} />}
         <div className="settings-mount" hidden={view !== "settings"}><div className="view-stack"><EbaySettings /><ActivityPanel snapshot={snapshot} /></div></div>
         {toast && <div className="toast" role="status">{toast}</div>}
