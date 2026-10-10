@@ -69,7 +69,6 @@ create table public.marketplace_observations (
 );
 
 alter table public.marketplace_listings alter column item_id drop not null;
-alter table public.marketplace_listings drop constraint if exists marketplace_listings_item_id_platform_key;
 alter table public.marketplace_listings
   add column if not exists marketplace_account_id uuid,
   add column if not exists marketplace_region text,
@@ -85,8 +84,6 @@ alter table public.marketplace_listings
   add foreign key (marketplace_account_id, business_id)
     references public.marketplace_accounts(id, business_id) on delete cascade;
 
-create unique index marketplace_listings_item_platform_idx
-on public.marketplace_listings(item_id, platform) where item_id is not null;
 create unique index marketplace_listings_external_listing_idx
 on public.marketplace_listings(business_id, platform, external_listing_id)
 where external_listing_id is not null;
