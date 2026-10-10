@@ -247,3 +247,24 @@ export const queueEbayQuantitySync = async (listingId) => {
   throwIfError(result);
   return result.data;
 };
+
+export const listMarketplaceActionJobs = async () => {
+  if (!supabase) throw new Error("Supabase is not configured for this dashboard.");
+  const userResult = await supabase.auth.getUser();
+  if (userResult.error || !userResult.data.user) throw new Error("Sign in to review marketplace jobs.");
+  const result = await supabase.from("marketplace_action_jobs")
+    .select("id,action_type,status,attempt_count,max_attempts,next_attempt_at,last_error,payload,created_at,updated_at,marketplace_listings(sku,inventory_items(name,seller_sku))")
+    .eq("owner_id", userResult.data.user.id)
+    .in("status", ["pending", "running", "retry_wait", "failed"])
+    .order("updated_at", { ascending: false })
+    .limit(100);
+  throwIfError(result);
+  return result.data ?? [];
+};
+
+export const retryFailedMarketplaceActionJob = async (jobId) => {
+  if (!supabase) throw new Error("Supabase is not configured for this dashboard.");
+  const result = await supabase.rpc("retry_failed_marketplace_action_job", { target_job_id: jobId });
+  throwIfError(result);
+  return result.data;
+};

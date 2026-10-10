@@ -16,7 +16,7 @@ import { getRepositoryMode, repository, useCloudRepository, useLocalRepository }
 import { isSupabaseConfigured, supabase } from "./supabase.js";
 import { buildAnalytics } from "./analytics-model.js";
 import { reconcileEbayPreview } from "./ebay-reconciliation.js";
-import { createUnverifiedInventoryFromObservation, getEbayMarketplaceControl, importObservedEbayOrders, listEbayObservationSnapshots, listImportedEbayOrders, listMarketplaceQuantityQueue, loadEbayObservationSnapshot, matchImportedOrderLine, queueEbayQuantitySync, recordEbayReconciliationDecision, releaseCancelledOrderReservations, reserveImportedOrder, saveEbayObservationSnapshot, setEbayOutboundPause } from "./marketplace-observation-repository.js";
+import { createUnverifiedInventoryFromObservation, getEbayMarketplaceControl, importObservedEbayOrders, listEbayObservationSnapshots, listImportedEbayOrders, listMarketplaceActionJobs, listMarketplaceQuantityQueue, loadEbayObservationSnapshot, matchImportedOrderLine, queueEbayQuantitySync, recordEbayReconciliationDecision, releaseCancelledOrderReservations, reserveImportedOrder, retryFailedMarketplaceActionJob, saveEbayObservationSnapshot, setEbayOutboundPause } from "./marketplace-observation-repository.js";
 import { ActivityPanel } from "./activity-panel.jsx";
 import { PalletManager } from "./pallet-manager.jsx";
 import {
@@ -586,14 +586,25 @@ function SellingDefaults() {
 
 function QuantitySyncQueue() {
   const [rows, setRows] = useState(null);
+  const [jobs, setJobs] = useState(null);
   const [account, setAccount] = useState(null);
   const [saving, setSaving] = useState(false);
   const [queueingId, setQueueingId] = useState(null);
   const [error, setError] = useState("");
   const load = async () => {
     setError("");
-    try { const [nextRows, nextAccount] = await Promise.all([listMarketplaceQuantityQueue(), getEbayMarketplaceControl()]); setRows(nextRows); setAccount(nextAccount); }
+    try { const [nextRows, nextAccount, nextJobs] = await Promise.all([listMarketplaceQuantityQueue(), getEbayMarketplaceControl(), listMarketplaceActionJobs()]); setRows(nextRows); setAccount(nextAccount); setJobs(nextJobs); }
     catch (loadError) { setError(loadError instanceof Error ? loadError.message : "Could not load the quantity queue."); }
+  };
+  const executeJob = async (jobId) => {
+    const sessionResult = await supabase.auth.getSession();
+    const accessToken = sessionResult.data.session?.access_token;
+    const apiBaseUrl = readPreference("palletscanner.ebayApiBaseUrl", "").trim().replace(/\/$/, "");
+    if (!accessToken || !apiBaseUrl) throw new Error("A signed-in session and eBay backend URL are required. The approved job remains safely queued.");
+    const response = await fetch(`${apiBaseUrl}/ebay/jobs/execute`, { method: "POST", headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" }, body: JSON.stringify({ jobId }) });
+    const body = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(body.error || `Marketplace executor returned ${response.status}.`);
+    return body;
   };
   const changePause = async () => {
     if (!account) return;
@@ -609,17 +620,24 @@ function QuantitySyncQueue() {
     setQueueingId(row.id); setError("");
     try {
       const job = await queueEbayQuantitySync(row.id);
-      const sessionResult = await supabase.auth.getSession();
-      const accessToken = sessionResult.data.session?.access_token;
-      const apiBaseUrl = readPreference("palletscanner.ebayApiBaseUrl", "").trim().replace(/\/$/, "");
-      if (!accessToken || !apiBaseUrl) throw new Error("A signed-in session and eBay backend URL are required. The approved job remains safely queued.");
-      const response = await fetch(`${apiBaseUrl}/ebay/jobs/execute`, { method: "POST", headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" }, body: JSON.stringify({ jobId: job.id }) });
-      const body = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(body.error || `Marketplace executor returned ${response.status}.`);
+      await executeJob(job.id);
       setRows(await listMarketplaceQuantityQueue());
     }
     catch (queueError) { setError(queueError instanceof Error ? queueError.message : "Could not queue the quantity update."); }
-    finally { try { setRows(await listMarketplaceQuantityQueue()); } catch { /* Keep the original action result visible. */ } setQueueingId(null); }
+    finally { try { const [nextRows, nextJobs] = await Promise.all([listMarketplaceQuantityQueue(), listMarketplaceActionJobs()]); setRows(nextRows); setJobs(nextJobs); } catch { /* Keep the original action result visible. */ } setQueueingId(null); }
+  };
+  const retryJob = async (job) => {
+    if (!window.confirm("Retry this failed marketplace action now? PalletFlip will reset its bounded attempt counter and preserve the prior error in audit history.")) return;
+    setQueueingId(job.id); setError("");
+    try { const resetJob = await retryFailedMarketplaceActionJob(job.id); await executeJob(resetJob.id); }
+    catch (retryError) { setError(retryError instanceof Error ? retryError.message : "Could not retry the marketplace action."); }
+    finally { try { const [nextRows, nextJobs] = await Promise.all([listMarketplaceQuantityQueue(), listMarketplaceActionJobs()]); setRows(nextRows); setJobs(nextJobs); } catch { /* Keep the retry result visible. */ } setQueueingId(null); }
+  };
+  const runDueJob = async (job) => {
+    setQueueingId(job.id); setError("");
+    try { await executeJob(job.id); }
+    catch (retryError) { setError(retryError instanceof Error ? retryError.message : "Could not run the marketplace retry."); }
+    finally { try { const [nextRows, nextJobs] = await Promise.all([listMarketplaceQuantityQueue(), listMarketplaceActionJobs()]); setRows(nextRows); setJobs(nextJobs); } catch { /* Keep the retry result visible. */ } setQueueingId(null); }
   };
   if (getRepositoryMode() !== "cloud") return null;
   const mismatches = (rows ?? []).filter((row) => row.advertised_quantity !== row.desired_quantity);
@@ -633,6 +651,10 @@ function QuantitySyncQueue() {
       {mismatches.length === 0 ? <small>All observed eBay quantities match currently available inventory.</small> : mismatches.slice(0, 50).map((row) => <div className="check-row" key={row.id}><span className="check-dot" /><span><strong>{row.inventory_items?.seller_sku || row.sku || "No SKU"}</strong> · {row.inventory_items?.name || "Unknown item"} · eBay {row.advertised_quantity ?? "unknown"} · PalletFlip {row.desired_quantity ?? row.inventory_items?.available ?? "unknown"} · {row.quantity_sync_state.replaceAll("_", " ")}{row.last_error ? ` · ${row.last_error}` : ""}</span>{account && !account.outbound_paused && <button type="button" disabled={queueingId === row.id || row.quantity_sync_state === "pending"} onClick={() => queueQuantity(row)}>{queueingId === row.id ? "Sending..." : row.quantity_sync_state === "pending" ? "Queued" : "Approve update"}</button>}</div>)}
       {mismatches.length > 50 && <small>Showing the first 50 mismatches.</small>}
       {account && <small>Mode: {account.sync_mode.replaceAll("_", " ")}. Turning off the pause does not enable automatic synchronization.</small>}
+    </div>}
+    {jobs && <div className="check-list reconciliation-records">
+      <strong>Marketplace action exceptions</strong>
+      {jobs.length === 0 ? <small>No marketplace actions are waiting or failed.</small> : jobs.map((job) => { const retryDue = job.status === "retry_wait" && Date.parse(job.next_attempt_at) <= Date.now(); const staleClaim = job.status === "running" && Date.parse(job.updated_at) <= Date.now() - 300000; const runnable = job.status === "pending" || retryDue || staleClaim; return <div className="reconciliation-decision-row" key={job.id}><div className="check-row"><span className={`check-dot ${job.status === "pending" ? "ok" : ""}`} /><span><strong>{job.marketplace_listings?.inventory_items?.seller_sku || job.marketplace_listings?.sku || job.payload?.sku || "No SKU"}</strong> · {job.marketplace_listings?.inventory_items?.name || job.action_type.replaceAll("_", " ")} · {job.status.replaceAll("_", " ")} · attempt {job.attempt_count}/{job.max_attempts}{job.status === "retry_wait" ? ` · retry after ${new Date(job.next_attempt_at).toLocaleString()}` : ""}{job.last_error ? ` · ${job.last_error}` : ""}</span></div>{runnable && <button type="button" disabled={queueingId === job.id || account?.outbound_paused} onClick={() => runDueJob(job)}>{queueingId === job.id ? "Running..." : staleClaim ? "Recover stalled action" : retryDue ? "Run due retry" : "Run queued action"}</button>}{job.status === "failed" && <button type="button" disabled={queueingId === job.id || account?.outbound_paused} onClick={() => retryJob(job)}>{queueingId === job.id ? "Retrying..." : "Retry failed action"}</button>}</div>; })}
     </div>}
   </article>;
 }

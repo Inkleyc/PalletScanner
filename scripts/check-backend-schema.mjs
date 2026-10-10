@@ -115,6 +115,10 @@ const marketplaceJobExecution = await readFile(
   new URL("../supabase/migrations/202610100022_marketplace_job_execution.sql", import.meta.url),
   "utf8",
 );
+const marketplaceJobRetry = await readFile(
+  new URL("../supabase/migrations/202610100023_marketplace_job_retry.sql", import.meta.url),
+  "utf8",
+);
 
 for (const table of ["pallets", "inventory_items", "item_photos", "marketplace_listings", "sales", "activity_events"]) {
   if (!schema.includes(`create table public.${table}`)) {
@@ -190,6 +194,9 @@ for (const marker of ["create table public.marketplace_action_jobs", "unique (bu
 }
 for (const marker of ["claim_marketplace_action_job", "complete_marketplace_action_job", "fail_marketplace_action_job", "status = 'running'", "interval '5 minutes'", "attempt_count = attempt_count + 1", "power(2, attempt_count)", "marketplace.quantity_sync_succeeded", "marketplace.quantity_sync_failed"]) {
   if (!marketplaceJobExecution.includes(marker)) throw new Error(`Marketplace job execution is missing safety marker: ${marker}`);
+}
+for (const marker of ["retry_failed_marketplace_action_job", "status = 'failed' for update", "attempt_count = 0", "next_attempt_at = now()", "marketplace.action_retry_approved"]) {
+  if (!marketplaceJobRetry.includes(marker)) throw new Error(`Marketplace job retry is missing safety marker: ${marker}`);
 }
 
 for (const marker of [

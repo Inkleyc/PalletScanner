@@ -98,6 +98,11 @@ Failures enter bounded exponential retry waits and become persistent failed
 exceptions after the maximum attempt count. A stale running claim can be safely
 reclaimed because setting the same absolute eBay quantity is idempotent.
 
+The web exception panel keeps pending, running, retry-wait, and exhausted jobs
+visible. Due retries and stale claims can be run again without creating another
+job. An exhausted job requires explicit owner approval, resets its bounded
+attempt counter, and preserves the prior error in append-only audit history.
+
 ## Local-to-Server IDs
 
 Current mobile data uses numeric item IDs and string pallet IDs. The server uses
