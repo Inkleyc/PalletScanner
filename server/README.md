@@ -13,6 +13,7 @@ For the full plain-English setup map, including local development versus distrib
 - `GET /ebay/connect`
 - `GET /ebay/connect-url`
 - `GET /ebay/callback`
+- `GET /ebay/import-preview` reads paginated inventory items, offers, and completed-checkout orders without changing eBay or PalletFlip data.
 - `POST /ebay/listings`
 - `POST /ebay/listings/end`
 - `POST /ebay/disconnect`
@@ -37,7 +38,7 @@ You can use [server/ebay.env.example](c:/Users/colto/PalletScanner/server/ebay.e
 - `EBAY_CURRENCY=USD`
 - `EBAY_LOCALE=en-US`
 - `EBAY_CATEGORY_ID=1234`
-- `EBAY_SCOPE=https://api.ebay.com/oauth/api_scope/sell.inventory https://api.ebay.com/oauth/api_scope/sell.account`
+- `EBAY_SCOPE=https://api.ebay.com/oauth/api_scope/sell.inventory https://api.ebay.com/oauth/api_scope/sell.account https://api.ebay.com/oauth/api_scope/sell.fulfillment.readonly`
 - `PALLETSCANNER_AUTH_MODE=local`
 - `PALLETSCANNER_JWT_SECRET=...`
 - `EBAY_TOKEN_ENCRYPTION_KEY=...`
@@ -69,6 +70,9 @@ You can use [server/ebay.env.example](c:/Users/colto/PalletScanner/server/ebay.e
 5. In the app or web dashboard, connect the eBay seller account.
 6. Confirm the status says ready to list.
 7. Test creating one listing from an inventory item.
+
+Existing connections authorized before the fulfillment read scope was added
+must reconnect once before `/ebay/import-preview` can read orders.
 
 ## Important
 

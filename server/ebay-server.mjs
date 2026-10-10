@@ -7,6 +7,7 @@ import { authenticateRequest, getAuthMode } from "./auth.mjs";
 import { createAiService } from "./ai-service.mjs";
 import { lookupBarcode } from "./barcode-service.mjs";
 import { createEbayTokenStore } from "./ebay-token-store.mjs";
+import { createEbayReadService } from "./ebay-read-service.mjs";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -81,6 +82,7 @@ const ebayScopes =
   [
     "https://api.ebay.com/oauth/api_scope/sell.inventory",
     "https://api.ebay.com/oauth/api_scope/sell.account",
+    "https://api.ebay.com/oauth/api_scope/sell.fulfillment.readonly",
   ].join(" ");
 
 const oauthStates = new Map();
@@ -431,6 +433,11 @@ const ebayFetch = async (pathname, options) => {
 
   return response.json();
 };
+
+const ebayReadService = createEbayReadService({
+  ebayFetch,
+  getUserAccessToken,
+});
 
 const getCategoryTreeId = async () => {
   if (categoryTreeCache) {
@@ -1363,6 +1370,17 @@ const server = createServer(async (req, res) => {
     if (req.method === "GET" && url.pathname === "/ebay/setup") {
       const { userId } = authenticateRequest(req);
       sendJson(req, res, 200, await getEbaySetup(userId));
+      return;
+    }
+
+    if (req.method === "GET" && url.pathname === "/ebay/import-preview") {
+      const { userId } = authenticateRequest(req);
+      sendJson(req, res, 200, await ebayReadService.getImportPreview(userId, {
+        limit: url.searchParams.get("limit"),
+        inventoryOffset: url.searchParams.get("inventoryOffset"),
+        offerOffset: url.searchParams.get("offerOffset"),
+        orderOffset: url.searchParams.get("orderOffset"),
+      }));
       return;
     }
 

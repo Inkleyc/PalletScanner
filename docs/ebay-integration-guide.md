@@ -40,6 +40,10 @@ The app credentials prove which software is asking. The seller account authoriza
 
 The Expo app owns the scanning, pricing, listing copy, inventory, and user workflow.
 
+The backend also exposes an observe-only `GET /ebay/import-preview` route. It
+reads a bounded page of seller inventory items, offers, and completed-checkout
+orders for reconciliation, but does not write imported data or mutate eBay.
+
 Important files:
 
 - `lib/ebay-integration.ts`: sends listing data to the backend.
