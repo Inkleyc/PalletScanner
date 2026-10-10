@@ -404,7 +404,7 @@ const enforceAiRateLimit = (userId) => {
 
 const createAiMessage = async (userId, payload) => {
   enforceAiRateLimit(userId);
-  const apiKey = process.env.ANTHROPIC_API_KEY ?? process.env.EXPO_PUBLIC_ANTHROPIC_API_KEY;
+  const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) {
     const error = new Error("Anthropic is not configured on the backend.");
     error.statusCode = 503;

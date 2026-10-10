@@ -6,11 +6,7 @@ import {
   type SupabaseClient,
 } from "@supabase/supabase-js";
 
-import {
-  clearDemoBearerToken,
-  clearRuntimeBearerToken,
-  setRuntimeBearerToken,
-} from "@/lib/app-auth";
+import { clearRuntimeBearerToken, setRuntimeBearerToken } from "@/lib/app-auth";
 import {
   deleteWebStorage,
   readWebStorage,
@@ -198,7 +194,6 @@ export const enableTestMode = async () => {
 };
 
 export const disableTestMode = async () => {
-  await clearDemoBearerToken();
   authSnapshot = { ...authSnapshot, testMode: false };
   notify();
   try {

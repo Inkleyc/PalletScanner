@@ -21,7 +21,6 @@ From the repo root:
 npm start
 npm run android
 npm run ios
-npm run web
 npm run lint
 ```
 
@@ -31,9 +30,11 @@ From this folder:
 npm run start
 npm run android
 npm run ios
-npm run web
 npm run lint
 ```
+
+The Expo mobile-web demo is retired. Browser operations belong in
+`apps/web`; this package targets the iOS and Android warehouse application.
 
 Keep mobile app environment values in `apps/mobile/.env`.
 

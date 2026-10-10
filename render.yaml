@@ -22,12 +22,12 @@ services:
       - key: EBAY_CATEGORY_ID
         value: ""
       - key: PALLETSCANNER_AUTH_MODE
-        value: shared-key
+        value: jwt
       - key: PALLETSCANNER_LISTING_RATE_LIMIT_PER_MINUTE
         value: "20"
       - key: EBAY_TOKEN_ENCRYPTION_KEY
         generateValue: true
-      - key: PALLETSCANNER_API_KEY
+      - key: PALLETSCANNER_JWT_SECRET
         sync: false
       - key: EBAY_CLIENT_ID
         sync: false

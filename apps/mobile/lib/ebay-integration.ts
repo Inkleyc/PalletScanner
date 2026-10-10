@@ -17,11 +17,8 @@ const EBAY_API_BASE_URL =
   process.env.EXPO_PUBLIC_AI_API_BASE_URL ??
   process.env.EXPO_PUBLIC_EBAY_API_BASE_URL ??
   "";
-const APP_AUTH_TOKEN = process.env.EXPO_PUBLIC_PALLETSCANNER_AUTH_TOKEN ?? "";
-
 const getEbayAuthToken = async () => {
-  const runtimeToken = await getRuntimeBearerToken();
-  return runtimeToken || APP_AUTH_TOKEN.trim();
+  return getRuntimeBearerToken();
 };
 
 const ebayApi = createEbayApiClient({

@@ -113,11 +113,8 @@ This gives us fast mobile development, real tester distribution, and a proper de
 
 Run these from the repo root.
 
-Local browser preview:
-
-```bash
-npm run web -w @palletscanner/mobile
-```
+The former Expo browser preview is retired. Test mobile behavior on iOS or
+Android and test browser operations through `apps/web`.
 
 Android internal APK preview:
 

@@ -18,7 +18,6 @@ const BARCODE_API_BASE_URL = (
   process.env.EXPO_PUBLIC_EBAY_API_BASE_URL ??
   ""
 ).replace(/\/$/, "");
-const APP_AUTH_TOKEN = process.env.EXPO_PUBLIC_PALLETSCANNER_AUTH_TOKEN ?? "";
 
 const normalizeBarcode = (barcode: string) => barcode.trim().replace(/[^0-9A-Za-z]/g, "");
 
@@ -198,7 +197,7 @@ const lookupGtinHubCandidate = async (barcode: string) => {
 export const lookupBarcodeProduct = async (barcode: string) => {
   const candidates = buildBarcodeCandidates(barcode);
   if (BARCODE_API_BASE_URL) {
-    const token = (await getRuntimeBearerToken()) || APP_AUTH_TOKEN.trim();
+    const token = await getRuntimeBearerToken();
     const response = await fetch(
       `${BARCODE_API_BASE_URL}/barcode/lookup?barcode=${encodeURIComponent(candidates[0] ?? barcode)}`,
       { headers: token ? { Authorization: `Bearer ${token}` } : {} },

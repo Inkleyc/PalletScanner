@@ -8,7 +8,6 @@ import {
 
 type AuthState = {
   bearerToken: string;
-  demoBearerToken: string;
   updatedAt?: number;
 };
 
@@ -20,7 +19,6 @@ const authListeners = new Set<AuthListener>();
 
 let authState: AuthState = {
   bearerToken: "",
-  demoBearerToken: "",
 };
 let hydratePromise: Promise<void> | null = null;
 
@@ -30,7 +28,7 @@ const notifyAuthListeners = () => {
 
 const normalizeAuthState = (value: unknown): AuthState => {
   if (!value || typeof value !== "object") {
-    return { bearerToken: "", demoBearerToken: "" };
+    return { bearerToken: "" };
   }
 
   const candidate = value as Partial<AuthState>;
@@ -38,10 +36,6 @@ const normalizeAuthState = (value: unknown): AuthState => {
     bearerToken:
       typeof candidate.bearerToken === "string"
         ? candidate.bearerToken.trim()
-        : "",
-    demoBearerToken:
-      typeof candidate.demoBearerToken === "string"
-        ? candidate.demoBearerToken.trim()
         : "",
     updatedAt:
       typeof candidate.updatedAt === "number" &&
@@ -90,7 +84,7 @@ export const hydrateAppAuth = async () => {
       authState = normalizeAuthState(JSON.parse(raw));
       notifyAuthListeners();
     } catch {
-      authState = { bearerToken: "", demoBearerToken: "" };
+      authState = { bearerToken: "" };
     }
   })();
 
@@ -108,7 +102,7 @@ export const getAppAuth = () => authState;
 
 export const getRuntimeBearerToken = async () => {
   await hydrateAppAuth();
-  return authState.demoBearerToken || authState.bearerToken;
+  return authState.bearerToken;
 };
 
 export const setRuntimeBearerToken = async (token: string) => {
@@ -127,28 +121,6 @@ export const clearRuntimeBearerToken = async () => {
   authState = {
     ...authState,
     bearerToken: "",
-    updatedAt: Date.now(),
-  };
-  notifyAuthListeners();
-  await persistAuthState();
-};
-
-export const setDemoBearerToken = async (token: string) => {
-  await hydrateAppAuth();
-  authState = {
-    ...authState,
-    demoBearerToken: token.trim(),
-    updatedAt: Date.now(),
-  };
-  notifyAuthListeners();
-  await persistAuthState();
-};
-
-export const clearDemoBearerToken = async () => {
-  await hydrateAppAuth();
-  authState = {
-    ...authState,
-    demoBearerToken: "",
     updatedAt: Date.now(),
   };
   notifyAuthListeners();

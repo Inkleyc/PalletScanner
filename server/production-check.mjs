@@ -74,8 +74,8 @@ if (readEnv("EBAY_CLIENT_SECRET").startsWith("SBX-")) {
 }
 
 if (hasValue("EXPO_PUBLIC_PALLETSCANNER_AUTH_TOKEN")) {
-  warnings.push(
-    "EXPO_PUBLIC_PALLETSCANNER_AUTH_TOKEN is for temporary shared-key testing, not production.",
+  failures.push(
+    "EXPO_PUBLIC_PALLETSCANNER_AUTH_TOKEN is retired; clients must use signed-in user sessions.",
   );
 }
 

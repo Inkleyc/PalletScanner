@@ -5,7 +5,9 @@ PalletFlip is a two-surface pallet resale operations system:
 - Mobile app: fast warehouse capture for pallets, barcodes, photos, item drafts, and next-item workflows.
 - Web app: business control for inventory review, listing queues, marketplace setup, pallet profitability, and reporting.
 
-The mobile app is an Expo app under `apps/mobile`. The architecture split is happening on the `web-mobile-split` branch.
+The mobile app is an Expo app under `apps/mobile`; the web workhorse lives under
+`apps/web`. The retired Expo-hosted mobile-web demo is not a supported product
+surface.
 
 ## Product Direction
 
@@ -32,22 +34,10 @@ Start the mobile Expo app:
 npm start
 ```
 
-Start mobile web preview:
-
-```bash
-npm run web
-```
-
 Start the web business dashboard preview:
 
 ```bash
 npm run dashboard:dev
-```
-
-Export a static mobile web build:
-
-```bash
-npm run web:export
 ```
 
 Create an Android preview build for testers:

@@ -15,7 +15,6 @@ import {
 
 import { AppLayout, AppPalette } from "@/constants/app-palette";
 import { AppAlert as Alert } from "@/lib/app-alert";
-import { setDemoBearerToken } from "@/lib/app-auth";
 import {
   getAppSettings,
   setFacebookSellerNote,
@@ -72,7 +71,6 @@ export default function SettingsScreen() {
   const [ebayStatusError, setEbayStatusError] = useState<string | null>(null);
   const [isRefreshingEbay, setIsRefreshingEbay] = useState(false);
   const [facebookSellerNoteDraft, setFacebookSellerNoteDraft] = useState("");
-  const [demoAccessToken, setDemoAccessToken] = useState("");
   const { facebookSellerNote, promptToPostOnSave } = useSyncExternalStore(
     subscribeAppSettings,
     getAppSettings,
@@ -122,28 +120,6 @@ export default function SettingsScreen() {
       setIsRefreshingEbay(false);
     }
   }, []);
-
-  const applyDemoAccess = async () => {
-    if (!demoAccessToken.trim()) {
-      Alert.alert("Enter the demo access code", "Paste the temporary code before connecting.");
-      return;
-    }
-    setIsRefreshingEbay(true);
-    try {
-      await setDemoBearerToken(demoAccessToken);
-      const status = await getEbayConnectionStatus();
-      setEbayStatus(status);
-      setEbayStatusError(null);
-      setDemoAccessToken("");
-      Alert.alert("Demo access connected", "AI analysis and eBay can now use the protected demo backend.");
-    } catch (error) {
-      setEbayStatus(null);
-      setEbayStatusError(error instanceof Error ? error.message : "The demo code could not be verified.");
-      Alert.alert("Demo access failed", "Check the temporary code and try again.");
-    } finally {
-      setIsRefreshingEbay(false);
-    }
-  };
 
   useEffect(() => {
     void refreshEbayStatus();
@@ -323,28 +299,6 @@ export default function SettingsScreen() {
         </View>
 
         <Text style={styles.sectionHeader}>eBay</Text>
-
-        {supabaseAuth.testMode ? (
-          <View style={styles.card}>
-            <Text style={styles.settingTitle}>Demo Access</Text>
-            <Text style={styles.settingDescription}>
-              Enter the temporary rehearsal code to enable protected AI and eBay requests.
-            </Text>
-            <TextInput
-              style={styles.input}
-              value={demoAccessToken}
-              onChangeText={setDemoAccessToken}
-              placeholder="Temporary access code"
-              placeholderTextColor={AppPalette.textSoft}
-              autoCapitalize="none"
-              autoCorrect={false}
-              secureTextEntry
-            />
-            <TouchableOpacity style={styles.primaryBtn} onPress={() => { void applyDemoAccess(); }}>
-              <Text style={styles.primaryBtnText}>Connect Demo Backend</Text>
-            </TouchableOpacity>
-          </View>
-        ) : null}
 
         <View style={styles.card}>
           <Text style={styles.settingTitle}>eBay Account</Text>

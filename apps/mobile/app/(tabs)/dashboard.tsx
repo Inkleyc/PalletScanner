@@ -5,11 +5,18 @@ import { AppPalette } from "@/constants/app-palette";
 import { AppAlert as Alert } from "@/lib/app-alert";
 
 const DASHBOARD_URL =
-  process.env.EXPO_PUBLIC_DASHBOARD_URL ??
-  "https://palletflip--8zbz7724f1.expo.app";
+  process.env.EXPO_PUBLIC_DASHBOARD_URL?.trim() ?? "";
 
 export default function DashboardScreen() {
   const openDashboard = async () => {
+    if (!DASHBOARD_URL) {
+      Alert.alert(
+        "Dashboard address not configured",
+        "Add EXPO_PUBLIC_DASHBOARD_URL to this mobile build after the web dashboard is deployed.",
+      );
+      return;
+    }
+
     try {
       await WebBrowser.openBrowserAsync(DASHBOARD_URL);
     } catch (error) {
@@ -29,13 +36,21 @@ export default function DashboardScreen() {
           dashboard.
         </Text>
         <TouchableOpacity
-          style={styles.primaryButton}
+          style={[
+            styles.primaryButton,
+            !DASHBOARD_URL && styles.primaryButtonDisabled,
+          ]}
           onPress={() => {
             void openDashboard();
           }}
         >
           <Text style={styles.primaryButtonText}>Open Dashboard</Text>
         </TouchableOpacity>
+        {!DASHBOARD_URL ? (
+          <Text style={styles.configurationHint}>
+            The web dashboard address has not been added to this build yet.
+          </Text>
+        ) : null}
       </View>
     </View>
   );
@@ -76,5 +91,14 @@ const styles = StyleSheet.create({
     color: AppPalette.primaryOn,
     fontSize: 15,
     fontWeight: "700",
+  },
+  primaryButtonDisabled: {
+    opacity: 0.55,
+  },
+  configurationHint: {
+    color: AppPalette.textMuted,
+    fontSize: 13,
+    lineHeight: 19,
+    marginTop: 10,
   },
 });

@@ -62,11 +62,10 @@ confirmed in their portals.
 The root `render.yaml` provisions a free sandbox Docker web service with
 generated backend encryption/authentication secrets. It is intended for
 development and external testing before live eBay credentials are enabled.
-The free sandbox service uses a shared access key so anonymous internet
-traffic cannot operate the connected sandbox account. Put the same generated
-value in Render as `PALLETSCANNER_API_KEY` and in the Expo preview environment
-as `EXPO_PUBLIC_PALLETSCANNER_AUTH_TOKEN`. This is development-only; production
-must use per-user JWT authentication.
+The sandbox service uses the same per-user JWT boundary as production so no
+shared credential is shipped in the mobile bundle. Configure
+`PALLETSCANNER_JWT_SECRET` in Render to verify the signed-in Supabase session.
+Anonymous internet traffic cannot operate the connected sandbox account.
 
 Free Render services can sleep and use an ephemeral filesystem. The encrypted
 eBay authorization token can disappear after a restart or redeploy, requiring
@@ -221,22 +220,9 @@ The repository includes development, preview, and production profiles in
 7. Submit the iOS production build to TestFlight with
    `npx eas-cli submit --platform ios --latest`.
 
-## Web Preview
+## Web Dashboard
 
-The browser app is built from the same Expo project. It uses IndexedDB for
-inventory/settings persistence, browser modals for app alerts, and the same
-Render eBay backend as the mobile preview.
-
-To publish a preview web deployment:
-
-```powershell
-npx eas-cli env:pull preview --path .env.preview
-# Load the EXPO_PUBLIC_* values from .env.preview for this shell.
-npm run web:export
-npm run web:deploy
-Remove-Item .env.preview
-```
-
-`npm run web:deploy` uploads the exported `dist` folder to EAS Hosting. That is
-an external publication step, so do it only when the current build is ready to
-share.
+The Expo-hosted mobile-web rehearsal build is retired. Browser operations use
+the dedicated application in `apps/web`. Set `EXPO_PUBLIC_DASHBOARD_URL` in
+mobile builds to the deployed dashboard address; there is intentionally no
+fallback to the retired Expo deployment.
