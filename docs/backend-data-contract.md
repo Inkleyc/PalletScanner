@@ -252,6 +252,16 @@ append-only event or an explicit not-applicable confirmation. Closure stores
 both outcome classifications, notes, timestamp, and an audit event; it never
 deletes the original return, sale, inventory, or financial history.
 
+Replacement fulfillment uses a distinct `replacement_shipment_lines` record
+and a `return_replacement` inventory reservation. It never reuses the original
+sale reservation. Starting fulfillment requires a confirmed replacement
+decision, physically verified available inventory, and a quantity no greater
+than the returned line. Carrier handoff appends a `replacement` inventory
+movement and consumes only the replacement reservation, idempotently. The
+external label handoff reuses the normal pick, pack, measurement, and tracking
+workflow, while its cost appends a stable `replacement_shipping` return
+financial event.
+
 ## Local-to-Server IDs
 
 Current mobile data uses numeric item IDs and string pallet IDs. The server uses

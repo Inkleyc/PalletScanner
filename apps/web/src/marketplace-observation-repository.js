@@ -224,7 +224,7 @@ export const listImportedEbayOrders = async () => {
   throwIfError(orderResult); throwIfError(lineResult); throwIfError(shipmentResult);
   const linesByOrder = new Map();
   for (const line of lineResult.data ?? []) linesByOrder.set(line.order_id, [...(linesByOrder.get(line.order_id) ?? []), line]);
-  const shipmentByOrder = new Map((shipmentResult.data ?? []).map((shipment) => [shipment.order_id, shipment]));
+  const shipmentByOrder = new Map((shipmentResult.data ?? []).filter((shipment) => shipment.shipment_kind !== "replacement").map((shipment) => [shipment.order_id, shipment]));
   return (orderResult.data ?? []).map((order) => ({ ...order, lines: linesByOrder.get(order.id) ?? [], shipment: shipmentByOrder.get(order.id) ?? null }));
 };
 
@@ -360,7 +360,7 @@ export const listReturns = async () => {
   const userResult = await supabase.auth.getUser();
   if (userResult.error || !userResult.data.user) throw new Error("Sign in to manage returns.");
   const result = await supabase.from("returns")
-    .select("*, orders(external_order_id), return_lines(*, order_lines(title,seller_sku), return_inspections(*), return_identity_resolutions(*)), return_financial_events(*), return_decisions(*), return_communications(*), return_evidence(*)")
+    .select("*, orders(external_order_id), return_lines(*, order_lines(title,seller_sku), return_inspections(*), return_identity_resolutions(*)), return_financial_events(*), return_decisions(*), return_communications(*), return_evidence(*), shipments!shipments_return_fk(*, shipment_packages(*), replacement_shipment_lines(*), tracking_events(*))")
     .eq("owner_id", userResult.data.user.id)
     .order("created_at", { ascending: false });
   throwIfError(result);
@@ -417,6 +417,13 @@ export const resolveReturnIdentityDiscrepancy = async ({ returnLineId, resolutio
 export const closeReturnCase = async ({ returnId, inventoryNotApplicable, financialNotApplicable, notes }) => {
   if (!supabase) throw new Error("Supabase is not configured for this dashboard.");
   const result = await supabase.rpc("close_return_case", { target_return_id: returnId, inventory_not_applicable: inventoryNotApplicable, financial_not_applicable: financialNotApplicable, return_closure_notes: notes });
+  throwIfError(result);
+  return result.data;
+};
+
+export const startReturnReplacement = async ({ returnLineId, inventoryItemId, quantity, packagePresetId = null }) => {
+  if (!supabase) throw new Error("Supabase is not configured for this dashboard.");
+  const result = await supabase.rpc("start_return_replacement", { target_return_line_id: returnLineId, replacement_inventory_item_id: inventoryItemId, replacement_quantity: quantity, target_package_preset_id: packagePresetId });
   throwIfError(result);
   return result.data;
 };

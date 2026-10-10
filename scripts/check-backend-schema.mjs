@@ -187,6 +187,10 @@ const closeReturnCase = await readFile(
   new URL("../supabase/migrations/202610100040_close_return_case.sql", import.meta.url),
   "utf8",
 );
+const replacementFulfillment = await readFile(
+  new URL("../supabase/migrations/202610100041_replacement_fulfillment.sql", import.meta.url),
+  "utf8",
+);
 
 for (const table of ["pallets", "inventory_items", "item_photos", "marketplace_listings", "sales", "activity_events"]) {
   if (!schema.includes(`create table public.${table}`)) {
@@ -324,6 +328,9 @@ for (const marker of ["create table public.return_identity_resolutions", "resolv
 }
 for (const marker of ["close_return_case", "inventory_outcome", "financial_outcome", "Record the confirmed return decision before closure", "Received return inventory must be inspected and dispositioned", "explicitly confirm that no inventory will return", "explicitly mark it not applicable", "return.case_closed"]) {
   if (!closeReturnCase.includes(marker)) throw new Error(`Return closure command is missing safety marker: ${marker}`);
+}
+for (const marker of ["shipment_kind", "create table public.replacement_shipment_lines", "start_return_replacement", "A confirmed replacement decision is required", "return_replacement", "Replacement inventory could not be fully reserved", "movement_type in (", "'replacement'", "Every replacement line must have its own active reservation", "return.replacement_carrier_handoff_confirmed", "replacement-label:", "'replacement_shipping'", "protect_replacement_return_closure", "must reach carrier handoff before closing"]) {
+  if (!replacementFulfillment.includes(marker)) throw new Error(`Replacement fulfillment is missing safety marker: ${marker}`);
 }
 
 for (const marker of [
