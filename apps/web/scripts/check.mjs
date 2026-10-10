@@ -7,6 +7,7 @@ globalThis.localStorage = {
 const { items, pallets, repository } = await import("../src/inventory-repository.js");
 const { createSupabaseInventoryRepository } = await import("../src/supabase-inventory-repository.js");
 const { buildAnalytics } = await import("../src/analytics-model.js");
+const { reconcileEbayPreview } = await import("../src/ebay-reconciliation.js");
 if (typeof createSupabaseInventoryRepository !== "function") {
   throw new Error("Supabase inventory repository factory is unavailable.");
 }
@@ -32,6 +33,7 @@ const requiredFiles = [
   "src/supabase-inventory-repository.js",
   "src/repository-router.js",
   "src/analytics-model.js",
+  "src/ebay-reconciliation.js",
   "src/activity-panel.jsx",
   "src/pallet-manager.jsx",
   "src/dashboard-components.jsx",
@@ -160,6 +162,20 @@ if (getItemAgeDays(items[1], new Date("2026-07-15T12:00:00Z")) < 14) {
 }
 if (getStaleInventoryItems(items, new Date("2026-07-15T12:00:00Z")).length === 0) {
   throw new Error("Expected stale inventory queue items.");
+}
+
+const reconciliation = reconcileEbayPreview({
+  inventoryItems: [{ sku: "PF-1", quantity: 2 }, { sku: "PF-2", quantity: 1 }, { sku: "PF-DUPLICATE", quantity: 1 }, { sku: "missing", quantity: 1 }],
+  offers: [{ sku: "pf-1" }],
+  orders: [{ orderId: "order-1", lineItems: [{ sku: "PF-1" }, { sku: "" }] }],
+}, [
+  { id: 1, sellerSku: "pf-1", available: 2 },
+  { id: 2, sellerSku: "PF-2", available: 3 },
+  { id: 3, sellerSku: "PF-DUPLICATE", available: 1 },
+  { id: 4, sellerSku: "pf-duplicate", available: 1 },
+]);
+if (reconciliation.summary.matched !== 3 || reconciliation.summary.conflicting !== 1 || reconciliation.summary.uncertain !== 1 || reconciliation.summary.unmatched !== 2) {
+  throw new Error("eBay reconciliation did not classify strong SKU matches and quantity conflicts correctly.");
 }
 
 const snapshot = repository.getSnapshot();

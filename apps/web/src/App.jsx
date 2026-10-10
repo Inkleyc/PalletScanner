@@ -15,6 +15,7 @@ import {
 import { getRepositoryMode, repository, useCloudRepository, useLocalRepository } from "./repository-router.js";
 import { isSupabaseConfigured, supabase } from "./supabase.js";
 import { buildAnalytics } from "./analytics-model.js";
+import { reconcileEbayPreview } from "./ebay-reconciliation.js";
 import { ActivityPanel } from "./activity-panel.jsx";
 import { PalletManager } from "./pallet-manager.jsx";
 import {
@@ -664,12 +665,8 @@ function EbaySettings({ mode = "all" }) {
     finally { setPreviewLoading(false); }
   };
 
-  const localSkus = new Set(repository.getSnapshot().items.map((item) => String(item.sellerSku ?? "").trim().toUpperCase()).filter(Boolean));
-  const normalizeSku = (value) => String(value ?? "").trim().toUpperCase();
-  const unmatchedInventory = importPreview?.inventoryItems?.filter((item) => !localSkus.has(normalizeSku(item.sku))) ?? [];
-  const unmatchedOffers = importPreview?.offers?.filter((offer) => !localSkus.has(normalizeSku(offer.sku))) ?? [];
-  const orderLines = importPreview?.orders?.flatMap((order) => (order.lineItems ?? []).map((line) => ({ ...line, orderId: order.orderId }))) ?? [];
-  const unmatchedOrderLines = orderLines.filter((line) => !localSkus.has(normalizeSku(line.sku)));
+  const reconciliation = reconcileEbayPreview(importPreview, repository.getSnapshot().items);
+  const reviewRecords = [...reconciliation.inventory, ...reconciliation.offers, ...reconciliation.orderLines].filter((record) => record.state !== "matched");
   const messageIsSuccess = message.includes("saved") || message.includes("refreshed") || message.includes("restored");
 
   const save = () => {
@@ -748,11 +745,12 @@ function EbaySettings({ mode = "all" }) {
               <div className="check-row"><span className="check-dot ok" /><span>{importPreview.pagination?.inventoryTotal ?? importPreview.inventoryItems?.length ?? 0} eBay inventory records ({importPreview.inventoryItems?.length ?? 0} shown)</span></div>
               <div className="check-row"><span className="check-dot ok" /><span>{importPreview.pagination?.offerTotal ?? importPreview.offers?.length ?? 0} eBay offers ({importPreview.offers?.length ?? 0} shown)</span></div>
               <div className="check-row"><span className="check-dot ok" /><span>{importPreview.pagination?.orderTotal ?? importPreview.orders?.length ?? 0} recent eBay orders ({importPreview.orders?.length ?? 0} shown)</span></div>
-              <div className="check-row"><span className={`check-dot ${unmatchedInventory.length === 0 ? "ok" : ""}`} /><span>{unmatchedInventory.length} shown inventory SKU{unmatchedInventory.length === 1 ? "" : "s"} not found in PalletFlip</span></div>
-              <div className="check-row"><span className={`check-dot ${unmatchedOffers.length === 0 ? "ok" : ""}`} /><span>{unmatchedOffers.length} shown offer SKU{unmatchedOffers.length === 1 ? "" : "s"} not found in PalletFlip</span></div>
-              <div className="check-row"><span className={`check-dot ${unmatchedOrderLines.length === 0 ? "ok" : ""}`} /><span>{unmatchedOrderLines.length} shown order line{unmatchedOrderLines.length === 1 ? "" : "s"} not matched by SKU</span></div>
+              <div className="check-row"><span className="check-dot ok" /><span>{reconciliation.summary.matched} records matched by seller SKU</span></div>
+              <div className="check-row"><span className={`check-dot ${reconciliation.summary.conflicting === 0 ? "ok" : ""}`} /><span>{reconciliation.summary.conflicting} quantity conflict{reconciliation.summary.conflicting === 1 ? "" : "s"}</span></div>
+              <div className="check-row"><span className={`check-dot ${reconciliation.summary.uncertain === 0 ? "ok" : ""}`} /><span>{reconciliation.summary.uncertain} uncertain match{reconciliation.summary.uncertain === 1 ? "" : "es"}</span></div>
+              <div className="check-row"><span className={`check-dot ${reconciliation.summary.unmatched === 0 ? "ok" : ""}`} /><span>{reconciliation.summary.unmatched} unmatched record{reconciliation.summary.unmatched === 1 ? "" : "s"}</span></div>
             </div>
-            {(unmatchedInventory.length > 0 || unmatchedOrderLines.length > 0) && <div className="setup-warning"><strong>Review unmatched eBay records</strong><span>{[...unmatchedInventory.map((item) => `${item.sku || "No SKU"}: ${item.title || "Untitled inventory item"}`), ...unmatchedOrderLines.map((line) => `${line.sku || "No SKU"}: ${line.title || `Order ${line.orderId || "line"}`}`)].slice(0, 5).join(" | ")}</span><small>No automatic action is available until matching review is built and proven.</small></div>}
+            {reviewRecords.length > 0 && <div className="setup-warning"><strong>{reconciliation.summary.needsReview} records need review</strong><span>{reviewRecords.slice(0, 5).map((record) => `${record.external.sku || "No SKU"} (${record.state}${record.quantityConflict ? `: eBay ${record.external.quantity}, PalletFlip ${record.localItem?.available ?? record.localItem?.quantity ?? 0}` : ""})`).join(" | ")}</span><small>No automatic action is available until matching review is built and proven.</small></div>}
             <small>Fetched {new Date(importPreview.fetchedAt).toLocaleString()} · first {importPreview.pagination?.limit ?? 50} records per category</small>
           </>}
         </article>}
