@@ -8,6 +8,7 @@ const { items, pallets, repository } = await import("../src/inventory-repository
 const { createSupabaseInventoryRepository } = await import("../src/supabase-inventory-repository.js");
 const { buildAnalytics } = await import("../src/analytics-model.js");
 const { reconcileEbayPreview } = await import("../src/ebay-reconciliation.js");
+const { buildEbayObservationRows } = await import("../src/marketplace-observation-model.js");
 if (typeof createSupabaseInventoryRepository !== "function") {
   throw new Error("Supabase inventory repository factory is unavailable.");
 }
@@ -34,6 +35,8 @@ const requiredFiles = [
   "src/repository-router.js",
   "src/analytics-model.js",
   "src/ebay-reconciliation.js",
+  "src/marketplace-observation-repository.js",
+  "src/marketplace-observation-model.js",
   "src/activity-panel.jsx",
   "src/pallet-manager.jsx",
   "src/dashboard-components.jsx",
@@ -119,6 +122,7 @@ for (const marker of [
   "Load next 50",
   "Reconciliation records",
   "All observed",
+  "Save audit snapshot",
   "/ebay/import-preview",
   "Report filters",
   "Category / item type",
@@ -172,7 +176,7 @@ const reconciliation = reconcileEbayPreview({
   offers: [{ sku: "pf-1" }, { sku: "", offerId: "offer-known" }, { sku: "PF-1", offerId: "offer-known" }],
   orders: [{ orderId: "order-1", lineItems: [{ sku: "PF-1" }, { sku: "", legacyItemId: "listing-known" }, { sku: "" }] }],
 }, [
-  { id: 1, sellerSku: "pf-1", available: 2 },
+  { id: 1, serverId: "inventory-server-1", sellerSku: "pf-1", available: 2 },
   { id: 2, sellerSku: "PF-2", available: 3 },
   { id: 3, sellerSku: "PF-DUPLICATE", available: 1 },
   { id: 4, sellerSku: "pf-duplicate", available: 1 },
@@ -190,6 +194,21 @@ if (reconciliation.offers[2].matchReason !== "identifier_conflict") {
 }
 if (reconciliation.inventory[4].matchReason !== "product_identifier") {
   throw new Error("eBay reconciliation did not match a normalized exact product identifier.");
+}
+const observationRows = buildEbayObservationRows({
+  businessId: "business-1",
+  ownerId: "owner-1",
+  accountId: "account-1",
+  runId: "run-1",
+  observedAt: "2026-10-10T12:00:00.000Z",
+  preview: { orders: [{ orderId: "order-1", raw: { preserved: true } }] },
+  reconciliation,
+});
+if (observationRows.length !== 12 || !observationRows.some((row) => row.resource_type === "order" && row.observed_payload.preserved === true)) {
+  throw new Error("Marketplace observation snapshot did not preserve normalized records and raw order evidence.");
+}
+if (!observationRows.some((row) => row.inventory_item_id && row.reconciliation_state === "matched")) {
+  throw new Error("Marketplace observation snapshot did not retain matched cloud inventory links.");
 }
 
 const snapshot = repository.getSnapshot();
