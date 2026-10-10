@@ -216,6 +216,12 @@ confirmed financial record. Direct marketplace decisions stay deferred until
 production-only Post-Order behavior and applicable digital-signature rules can
 be validated safely.
 
+The Returns workspace treats marketplace action deadlines as an operational
+queue. Open overdue cases sort first, followed by cases due within 24 hours,
+then undated open work; resolved and closed history remains available below
+active work. Deadline priority changes presentation only and never performs a
+marketplace action automatically.
+
 ## Local-to-Server IDs
 
 Current mobile data uses numeric item IDs and string pallet IDs. The server uses

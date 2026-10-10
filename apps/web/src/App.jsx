@@ -1290,22 +1290,34 @@ function ReturnsContent() {
     run(() => recordConfirmedReturnDecision({ returnId: returnEntry.id, decisionType: decisionType.trim().toLowerCase(), eventKey: `ebay-confirmed:${crypto.randomUUID()}`, notes: notes.trim() }));
   };
   const financialImpact = (returnEntry) => (returnEntry.return_financial_events ?? []).reduce((sum, event) => sum + (event.event_type === "fee_credit" ? Number(event.amount) : -Number(event.amount)), 0);
-  const urgent = returns.filter((entry) => entry.action_due_at && Date.parse(entry.action_due_at) <= Date.now() + 86400000 && !["resolved", "closed", "cancelled"].includes(entry.state)).length;
+  const closedReturnStates = ["resolved", "closed", "cancelled"];
+  const now = Date.now();
+  const activeReturns = returns.filter((entry) => !closedReturnStates.includes(entry.state));
+  const overdue = activeReturns.filter((entry) => entry.action_due_at && Date.parse(entry.action_due_at) < now).length;
+  const dueSoon = activeReturns.filter((entry) => entry.action_due_at && Date.parse(entry.action_due_at) >= now && Date.parse(entry.action_due_at) <= now + 86400000).length;
+  const sortedReturns = [...returns].sort((left, right) => {
+    const leftClosed = closedReturnStates.includes(left.state); const rightClosed = closedReturnStates.includes(right.state);
+    if (leftClosed !== rightClosed) return leftClosed ? 1 : -1;
+    const leftDeadline = left.action_due_at ? Date.parse(left.action_due_at) : Number.POSITIVE_INFINITY;
+    const rightDeadline = right.action_due_at ? Date.parse(right.action_due_at) : Number.POSITIVE_INFINITY;
+    return leftDeadline - rightDeadline || Date.parse(right.created_at) - Date.parse(left.created_at);
+  });
   const totalFinancialImpact = returns.reduce((sum, entry) => sum + financialImpact(entry), 0);
   const canRecordShipping = (entry) => !["received", "inspecting", "resolved", "closed", "cancelled"].includes(entry.state);
   return <div className="view-stack">
     <section className="metrics-grid">
-      <Metric label="Open returns" value={returns.filter((entry) => !["resolved", "closed", "cancelled"].includes(entry.state)).length} />
-      <Metric label="Due within 24 hours" value={urgent} tone={urgent ? "warning" : "success"} />
+      <Metric label="Open returns" value={activeReturns.length} />
+      <Metric label="Overdue actions" value={overdue} tone={overdue ? "warning" : "success"} />
+      <Metric label="Due next 24 hours" value={dueSoon} tone={dueSoon ? "warning" : "success"} />
       <Metric label="Resolved returns" value={returns.filter((entry) => entry.state === "resolved").length} />
       <Metric label="Return financial impact" value={currency(totalFinancialImpact)} tone={totalFinancialImpact < 0 ? "warning" : "success"} />
     </section>
     <section className="panel table-panel">
       <div className="panel-heading"><div><h3>Returns</h3><span>Returned inventory stays unavailable until receipt, inspection, and an explicit disposition.</span></div><button className="primary-button" type="button" disabled={working} onClick={createReturn}>Open manual return</button></div>
       {error && <p className="error-text">{error}</p>}
-      {returns.length === 0 ? <p className="empty-table-cell">No returns recorded.</p> : returns.map((entry) => <section className="sale-card" key={entry.id}><div>
+      {returns.length === 0 ? <p className="empty-table-cell">No returns recorded.</p> : sortedReturns.map((entry) => <section className="sale-card" key={entry.id}><div>
         <strong>Order {entry.orders?.external_order_id || entry.order_id} · {entry.state.replaceAll("_", " ")}</strong>
-        <span>{entry.reason || "No reason recorded"}{entry.action_due_at ? ` · action due ${new Date(entry.action_due_at).toLocaleString()}` : ""}</span>
+        <span>{entry.reason || "No reason recorded"}{entry.action_due_at ? ` · action due ${new Date(entry.action_due_at).toLocaleString()}` : ""}{entry.action_due_at && !closedReturnStates.includes(entry.state) && Date.parse(entry.action_due_at) < now ? " · OVERDUE" : entry.action_due_at && !closedReturnStates.includes(entry.state) && Date.parse(entry.action_due_at) <= now + 86400000 ? " · DUE SOON" : ""}</span>
         {entry.approved_resolution && <span>Confirmed outcome: {entry.approved_resolution.replaceAll("_", " ")}</span>}
         {(entry.return_decisions ?? []).length > 0 && <span>{entry.return_decisions.length} confirmed decision{entry.return_decisions.length === 1 ? "" : "s"} recorded</span>}
         {entry.tracking_number && <span>Return shipment: {entry.carrier} {entry.tracking_number} · paid by {entry.label_payer || "unknown"}{entry.label_cost !== null ? ` · ${currency(Number(entry.label_cost))}` : ""}</span>}
