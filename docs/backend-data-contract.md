@@ -110,6 +110,21 @@ visible. Due retries and stale claims can be run again without creating another
 job. An exhausted job requires explicit owner approval, resets its bounded
 attempt counter, and preserves the prior error in append-only audit history.
 
+## Shipping Foundation
+
+Shipping records use grams and millimeters as stable storage units while clients
+may present ounces, pounds, and inches. Optional item weight supports a packed
+weight estimate using a package preset's tare weight and packing allowance.
+`shipment_packages.measurement_state` keeps estimates visibly distinct from
+final measurements, which must be confirmed during fulfillment before label
+purchase. The model defaults to one package but supports multiple packages and
+partial line allocation without a later schema change.
+
+Launch shipment records cover pick, pack, ship-by, label handoff, tracking,
+delivery, and local-pickup confirmation. Label purchase remains in eBay. The
+schema reserves insurance fields, but recommendations and purchasing remain
+intentionally inactive.
+
 ## Local-to-Server IDs
 
 Current mobile data uses numeric item IDs and string pallet IDs. The server uses

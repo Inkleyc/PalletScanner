@@ -123,6 +123,10 @@ const finalUnitWithdrawal = await readFile(
   new URL("../supabase/migrations/202610100024_final_unit_withdrawal.sql", import.meta.url),
   "utf8",
 );
+const shippingFoundation = await readFile(
+  new URL("../supabase/migrations/202610100025_shipping_foundation.sql", import.meta.url),
+  "utf8",
+);
 
 for (const table of ["pallets", "inventory_items", "item_photos", "marketplace_listings", "sales", "activity_events"]) {
   if (!schema.includes(`create table public.${table}`)) {
@@ -204,6 +208,13 @@ for (const marker of ["retry_failed_marketplace_action_job", "status = 'failed' 
 }
 for (const marker of ["withdraw_listing", "desired_quantity = 0", "selected_action", "status = case when job_row.action_type = 'withdraw_listing' then 'ended'", "marketplace.final_unit_withdrawn"]) {
   if (!finalUnitWithdrawal.includes(marker)) throw new Error(`Final-unit withdrawal is missing safety marker: ${marker}`);
+}
+for (const table of ["package_presets", "shipments", "shipment_packages", "shipment_package_lines", "tracking_events"]) {
+  if (!shippingFoundation.includes(`create table public.${table}`)) throw new Error(`Shipping foundation is missing ${table}.`);
+  if (!shippingFoundation.includes(`alter table public.${table} enable row level security`)) throw new Error(`Shipping foundation is missing row-level security for ${table}.`);
+}
+for (const marker of ["item_weight_grams", "estimated_weight_grams", "final_weight_grams", "measurement_state", "ship_by_at", "local_pickup", "insurance_requested boolean not null default false"]) {
+  if (!shippingFoundation.includes(marker)) throw new Error(`Shipping foundation is missing contract marker: ${marker}`);
 }
 
 for (const marker of [
