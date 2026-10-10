@@ -157,6 +157,7 @@ for (const marker of [
   "Report shipment exception",
   "Record movement resumed",
   "Record tracking event",
+  "Item weight (oz, optional)",
   "eBay quantity protection",
   "never changes eBay without explicit approval",
   "Allow reviewed outbound actions",

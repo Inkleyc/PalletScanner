@@ -55,6 +55,7 @@ const itemDraft = (item) => ({
   quantity: String(getQuantity(item)),
   quantityReason: "",
   storageLocation: item.storageLocation ?? "",
+  itemWeightOz: item.itemWeightGrams ? String(Math.round((item.itemWeightGrams / 28.349523125) * 10) / 10) : "",
   low: String(price(item, "low")),
   high: String(price(item, "high")),
   floor: String(price(item, "floor")),
@@ -124,7 +125,7 @@ return <section className="photo-review"><div className="card-row"><div><strong>
 }
 
 function AddItemDialog({ pallets, activePalletId, onCancel, onCreate }) {
-  const [draft, setDraft] = useState({ name: "", category: "Uncategorized", palletId: activePalletId || pallets[0]?.id || "", condition: "Details need review", quantity: "1", low: "0", high: "0", floor: "0", platform: "Review", listing_title: "", listing_description: "", listing_title_ebay: "", listing_description_ebay: "", listing_title_facebook: "", listing_description_facebook: "" });
+  const [draft, setDraft] = useState({ name: "", category: "Uncategorized", palletId: activePalletId || pallets[0]?.id || "", condition: "Details need review", quantity: "1", itemWeightOz: "", low: "0", high: "0", floor: "0", platform: "Review", listing_title: "", listing_description: "", listing_title_ebay: "", listing_description_ebay: "", listing_title_facebook: "", listing_description_facebook: "" });
   const [photos, setPhotos] = useState([]);
   const [saving, setSaving] = useState(false);
   const [analyzing, setAnalyzing] = useState(false);
@@ -180,9 +181,11 @@ function AddItemDialog({ pallets, activePalletId, onCancel, onCreate }) {
   const submit = async (event) => {
     event.preventDefault();
     const quantity = Number(draft.quantity);
+    const itemWeightOz = draft.itemWeightOz.trim() === "" ? null : Number(draft.itemWeightOz);
     const low = Number(draft.low); const high = Number(draft.high); const floor = Number(draft.floor);
     if (!draft.palletId) return setError("Choose a pallet first.");
     if (!Number.isInteger(quantity) || quantity < 1) return setError("Quantity must be a whole number of at least 1.");
+    if (itemWeightOz !== null && (!Number.isFinite(itemWeightOz) || itemWeightOz <= 0)) return setError("Item weight must be blank or greater than zero.");
     if (![low, high, floor].every((value) => Number.isFinite(value) && value >= 0)) return setError("Prices must be valid non-negative numbers.");
     if (high < low) return setError("High price cannot be lower than low price.");
     setSaving(true); setError("");
@@ -194,6 +197,7 @@ function AddItemDialog({ pallets, activePalletId, onCancel, onCreate }) {
         condition: draft.condition.trim() || "Details need review",
         palletId: draft.palletId,
         quantity,
+        itemWeightGrams: itemWeightOz === null ? null : Math.round(itemWeightOz * 28.349523125),
         low, high, floor,
         low_price: low, high_price: high, floor_price: floor,
         listing_price: preferredListingPrice(low, high),
@@ -375,6 +379,7 @@ function InventoryDetail({ item, palletName, pallets, onSave, onRemove, onSaleRe
     const low = Number(draft.low);
     const high = Number(draft.high);
     const floor = Number(draft.floor);
+    const itemWeightOz = draft.itemWeightOz.trim() === "" ? null : Number(draft.itemWeightOz);
     const soldPrice = draft.soldPrice.trim() === "" ? null : Number(draft.soldPrice);
     const quantityChanged = quantity !== getQuantity(item);
     const persistedQuantity = item.quantity + (quantity - getQuantity(item));
@@ -383,6 +388,7 @@ function InventoryDetail({ item, palletName, pallets, onSave, onRemove, onSaleRe
     if (quantityChanged && !draft.quantityReason.trim()) return setError("Choose a reason whenever you change quantity.");
     if (![low, high, floor].every((value) => Number.isFinite(value) && value >= 0)) return setError("Prices must be valid non-negative numbers.");
     if (high < low) return setError("High price cannot be lower than low price.");
+    if (itemWeightOz !== null && (!Number.isFinite(itemWeightOz) || itemWeightOz <= 0)) return setError("Item weight must be blank or greater than zero.");
     if (soldPrice !== null && (!Number.isFinite(soldPrice) || soldPrice < 0)) return setError("Sold price must be blank or a valid non-negative number.");
     setSaving(true); setError("");
     try {
@@ -393,6 +399,7 @@ function InventoryDetail({ item, palletName, pallets, onSave, onRemove, onSaleRe
         condition: draft.condition.trim(),
         palletId: draft.palletId,
         storageLocation: locationTrackingEnabled ? draft.storageLocation.trim() || undefined : item.storageLocation,
+        itemWeightGrams: itemWeightOz === null ? null : Math.round(itemWeightOz * 28.349523125),
         quantity: persistedQuantity,
         low,
         high,
@@ -450,6 +457,7 @@ function InventoryDetail({ item, palletName, pallets, onSave, onRemove, onSaleRe
         <label><span>Pallet</span><select value={draft.palletId} onChange={update("palletId")}>{pallets.map((pallet) => <option key={pallet.id} value={pallet.id}>{pallet.name}</option>)}</select></label>
         {locationTrackingEnabled && <label><span>Storage location</span><input value={draft.storageLocation} onChange={update("storageLocation")} placeholder="Garage / Rack 2" /></label>}
         <label><span>Available quantity</span><input type="number" min="1" step="1" value={draft.quantity} onChange={update("quantity")} /></label>
+        <label><span>Item weight (oz, optional)</span><input type="number" min="0.1" step="0.1" value={draft.itemWeightOz} onChange={update("itemWeightOz")} /></label>
         {Number(draft.quantity) !== getQuantity(item) && <label className="wide-field"><span>Quantity adjustment reason</span><select required value={draft.quantityReason} onChange={update("quantityReason")}><option value="">Choose a reason</option><option>Count correction</option><option>Found additional units</option><option>Damaged or lost</option><option>Returned to supplier</option><option>Other manual adjustment</option></select></label>}
         <label><span>Low price</span><input type="number" min="0" step="0.01" value={draft.low} onChange={update("low")} /></label>
         <label><span>High price</span><input type="number" min="0" step="0.01" value={draft.high} onChange={update("high")} /></label>
