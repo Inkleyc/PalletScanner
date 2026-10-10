@@ -159,6 +159,10 @@ const manualReturnIntake = await readFile(
   new URL("../supabase/migrations/202610100033_manual_return_intake.sql", import.meta.url),
   "utf8",
 );
+const returnFinancialEvents = await readFile(
+  new URL("../supabase/migrations/202610100034_return_financial_events.sql", import.meta.url),
+  "utf8",
+);
 
 for (const table of ["pallets", "inventory_items", "item_photos", "marketplace_listings", "sales", "activity_events"]) {
   if (!schema.includes(`create table public.${table}`)) {
@@ -275,6 +279,9 @@ for (const marker of ["receive_return_line", "return_quarantine", "return.invent
 }
 for (const marker of ["create_manual_return", "Only shipped orders can start a return", "Open and completed returns cannot exceed", "manual:", "inventory_state", "return.manual_created"]) {
   if (!manualReturnIntake.includes(marker)) throw new Error(`Manual return intake is missing safety marker: ${marker}`);
+}
+for (const marker of ["record_return_financial_event", "partial_refund", "fee_credit", "external_event_id = trim(financial_event_key)", "return.financial_event_recorded"]) {
+  if (!returnFinancialEvents.includes(marker)) throw new Error(`Return financial command is missing safety marker: ${marker}`);
 }
 
 for (const marker of [

@@ -347,6 +347,13 @@ export const dispositionReturnLine = async ({ returnLineId, disposition, note })
   return result.data;
 };
 
+export const recordReturnFinancialEvent = async ({ returnId, type, amount, currency = "USD", eventKey, note = "", occurredAt = new Date().toISOString() }) => {
+  if (!supabase) throw new Error("Supabase is not configured for this dashboard.");
+  const result = await supabase.rpc("record_return_financial_event", { target_return_id: returnId, financial_event_type: type, financial_amount: amount, financial_currency: currency, financial_event_key: eventKey, financial_note: note, financial_occurred_at: occurredAt });
+  throwIfError(result);
+  return result.data;
+};
+
 export const listMarketplaceQuantityQueue = async () => {
   if (!supabase) throw new Error("Supabase is not configured for this dashboard.");
   const userResult = await supabase.auth.getUser();

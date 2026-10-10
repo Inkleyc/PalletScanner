@@ -179,6 +179,11 @@ by future eBay return imports. It accepts only a shipped order line, cannot
 exceed the sold quantity, and uses a client request key for idempotency. Creating
 the return still leaves its inventory unavailable until physical receipt.
 
+Return financial events are append-only and idempotent by external or client
+event key. Refunds, partial refunds, fee credits, return shipping, replacement
+shipping, and other adjustments remain separate from the original sale so
+realized reporting can show the complete economic history.
+
 ## Local-to-Server IDs
 
 Current mobile data uses numeric item IDs and string pallet IDs. The server uses

@@ -167,6 +167,7 @@ for (const marker of [
   "Condition received",
   "Choose disposition",
   "Due within 24 hours",
+  "Record refund or return cost",
   "eBay quantity protection",
   "never changes eBay without explicit approval",
   "Allow reviewed outbound actions",
