@@ -276,6 +276,37 @@ export const recordTrackingEvent = async ({ shipmentId, eventKey, status, descri
   return result.data;
 };
 
+export const listPackagePresets = async () => {
+  if (!supabase) throw new Error("Supabase is not configured for this dashboard.");
+  const userResult = await supabase.auth.getUser();
+  if (userResult.error || !userResult.data.user) throw new Error("Sign in to manage package presets.");
+  const result = await supabase.from("package_presets").select("*").eq("owner_id", userResult.data.user.id).eq("is_active", true).order("name");
+  throwIfError(result);
+  return result.data ?? [];
+};
+
+export const savePackagePreset = async ({ id = null, name, lengthMm, widthMm, heightMm, tareWeightGrams, packingAllowanceGrams, defaultSupplyCost }) => {
+  if (!supabase) throw new Error("Supabase is not configured for this dashboard.");
+  const userResult = await supabase.auth.getUser();
+  if (userResult.error || !userResult.data.user) throw new Error("Sign in to manage package presets.");
+  const ownerId = userResult.data.user.id;
+  const businessResult = await supabase.from("businesses").select("id").eq("owner_id", ownerId).single();
+  throwIfError(businessResult);
+  const values = { business_id: businessResult.data.id, owner_id: ownerId, name: name.trim(), length_mm: lengthMm, width_mm: widthMm, height_mm: heightMm, tare_weight_grams: tareWeightGrams, packing_allowance_grams: packingAllowanceGrams, default_supply_cost: defaultSupplyCost, is_active: true };
+  const result = id
+    ? await supabase.from("package_presets").update(values).eq("id", id).eq("owner_id", ownerId).select("*").single()
+    : await supabase.from("package_presets").insert(values).select("*").single();
+  throwIfError(result);
+  return result.data;
+};
+
+export const archivePackagePreset = async (presetId) => {
+  if (!supabase) throw new Error("Supabase is not configured for this dashboard.");
+  const result = await supabase.from("package_presets").update({ is_active: false }).eq("id", presetId).select("id").single();
+  throwIfError(result);
+  return result.data;
+};
+
 export const listMarketplaceQuantityQueue = async () => {
   if (!supabase) throw new Error("Supabase is not configured for this dashboard.");
   const userResult = await supabase.auth.getUser();

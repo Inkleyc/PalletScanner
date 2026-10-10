@@ -16,7 +16,7 @@ import { getRepositoryMode, repository, useCloudRepository, useLocalRepository }
 import { isSupabaseConfigured, supabase } from "./supabase.js";
 import { buildAnalytics } from "./analytics-model.js";
 import { reconcileEbayPreview } from "./ebay-reconciliation.js";
-import { confirmShipmentPackage, confirmShipmentPicked, confirmShipmentShipped, createUnverifiedInventoryFromObservation, getEbayMarketplaceControl, importObservedEbayOrders, listEbayObservationSnapshots, listImportedEbayOrders, listMarketplaceActionJobs, listMarketplaceQuantityQueue, loadEbayObservationSnapshot, matchImportedOrderLine, queueEbayQuantitySync, recordEbayReconciliationDecision, recordShipmentLabel, recordTrackingEvent, releaseCancelledOrderReservations, reserveImportedOrder, retryFailedMarketplaceActionJob, saveEbayObservationSnapshot, setEbayOutboundPause, startOrderFulfillment } from "./marketplace-observation-repository.js";
+import { archivePackagePreset, confirmShipmentPackage, confirmShipmentPicked, confirmShipmentShipped, createUnverifiedInventoryFromObservation, getEbayMarketplaceControl, importObservedEbayOrders, listEbayObservationSnapshots, listImportedEbayOrders, listMarketplaceActionJobs, listMarketplaceQuantityQueue, listPackagePresets, loadEbayObservationSnapshot, matchImportedOrderLine, queueEbayQuantitySync, recordEbayReconciliationDecision, recordShipmentLabel, recordTrackingEvent, releaseCancelledOrderReservations, reserveImportedOrder, retryFailedMarketplaceActionJob, saveEbayObservationSnapshot, savePackagePreset, setEbayOutboundPause, startOrderFulfillment } from "./marketplace-observation-repository.js";
 import { ActivityPanel } from "./activity-panel.jsx";
 import { PalletManager } from "./pallet-manager.jsx";
 import {
@@ -671,6 +671,38 @@ function QuantitySyncQueue() {
   </article>;
 }
 
+function PackagePresetSettings() {
+  const emptyDraft = { name: "", lengthIn: "", widthIn: "", heightIn: "", tareOz: "", allowanceOz: "", supplyCost: "" };
+  const [presets, setPresets] = useState(null);
+  const [draft, setDraft] = useState(emptyDraft);
+  const [open, setOpen] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+  const load = async () => { try { setPresets(await listPackagePresets()); } catch (loadError) { setError(loadError instanceof Error ? loadError.message : "Could not load package presets."); } };
+  useEffect(() => { if (getRepositoryMode() === "cloud") load(); }, []);
+  if (getRepositoryMode() !== "cloud") return null;
+  const save = async (event) => {
+    event.preventDefault();
+    const lengthIn = Number(draft.lengthIn); const widthIn = Number(draft.widthIn); const heightIn = Number(draft.heightIn);
+    const tareOz = Number(draft.tareOz); const allowanceOz = Number(draft.allowanceOz); const supplyCost = draft.supplyCost === "" ? null : Number(draft.supplyCost);
+    if (!draft.name.trim() || ![lengthIn, widthIn, heightIn].every((value) => Number.isFinite(value) && value > 0) || ![tareOz, allowanceOz].every((value) => Number.isFinite(value) && value >= 0) || (supplyCost !== null && (!Number.isFinite(supplyCost) || supplyCost < 0))) return setError("Enter a name, positive dimensions, and valid non-negative weights and cost.");
+    setSaving(true); setError("");
+    try {
+      await savePackagePreset({ name: draft.name, lengthMm: Math.round(lengthIn * 25.4), widthMm: Math.round(widthIn * 25.4), heightMm: Math.round(heightIn * 25.4), tareWeightGrams: Math.round(tareOz * 28.349523125), packingAllowanceGrams: Math.round(allowanceOz * 28.349523125), defaultSupplyCost: supplyCost });
+      setDraft(emptyDraft); setOpen(false); await load();
+    } catch (saveError) { setError(saveError instanceof Error ? saveError.message : "Could not save the package preset."); }
+    finally { setSaving(false); }
+  };
+  const archive = async (preset) => {
+    if (!window.confirm(`Archive package preset ${preset.name}? Existing shipments will retain it.`)) return;
+    setSaving(true); setError("");
+    try { await archivePackagePreset(preset.id); await load(); }
+    catch (archiveError) { setError(archiveError instanceof Error ? archiveError.message : "Could not archive the package preset."); }
+    finally { setSaving(false); }
+  };
+  return <section className="panel"><div className="panel-heading"><div><p className="eyebrow">Shipping setup</p><h3>Package presets</h3><span>Reusable box dimensions and packing weight improve estimates without replacing final measurements.</span></div><button className="primary-button" type="button" onClick={() => setOpen(true)}>Add package preset</button></div>{error && <p className="error-text">{error}</p>}<div className="check-list">{presets?.length ? presets.map((preset) => <div className="check-row" key={preset.id}><span className="check-dot ok" /><span><strong>{preset.name}</strong> · {Math.round((preset.length_mm / 25.4) * 10) / 10} × {Math.round((preset.width_mm / 25.4) * 10) / 10} × {Math.round((preset.height_mm / 25.4) * 10) / 10} in · {Math.round((preset.tare_weight_grams / 28.349523125) * 10) / 10} oz empty</span><button type="button" disabled={saving} onClick={() => archive(preset)}>Archive</button></div>) : <small>No package presets yet. You can still enter final measurements during fulfillment.</small>}</div>{open && <div className="modal-backdrop" role="presentation" onMouseDown={() => setOpen(false)}><form className="edit-modal item-edit-modal" role="dialog" aria-modal="true" aria-labelledby="package-preset-title" onSubmit={save} onMouseDown={(event) => event.stopPropagation()}><div><h3 id="package-preset-title">Add package preset</h3><p>Use the empty package weight plus a small allowance for tape and packing material.</p></div><div className="edit-grid"><label className="wide-field"><span>Name</span><input autoFocus required value={draft.name} onChange={(event) => setDraft((current) => ({ ...current, name: event.target.value }))} placeholder="12 × 10 × 8 box" /></label><label><span>Length (in)</span><input required type="number" min="0.1" step="0.1" value={draft.lengthIn} onChange={(event) => setDraft((current) => ({ ...current, lengthIn: event.target.value }))} /></label><label><span>Width (in)</span><input required type="number" min="0.1" step="0.1" value={draft.widthIn} onChange={(event) => setDraft((current) => ({ ...current, widthIn: event.target.value }))} /></label><label><span>Height (in)</span><input required type="number" min="0.1" step="0.1" value={draft.heightIn} onChange={(event) => setDraft((current) => ({ ...current, heightIn: event.target.value }))} /></label><label><span>Empty package (oz)</span><input required type="number" min="0" step="0.1" value={draft.tareOz} onChange={(event) => setDraft((current) => ({ ...current, tareOz: event.target.value }))} /></label><label><span>Packing allowance (oz)</span><input required type="number" min="0" step="0.1" value={draft.allowanceOz} onChange={(event) => setDraft((current) => ({ ...current, allowanceOz: event.target.value }))} /></label><label><span>Supply cost (optional)</span><input type="number" min="0" step="0.01" value={draft.supplyCost} onChange={(event) => setDraft((current) => ({ ...current, supplyCost: event.target.value }))} /></label></div>{error && <p className="error-text">{error}</p>}<div className="button-row"><button type="button" disabled={saving} onClick={() => setOpen(false)}>Cancel</button><button className="primary-button" type="submit" disabled={saving}>{saving ? "Saving..." : "Save package preset"}</button></div></form></div>}</section>;
+}
+
 function EbaySettings({ mode = "all" }) {
   const [baseUrl, setBaseUrl] = useState(() => readPreference("palletscanner.ebayApiBaseUrl", ""));
   const [token, setToken] = useState(() => sessionStorage.getItem("palletscanner.authToken") ?? "");
@@ -1000,6 +1032,7 @@ function AnalysisPanel({ snapshot }) {
 
 function OrdersPanel() {
   const [orders, setOrders] = useState([]);
+  const [packagePresets, setPackagePresets] = useState([]);
   const [selectedOrderId, setSelectedOrderId] = useState(null);
   const [matchTarget, setMatchTarget] = useState(null);
   const [matchItemId, setMatchItemId] = useState("");
@@ -1017,7 +1050,7 @@ function OrdersPanel() {
   useEffect(() => {
     let active = true;
     if (getRepositoryMode() !== "cloud") { setLoading(false); return () => { active = false; }; }
-    listImportedEbayOrders().then((rows) => { if (active) setOrders(rows); }).catch((loadError) => { if (active) setError(loadError instanceof Error ? loadError.message : "Could not load orders."); }).finally(() => { if (active) setLoading(false); });
+    Promise.all([listImportedEbayOrders(), listPackagePresets()]).then(([rows, presets]) => { if (active) { setOrders(rows); setPackagePresets(presets); } }).catch((loadError) => { if (active) setError(loadError instanceof Error ? loadError.message : "Could not load orders."); }).finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
   }, []);
   const saveMatch = async () => {
@@ -1044,8 +1077,19 @@ function OrdersPanel() {
   };
   const startFulfillment = async (order) => {
     if (!window.confirm("Start fulfillment for this reserved order? PalletFlip will create its pick and pack record. Missing package measurements will remain incomplete until confirmed.")) return;
+    let packagePresetId = null;
+    if (packagePresets.length > 0) {
+      const choices = packagePresets.map((preset, index) => `${index + 1}. ${preset.name}`).join("\n");
+      const selection = window.prompt(`Choose a package preset by number, or leave blank to measure during packing:\n\n${choices}`, "");
+      if (selection === null) return;
+      if (selection.trim()) {
+        const selectedIndex = Number(selection) - 1;
+        if (!Number.isInteger(selectedIndex) || !packagePresets[selectedIndex]) return setError("Choose a listed package preset number or leave the selection blank.");
+        packagePresetId = packagePresets[selectedIndex].id;
+      }
+    }
     setReservingOrder(true); setError("");
-    try { await startOrderFulfillment(order.id); await loadOrders(); }
+    try { await startOrderFulfillment(order.id, packagePresetId); await loadOrders(); }
     catch (fulfillmentError) { setError(fulfillmentError instanceof Error ? fulfillmentError.message : "Could not start fulfillment for this order."); }
     finally { setReservingOrder(false); }
   };
@@ -1344,7 +1388,7 @@ export function App() {
         </section>}
         {inventoryModalItem && <div className="modal-backdrop" role="presentation" onMouseDown={() => setInventoryModalId(null)}><div className="inventory-detail-modal" role="dialog" aria-modal="true" aria-label={`${inventoryModalItem.name} inventory record`} onMouseDown={(event) => event.stopPropagation()}><InventoryDetail item={inventoryModalItem} palletName={palletName(inventoryModalItem.palletId)} pallets={pallets} locationTrackingEnabled={locationTrackingEnabled} showWorkflowActions={false} onClose={() => setInventoryModalId(null)} onSave={async (item, options) => { await repository.saveItem(item, options); notify(item.archivedAt === null ? "Inventory item restored." : "Changes saved."); }} onRemove={async (id) => { await repository.removeItem(id); setInventoryModalId(null); notify("Inventory item archived."); }} onSaleRecorded={() => notify("Sale recorded. Analysis is updated.")} /></div></div>}
         {addingItem && <AddItemDialog pallets={pallets} activePalletId={snapshot.activePalletId} onCancel={() => setAddingItem(false)} onCreate={async (item) => { await repository.saveItem(item); setAddingItem(false); setInventoryModalId(item.id); notify("Item added. Add photos or edit its details."); }} />}
-        <div className="settings-mount" hidden={view !== "settings"}><div className="view-stack"><section className="panel"><div className="panel-heading"><div><p className="eyebrow">Inventory preferences</p><h3>Storage locations</h3><span>Optional for garages, shelves, bins, or racks.</span></div><label><input type="checkbox" checked={locationTrackingEnabled} onChange={(event) => setLocationTrackingEnabled(event.target.checked)} /> Enable location tracking</label></div></section><EbaySettings /><ActivityPanel snapshot={snapshot} /></div></div>
+        <div className="settings-mount" hidden={view !== "settings"}><div className="view-stack"><section className="panel"><div className="panel-heading"><div><p className="eyebrow">Inventory preferences</p><h3>Storage locations</h3><span>Optional for garages, shelves, bins, or racks.</span></div><label><input type="checkbox" checked={locationTrackingEnabled} onChange={(event) => setLocationTrackingEnabled(event.target.checked)} /> Enable location tracking</label></div></section><PackagePresetSettings /><EbaySettings /><ActivityPanel snapshot={snapshot} /></div></div>
         {toast && <div className="toast" role="status">{toast}</div>}
       </main>
     </div>
