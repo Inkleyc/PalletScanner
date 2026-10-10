@@ -18,11 +18,7 @@ import { LoadingStatus } from "@/components/loading-status";
 import { PhotoReferenceCards } from "@/components/photo-reference-cards";
 import { AppPalette } from "@/constants/app-palette";
 import {
-  ANTHROPIC_MODEL,
-  getAnalysisImageMediaType,
   isAnthropicConfigured,
-  parseAnthropicJsonObject,
-  requestAnthropicMessage,
 } from "@/lib/anthropic";
 import { AppAlert as Alert } from "@/lib/app-alert";
 import { incrementScanCount } from "@/lib/app-meta";
@@ -61,6 +57,7 @@ import {
   completeEbayListingRequirements,
   openListingDraft,
 } from "@/lib/listing-posting";
+import { analyzeResalePhotos } from "@/lib/photo-analysis";
 import {
   type CaptureAnalysisResult,
   parseMoneyAmount,
@@ -321,60 +318,7 @@ export default function CaptureScreen() {
     }
 
     try {
-      const imagesWithBase64 = images.filter(
-        (img) => typeof img.base64 === "string" && img.base64.trim().length > 0,
-      );
-      if (imagesWithBase64.length === 0) {
-        throw new Error(
-          "The selected photo did not include image data for analysis. Take the photo again or upload it from the library.",
-        );
-      }
-
-      const imageContent = imagesWithBase64.map((img) => {
-        const mediaType = getAnalysisImageMediaType(img.base64!, img.mimeType);
-        if (!mediaType) throw new Error("One of these photos is in HEIC or another unsupported format. Choose a JPEG, PNG, GIF, or WebP copy of that photo.");
-        return { type: "image", source: { type: "base64", media_type: mediaType, data: img.base64 } };
-      });
-
-      const text = await requestAnthropicMessage({
-          model: ANTHROPIC_MODEL,
-          max_tokens: 1000,
-          messages: [
-            {
-              role: "user",
-              content: [
-                ...imageContent,
-                {
-                  type: "text",
-                  text: `You are a resale expert. I am showing you ${images.length} photo(s) of the same item. Analyze it like a reseller preparing to list it online. Read labels, model numbers, packaging, and visible specifications carefully. For pricing, estimate a realistic low_price and high_price by checking the item against current eBay and Facebook Marketplace listings for identical or very similar items whenever that market context is available to you. Favor recent sold or active comparable listings, adjust for condition, brand, completeness, and visible wear, and make sure the suggested price range follows the real market rather than a generic guess. Also provide a floor_price, meaning the lowest reasonable price a seller should accept before walking away during negotiation. Include practical photo tips and a product-specific photo_shot_list with 3-6 concise views the seller should capture next, prioritizing identity, condition, included parts, and flaws. Also provide a sellability score based on condition, estimated demand, and effort versus return. Also write platform-specific listing copy for Facebook Marketplace and eBay. Include ebay_item_specifics containing only attributes supported by visible evidence, such as Brand, Model, Screen Size, Storage Capacity, Color, Size, Type, or MPN. Normalize measurements with units and do not guess. eBay titles should be keyword-heavy and concise; Facebook copy should sound a little more casual and local-buyer friendly. Then respond ONLY with raw JSON, no markdown:
-{
-  "name": "item name",
-  "description": "1-2 sentence description",
-  "condition": "New / Like New / Good / Fair",
-  "low_price": 10,
-  "high_price": 30,
-  "floor_price": 12,
-  "best_platform": "eBay",
-  "platform_reason": "one sentence why",
-  "listing_title": "SEO title under 80 chars",
-  "listing_description": "3-4 sentence listing description",
-  "listing_title_ebay": "SEO title under 80 chars for eBay",
-  "listing_description_ebay": "3-4 sentence eBay description",
-  "listing_title_facebook": "Facebook Marketplace title",
-  "listing_description_facebook": "3-4 sentence Facebook description",
-  "photo_tips": "short practical photo advice",
-  "photo_example_queries": ["query one", "query two"],
-  "photo_shot_list": ["Full front view", "Model label", "Visible wear or damage"],
-  "sellability_score": 7,
-  "sellability_reason": "one sentence why",
-  "ebay_item_specifics": { "Brand": "visible brand", "Model": "visible model" }
-}`,
-                },
-              ],
-            },
-          ],
-      });
-      const parsed = parseAnthropicJsonObject<CaptureAnalysisResult>(text);
+      const parsed = await analyzeResalePhotos(images);
       applyAnalysisResult(await completeEbayAnalysisRequirements(parsed));
       incrementScanCount();
       void triggerAnalysisCompleteFeedback();

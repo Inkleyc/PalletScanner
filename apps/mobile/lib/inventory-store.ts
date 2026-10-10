@@ -1,11 +1,11 @@
 import * as FileSystem from "expo-file-system/legacy";
 import { Platform } from "react-native";
 
+import { readWebStorage, writeWebStorage } from "@/lib/web-storage";
 import {
-  browserUriToDataUri,
-  readWebStorage,
-  writeWebStorage,
-} from "@/lib/web-storage";
+  deleteStoredInventoryPhoto,
+  storeInventoryPhoto,
+} from "@/lib/inventory-photo-storage";
 import type { InventoryItem, PalletSession } from "@palletscanner/core";
 
 type ResetBackup = {
@@ -33,7 +33,6 @@ type InventoryListener = () => void;
 const inventoryListeners = new Set<InventoryListener>();
 const inventoryFile = `${FileSystem.documentDirectory}inventory.json`;
 const activePalletFile = `${FileSystem.documentDirectory}active-pallet.txt`;
-const photosDirectory = `${FileSystem.documentDirectory}photos/`;
 const inventoryWebKey = "inventory";
 const activePalletWebKey = "active-pallet-id";
 const legacyPalletId = "pallet-1";
@@ -280,7 +279,6 @@ let activePalletId: string | null = null;
 let resetBackupState: ResetBackup | null = null;
 let resetBackupSummaryState: ResetBackupSummary | null = null;
 let hydratePromise: Promise<void> | null = null;
-let ensurePhotosDirectoryPromise: Promise<void> | null = null;
 
 const notifyInventoryListeners = () => {
   inventoryListeners.forEach((listener) => listener());
@@ -342,92 +340,6 @@ const hydrateActivePalletId = async () => {
     }
   } catch {
     // Fall back to the active pallet stored in the main inventory payload.
-  }
-};
-
-const ensurePhotosDirectory = async () => {
-  if (Platform.OS === "web") {
-    return;
-  }
-  if (!ensurePhotosDirectoryPromise) {
-    ensurePhotosDirectoryPromise = FileSystem.makeDirectoryAsync(photosDirectory, {
-      intermediates: true,
-    }).catch(() => {
-      ensurePhotosDirectoryPromise = null;
-    }) as Promise<void>;
-  }
-
-  await ensurePhotosDirectoryPromise;
-};
-
-const isManagedPhotoPath = (uri: string | null | undefined) =>
-  Boolean(uri && uri.startsWith(photosDirectory));
-
-const deleteManagedPhoto = async (uri: string | null | undefined) => {
-  if (Platform.OS === "web") {
-    return;
-  }
-  if (!isManagedPhotoPath(uri)) {
-    return;
-  }
-
-  try {
-    const info = await FileSystem.getInfoAsync(uri as string);
-    if (info.exists) {
-      await FileSystem.deleteAsync(uri as string, { idempotent: true });
-    }
-  } catch {
-    // Best effort cleanup.
-  }
-};
-
-const getPhotoExtension = (uri: string) => {
-  const sanitizedUri = uri.split("?")[0] ?? uri;
-  const filename = sanitizedUri.split("/").pop() ?? "";
-  const extension = filename.includes(".") ? filename.split(".").pop() : "";
-  if (!extension || extension.length > 5) {
-    return "jpg";
-  }
-  return extension.toLowerCase();
-};
-
-const persistPhotoUri = async (uri: string, itemId: number, index = 0) => {
-  if (Platform.OS === "web") {
-    try {
-      return await browserUriToDataUri(uri);
-    } catch {
-      return uri;
-    }
-  }
-  if (isManagedPhotoPath(uri)) {
-    return uri;
-  }
-
-  await ensurePhotosDirectory();
-  const extension = getPhotoExtension(uri);
-  const filename = `item-${itemId}-${index}-${Date.now()}.${extension}`;
-  const destination = `${photosDirectory}${filename}`;
-
-  try {
-    await FileSystem.copyAsync({
-      from: uri,
-      to: destination,
-    });
-    return destination;
-  } catch {
-    try {
-      const base64 = await FileSystem.readAsStringAsync(uri, {
-        encoding: FileSystem.EncodingType.Base64,
-      });
-      await FileSystem.writeAsStringAsync(destination, base64, {
-        encoding: FileSystem.EncodingType.Base64,
-      });
-      return destination;
-    } catch {
-      // Last-resort fallback: keep the original URI so saving the item still works
-      // even if this asset source cannot be copied into app storage on this device.
-      return uri;
-    }
   }
 };
 
@@ -629,7 +541,7 @@ export const saveInventoryItem = async (item: InventoryItem) => {
   const persistedPhotos = await Promise.all(
     sourcePhotos
       .slice(0, 5)
-      .map((photo, index) => persistPhotoUri(photo, normalizedItem.id, index)),
+      .map((photo, index) => storeInventoryPhoto(photo, normalizedItem.id, index)),
   );
   const persistedPhoto = persistedPhotos[0] ?? null;
 
@@ -662,7 +574,7 @@ export const saveInventoryItem = async (item: InventoryItem) => {
       : [];
   for (const existingPhoto of existingPhotos) {
     if (!persistedPhotos.includes(existingPhoto)) {
-      void deleteManagedPhoto(existingPhoto);
+      void deleteStoredInventoryPhoto(existingPhoto);
     }
   }
 };
@@ -675,7 +587,7 @@ export const removeInventoryItem = async (id: number) => {
     : existingItem?.photo
       ? [existingItem.photo]
       : [];
-  await Promise.all(existingPhotos.map((photo) => deleteManagedPhoto(photo)));
+  await Promise.all(existingPhotos.map((photo) => deleteStoredInventoryPhoto(photo)));
 };
 
 export const updateInventoryItemSoldPrice = (
@@ -768,7 +680,7 @@ export const deletePalletSession = (palletId: string) => {
         ? [item.photo]
         : [];
     itemPhotos.forEach((photo) => {
-      void deleteManagedPhoto(photo);
+      void deleteStoredInventoryPhoto(photo);
     });
   });
   return true;
