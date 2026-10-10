@@ -52,3 +52,16 @@ export const saveEbayObservationSnapshot = async ({ preview, reconciliation }) =
     throw error;
   }
 };
+
+export const listEbayObservationSnapshots = async () => {
+  if (!supabase) throw new Error("Supabase is not configured for this dashboard.");
+  const userResult = await supabase.auth.getUser();
+  if (userResult.error || !userResult.data.user) throw new Error("Sign in before viewing reconciliation history.");
+  const result = await supabase.from("marketplace_import_runs")
+    .select("id,status,inventory_count,offer_count,order_count,matched_count,uncertain_count,unmatched_count,conflicting_count,error_message,started_at,completed_at")
+    .eq("owner_id", userResult.data.user.id)
+    .order("started_at", { ascending: false })
+    .limit(10);
+  throwIfError(result);
+  return result.data ?? [];
+};

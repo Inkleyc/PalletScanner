@@ -16,7 +16,7 @@ import { getRepositoryMode, repository, useCloudRepository, useLocalRepository }
 import { isSupabaseConfigured, supabase } from "./supabase.js";
 import { buildAnalytics } from "./analytics-model.js";
 import { reconcileEbayPreview } from "./ebay-reconciliation.js";
-import { saveEbayObservationSnapshot } from "./marketplace-observation-repository.js";
+import { listEbayObservationSnapshots, saveEbayObservationSnapshot } from "./marketplace-observation-repository.js";
 import { ActivityPanel } from "./activity-panel.jsx";
 import { PalletManager } from "./pallet-manager.jsx";
 import {
@@ -583,6 +583,8 @@ function EbaySettings({ mode = "all" }) {
   const [importPreview, setImportPreview] = useState(null);
   const [previewLoading, setPreviewLoading] = useState(false);
   const [snapshotSaving, setSnapshotSaving] = useState(false);
+  const [savedSnapshots, setSavedSnapshots] = useState(null);
+  const [snapshotsLoading, setSnapshotsLoading] = useState(false);
   const [previewFilter, setPreviewFilter] = useState("review");
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
@@ -700,8 +702,17 @@ function EbaySettings({ mode = "all" }) {
     try {
       const result = await saveEbayObservationSnapshot({ preview: importPreview, reconciliation });
       setMessage(`Audit snapshot saved with ${result.observationCount} observed records.`);
+      try { setSavedSnapshots(await listEbayObservationSnapshots()); }
+      catch { setSavedSnapshots(null); }
     } catch (error) { setMessage(error instanceof Error ? error.message : "Could not save the audit snapshot."); }
     finally { setSnapshotSaving(false); }
+  };
+
+  const loadSavedSnapshots = async () => {
+    setSnapshotsLoading(true); setMessage("");
+    try { setSavedSnapshots(await listEbayObservationSnapshots()); }
+    catch (error) { setMessage(error instanceof Error ? error.message : "Could not load reconciliation history."); }
+    finally { setSnapshotsLoading(false); }
   };
   const messageIsSuccess = message.includes("saved") || message.includes("refreshed") || message.includes("restored");
 
@@ -791,8 +802,9 @@ function EbaySettings({ mode = "all" }) {
             <div className="check-list reconciliation-records">{visibleReconciliationRecords.length === 0 ? <small>No records in this view.</small> : visibleReconciliationRecords.map((record, index) => <div className="check-row" key={`${record.resourceType}-${record.external.offerId ?? record.external.lineItemId ?? record.external.sku ?? index}`}><span className={`check-dot ${record.state === "matched" ? "ok" : ""}`} /><span><strong>{record.external.sku || "No SKU"}</strong> · {record.resourceType} · {record.state.replaceAll("_", " ")}{record.matchReason === "external_id" ? " by known listing / offer ID" : record.matchReason === "product_identifier" ? " by exact product identifier" : ""}{record.quantityConflict ? ` · eBay ${record.external.quantity}, PalletFlip ${record.localItem?.available ?? record.localItem?.quantity ?? 0}` : ""}{record.external.title ? ` · ${record.external.title}` : ""}</span></div>)}</div>
             {filteredReconciliationRecords.length > 100 && <small>Showing the first 100 records in this view. Refine the filter to inspect the remainder.</small>}
             <div className="button-row">{hasMorePreviewRecords && <button type="button" onClick={() => loadImportPreview(true)} disabled={previewLoading}>{previewLoading ? "Reading next batch..." : "Load next 50"}</button>}<small>Fetched {new Date(importPreview.fetchedAt).toLocaleString()} · up to {importPreview.pagination?.limit ?? 50} more records per batch</small></div>
-            <button type="button" onClick={saveObservationSnapshot} disabled={snapshotSaving || getRepositoryMode() !== "cloud"}>{snapshotSaving ? "Saving audit snapshot..." : "Save audit snapshot"}</button>
+            <div className="button-row"><button type="button" onClick={saveObservationSnapshot} disabled={snapshotSaving || snapshotsLoading || getRepositoryMode() !== "cloud"}>{snapshotSaving ? "Saving audit snapshot..." : "Save audit snapshot"}</button><button type="button" onClick={loadSavedSnapshots} disabled={snapshotSaving || snapshotsLoading || getRepositoryMode() !== "cloud"}>{snapshotsLoading ? "Loading history..." : "View saved snapshots"}</button></div>
             {getRepositoryMode() !== "cloud" && <small>Sign in to cloud inventory to preserve this preview as append-only audit history.</small>}
+            {savedSnapshots && <div className="check-list reconciliation-records"><strong>Recent reconciliation snapshots</strong>{savedSnapshots.length === 0 ? <small>No audit snapshots saved yet.</small> : savedSnapshots.map((run) => <div className="check-row" key={run.id}><span className={`check-dot ${run.status === "completed" ? "ok" : ""}`} /><span><strong>{new Date(run.started_at).toLocaleString()}</strong> · {run.status} · {run.inventory_count} inventory · {run.offer_count} offers · {run.order_count} orders · {run.matched_count} matched · {Number(run.uncertain_count) + Number(run.unmatched_count) + Number(run.conflicting_count)} need review{run.error_message ? ` · ${run.error_message}` : ""}</span></div>)}</div>}
           </>}
         </article>}
         <div className="settings-group-heading"><h4>Data</h4><p>Keep a portable backup of your pallets and inventory.</p></div>

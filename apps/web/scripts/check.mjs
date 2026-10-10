@@ -123,6 +123,8 @@ for (const marker of [
   "Reconciliation records",
   "All observed",
   "Save audit snapshot",
+  "View saved snapshots",
+  "Recent reconciliation snapshots",
   "/ebay/import-preview",
   "Report filters",
   "Category / item type",
