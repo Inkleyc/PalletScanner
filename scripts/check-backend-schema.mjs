@@ -25,6 +25,13 @@ const quantityAwareSales = await readFile(
   ),
   "utf8",
 );
+const quantityAdjustmentReasons = await readFile(
+  new URL(
+    "../supabase/migrations/202610100005_quantity_adjustment_reasons.sql",
+    import.meta.url,
+  ),
+  "utf8",
+);
 
 for (const table of ["pallets", "inventory_items", "item_photos", "marketplace_listings", "sales", "activity_events"]) {
   if (!schema.includes(`create table public.${table}`)) {
@@ -62,6 +69,16 @@ for (const marker of [
 ]) {
   if (!inventoryAuthority.includes(marker)) {
     throw new Error(`Inventory authority schema is missing safety marker: ${marker}`);
+  }
+}
+
+for (const marker of [
+  "last_quantity_reason",
+  "adjustment_reason",
+  "nullif(trim(new.last_quantity_reason), '')",
+]) {
+  if (!quantityAdjustmentReasons.includes(marker)) {
+    throw new Error(`Quantity-reason schema is missing safety marker: ${marker}`);
   }
 }
 

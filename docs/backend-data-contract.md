@@ -30,6 +30,9 @@ and web migrate to explicit movement commands. Database triggers translate each
 insert or quantity delta into a receipt or correction movement and refresh the
 cached balances. Repeated upserts with an unchanged quantity do not create a
 movement. Reservation changes also refresh available and shortage balances.
+The web workhorse requires a reason for a manual available-quantity adjustment;
+the compatibility row carries that reason into the resulting correction
+movement. Automated mobile synchronization supplies its own source reason.
 
 Normal clients may append movements but cannot update or delete movement
 history through row-level-security policies.

@@ -64,12 +64,12 @@ export const createSupabaseInventoryRepository = (client) => {
       return clone(state);
     },
     subscribe(listener) { listeners.add(listener); return () => listeners.delete(listener); },
-    async saveItem(item) {
+    async saveItem(item, options = {}) {
       const user = await requireUser(client);
       const previousItem = state.items.find((entry) => entry.id === item.id);
       const pallet = state.pallets.find((entry) => entry.id === item.palletId);
       if (!pallet?.serverId) throw new Error("The selected cloud pallet was not found.");
-      const result = await client.from("inventory_items").upsert({ owner_id: user.id, pallet_id: pallet.serverId, client_id: item.id, name: item.name, product_barcode: item.barcode ?? null, category: item.category?.trim() || "Uncategorized", condition: item.condition, quantity: item.quantity, low_price: item.low_price, high_price: item.high_price, floor_price: item.floor_price, best_platform: item.best_platform, workflow_status: item.status ?? "captured", listing_title: item.listing_title, listing_description: item.listing_description, facebook_title: item.listing_title_facebook ?? null, facebook_description: item.listing_description_facebook ?? null, ebay_title: item.listing_title_ebay ?? null, ebay_description: item.listing_description_ebay ?? null, listed_platforms: item.listedPlatforms ?? [], sold_price: item.soldPrice }, { onConflict: "owner_id,client_id" }).select("id").single();
+      const result = await client.from("inventory_items").upsert({ owner_id: user.id, pallet_id: pallet.serverId, client_id: item.id, name: item.name, product_barcode: item.barcode ?? null, category: item.category?.trim() || "Uncategorized", condition: item.condition, quantity: item.quantity, last_quantity_reason: options.quantityReason?.trim() || null, low_price: item.low_price, high_price: item.high_price, floor_price: item.floor_price, best_platform: item.best_platform, workflow_status: item.status ?? "captured", listing_title: item.listing_title, listing_description: item.listing_description, facebook_title: item.listing_title_facebook ?? null, facebook_description: item.listing_description_facebook ?? null, ebay_title: item.listing_title_ebay ?? null, ebay_description: item.listing_description_ebay ?? null, listed_platforms: item.listedPlatforms ?? [], sold_price: item.soldPrice }, { onConflict: "owner_id,client_id" }).select("id").single();
       throwIfError(result);
       const listingRows = [];
       if (item.ebayStatus || item.ebayListingId || item.listedPlatforms?.includes("ebay")) {

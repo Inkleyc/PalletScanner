@@ -103,6 +103,7 @@ for (const marker of [
   "Record sale",
   "InventoryHistory",
   "History",
+  "Quantity adjustment reason",
   "Report filters",
   "Category / item type",
   "Export CSV report",
@@ -180,7 +181,7 @@ await repository.saveItem({
   quantity: 2,
   low: 60,
   low_price: 60,
-});
+}, { quantityReason: "Count correction" });
 const editedItem = repository.getSnapshot().items.find((item) => item.id === originalItem.id);
 if (editedItem?.name !== "Repository edit test" || editedItem.quantity !== 2 || editedItem.low_price !== 60) {
   throw new Error("Local repository did not persist an inventory edit.");
@@ -191,7 +192,7 @@ if (repositoryNotificationCount !== 1) {
 if (!(await repository.listActivity(String(originalItem.id))).some((event) => event.type === "item.updated")) {
   throw new Error("Local repository did not record inventory activity.");
 }
-if (!(await repository.listMovements(originalItem.id)).some((movement) => movement.type === "correction")) {
+if (!(await repository.listMovements(originalItem.id)).some((movement) => movement.type === "correction" && movement.reason === "Count correction")) {
   throw new Error("Local repository did not record a quantity correction movement.");
 }
 await repository.saveItem(originalItem);

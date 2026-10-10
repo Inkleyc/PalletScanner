@@ -103,7 +103,7 @@ export const repository = {
     listeners.add(listener);
     return () => listeners.delete(listener);
   },
-  async saveItem(item) {
+  async saveItem(item, options = {}) {
     const previousItem = items.find((entry) => entry.id === item.id);
     const normalizedItem = normalizeItem(clone(item));
     const index = items.findIndex((entry) => entry.id === item.id);
@@ -111,7 +111,7 @@ export const repository = {
       const quantityDelta = normalizedItem.quantity - previousItem.quantity;
       normalizedItem.onHand = Math.max((previousItem.onHand ?? previousItem.quantity) + quantityDelta, 0);
       normalizedItem.available = Math.max((previousItem.available ?? previousItem.quantity) + quantityDelta, 0);
-      state.movements.push({ id: `correction-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`, itemId: item.id, quantity: quantityDelta, type: "correction", reason: "Quantity edited", occurredAt: Date.now() });
+      state.movements.push({ id: `correction-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`, itemId: item.id, quantity: quantityDelta, type: "correction", reason: options.quantityReason?.trim() || "Quantity edited", occurredAt: Date.now() });
     }
     if (index < 0) {
       items.push(normalizedItem);

@@ -50,6 +50,7 @@ const itemDraft = (item) => ({
   condition: item.condition ?? "",
   palletId: item.palletId ?? "",
   quantity: String(getQuantity(item)),
+  quantityReason: "",
   low: String(price(item, "low")),
   high: String(price(item, "high")),
   floor: String(price(item, "floor")),
@@ -348,8 +349,11 @@ function InventoryDetail({ item, palletName, pallets, onSave, onRemove, onSaleRe
     const high = Number(draft.high);
     const floor = Number(draft.floor);
     const soldPrice = draft.soldPrice.trim() === "" ? null : Number(draft.soldPrice);
+    const quantityChanged = quantity !== getQuantity(item);
+    const persistedQuantity = item.quantity + (quantity - getQuantity(item));
     if (!draft.name.trim() || !draft.condition.trim()) return setError("Name and condition are required.");
     if (!Number.isInteger(quantity) || quantity < 1) return setError("Quantity must be a whole number of at least 1.");
+    if (quantityChanged && !draft.quantityReason.trim()) return setError("Choose a reason whenever you change quantity.");
     if (![low, high, floor].every((value) => Number.isFinite(value) && value >= 0)) return setError("Prices must be valid non-negative numbers.");
     if (high < low) return setError("High price cannot be lower than low price.");
     if (soldPrice !== null && (!Number.isFinite(soldPrice) || soldPrice < 0)) return setError("Sold price must be blank or a valid non-negative number.");
@@ -361,7 +365,7 @@ function InventoryDetail({ item, palletName, pallets, onSave, onRemove, onSaleRe
         category: draft.category.trim() || "Uncategorized",
         condition: draft.condition.trim(),
         palletId: draft.palletId,
-        quantity,
+        quantity: persistedQuantity,
         low,
         high,
         floor,
@@ -375,7 +379,7 @@ function InventoryDetail({ item, palletName, pallets, onSave, onRemove, onSaleRe
         listing_title: draft.listing_title.trim(),
         listing_description: draft.listing_description.trim(),
         ebayItemSpecifics: { ...(draft.ebayItemSpecifics ?? {}) },
-      });
+      }, { quantityReason: quantityChanged ? draft.quantityReason.trim() : undefined });
       setEditing(false);
     } catch (saveError) {
       setError(saveError instanceof Error ? saveError.message : "Could not save the item.");
@@ -401,7 +405,8 @@ function InventoryDetail({ item, palletName, pallets, onSave, onRemove, onSaleRe
         <label><span>Category</span><input value={draft.category} onChange={update("category")} placeholder="Tools, Electronics, Furniture…" /></label>
         <label><span>Condition</span><input value={draft.condition} onChange={update("condition")} /></label>
         <label><span>Pallet</span><select value={draft.palletId} onChange={update("palletId")}>{pallets.map((pallet) => <option key={pallet.id} value={pallet.id}>{pallet.name}</option>)}</select></label>
-        <label><span>Quantity</span><input type="number" min="1" step="1" value={draft.quantity} onChange={update("quantity")} /></label>
+        <label><span>Available quantity</span><input type="number" min="1" step="1" value={draft.quantity} onChange={update("quantity")} /></label>
+        {Number(draft.quantity) !== getQuantity(item) && <label className="wide-field"><span>Quantity adjustment reason</span><select required value={draft.quantityReason} onChange={update("quantityReason")}><option value="">Choose a reason</option><option>Count correction</option><option>Found additional units</option><option>Damaged or lost</option><option>Returned to supplier</option><option>Other manual adjustment</option></select></label>}
         <label><span>Low price</span><input type="number" min="0" step="0.01" value={draft.low} onChange={update("low")} /></label>
         <label><span>High price</span><input type="number" min="0" step="0.01" value={draft.high} onChange={update("high")} /></label>
         <label><span>Floor price</span><input type="number" min="0" step="0.01" value={draft.floor} onChange={update("floor")} /></label>
@@ -889,7 +894,7 @@ export function App() {
           <div className="inventory-workspace"><div className="table-scroll"><table><thead><tr><th><input type="checkbox" aria-label="Select all visible items" checked={visibleItems.length > 0 && visibleItems.every((item) => selectedIds.has(item.id))} onChange={(event) => setSelectedIds((current) => { const next = new Set(current); visibleItems.forEach((item) => event.target.checked ? next.add(item.id) : next.delete(item.id)); return next; })} /></th><th>Photo</th><th><SortButton column="name">Item</SortButton></th><th><SortButton column="pallet">Pallet</SortButton></th><th>Status</th><th>Platform</th><th><SortButton column="quantity">Qty</SortButton></th><th><SortButton column="age">Age</SortButton></th></tr></thead><tbody>{visibleItems.length === 0 ? <tr><td className="empty-table-cell" colSpan="8">No inventory matches these filters.</td></tr> : visibleItems.map((item) => <tr data-inventory-row tabIndex="0" key={item.id} onClick={() => setInventoryModalId(item.id)} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") setInventoryModalId(item.id); }}><td><input type="checkbox" aria-label={`Select ${item.name}`} checked={selectedIds.has(item.id)} onClick={(event) => event.stopPropagation()} onChange={() => toggleSelected(item.id)} /></td><td><ItemThumbnail item={item} /></td><td><strong>{item.name}</strong></td><td>{palletName(item.palletId)}</td><td><span className={`badge ${statusClass[getDisplayStatus(item)]}`}>{statusLabel[getDisplayStatus(item)]}</span></td><td>{getDisplayPlatform(item)}</td><td>{getQuantity(item)}</td><td>{getItemAgeDays(item)}d</td></tr>)}</tbody></table></div>
           </div>
         </section>}
-        {inventoryModalItem && <div className="modal-backdrop" role="presentation" onMouseDown={() => setInventoryModalId(null)}><div className="inventory-detail-modal" role="dialog" aria-modal="true" aria-label={`${inventoryModalItem.name} inventory record`} onMouseDown={(event) => event.stopPropagation()}><InventoryDetail item={inventoryModalItem} palletName={palletName(inventoryModalItem.palletId)} pallets={pallets} showWorkflowActions={false} onClose={() => setInventoryModalId(null)} onSave={async (item) => { await repository.saveItem(item); notify("Changes saved."); }} onRemove={async (id) => { await repository.removeItem(id); setInventoryModalId(null); notify("Inventory item removed."); }} onSaleRecorded={() => notify("Sale recorded. Analysis is updated.")} /></div></div>}
+        {inventoryModalItem && <div className="modal-backdrop" role="presentation" onMouseDown={() => setInventoryModalId(null)}><div className="inventory-detail-modal" role="dialog" aria-modal="true" aria-label={`${inventoryModalItem.name} inventory record`} onMouseDown={(event) => event.stopPropagation()}><InventoryDetail item={inventoryModalItem} palletName={palletName(inventoryModalItem.palletId)} pallets={pallets} showWorkflowActions={false} onClose={() => setInventoryModalId(null)} onSave={async (item, options) => { await repository.saveItem(item, options); notify("Changes saved."); }} onRemove={async (id) => { await repository.removeItem(id); setInventoryModalId(null); notify("Inventory item removed."); }} onSaleRecorded={() => notify("Sale recorded. Analysis is updated.")} /></div></div>}
         {addingItem && <AddItemDialog pallets={pallets} activePalletId={snapshot.activePalletId} onCancel={() => setAddingItem(false)} onCreate={async (item) => { await repository.saveItem(item); setAddingItem(false); setInventoryModalId(item.id); notify("Item added. Add photos or edit its details."); }} />}
         <div className="settings-mount" hidden={view !== "settings"}><div className="view-stack"><EbaySettings /><ActivityPanel snapshot={snapshot} /></div></div>
         {toast && <div className="toast" role="status">{toast}</div>}
