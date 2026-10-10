@@ -92,6 +92,10 @@ const normalizeInventoryItem = (item: InventoryItem): InventoryItem => ({
     typeof item.barcode === "string" && item.barcode.trim()
       ? item.barcode.trim()
       : undefined,
+  sellerSku:
+    typeof item.sellerSku === "string" && item.sellerSku.trim()
+      ? item.sellerSku.trim().toUpperCase()
+      : `PF-${item.id}`,
   condition: coerceText(item.condition, "Unknown"),
   low_price: coerceNumber(item.low_price, 0),
   high_price: coerceNumber(item.high_price, coerceNumber(item.low_price, 0)),

@@ -39,6 +39,13 @@ const optionalStorageLocations = await readFile(
   ),
   "utf8",
 );
+const automaticInventorySkus = await readFile(
+  new URL(
+    "../supabase/migrations/202610100007_automatic_inventory_skus.sql",
+    import.meta.url,
+  ),
+  "utf8",
+);
 
 for (const table of ["pallets", "inventory_items", "item_photos", "marketplace_listings", "sales", "activity_events"]) {
   if (!schema.includes(`create table public.${table}`)) {
@@ -81,6 +88,17 @@ for (const marker of [
 
 if (!optionalStorageLocations.includes("add column if not exists storage_location text")) {
   throw new Error("Optional storage-location schema is missing its inventory field.");
+}
+
+for (const marker of [
+  "assign_inventory_sku",
+  "inventory_items_assign_sku",
+  "automatic_sku_enabled",
+  "'PF-' || new.client_id::text",
+]) {
+  if (!automaticInventorySkus.includes(marker)) {
+    throw new Error(`Automatic SKU schema is missing safety marker: ${marker}`);
+  }
 }
 
 for (const marker of [

@@ -109,6 +109,7 @@ for (const marker of [
   "Restore item",
   "Enable location tracking",
   "Storage location",
+  "sellerSku",
   "Report filters",
   "Category / item type",
   "Export CSV report",
@@ -162,6 +163,9 @@ if (snapshot.items.length !== items.length || snapshot.pallets.length !== pallet
 }
 if (!snapshot.items.every((item) => Number.isFinite(item.low_price))) {
   throw new Error("Local repository did not normalize item prices to the shared model.");
+}
+if (!snapshot.items.every((item) => item.sellerSku?.startsWith("PF-"))) {
+  throw new Error("Local repository did not assign stable inventory SKUs.");
 }
 if (!snapshot.pallets.every((pallet) => "palletCost" in pallet)) {
   throw new Error("Local repository did not normalize pallet costs to the shared model.");

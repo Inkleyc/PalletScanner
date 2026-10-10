@@ -14,6 +14,7 @@ const looseItemsPallet = {
 const clone = (value) => JSON.parse(JSON.stringify(value));
 const normalizeItem = (item) => ({
   ...item,
+  sellerSku: item.sellerSku?.trim().toUpperCase() || `PF-${item.id}`,
   low_price: Number.isFinite(item.low_price) ? item.low_price : item.low ?? 0,
   high_price: Number.isFinite(item.high_price) ? item.high_price : item.high ?? 0,
   listing_price: Number.isFinite(item.listing_price) ? item.listing_price : (item.high_price ?? item.high ?? 0),

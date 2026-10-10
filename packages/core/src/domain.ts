@@ -34,6 +34,7 @@ export type InventoryItem = {
   photos?: string[];
   name: string;
   barcode?: string;
+  sellerSku?: string;
   category?: string;
   condition: string;
   quantity: number;
