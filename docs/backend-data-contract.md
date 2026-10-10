@@ -127,6 +127,15 @@ payload are linked to the created inventory record automatically. That listing
 remains `sync_paused`; physical verification does not silently enable outbound
 marketplace changes.
 
+## Observe-Only Orders
+
+Imported orders and order lines have stable external identifiers and preserve
+their raw marketplace payloads. Reprocessing the same eBay order or line cannot
+create duplicates. Each line carries an independent inventory match state, so
+one unmatched SKU does not hide the rest of a multi-line order. This foundation
+does not yet reserve inventory; reservation automation remains gated behind the
+order-import validation phase.
+
 ## Adapter Mapping
 
 The future Supabase repository adapter will implement the existing

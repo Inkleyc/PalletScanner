@@ -83,6 +83,10 @@ const legacyQuantitySync = await readFile(
   new URL("../supabase/migrations/202610100014_keep_legacy_quantity_in_sync.sql", import.meta.url),
   "utf8",
 );
+const orderImportFoundation = await readFile(
+  new URL("../supabase/migrations/202610100015_order_import_foundation.sql", import.meta.url),
+  "utf8",
+);
 
 for (const table of ["pallets", "inventory_items", "item_photos", "marketplace_listings", "sales", "activity_events"]) {
   if (!schema.includes(`create table public.${table}`)) {
@@ -131,6 +135,12 @@ for (const marker of ["link_imported_marketplace_listing", "inventory_items_link
 }
 for (const marker of ["palletflip.skip_quantity_audit", "quantity = calculated_on_hand", "item-quantity-correction:", "set_config('palletflip.skip_quantity_audit', 'off'"]) {
   if (!legacyQuantitySync.includes(marker)) throw new Error(`Legacy quantity synchronization is missing safety marker: ${marker}`);
+}
+for (const table of ["orders", "order_lines"]) {
+  if (!orderImportFoundation.includes(`create table public.${table}`) || !orderImportFoundation.includes(`alter table public.${table} enable row level security`)) throw new Error(`Order import foundation is missing ${table}.`);
+}
+for (const marker of ["unique (business_id, source, external_order_id)", "unique (order_id, external_line_id)", "match_state in ('matched', 'uncertain', 'unmatched', 'conflicting')", "Reservation automation remains disabled"]) {
+  if (!orderImportFoundation.includes(marker)) throw new Error(`Order import foundation is missing safety marker: ${marker}`);
 }
 
 for (const marker of [
