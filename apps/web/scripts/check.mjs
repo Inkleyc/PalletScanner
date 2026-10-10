@@ -148,6 +148,8 @@ for (const marker of [
   "Add evidence",
   "Identity mismatch · quarantine locked",
   "Both serial numbers are required for identity comparison",
+  "Resolve identity discrepancy",
+  "This will permanently block restock",
   "Observed eBay orders",
   "Lines needing match",
   "This records identity only; it does not reserve or reduce stock",

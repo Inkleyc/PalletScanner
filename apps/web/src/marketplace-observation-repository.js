@@ -360,7 +360,7 @@ export const listReturns = async () => {
   const userResult = await supabase.auth.getUser();
   if (userResult.error || !userResult.data.user) throw new Error("Sign in to manage returns.");
   const result = await supabase.from("returns")
-    .select("*, orders(external_order_id), return_lines(*, order_lines(title,seller_sku), return_inspections(*)), return_financial_events(*), return_decisions(*), return_communications(*), return_evidence(*)")
+    .select("*, orders(external_order_id), return_lines(*, order_lines(title,seller_sku), return_inspections(*), return_identity_resolutions(*)), return_financial_events(*), return_decisions(*), return_communications(*), return_evidence(*)")
     .eq("owner_id", userResult.data.user.id)
     .order("created_at", { ascending: false });
   throwIfError(result);
@@ -405,6 +405,13 @@ export const uploadReturnEvidence = async ({ returnId, returnLineId, evidenceTyp
     throw rowResult.error;
   }
   return rowResult.data;
+};
+
+export const resolveReturnIdentityDiscrepancy = async ({ returnLineId, resolutionType, notes }) => {
+  if (!supabase) throw new Error("Supabase is not configured for this dashboard.");
+  const result = await supabase.rpc("resolve_return_identity_discrepancy", { target_return_line_id: returnLineId, selected_resolution: resolutionType, resolution_notes: notes });
+  throwIfError(result);
+  return result.data;
 };
 
 export const dispositionReturnLine = async ({ returnLineId, disposition, note }) => {

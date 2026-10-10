@@ -237,6 +237,13 @@ evidence, forces the recommended disposition to quarantine, raises the return
 to `exception`, and is protected by a database trigger that prevents any
 restock or other disposition until a separate discrepancy resolution occurs.
 
+Identity discrepancy resolution is itself a protected, append-only decision.
+`identity_verified` permits the normal disposition choices only after the owner
+confirms the unit was verified. `wrong_item_nonstock` permanently prevents
+restock, revise, and repair; it permits only parts, supplier return, discard,
+or loss. The database trigger enforces this distinction even if a client skips
+the interface.
+
 ## Local-to-Server IDs
 
 Current mobile data uses numeric item IDs and string pallet IDs. The server uses
