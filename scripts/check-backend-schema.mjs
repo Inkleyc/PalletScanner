@@ -175,6 +175,10 @@ const returnCommunications = await readFile(
   new URL("../supabase/migrations/202610100037_return_communications.sql", import.meta.url),
   "utf8",
 );
+const returnIdentityEvidence = await readFile(
+  new URL("../supabase/migrations/202610100038_return_identity_evidence.sql", import.meta.url),
+  "utf8",
+);
 
 for (const table of ["pallets", "inventory_items", "item_photos", "marketplace_listings", "sales", "activity_events"]) {
   if (!schema.includes(`create table public.${table}`)) {
@@ -303,6 +307,9 @@ for (const marker of ["create table public.return_decisions", "record_confirmed_
 }
 for (const marker of ["create table public.return_communications", "record_return_communication", "Confirm the message exists in eBay", "unique (return_id, external_event_id)", "message_submitted_by_palletflip', false", "return.communication_recorded"]) {
   if (!returnCommunications.includes(marker)) throw new Error(`Return communication history is missing safety marker: ${marker}`);
+}
+for (const marker of ["serial_number", "create table public.return_evidence", "return-evidence", "inspect_return_line_with_identity", "Both serial numbers are required", "photo evidence is required", "identity_mismatch_quarantined", "protect_mismatched_return_disposition", "must remain quarantined", "revoke execute on function public.inspect_return_line"]) {
+  if (!returnIdentityEvidence.includes(marker)) throw new Error(`Return identity evidence is missing safety marker: ${marker}`);
 }
 
 for (const marker of [

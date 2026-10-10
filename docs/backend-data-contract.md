@@ -229,6 +229,14 @@ direction, source, body, and timestamp but never claims to have sent the
 message. Direct message submission remains behind the same production API and
 digital-signature validation gate as return decisions.
 
+Return evidence uses a private `return-evidence` bucket with owner-scoped object
+paths and an owner-scoped metadata table. Evidence is linked to the return and,
+when applicable, its specific line. Inspection can compare the original and
+returned serial numbers. A recorded mismatch requires serial or item-photo
+evidence, forces the recommended disposition to quarantine, raises the return
+to `exception`, and is protected by a database trigger that prevents any
+restock or other disposition until a separate discrepancy resolution occurs.
+
 ## Local-to-Server IDs
 
 Current mobile data uses numeric item IDs and string pallet IDs. The server uses

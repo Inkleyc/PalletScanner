@@ -16,7 +16,7 @@ import { getRepositoryMode, repository, useCloudRepository, useLocalRepository }
 import { isSupabaseConfigured, supabase } from "./supabase.js";
 import { buildAnalytics } from "./analytics-model.js";
 import { reconcileEbayPreview } from "./ebay-reconciliation.js";
-import { archivePackagePreset, confirmShipmentPackage, confirmShipmentPicked, confirmShipmentShipped, createManualReturn, createUnverifiedInventoryFromObservation, dispositionReturnLine, getEbayMarketplaceControl, importObservedEbayOrders, importObservedEbayReturns, inspectReturnLine, listEbayObservationSnapshots, listImportedEbayOrders, listMarketplaceActionJobs, listMarketplaceQuantityQueue, listPackagePresets, listReturns, loadEbayObservationSnapshot, matchImportedOrderLine, queueEbayQuantitySync, receiveReturnLine, recordConfirmedReturnDecision, recordEbayReconciliationDecision, recordReturnCommunication, recordReturnFinancialEvent, recordReturnShippingHandoff, recordShipmentLabel, recordTrackingEvent, releaseCancelledOrderReservations, reserveImportedOrder, retryFailedMarketplaceActionJob, saveEbayObservationSnapshot, savePackagePreset, setEbayOutboundPause, startOrderFulfillment } from "./marketplace-observation-repository.js";
+import { archivePackagePreset, confirmShipmentPackage, confirmShipmentPicked, confirmShipmentShipped, createManualReturn, createUnverifiedInventoryFromObservation, dispositionReturnLine, getEbayMarketplaceControl, importObservedEbayOrders, importObservedEbayReturns, inspectReturnLine, listEbayObservationSnapshots, listImportedEbayOrders, listMarketplaceActionJobs, listMarketplaceQuantityQueue, listPackagePresets, listReturns, loadEbayObservationSnapshot, matchImportedOrderLine, queueEbayQuantitySync, receiveReturnLine, recordConfirmedReturnDecision, recordEbayReconciliationDecision, recordReturnCommunication, recordReturnFinancialEvent, recordReturnShippingHandoff, recordShipmentLabel, recordTrackingEvent, releaseCancelledOrderReservations, reserveImportedOrder, retryFailedMarketplaceActionJob, saveEbayObservationSnapshot, savePackagePreset, setEbayOutboundPause, startOrderFulfillment, uploadReturnEvidence } from "./marketplace-observation-repository.js";
 import { ActivityPanel } from "./activity-panel.jsx";
 import { PalletManager } from "./pallet-manager.jsx";
 import {
@@ -1234,6 +1234,8 @@ function ReturnsContent() {
   const [orders, setOrders] = useState([]);
   const [working, setWorking] = useState(false);
   const [error, setError] = useState("");
+  const [evidenceTarget, setEvidenceTarget] = useState(null);
+  const evidenceInput = useRef(null);
   const load = async () => { const [returnRows, orderRows] = await Promise.all([listReturns(), listImportedEbayOrders()]); setReturns(returnRows); setOrders(orderRows); };
   useEffect(() => { if (getRepositoryMode() === "cloud") load().catch((loadError) => setError(loadError instanceof Error ? loadError.message : "Could not load returns.")); }, []);
   if (getRepositoryMode() !== "cloud") return <section className="panel getting-started"><h3>Returns require cloud inventory</h3><p>Sign in from Settings to preserve order and return history.</p></section>;
@@ -1257,9 +1259,28 @@ function ReturnsContent() {
   const inspect = (line) => {
     const condition = window.prompt("Condition received", "Used - returned"); if (!condition?.trim()) return;
     const completeness = window.prompt("Completeness / included parts", "Complete"); if (completeness === null) return;
+    const identityResult = window.prompt("Identity check: not_applicable, not_checked, match, or mismatch", "not_applicable"); if (!identityResult?.trim()) return;
+    let originalSerial = ""; let returnedSerial = "";
+    if (["match", "mismatch"].includes(identityResult.trim().toLowerCase())) {
+      originalSerial = window.prompt("Original sold-item serial number", "") || "";
+      returnedSerial = window.prompt("Returned-item serial number", "") || "";
+      if (!originalSerial.trim() || !returnedSerial.trim()) return setError("Both serial numbers are required for identity comparison.");
+    }
     const recommendation = window.prompt("Recommended disposition: restock, revise, repair, parts, quarantine, supplier_return, discard, or loss", "restock"); if (!recommendation?.trim()) return;
     const notes = window.prompt("Inspection notes", "Inspection completed"); if (notes === null) return;
-    run(() => inspectReturnLine({ returnLineId: line.id, condition: condition.trim(), completeness: completeness.trim(), notes: notes.trim(), recommendation: recommendation.trim().toLowerCase() }));
+    run(() => inspectReturnLine({ returnLineId: line.id, condition: condition.trim(), completeness: completeness.trim(), notes: notes.trim(), recommendation: recommendation.trim().toLowerCase(), originalSerial: originalSerial.trim(), returnedSerial: returnedSerial.trim(), identityResult: identityResult.trim().toLowerCase() }));
+  };
+  const chooseEvidence = (returnEntry, line) => {
+    const evidenceType = window.prompt("Evidence type: package, item, serial, damage, missing_parts, or other", "item");
+    if (!evidenceType?.trim()) return;
+    setEvidenceTarget({ returnId: returnEntry.id, returnLineId: line.id, evidenceType: evidenceType.trim().toLowerCase() });
+    evidenceInput.current?.click();
+  };
+  const saveEvidence = async (event) => {
+    const file = event.target.files?.[0]; event.target.value = "";
+    if (!file || !evidenceTarget) return;
+    await run(() => uploadReturnEvidence({ ...evidenceTarget, file }));
+    setEvidenceTarget(null);
   };
   const disposition = (line) => {
     const latest = [...(line.return_inspections ?? [])].sort((left, right) => Date.parse(right.inspected_at) - Date.parse(left.inspected_at))[0];
@@ -1330,10 +1351,11 @@ function ReturnsContent() {
         {entry.tracking_number && <span>Return shipment: {entry.carrier} {entry.tracking_number} · paid by {entry.label_payer || "unknown"}{entry.label_cost !== null ? ` · ${currency(Number(entry.label_cost))}` : ""}</span>}
         {entry.return_financial_events.length > 0 && <span>{entry.return_financial_events.map((financialEvent) => `${financialEvent.event_type.replaceAll("_", " ")} ${currency(Number(financialEvent.amount))}`).join(" · ")}</span>}
         {entry.return_financial_events.length > 0 && <span>Recorded return impact: {currency(financialImpact(entry))}</span>}
-        {entry.return_lines.map((line) => <div className="check-row" key={line.id}><span className={`check-dot ${["restocked", "revised", "repaired", "parts", "supplier_return", "discarded", "lost"].includes(line.inventory_state) ? "ok" : ""}`} /><span>{line.order_lines?.seller_sku || line.order_lines?.title || "Returned item"} · qty {line.quantity} · {line.inventory_state.replaceAll("_", " ")}</span>{line.inventory_state === "unavailable" && <button type="button" disabled={working} onClick={() => receive(line)}>Receive</button>}{line.inventory_state === "quarantined" && line.return_inspections.length === 0 && <button type="button" disabled={working} onClick={() => inspect(line)}>Inspect</button>}{line.inventory_state === "quarantined" && line.return_inspections.length > 0 && <button className="primary-button" type="button" disabled={working} onClick={() => disposition(line)}>Choose disposition</button>}</div>)}
+        {entry.return_lines.map((line) => { const latestInspection = [...(line.return_inspections ?? [])].sort((left, right) => Date.parse(right.inspected_at) - Date.parse(left.inspected_at))[0]; const evidenceCount = (entry.return_evidence ?? []).filter((evidence) => evidence.return_line_id === line.id).length; return <div className="check-row" key={line.id}><span className={`check-dot ${["restocked", "revised", "repaired", "parts", "supplier_return", "discarded", "lost"].includes(line.inventory_state) ? "ok" : ""}`} /><span>{line.order_lines?.seller_sku || line.order_lines?.title || "Returned item"} · qty {line.quantity} · {line.inventory_state.replaceAll("_", " ")}{latestInspection?.identity_result ? ` · identity ${latestInspection.identity_result.replaceAll("_", " ")}` : ""} · {evidenceCount} evidence file{evidenceCount === 1 ? "" : "s"}</span><button type="button" disabled={working} onClick={() => chooseEvidence(entry, line)}>Add evidence</button>{line.inventory_state === "unavailable" && <button type="button" disabled={working} onClick={() => receive(line)}>Receive</button>}{line.inventory_state === "quarantined" && line.return_inspections.length === 0 && <button type="button" disabled={working} onClick={() => inspect(line)}>Inspect</button>}{line.inventory_state === "quarantined" && line.return_inspections.length > 0 && latestInspection?.identity_result !== "mismatch" && <button className="primary-button" type="button" disabled={working} onClick={() => disposition(line)}>Choose disposition</button>}{latestInspection?.identity_result === "mismatch" && <span className="badge warning">Identity mismatch · quarantine locked</span>}</div>; })}
         <div className="button-row">{["requested", "action_required"].includes(entry.state) && <button className="primary-button" type="button" disabled={working} onClick={() => recordDecision(entry)}>Record confirmed eBay decision</button>}<button type="button" disabled={working} onClick={() => recordCommunication(entry)}>Record eBay message</button>{canRecordShipping(entry) && <button type="button" disabled={working || Boolean(entry.tracking_number)} onClick={() => recordReturnShipping(entry)}>{entry.tracking_number ? "Return shipment recorded" : "Record eBay return label"}</button>}<button type="button" disabled={working} onClick={() => recordMoney(entry)}>Record refund or return cost</button></div>
       </div></section>)}
       {returns.length > 0 && <p className="analysis-disclaimer">Return financial impact is an operational estimate from recorded return events, not accounting or tax advice.</p>}
+      <input ref={evidenceInput} className="visually-hidden" type="file" accept="image/*,.pdf" onChange={saveEvidence} />
     </section>
   </div>;
 }

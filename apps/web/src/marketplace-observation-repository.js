@@ -360,7 +360,7 @@ export const listReturns = async () => {
   const userResult = await supabase.auth.getUser();
   if (userResult.error || !userResult.data.user) throw new Error("Sign in to manage returns.");
   const result = await supabase.from("returns")
-    .select("*, orders(external_order_id), return_lines(*, order_lines(title,seller_sku), return_inspections(*)), return_financial_events(*), return_decisions(*), return_communications(*)")
+    .select("*, orders(external_order_id), return_lines(*, order_lines(title,seller_sku), return_inspections(*)), return_financial_events(*), return_decisions(*), return_communications(*), return_evidence(*)")
     .eq("owner_id", userResult.data.user.id)
     .order("created_at", { ascending: false });
   throwIfError(result);
@@ -381,11 +381,30 @@ export const receiveReturnLine = async ({ returnLineId, note }) => {
   return result.data;
 };
 
-export const inspectReturnLine = async ({ returnLineId, condition, completeness, notes, recommendation }) => {
+export const inspectReturnLine = async ({ returnLineId, condition, completeness, notes, recommendation, originalSerial = "", returnedSerial = "", identityResult = "not_checked" }) => {
   if (!supabase) throw new Error("Supabase is not configured for this dashboard.");
-  const result = await supabase.rpc("inspect_return_line", { target_return_line_id: returnLineId, received_condition: condition, received_completeness: completeness, inspection_notes: notes, disposition_recommendation: recommendation });
+  const result = await supabase.rpc("inspect_return_line_with_identity", { target_return_line_id: returnLineId, received_condition: condition, received_completeness: completeness, inspection_notes: notes, disposition_recommendation: recommendation, original_serial: originalSerial, returned_serial: returnedSerial, inspected_identity_result: identityResult });
   throwIfError(result);
   return result.data;
+};
+
+export const uploadReturnEvidence = async ({ returnId, returnLineId, evidenceType, file }) => {
+  if (!supabase) throw new Error("Supabase is not configured for this dashboard.");
+  const userResult = await supabase.auth.getUser();
+  if (userResult.error || !userResult.data.user) throw new Error("Sign in before uploading return evidence.");
+  const ownerId = userResult.data.user.id;
+  const returnResult = await supabase.from("returns").select("id,business_id").eq("id", returnId).eq("owner_id", ownerId).single();
+  throwIfError(returnResult);
+  const safeName = file.name.replace(/[^a-zA-Z0-9._-]+/g, "-").slice(-120) || "evidence";
+  const storagePath = `${ownerId}/${returnId}/${crypto.randomUUID()}-${safeName}`;
+  const uploadResult = await supabase.storage.from("return-evidence").upload(storagePath, file, { contentType: file.type || undefined, upsert: false });
+  throwIfError(uploadResult);
+  const rowResult = await supabase.from("return_evidence").insert({ business_id: returnResult.data.business_id, owner_id: ownerId, return_id: returnId, return_line_id: returnLineId, evidence_type: evidenceType, storage_path: storagePath, file_name: file.name, content_type: file.type || null }).select("*").single();
+  if (rowResult.error) {
+    await supabase.storage.from("return-evidence").remove([storagePath]);
+    throw rowResult.error;
+  }
+  return rowResult.data;
 };
 
 export const dispositionReturnLine = async ({ returnLineId, disposition, note }) => {
