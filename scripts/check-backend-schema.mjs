@@ -46,6 +46,13 @@ const automaticInventorySkus = await readFile(
   ),
   "utf8",
 );
+const inventoryReservationCommands = await readFile(
+  new URL(
+    "../supabase/migrations/202610100008_inventory_reservation_commands.sql",
+    import.meta.url,
+  ),
+  "utf8",
+);
 
 for (const table of ["pallets", "inventory_items", "item_photos", "marketplace_listings", "sales", "activity_events"]) {
   if (!schema.includes(`create table public.${table}`)) {
@@ -83,6 +90,20 @@ for (const marker of [
 ]) {
   if (!inventoryAuthority.includes(marker)) {
     throw new Error(`Inventory authority schema is missing safety marker: ${marker}`);
+  }
+}
+
+for (const marker of [
+  "reserve_inventory",
+  "release_inventory_reservation",
+  "for update",
+  "least(requested_units, item_row.available)",
+  "reservation_idempotency_key",
+  "state in ('active', 'shortage')",
+  "to authenticated",
+]) {
+  if (!inventoryReservationCommands.includes(marker)) {
+    throw new Error(`Inventory reservation commands are missing safety marker: ${marker}`);
   }
 }
 

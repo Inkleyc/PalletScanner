@@ -57,6 +57,12 @@ appends an idempotent negative `sale` movement. Partial sales leave the
 inventory card active; the client marks it sold only after the last available
 unit is consumed.
 
+Reservations are created through an authenticated database command that locks
+the inventory row, allocates no more than the available balance, records any
+unfilled demand as shortage, and returns the original reservation when an
+idempotency key is retried. Releasing a reservation restores availability while
+preserving the reservation record and audit timestamps.
+
 ## Local-to-Server IDs
 
 Current mobile data uses numeric item IDs and string pallet IDs. The server uses

@@ -73,7 +73,7 @@ export const calculateInventoryBalance = (
         if (value < 0) throw new Error(`${label} cannot be negative.`);
       }
 
-      if (reservation.state !== "active") return totals;
+      if (!["active", "shortage"].includes(reservation.state)) return totals;
       const committed = Math.max(
         reservation.reservedQuantity -
           reservation.releasedQuantity -
