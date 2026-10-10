@@ -174,6 +174,11 @@ quarantine reservation; parts, supplier return, discard, and loss consume the
 quarantined units through an explicit negative movement. Every transition is
 audited and idempotent where it affects quantity.
 
+Manual return intake is available for launch and writes the same records used
+by future eBay return imports. It accepts only a shipped order line, cannot
+exceed the sold quantity, and uses a client request key for idempotency. Creating
+the return still leaves its inventory unavailable until physical receipt.
+
 ## Local-to-Server IDs
 
 Current mobile data uses numeric item IDs and string pallet IDs. The server uses

@@ -155,6 +155,10 @@ const returnInventoryWorkflow = await readFile(
   new URL("../supabase/migrations/202610100032_return_receipt_inspection_disposition.sql", import.meta.url),
   "utf8",
 );
+const manualReturnIntake = await readFile(
+  new URL("../supabase/migrations/202610100033_manual_return_intake.sql", import.meta.url),
+  "utf8",
+);
 
 for (const table of ["pallets", "inventory_items", "item_photos", "marketplace_listings", "sales", "activity_events"]) {
   if (!schema.includes(`create table public.${table}`)) {
@@ -268,6 +272,9 @@ for (const marker of ["action_due_at", "inventory_state", "recommended_dispositi
 }
 for (const marker of ["receive_return_line", "return_quarantine", "return.inventory_received_quarantined", "inspect_return_line", "return.inventory_inspected", "disposition_return_line", "Inspect the return before choosing its disposition", "return.inventory_dispositioned"]) {
   if (!returnInventoryWorkflow.includes(marker)) throw new Error(`Return inventory workflow is missing safety marker: ${marker}`);
+}
+for (const marker of ["create_manual_return", "Only shipped orders can start a return", "Open and completed returns cannot exceed", "manual:", "inventory_state", "return.manual_created"]) {
+  if (!manualReturnIntake.includes(marker)) throw new Error(`Manual return intake is missing safety marker: ${marker}`);
 }
 
 for (const marker of [

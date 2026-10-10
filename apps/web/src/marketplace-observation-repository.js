@@ -307,6 +307,46 @@ export const archivePackagePreset = async (presetId) => {
   return result.data;
 };
 
+export const listReturns = async () => {
+  if (!supabase) throw new Error("Supabase is not configured for this dashboard.");
+  const userResult = await supabase.auth.getUser();
+  if (userResult.error || !userResult.data.user) throw new Error("Sign in to manage returns.");
+  const result = await supabase.from("returns")
+    .select("*, orders(external_order_id), return_lines(*, order_lines(title,seller_sku), return_inspections(*)), return_financial_events(*)")
+    .eq("owner_id", userResult.data.user.id)
+    .order("created_at", { ascending: false });
+  throwIfError(result);
+  return result.data ?? [];
+};
+
+export const createManualReturn = async ({ orderLineId, quantity, reason, requestKey }) => {
+  if (!supabase) throw new Error("Supabase is not configured for this dashboard.");
+  const result = await supabase.rpc("create_manual_return", { target_order_line_id: orderLineId, returned_quantity: quantity, return_reason: reason, client_request_key: requestKey });
+  throwIfError(result);
+  return result.data;
+};
+
+export const receiveReturnLine = async ({ returnLineId, note }) => {
+  if (!supabase) throw new Error("Supabase is not configured for this dashboard.");
+  const result = await supabase.rpc("receive_return_line", { target_return_line_id: returnLineId, receipt_note: note });
+  throwIfError(result);
+  return result.data;
+};
+
+export const inspectReturnLine = async ({ returnLineId, condition, completeness, notes, recommendation }) => {
+  if (!supabase) throw new Error("Supabase is not configured for this dashboard.");
+  const result = await supabase.rpc("inspect_return_line", { target_return_line_id: returnLineId, received_condition: condition, received_completeness: completeness, inspection_notes: notes, disposition_recommendation: recommendation });
+  throwIfError(result);
+  return result.data;
+};
+
+export const dispositionReturnLine = async ({ returnLineId, disposition, note }) => {
+  if (!supabase) throw new Error("Supabase is not configured for this dashboard.");
+  const result = await supabase.rpc("disposition_return_line", { target_return_line_id: returnLineId, selected_disposition: disposition, disposition_note: note });
+  throwIfError(result);
+  return result.data;
+};
+
 export const listMarketplaceQuantityQueue = async () => {
   if (!supabase) throw new Error("Supabase is not configured for this dashboard.");
   const userResult = await supabase.auth.getUser();
