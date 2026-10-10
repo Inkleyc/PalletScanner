@@ -128,6 +128,7 @@ for (const marker of [
   "Review decisions",
   "Queue unverified item",
   "Record match",
+  "Create zero-stock item",
   "/ebay/import-preview",
   "Report filters",
   "Category / item type",
@@ -165,6 +166,9 @@ if (!getDisplayIssue(items.find((item) => item.name === "Unknown Barcode Item"))
 }
 if (!getDisplayIssue({ quantity: 1, shortage: 2 }).startsWith("Urgent inventory shortage")) {
   throw new Error("Inventory shortage did not become an urgent display issue.");
+}
+if (!getDisplayIssue({ quantity: 0, verificationState: "unverified_import" }).startsWith("Urgent: verify imported item")) {
+  throw new Error("Unverified imported inventory did not enter the urgent review queue.");
 }
 if (getMarketplaceQueueItems(items).length === 0) {
   throw new Error("Expected marketplace queue items.");

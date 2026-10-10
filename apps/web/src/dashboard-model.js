@@ -53,6 +53,9 @@ export const getDisplayPlatform = (item) =>
   item.platform ?? item.best_platform ?? "Review";
 
 export const getDisplayIssue = (item) => {
+  if (item.verificationState === "unverified_import") {
+    return "Urgent: verify imported item possession and quantity";
+  }
   if ((item.shortage ?? 0) > 0) {
     return `Urgent inventory shortage: ${item.shortage} unit${item.shortage === 1 ? "" : "s"}`;
   }

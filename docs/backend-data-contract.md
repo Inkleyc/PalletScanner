@@ -113,6 +113,12 @@ or deferred it. Matching an existing item requires a business-scoped inventory
 UUID. Recording a decision still does not change quantity or authorize an eBay
 write.
 
+An approved `create_new` decision can create one idempotent inventory record in
+the system `Loose Items` acquisition. It starts as `unverified_import` with zero
+on-hand and available quantity, so marketplace-reported stock never becomes
+trusted physical stock. The owner must physically verify and adjust quantity
+before the item can participate in availability synchronization.
+
 ## Adapter Mapping
 
 The future Supabase repository adapter will implement the existing

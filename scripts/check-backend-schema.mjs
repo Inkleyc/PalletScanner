@@ -67,6 +67,10 @@ const marketplaceReconciliationDecisions = await readFile(
   ),
   "utf8",
 );
+const unverifiedImportedInventory = await readFile(
+  new URL("../supabase/migrations/202610100011_unverified_imported_inventory.sql", import.meta.url),
+  "utf8",
+);
 
 for (const table of ["pallets", "inventory_items", "item_photos", "marketplace_listings", "sales", "activity_events"]) {
   if (!schema.includes(`create table public.${table}`)) {
@@ -104,6 +108,20 @@ for (const marker of [
 ]) {
   if (!inventoryAuthority.includes(marker)) {
     throw new Error(`Inventory authority schema is missing safety marker: ${marker}`);
+  }
+}
+
+for (const marker of [
+  "verification_state in ('verified', 'unverified_import')",
+  "inventory_items_source_observation_idx",
+  "create_unverified_inventory_from_observation",
+  "A current create-new reconciliation decision is required.",
+  "quantity >= 0",
+  "pg_advisory_xact_lock",
+  "quantity, workflow_status, verification_state",
+]) {
+  if (!unverifiedImportedInventory.includes(marker)) {
+    throw new Error(`Unverified imported inventory schema is missing safety marker: ${marker}`);
   }
 }
 

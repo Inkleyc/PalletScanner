@@ -77,12 +77,12 @@ export const loadEbayObservationSnapshot = async (runId) => {
   throwIfError(observationResult);
   const observations = observationResult.data ?? [];
   if (observations.length === 0) return { observations: [], decisions: [] };
-  const decisionResult = await supabase.from("marketplace_reconciliation_decisions")
-    .select("*")
-    .in("observation_id", observations.map((observation) => observation.id))
-    .order("decided_at", { ascending: false });
-  throwIfError(decisionResult);
-  return { observations, decisions: decisionResult.data ?? [] };
+  const [decisionResult, importedItemResult] = await Promise.all([
+    supabase.from("marketplace_reconciliation_decisions").select("*").in("observation_id", observations.map((observation) => observation.id)).order("decided_at", { ascending: false }),
+    supabase.from("inventory_items").select("id,client_id,name,source_observation_id,verification_state").in("source_observation_id", observations.map((observation) => observation.id)),
+  ]);
+  throwIfError(decisionResult); throwIfError(importedItemResult);
+  return { observations, decisions: decisionResult.data ?? [], importedItems: importedItemResult.data ?? [] };
 };
 
 export const recordEbayReconciliationDecision = async ({ observation, decisionType, inventoryItemId = null, reason = null }) => {
@@ -98,6 +98,13 @@ export const recordEbayReconciliationDecision = async ({ observation, decisionTy
     inventory_item_id: inventoryItemId,
     reason: reason?.trim() || null,
   }).select("*").single();
+  throwIfError(result);
+  return result.data;
+};
+
+export const createUnverifiedInventoryFromObservation = async (observationId) => {
+  if (!supabase) throw new Error("Supabase is not configured for this dashboard.");
+  const result = await supabase.rpc("create_unverified_inventory_from_observation", { target_observation_id: observationId });
   throwIfError(result);
   return result.data;
 };
