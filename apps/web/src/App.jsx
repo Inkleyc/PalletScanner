@@ -16,6 +16,12 @@ import { getRepositoryMode, repository, useCloudRepository, useLocalRepository }
 import { isSupabaseConfigured, supabase } from "./supabase.js";
 import { buildAnalytics } from "./analytics-model.js";
 import {
+  EbayRequirementsDialog,
+  ItemThumbnail,
+  Metric,
+  PerformanceTable,
+} from "./dashboard-components.jsx";
+import {
   MAX_ITEM_PHOTOS,
   analyzeItemPhotos,
   getEbayListingRequirements,
@@ -35,15 +41,6 @@ const matchesWorkFilter = (item, filter) => {
   if (filter === "aging") return getItemAgeDays(item) > 14;
   return Boolean(getDisplayIssue(item));
 };
-
-function Metric({ label, value, tone = "", onClick }) {
-  const Tag = onClick ? "button" : "section";
-  return (
-    <Tag className={`metric ${onClick ? "metric-button" : ""} ${tone}`} onClick={onClick}>
-      <span>{label}</span><strong>{value}</strong>
-    </Tag>
-  );
-}
 
 function PalletManager({ pallets, summaries, activePalletId, selectedPalletId, onFilter }) {
   const [creating, setCreating] = useState(false);
@@ -170,25 +167,6 @@ function PhotoReview({ item, onSave }) {
     finally { setWorking(""); }
   };
 return <section className="photo-review"><div className="card-row"><div><strong>Listing photos</strong><span>{photos.length === 0 ? "No photos attached" : `${photos.length} photo${photos.length === 1 ? "" : "s"} available`}</span></div><span className={`badge ${photos.length > 0 ? "success" : "warning"}`}>{photos.length > 0 ? "Review" : "Needed"}</span></div>{photos.length > 0 ? <div className="photo-grid">{photos.map((uri, index) => <div className="photo-tile" key={`${uri.slice(0, 40)}-${index}`}>{uri.startsWith("mock://") ? <div className="photo-placeholder"><span>Photo {index + 1}</span><small>Preview fixture</small></div> : <img src={uri} alt={`${item.name} listing photo ${index + 1}`} />}<button type="button" className="photo-remove" aria-label={`Remove photo ${index + 1}`} title="Remove photo" disabled={Boolean(working)} onClick={() => removePhoto(index)}>×</button></div>)}</div> : <p className="detail-issue">Add photos to identify the item and prepare its listing.</p>}<input ref={cameraInputRef} className="visually-hidden" type="file" accept="image/*" capture="environment" onChange={addPhotos} /><input ref={inputRef} className="visually-hidden" type="file" accept="image/*" multiple onChange={addPhotos} /><div className="photo-actions"><button type="button" disabled={Boolean(working) || photos.length >= MAX_ITEM_PHOTOS} onClick={() => cameraInputRef.current?.click()}>Take photo</button><button type="button" disabled={Boolean(working) || photos.length >= MAX_ITEM_PHOTOS} onClick={() => inputRef.current?.click()}>Upload</button><button type="button" className="primary-button" disabled={Boolean(working) || !photos.some((uri) => uri.startsWith("data:"))} onClick={analyze}>{working === "Analyzing photos…" ? working : "Analyze with AI"}</button></div>{working && working !== "Analyzing photos…" && <small>{working}</small>}{error && <p className="error-text">{error}</p>}</section>;
-}
-
-function ItemThumbnail({ item }) {
-  const uri = item.photos?.[0] ?? item.photo;
-  if (!uri || uri.startsWith("mock://")) {
-    return <div className="item-thumbnail placeholder" aria-label={uri ? `${item.name} preview photo` : `${item.name} has no photo`}><span>{uri ? item.name.charAt(0).toUpperCase() : "No photo"}</span></div>;
-  }
-  return <img className="item-thumbnail" src={uri} alt={`${item.name} thumbnail`} />;
-}
-
-function EbayRequirementsDialog({ questions, answers, onChange, onFinishLater, onSave }) {
-  const [error, setError] = useState("");
-  const save = () => {
-    const missing = questions.find((question) => question.required && !String(answers[question.key] ?? "").trim());
-    if (missing) return setError(`${missing.label} is required, or choose Finish later.`);
-    setError("");
-    onSave();
-  };
-  return <div className="modal-backdrop requirements-backdrop" role="presentation"><div className="edit-modal ebay-questions-modal" role="dialog" aria-modal="true" aria-labelledby="analysis-questions-title"><div><h3 id="analysis-questions-title">Review eBay details</h3><p>These fields are required for the category eBay selected. Review AI's choices and correct anything that is not right.</p></div><div className="edit-grid">{questions.map((question, index) => <label key={question.key}><span>{question.label}</span>{question.type === "select" ? <select autoFocus={index === 0} value={answers[question.key] ?? ""} onChange={(event) => onChange(question.key, event.target.value)}><option value="">Select an answer</option>{question.options.map((option) => <option key={option}>{option}</option>)}</select> : <input autoFocus={index === 0} value={answers[question.key] ?? ""} onChange={(event) => onChange(question.key, event.target.value)} />}<small>{question.reason}</small></label>)}</div>{error && <p className="error-text">{error}</p>}<div className="button-row"><button type="button" onClick={onFinishLater}>Finish later</button><button type="button" className="primary-button" onClick={save}>Save details</button></div></div></div>;
 }
 
 function AddItemDialog({ pallets, activePalletId, onCancel, onCreate }) {
@@ -758,10 +736,6 @@ function ActivityPanel({ snapshot }) {
   const [events, setEvents] = useState([]);
   useEffect(() => { repository.listActivity().then(setEvents).catch(() => setEvents([])); }, [snapshot]);
   return <section className="panel"><div className="panel-heading"><div><h3>Recent activity</h3><span>Shared history of important inventory and listing changes.</span></div></div><div className="activity-list">{events.length === 0 ? <div className="empty-queue"><strong>No changes yet</strong><span>Item, pallet, and listing changes will appear here.</span></div> : events.slice(0, 10).map((event) => <div className="activity-row" key={event.id}><div><strong>{activityLabels[event.type] ?? event.type}</strong><span>{event.details?.name ?? event.entityId}</span></div><time dateTime={new Date(event.occurredAt).toISOString()}>{new Date(event.occurredAt).toLocaleString()}</time></div>)}</div></section>;
-}
-
-function PerformanceTable({ title, subtitle, rows, kind = "group" }) {
-  return <section className="panel analysis-table"><div className="panel-heading"><div><h3>{title}</h3><span>{subtitle}</span></div></div>{rows.length === 0 ? <div className="empty-queue"><strong>No results yet</strong><span>Record sales to build this comparison.</span></div> : <div className="table-scroll"><table><thead><tr><th>{title.replace(" performance", "")}</th>{kind === "platform" ? <><th>Sales</th><th>Gross</th><th>Costs</th><th>Net</th><th>Avg sale</th></> : <><th>Inventory</th><th>Sold</th><th>Sell-through</th><th>Net</th><th>Avg sale</th>{kind === "pallet" && <th>Profit</th>}</>}</tr></thead><tbody>{rows.map((row) => <tr key={row.label}><td><strong>{row.label}</strong></td>{kind === "platform" ? <><td>{row.sales}</td><td>{currency(row.gross)}</td><td>{currency(row.costs)}</td><td>{currency(row.net)}</td><td>{currency(row.averageSale)}</td></> : <><td>{row.inventory}</td><td>{row.sold}</td><td><div className="rate-cell"><span>{row.sellThrough.toFixed(0)}%</span><i style={{ width: `${Math.min(100, row.sellThrough)}%` }} /></div></td><td>{currency(row.net)}</td><td>{currency(row.averageSale)}</td>{kind === "pallet" && <td className={row.profit >= 0 ? "positive-value" : "negative-value"}>{currency(row.profit)}</td>}</>}</tr>)}</tbody></table></div>}</section>;
 }
 
 function AnalysisPanel({ snapshot }) {

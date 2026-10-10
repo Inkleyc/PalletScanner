@@ -32,6 +32,7 @@ const requiredFiles = [
   "src/supabase-inventory-repository.js",
   "src/repository-router.js",
   "src/analytics-model.js",
+  "src/dashboard-components.jsx",
   "src/web-services.js",
   "src/styles.css",
   "scripts/serve.mjs",
