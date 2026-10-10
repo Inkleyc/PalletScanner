@@ -74,6 +74,7 @@ export const localInventoryRepository: InventoryRepository = {
         id: `legacy-sale-${item.id}`,
         itemId: item.id,
         marketplace: item.listedPlatforms[0] ?? "other",
+        quantity: item.quantity,
         soldPrice: item.soldPrice ?? 0,
         fees: 0,
         shippingCost: 0,

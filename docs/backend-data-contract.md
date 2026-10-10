@@ -34,6 +34,12 @@ movement. Reservation changes also refresh available and shortage balances.
 Normal clients may append movements but cannot update or delete movement
 history through row-level-security policies.
 
+Each sale records the number of units sold. Its database trigger locks the
+inventory row, rejects a quantity above the current available balance, and
+appends an idempotent negative `sale` movement. Partial sales leave the
+inventory card active; the client marks it sold only after the last available
+unit is consumed.
+
 ## Local-to-Server IDs
 
 Current mobile data uses numeric item IDs and string pallet IDs. The server uses

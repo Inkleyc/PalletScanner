@@ -37,6 +37,10 @@ export type InventoryItem = {
   category?: string;
   condition: string;
   quantity: number;
+  onHand?: number;
+  reserved?: number;
+  available?: number;
+  shortage?: number;
   low_price: number;
   high_price: number;
   floor_price: number;
@@ -91,6 +95,7 @@ export type Sale = {
   id: string;
   itemId: number;
   marketplace: MarketplacePlatform | "other";
+  quantity: number;
   soldPrice: number;
   fees: number;
   shippingCost: number;

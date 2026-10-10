@@ -79,6 +79,10 @@ const normalizeInventoryItem = (item: InventoryItem): InventoryItem => ({
     typeof item.quantity === "number" && !Number.isNaN(item.quantity) && item.quantity > 0
       ? Math.floor(item.quantity)
       : 1,
+  onHand: Number.isInteger(item.onHand) ? item.onHand : undefined,
+  reserved: Number.isInteger(item.reserved) ? item.reserved : undefined,
+  available: Number.isInteger(item.available) ? item.available : undefined,
+  shortage: Number.isInteger(item.shortage) ? item.shortage : undefined,
   name: coerceText(item.name, "Unnamed item"),
   barcode:
     typeof item.barcode === "string" && item.barcode.trim()

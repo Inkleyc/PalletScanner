@@ -18,6 +18,13 @@ const quantityAudit = await readFile(
   ),
   "utf8",
 );
+const quantityAwareSales = await readFile(
+  new URL(
+    "../supabase/migrations/202610100004_quantity_aware_sales.sql",
+    import.meta.url,
+  ),
+  "utf8",
+);
 
 for (const table of ["pallets", "inventory_items", "item_photos", "marketplace_listings", "sales", "activity_events"]) {
   if (!schema.includes(`create table public.${table}`)) {
@@ -55,6 +62,19 @@ for (const marker of [
 ]) {
   if (!inventoryAuthority.includes(marker)) {
     throw new Error(`Inventory authority schema is missing safety marker: ${marker}`);
+  }
+}
+
+for (const marker of [
+  "add column if not exists quantity",
+  "consume_inventory_for_sale",
+  "sales_consume_inventory",
+  "'sale:' || new.id::text",
+  "for update",
+  "exceeds available quantity",
+]) {
+  if (!quantityAwareSales.includes(marker)) {
+    throw new Error(`Quantity-aware sales schema is missing safety marker: ${marker}`);
   }
 }
 

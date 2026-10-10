@@ -23,6 +23,10 @@ const normalizeItem = (item) => ({
   floor: Number.isFinite(item.floor) ? item.floor : item.floor_price ?? 0,
   listedPlatforms: Array.isArray(item.listedPlatforms) ? item.listedPlatforms : [],
   category: item.category?.trim() || "Uncategorized",
+  onHand: Number.isInteger(item.onHand) ? item.onHand : item.quantity,
+  reserved: Number.isInteger(item.reserved) ? item.reserved : 0,
+  available: Number.isInteger(item.available) ? item.available : item.quantity,
+  shortage: Number.isInteger(item.shortage) ? item.shortage : 0,
 });
 const normalizePallet = (pallet) => ({
   ...pallet,
@@ -85,8 +89,14 @@ export const repository = {
     return () => listeners.delete(listener);
   },
   async saveItem(item) {
+    const previousItem = items.find((entry) => entry.id === item.id);
     const normalizedItem = normalizeItem(clone(item));
     const index = items.findIndex((entry) => entry.id === item.id);
+    if (previousItem && normalizedItem.quantity !== previousItem.quantity) {
+      const quantityDelta = normalizedItem.quantity - previousItem.quantity;
+      normalizedItem.onHand = Math.max((previousItem.onHand ?? previousItem.quantity) + quantityDelta, 0);
+      normalizedItem.available = Math.max((previousItem.available ?? previousItem.quantity) + quantityDelta, 0);
+    }
     if (index < 0) items.push(normalizedItem);
     else items[index] = { ...items[index], ...normalizedItem };
     recordActivity(index < 0 ? "item.created" : "item.updated", item.id, { name: normalizedItem.name });
@@ -156,6 +166,7 @@ export const repository = {
         id: `preview-sale-${item.id}`,
         itemId: item.id,
         marketplace: item.listedPlatforms?.[0] ?? "other",
+        quantity: item.quantity,
         soldPrice: item.soldPrice,
         fees: 0,
         shippingCost: 0,
@@ -167,11 +178,19 @@ export const repository = {
   async recordSale(sale) {
     const item = items.find((entry) => entry.id === sale.itemId);
     if (!item) throw new Error("The item could not be found.");
+    const available = Number.isInteger(item.available) ? item.available : item.quantity;
+    if (!Number.isInteger(sale.quantity) || sale.quantity < 1 || sale.quantity > available) {
+      throw new Error(`Sale quantity must be between 1 and ${available}.`);
+    }
     const recorded = { ...clone(sale), id: sale.id ?? `sale-${Date.now()}-${Math.random().toString(36).slice(2, 8)}` };
     state.sales.push(recorded);
-    item.soldPrice = recorded.soldPrice;
-    item.status = "sold";
-    recordActivity("sale.recorded", item.id, { name: item.name, marketplace: recorded.marketplace, soldPrice: recorded.soldPrice });
+    item.available = available - recorded.quantity;
+    item.onHand = Math.max((item.onHand ?? item.quantity) - recorded.quantity, 0);
+    if (item.available === 0) {
+      item.soldPrice = recorded.soldPrice;
+      item.status = "sold";
+    }
+    recordActivity("sale.recorded", item.id, { name: item.name, marketplace: recorded.marketplace, quantity: recorded.quantity, soldPrice: recorded.soldPrice });
     persist();
     return clone(recorded);
   },

@@ -94,8 +94,10 @@ export const getStaleInventoryItems = (items, now = new Date(), thresholdDays = 
     .map(({ item }) => item);
 
 export const getQuantity = (item) =>
-  typeof item.quantity === "number" && item.quantity > 0
-    ? Math.floor(item.quantity)
+  typeof item.available === "number" && item.available >= 0
+    ? Math.floor(item.available)
+    : typeof item.quantity === "number" && item.quantity > 0
+      ? Math.floor(item.quantity)
     : 1;
 
 export const getPalletCost = (pallet) =>
