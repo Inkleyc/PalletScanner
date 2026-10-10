@@ -581,6 +581,7 @@ function EbaySettings({ mode = "all" }) {
   const [locationDraft, setLocationDraft] = useState({ name: "Main inventory", postalCode: "", city: "", stateOrProvince: "", country: "US" });
   const [importPreview, setImportPreview] = useState(null);
   const [previewLoading, setPreviewLoading] = useState(false);
+  const [previewFilter, setPreviewFilter] = useState("review");
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
   const backupInput = useRef(null);
@@ -678,7 +679,14 @@ function EbaySettings({ mode = "all" }) {
   };
 
   const reconciliation = reconcileEbayPreview(importPreview, repository.getSnapshot().items);
-  const reviewRecords = [...reconciliation.inventory, ...reconciliation.offers, ...reconciliation.orderLines].filter((record) => record.state !== "matched");
+  const reconciliationRecords = [
+    ...reconciliation.inventory.map((record) => ({ ...record, resourceType: "Inventory" })),
+    ...reconciliation.offers.map((record) => ({ ...record, resourceType: "Offer" })),
+    ...reconciliation.orderLines.map((record) => ({ ...record, resourceType: "Order line" })),
+  ];
+  const reviewRecords = reconciliationRecords.filter((record) => record.state !== "matched");
+  const filteredReconciliationRecords = previewFilter === "all" ? reconciliationRecords : previewFilter === "matched" ? reconciliationRecords.filter((record) => record.state === "matched") : reviewRecords;
+  const visibleReconciliationRecords = filteredReconciliationRecords.slice(0, 100);
   const hasMorePreviewRecords = Boolean(importPreview) && [
     [importPreview.inventoryItems?.length ?? 0, importPreview.pagination?.inventoryTotal ?? 0],
     [importPreview.offers?.length ?? 0, importPreview.pagination?.offerTotal ?? 0],
@@ -768,6 +776,9 @@ function EbaySettings({ mode = "all" }) {
               <div className="check-row"><span className={`check-dot ${reconciliation.summary.unmatched === 0 ? "ok" : ""}`} /><span>{reconciliation.summary.unmatched} unmatched record{reconciliation.summary.unmatched === 1 ? "" : "s"}</span></div>
             </div>
             {reviewRecords.length > 0 && <div className="setup-warning"><strong>{reconciliation.summary.needsReview} records need review</strong><span>{reviewRecords.slice(0, 5).map((record) => `${record.external.sku || "No SKU"} (${record.state}${record.quantityConflict ? `: eBay ${record.external.quantity}, PalletFlip ${record.localItem?.available ?? record.localItem?.quantity ?? 0}` : ""})`).join(" | ")}</span><small>No automatic action is available until matching review is built and proven.</small></div>}
+            <label><span>Reconciliation records</span><select value={previewFilter} onChange={(event) => setPreviewFilter(event.target.value)}><option value="review">Needs review ({reviewRecords.length})</option><option value="matched">Matched ({reconciliation.summary.matched})</option><option value="all">All observed ({reconciliationRecords.length})</option></select></label>
+            <div className="check-list reconciliation-records">{visibleReconciliationRecords.length === 0 ? <small>No records in this view.</small> : visibleReconciliationRecords.map((record, index) => <div className="check-row" key={`${record.resourceType}-${record.external.offerId ?? record.external.lineItemId ?? record.external.sku ?? index}`}><span className={`check-dot ${record.state === "matched" ? "ok" : ""}`} /><span><strong>{record.external.sku || "No SKU"}</strong> · {record.resourceType} · {record.state}{record.quantityConflict ? ` · eBay ${record.external.quantity}, PalletFlip ${record.localItem?.available ?? record.localItem?.quantity ?? 0}` : ""}{record.external.title ? ` · ${record.external.title}` : ""}</span></div>)}</div>
+            {filteredReconciliationRecords.length > 100 && <small>Showing the first 100 records in this view. Refine the filter to inspect the remainder.</small>}
             <div className="button-row">{hasMorePreviewRecords && <button type="button" onClick={() => loadImportPreview(true)} disabled={previewLoading}>{previewLoading ? "Reading next batch..." : "Load next 50"}</button>}<small>Fetched {new Date(importPreview.fetchedAt).toLocaleString()} · up to {importPreview.pagination?.limit ?? 50} more records per batch</small></div>
           </>}
         </article>}

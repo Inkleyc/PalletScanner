@@ -117,6 +117,8 @@ for (const marker of [
   "Observe-only reconciliation",
   "Preview eBay data",
   "Load next 50",
+  "Reconciliation records",
+  "All observed",
   "/ebay/import-preview",
   "Report filters",
   "Category / item type",
