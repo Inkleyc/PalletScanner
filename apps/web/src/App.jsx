@@ -1283,13 +1283,16 @@ function ReturnsContent() {
     const cost = Number(costAnswer); if (!Number.isFinite(cost) || cost < 0) return setError("Enter a non-negative return label cost.");
     run(() => recordReturnShippingHandoff({ returnId: returnEntry.id, source: source.trim().toLowerCase(), payer: payer.trim().toLowerCase(), carrier: carrier.trim(), trackingNumber: trackingNumber.trim(), cost }));
   };
+  const financialImpact = (returnEntry) => (returnEntry.return_financial_events ?? []).reduce((sum, event) => sum + (event.event_type === "fee_credit" ? Number(event.amount) : -Number(event.amount)), 0);
   const urgent = returns.filter((entry) => entry.action_due_at && Date.parse(entry.action_due_at) <= Date.now() + 86400000 && !["resolved", "closed", "cancelled"].includes(entry.state)).length;
+  const totalFinancialImpact = returns.reduce((sum, entry) => sum + financialImpact(entry), 0);
   const canRecordShipping = (entry) => !["received", "inspecting", "resolved", "closed", "cancelled"].includes(entry.state);
   return <div className="view-stack">
     <section className="metrics-grid">
       <Metric label="Open returns" value={returns.filter((entry) => !["resolved", "closed", "cancelled"].includes(entry.state)).length} />
       <Metric label="Due within 24 hours" value={urgent} tone={urgent ? "warning" : "success"} />
       <Metric label="Resolved returns" value={returns.filter((entry) => entry.state === "resolved").length} />
+      <Metric label="Return financial impact" value={currency(totalFinancialImpact)} tone={totalFinancialImpact < 0 ? "warning" : "success"} />
     </section>
     <section className="panel table-panel">
       <div className="panel-heading"><div><h3>Returns</h3><span>Returned inventory stays unavailable until receipt, inspection, and an explicit disposition.</span></div><button className="primary-button" type="button" disabled={working} onClick={createReturn}>Open manual return</button></div>
@@ -1299,9 +1302,11 @@ function ReturnsContent() {
         <span>{entry.reason || "No reason recorded"}{entry.action_due_at ? ` · action due ${new Date(entry.action_due_at).toLocaleString()}` : ""}</span>
         {entry.tracking_number && <span>Return shipment: {entry.carrier} {entry.tracking_number} · paid by {entry.label_payer || "unknown"}{entry.label_cost !== null ? ` · ${currency(Number(entry.label_cost))}` : ""}</span>}
         {entry.return_financial_events.length > 0 && <span>{entry.return_financial_events.map((financialEvent) => `${financialEvent.event_type.replaceAll("_", " ")} ${currency(Number(financialEvent.amount))}`).join(" · ")}</span>}
+        {entry.return_financial_events.length > 0 && <span>Recorded return impact: {currency(financialImpact(entry))}</span>}
         {entry.return_lines.map((line) => <div className="check-row" key={line.id}><span className={`check-dot ${["restocked", "revised", "repaired", "parts", "supplier_return", "discarded", "lost"].includes(line.inventory_state) ? "ok" : ""}`} /><span>{line.order_lines?.seller_sku || line.order_lines?.title || "Returned item"} · qty {line.quantity} · {line.inventory_state.replaceAll("_", " ")}</span>{line.inventory_state === "unavailable" && <button type="button" disabled={working} onClick={() => receive(line)}>Receive</button>}{line.inventory_state === "quarantined" && line.return_inspections.length === 0 && <button type="button" disabled={working} onClick={() => inspect(line)}>Inspect</button>}{line.inventory_state === "quarantined" && line.return_inspections.length > 0 && <button className="primary-button" type="button" disabled={working} onClick={() => disposition(line)}>Choose disposition</button>}</div>)}
         <div className="button-row">{canRecordShipping(entry) && <button type="button" disabled={working || Boolean(entry.tracking_number)} onClick={() => recordReturnShipping(entry)}>{entry.tracking_number ? "Return shipment recorded" : "Record eBay return label"}</button>}<button type="button" disabled={working} onClick={() => recordMoney(entry)}>Record refund or return cost</button></div>
       </div></section>)}
+      {returns.length > 0 && <p className="analysis-disclaimer">Return financial impact is an operational estimate from recorded return events, not accounting or tax advice.</p>}
     </section>
   </div>;
 }

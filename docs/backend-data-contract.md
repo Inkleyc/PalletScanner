@@ -201,6 +201,12 @@ idempotent and conflicting replacement details are rejected. Seller-paid label
 costs append one stable `return_shipping` financial event; buyer- or
 marketplace-paid labels do not create a seller expense.
 
+The Returns workspace presents the signed operational impact of these events:
+fee credits increase the result, while refunds, return shipping, replacement
+shipping, and other recorded costs decrease it. This remains labeled as an
+operational estimate rather than accounting or tax advice and never erases the
+original sale.
+
 ## Local-to-Server IDs
 
 Current mobile data uses numeric item IDs and string pallet IDs. The server uses
