@@ -304,13 +304,13 @@ function RecordSale({ item, onRecorded }) {
     event.preventDefault();
     const quantity = Number(draft.quantity); const soldPrice = Number(draft.soldPrice); const fees = Number(draft.fees); const shippingCost = Number(draft.shippingCost); const soldAt = Date.parse(`${draft.soldAt}T12:00:00`);
     if (!Number.isInteger(quantity) || quantity < 1 || quantity > getQuantity(item)) return setError(`Quantity must be between 1 and ${getQuantity(item)}.`);
-    if (![soldPrice, fees, shippingCost].every((value) => Number.isFinite(value) && value >= 0) || !Number.isFinite(soldAt)) return setError("Enter a valid sale price, costs, and date.");
+    if (![soldPrice, fees].every((value) => Number.isFinite(value) && value >= 0)) return setError("Enter a valid sale price and marketplace fees.");
+    if (getRepositoryMode() === "local" && (!Number.isFinite(shippingCost) || shippingCost < 0 || !Number.isFinite(soldAt))) return setError("Enter a valid shipping cost and sale date.");
     setSaving(true); setError("");
     try {
       if (getRepositoryMode() === "cloud") {
         if (!item.serverId) throw new Error("The cloud item could not be found.");
-        const fulfillmentMethod = window.confirm("Will the buyer pick this order up locally?\n\nOK = Local pickup\nCancel = Shipping") ? "local_pickup" : "shipping";
-        const order = await createManualSaleOrder({ itemId: item.serverId, quantity, marketplace: draft.marketplace, soldPrice, fees, fulfillmentMethod, requestKey: manualOrderRequestKey });
+        const order = await createManualSaleOrder({ itemId: item.serverId, quantity, marketplace: draft.marketplace, soldPrice, fees, fulfillmentMethod: draft.fulfillmentMethod, requestKey: manualOrderRequestKey });
         await startOrderFulfillment(order.id, null);
         await repository.hydrate();
         setOrderCreated(true);
@@ -327,6 +327,22 @@ function RecordSale({ item, onRecorded }) {
   if (loading) return <section className="sale-card"><div><strong>Checking sale details…</strong></div></section>;
   if (orderCreated) return <section className="sale-card"><div><strong>Sale order created</strong><span>Inventory is reserved. Complete shipping or confirm buyer pickup from Orders before PalletFlip records the sale.</span></div></section>;
   if (item.soldPrice !== null && hasDetailedSale) return <section className="sale-card"><div><strong>Sold for {currency(item.soldPrice)}</strong><span>The complete sale appears in Analysis.</span></div></section>;
+  if (getRepositoryMode() === "cloud") return <>
+    <section className="sale-card"><div><strong>Create a sale order</strong><span>Reserve inventory now, then recognize the sale after carrier or buyer handoff.</span></div><button className="primary-button" onClick={() => setOpen(true)}>Create sale order</button></section>
+    {open && <div className="modal-backdrop" role="presentation" onMouseDown={() => setOpen(false)}><form className="edit-modal item-edit-modal" role="dialog" aria-modal="true" aria-labelledby="create-sale-order-title" onSubmit={save} onMouseDown={(event) => event.stopPropagation()}>
+      <div><h3 id="create-sale-order-title">Create sale order</h3><p>This reserves inventory. Revenue is recorded only after shipping or local pickup is confirmed.</p></div>
+      <div className="edit-grid">
+        <label><span>Marketplace</span><select value={draft.marketplace} onChange={update("marketplace")}><option value="facebook">Facebook</option><option value="ebay">eBay</option><option value="other">Other</option></select></label>
+        <label><span>Fulfillment</span><select value={draft.fulfillmentMethod} onChange={update("fulfillmentMethod")}><option value="shipping">Shipping</option><option value="local_pickup">Local pickup</option></select></label>
+        <label><span>Quantity</span><input required type="number" min="1" max={getQuantity(item)} step="1" value={draft.quantity} onChange={update("quantity")} /></label>
+        <label><span>Total sold price</span><input autoFocus required type="number" min="0" step="0.01" value={draft.soldPrice} onChange={update("soldPrice")} /></label>
+        <label><span>Marketplace fees</span><input required type="number" min="0" step="0.01" value={draft.fees} onChange={update("fees")} /><small>Enter zero when no fee applies.</small></label>
+      </div>
+      {draft.marketplace === "facebook" && <p className="analysis-note"><strong>Facebook requires a manual listing update.</strong><span>PalletFlip will create an urgent task to remove the listing or adjust its quantity.</span></p>}
+      {error && <p className="error-text">{error}</p>}
+      <div className="button-row"><button type="button" disabled={saving} onClick={() => setOpen(false)}>Cancel</button><button className="primary-button" type="submit" disabled={saving}>{saving ? "Creating..." : "Reserve and start fulfillment"}</button></div>
+    </form></div>}
+  </>;
   return <><section className="sale-card"><div><strong>{item.soldPrice === null ? "Did this item sell?" : `Sold for ${currency(item.soldPrice)}`}</strong><span>{item.soldPrice === null ? "Record the marketplace, quantity, and costs to improve your analysis." : "Add the missing marketplace, costs, and date so this sale can be analyzed accurately."}</span></div><button className="primary-button" onClick={() => setOpen(true)}>{item.soldPrice === null ? "Record sale" : "Complete sale details"}</button></section>{open && <div className="modal-backdrop" role="presentation" onMouseDown={() => setOpen(false)}><form className="edit-modal item-edit-modal" role="dialog" aria-modal="true" aria-labelledby="record-sale-title" onSubmit={save} onMouseDown={(event) => event.stopPropagation()}><div><h3 id="record-sale-title">Record sale</h3><p>Gross price minus fees and shipping becomes net proceeds.</p></div><div className="edit-grid"><label><span>Marketplace</span><select value={draft.marketplace} onChange={update("marketplace")}><option value="facebook">Facebook</option><option value="ebay">eBay</option><option value="other">Other</option></select></label><label><span>Quantity</span><input required type="number" min="1" max={getQuantity(item)} step="1" value={draft.quantity} onChange={update("quantity")} /></label><label><span>Total sold price</span><input autoFocus required type="number" min="0" step="0.01" value={draft.soldPrice} onChange={update("soldPrice")} /></label><label><span>Marketplace fees</span><input type="number" min="0" step="0.01" value={draft.fees} onChange={update("fees")} /></label><label><span>Shipping cost</span><input type="number" min="0" step="0.01" value={draft.shippingCost} onChange={update("shippingCost")} /></label><label><span>Sold date</span><input required type="date" value={draft.soldAt} onChange={update("soldAt")} /></label></div>{error && <p className="error-text">{error}</p>}<div className="button-row"><button type="button" onClick={() => setOpen(false)}>Cancel</button><button className="primary-button" type="submit" disabled={saving}>{saving ? "Recording…" : "Save sale"}</button></div></form></div>}</>;
 }
 
