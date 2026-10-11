@@ -769,6 +769,21 @@ function PricingRecommendationSettings() {
   return <section className="panel"><div className="panel-heading"><div><p className="eyebrow">Pricing review</p><h3>Aging recommendations</h3><span>Optional floor-protected suggestions for stale active listings. Off by default.</span></div></div><form onSubmit={save}><div className="edit-grid"><label><span>Enable suggestions</span><input type="checkbox" checked={draft.pricing_recommendations_enabled} onChange={(event) => setDraft((current) => ({ ...current, pricing_recommendations_enabled: event.target.checked }))} /></label><label><span>Review after days</span><input required type="number" min="7" max="365" step="1" value={draft.pricing_review_after_days} onChange={(event) => setDraft((current) => ({ ...current, pricing_review_after_days: event.target.value }))} /></label><label><span>Suggested markdown</span><input required type="number" min="0.01" max="50" step="0.01" value={draft.pricing_markdown_percent} onChange={(event) => setDraft((current) => ({ ...current, pricing_markdown_percent: event.target.value }))} /><small>Never recommends below the item floor price.</small></label></div>{error && <p className="error-text">{error}</p>}<div className="button-row"><button className="primary-button" type="submit" disabled={saving}>{saving ? "Saving…" : "Save pricing settings"}</button></div><p className="analysis-disclaimer">Suggestions never update PalletFlip or eBay prices. Changing an active listing remains a separate reviewed action.</p></form></section>;
 }
 
+function OperationalAlertSettings() {
+  const [enabled, setEnabled] = useState(() => readPreference("palletscanner.operationalAlertsEnabled", "false") === "true");
+  const [message, setMessage] = useState("");
+  const supported = typeof window !== "undefined" && "Notification" in window;
+  const change = async (nextEnabled) => {
+    if (nextEnabled && supported) {
+      const permission = await window.Notification.requestPermission();
+      if (permission !== "granted") { setMessage("Browser notification permission was not granted."); return; }
+    }
+    localStorage.setItem("palletscanner.operationalAlertsEnabled", String(nextEnabled));
+    setEnabled(nextEnabled); setMessage(nextEnabled ? "Operational browser alerts enabled." : "Operational browser alerts disabled.");
+  };
+  return <section className="panel"><div className="panel-heading"><div><p className="eyebrow">Notifications</p><h3>Operational browser alerts</h3><span>Notify this browser when Overview detects a changed urgent-work count. Mobile push delivery remains separate.</span></div><label><input type="checkbox" checked={enabled} disabled={!supported} onChange={(event) => change(event.target.checked)} /> Enable while Overview is open</label></div>{!supported && <p className="analysis-disclaimer">This browser does not support system notifications.</p>}{message && <p className="analysis-note">{message}</p>}</section>;
+}
+
 function PackagePresetSettings() {
   const emptyDraft = { name: "", lengthIn: "", widthIn: "", heightIn: "", tareOz: "", allowanceOz: "", supplyCost: "" };
   const [presets, setPresets] = useState(null);
@@ -1681,6 +1696,14 @@ function OperationsAttention({ onNavigate }) {
     const interval = window.setInterval(() => setRefreshKey((value) => value + 1), 60000);
     return () => { active = false; window.clearInterval(interval); };
   }, [refreshKey]);
+  useEffect(() => {
+    if (!summary || readPreference("palletscanner.operationalAlertsEnabled", "false") !== "true" || typeof window === "undefined" || !("Notification" in window) || window.Notification.permission !== "granted") return;
+    const fingerprint = `${summary.orderIssues}:${summary.returnIssues}:${summary.marketplaceIssues}:${summary.recoveryIssues}`;
+    const previous = readPreference("palletscanner.lastOperationalAlert", "");
+    localStorage.setItem("palletscanner.lastOperationalAlert", fingerprint);
+    const total = summary.orderIssues + summary.returnIssues + summary.marketplaceIssues + summary.recoveryIssues;
+    if (total > 0 && fingerprint !== previous) new window.Notification("PalletFlip needs attention", { body: `${total} operational item${total === 1 ? "" : "s"} need review.` });
+  }, [summary]);
   if (getRepositoryMode() !== "cloud") return null;
   if (error) return <section className="panel"><div className="panel-heading"><div><p className="eyebrow">Operations</p><h3>Attention summary unavailable</h3><span>{error}</span></div></div></section>;
   if (!summary) return <section className="panel"><strong>Loading operational attention…</strong></section>;
@@ -1870,7 +1893,7 @@ export function App() {
         </section>}
         {inventoryModalItem && <div className="modal-backdrop" role="presentation" onMouseDown={() => setInventoryModalId(null)}><div className="inventory-detail-modal" role="dialog" aria-modal="true" aria-label={`${inventoryModalItem.name} inventory record`} onMouseDown={(event) => event.stopPropagation()}><InventoryDetail item={inventoryModalItem} palletName={palletName(inventoryModalItem.palletId)} pallets={pallets} locationTrackingEnabled={locationTrackingEnabled} showWorkflowActions={false} onClose={() => setInventoryModalId(null)} onSave={async (item, options) => { await repository.saveItem(item, options); notify(item.archivedAt === null ? "Inventory item restored." : "Changes saved."); }} onRemove={async (id) => { await repository.removeItem(id); setInventoryModalId(null); notify("Inventory item archived."); }} onSaleRecorded={() => notify("Sale recorded. Analysis is updated.")} /></div></div>}
         {addingItem && <AddItemDialog pallets={pallets} activePalletId={snapshot.activePalletId} onCancel={() => setAddingItem(false)} onCreate={async (item) => { await repository.saveItem(item); setAddingItem(false); setInventoryModalId(item.id); notify("Item added. Add photos or edit its details."); }} />}
-        <div className="settings-mount" hidden={view !== "settings"}><div className="view-stack"><section className="panel"><div className="panel-heading"><div><p className="eyebrow">Inventory preferences</p><h3>Storage locations</h3><span>Optional for garages, shelves, bins, or racks.</span></div><label><input type="checkbox" checked={locationTrackingEnabled} onChange={(event) => setLocationTrackingEnabled(event.target.checked)} /> Enable location tracking</label></div></section><PricingRecommendationSettings /><PackagePresetSettings /><EbaySettings /><ActivityPanel snapshot={snapshot} /></div></div>
+        <div className="settings-mount" hidden={view !== "settings"}><div className="view-stack"><section className="panel"><div className="panel-heading"><div><p className="eyebrow">Inventory preferences</p><h3>Storage locations</h3><span>Optional for garages, shelves, bins, or racks.</span></div><label><input type="checkbox" checked={locationTrackingEnabled} onChange={(event) => setLocationTrackingEnabled(event.target.checked)} /> Enable location tracking</label></div></section><OperationalAlertSettings /><PricingRecommendationSettings /><PackagePresetSettings /><EbaySettings /><ActivityPanel snapshot={snapshot} /></div></div>
         {toast && <div className="toast" role="status">{toast}</div>}
       </main>
     </div>
