@@ -654,6 +654,7 @@ function QuantitySyncQueue() {
   };
   if (getRepositoryMode() !== "cloud") return null;
   const mismatches = (rows ?? []).filter((row) => row.advertised_quantity !== row.desired_quantity);
+  const priceReviews = (rows ?? []).filter((row) => row.price !== null && row.inventory_items?.listing_price !== null && Number(row.price) !== Number(row.inventory_items.listing_price));
   return <article className="admin-card integration-card">
     <div className="status-line"><strong>eBay quantity protection</strong><span className={`badge ${account && !account.outbound_paused ? "success" : "warning"}`}>{account && !account.outbound_paused ? "Review required" : "Outbound paused"}</span></div>
     <p>PalletFlip calculates the quantity eBay should advertise from available inventory. It never changes eBay without explicit approval.</p>
@@ -664,6 +665,11 @@ function QuantitySyncQueue() {
       {mismatches.length === 0 ? <small>All observed eBay quantities match currently available inventory.</small> : mismatches.slice(0, 50).map((row) => <div className="check-row" key={row.id}><span className="check-dot" /><span><strong>{row.inventory_items?.seller_sku || row.sku || "No SKU"}</strong> · {row.inventory_items?.name || "Unknown item"} · eBay {row.advertised_quantity ?? "unknown"} · PalletFlip {row.desired_quantity ?? row.inventory_items?.available ?? "unknown"} · {row.quantity_sync_state.replaceAll("_", " ")}{row.last_error ? ` · ${row.last_error}` : ""}</span>{account && !account.outbound_paused && <button type="button" disabled={queueingId === row.id || row.quantity_sync_state === "pending"} onClick={() => queueQuantity(row)}>{queueingId === row.id ? "Sending..." : row.quantity_sync_state === "pending" ? "Queued" : Number(row.desired_quantity) === 0 ? "Withdraw final-unit listing" : "Approve update"}</button>}</div>)}
       {mismatches.length > 50 && <small>Showing the first 50 mismatches.</small>}
       {account && <small>Mode: {account.sync_mode.replaceAll("_", " ")}. Turning off the pause does not enable automatic synchronization.</small>}
+    </div>}
+    {rows && <div className="check-list reconciliation-records">
+      <strong>{priceReviews.length} listing price review{priceReviews.length === 1 ? "" : "s"}</strong>
+      {priceReviews.length === 0 ? <small>Observed eBay prices match the seller-approved PalletFlip prices.</small> : priceReviews.slice(0, 50).map((row) => <div className="check-row" key={`price-${row.id}`}><span className="check-dot" /><span><strong>{row.inventory_items?.seller_sku || row.sku || "No SKU"}</strong> · {row.inventory_items?.name || "Unknown item"} · eBay {currency(Number(row.price))} · approved {currency(Number(row.inventory_items.listing_price))}</span><span className="badge warning">Review only</span></div>)}
+      <small>PalletFlip observes price differences but does not reprice active listings. Price changes require a separate reviewed workflow.</small>
     </div>}
     {jobs && <div className="check-list reconciliation-records">
       <strong>Marketplace action exceptions</strong>

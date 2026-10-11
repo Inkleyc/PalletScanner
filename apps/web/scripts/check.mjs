@@ -198,6 +198,8 @@ for (const marker of [
   "Choose disposition",
   "Record refund or return cost",
   "eBay quantity protection",
+  "listing price review",
+  "does not reprice active listings",
   "never changes eBay without explicit approval",
   "Allow reviewed outbound actions",
   "Turning off the pause does not enable automatic synchronization",

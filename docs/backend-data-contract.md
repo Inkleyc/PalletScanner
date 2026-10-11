@@ -61,6 +61,12 @@ a cross-device reload cannot silently replace the owner's decision with the
 high estimate. Existing inventory is backfilled from its prior high estimate;
 that migration source remains visible in activity history.
 
+Every later change to the approved listing price records its previous value,
+new value, and contemporaneous low/high/floor range in append-only activity.
+The eBay control panel compares the last observed marketplace price with the
+approved PalletFlip price and presents differences as review-only work. This
+foundation never queues or executes a price change.
+
 Each sale records the number of units sold. Its database trigger locks the
 inventory row, rejects a quantity above the current available balance, and
 appends an idempotent negative `sale` movement. Partial sales leave the

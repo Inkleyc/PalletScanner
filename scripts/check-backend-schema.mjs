@@ -199,6 +199,10 @@ const persistedListingPrice = await readFile(
   new URL("../supabase/migrations/202610100043_persist_listing_price.sql", import.meta.url),
   "utf8",
 );
+const listingPriceAudit = await readFile(
+  new URL("../supabase/migrations/202610100044_listing_price_audit.sql", import.meta.url),
+  "utf8",
+);
 
 for (const table of ["pallets", "inventory_items", "item_photos", "marketplace_listings", "sales", "activity_events"]) {
   if (!schema.includes(`create table public.${table}`)) {
@@ -299,6 +303,9 @@ for (const marker of ["supply_cost", "default_supply_cost", "confirm_shipment_pa
 }
 for (const marker of ["add column listing_price", "listing_price >= 0", "listing_price = high_price", "inventory.listing_price_backfilled", "existing_high_price"]) {
   if (!persistedListingPrice.includes(marker)) throw new Error(`Persisted listing price is missing contract marker: ${marker}`);
+}
+for (const marker of ["audit_inventory_listing_price_change", "after update of listing_price", "old.listing_price is distinct from new.listing_price", "inventory.listing_price_changed", "previous_price"]) {
+  if (!listingPriceAudit.includes(marker)) throw new Error(`Listing-price audit is missing safety marker: ${marker}`);
 }
 for (const marker of ["record_shipment_label", "state <> 'ready_for_label'", "state = 'label_purchased'", "final_shipping_cost", "shipment.label_recorded"]) {
   if (!recordShipmentLabel.includes(marker)) throw new Error(`Shipment-label recording is missing safety marker: ${marker}`);
