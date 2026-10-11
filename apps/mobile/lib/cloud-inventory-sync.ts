@@ -99,6 +99,7 @@ const mapCloudItem = (row: Record<string, unknown>, palletId: string): Inventory
   low_price: Number(row.low_price ?? 0),
   high_price: Number(row.high_price ?? 0),
   floor_price: Number(row.floor_price ?? 0),
+  listing_price: Number(row.listing_price ?? row.high_price ?? 0),
   best_platform: String(row.best_platform ?? "Review"),
   listing_title: String(row.listing_title ?? ""),
   listing_description: String(row.listing_description ?? ""),
@@ -252,7 +253,7 @@ const pushLocalSnapshot = async () => {
   const palletServerIdByClientId = new Map((palletResult.data ?? []).map((row) => [row.client_id, row.id]));
   if (changedItems.length > 0) {
     const result = await supabase.from("inventory_items").upsert(
-      changedItems.map((item) => ({ owner_id: auth.userId, pallet_id: palletServerIdByClientId.get(item.palletId), client_id: item.id, name: item.name, product_barcode: item.barcode ?? null, seller_sku: item.sellerSku ?? null, storage_location: item.storageLocation ?? null, condition: item.condition, quantity: item.quantity, last_quantity_reason: "Mobile inventory quantity update", low_price: item.low_price, high_price: item.high_price, floor_price: item.floor_price, best_platform: item.best_platform, workflow_status: getCloudWorkflowStatus(item), listing_title: item.listing_title, listing_description: item.listing_description, facebook_title: item.listing_title_facebook ?? null, facebook_description: item.listing_description_facebook ?? null, ebay_title: item.listing_title_ebay ?? null, ebay_description: item.listing_description_ebay ?? null, listed_platforms: item.listedPlatforms, sold_price: item.soldPrice })),
+      changedItems.map((item) => ({ owner_id: auth.userId, pallet_id: palletServerIdByClientId.get(item.palletId), client_id: item.id, name: item.name, product_barcode: item.barcode ?? null, seller_sku: item.sellerSku ?? null, storage_location: item.storageLocation ?? null, condition: item.condition, quantity: item.quantity, last_quantity_reason: "Mobile inventory quantity update", low_price: item.low_price, high_price: item.high_price, floor_price: item.floor_price, listing_price: item.listing_price ?? item.high_price, best_platform: item.best_platform, workflow_status: getCloudWorkflowStatus(item), listing_title: item.listing_title, listing_description: item.listing_description, facebook_title: item.listing_title_facebook ?? null, facebook_description: item.listing_description_facebook ?? null, ebay_title: item.listing_title_ebay ?? null, ebay_description: item.listing_description_ebay ?? null, listed_platforms: item.listedPlatforms, sold_price: item.soldPrice })),
       { onConflict: "owner_id,client_id" },
     );
     if (result.error) throw result.error;

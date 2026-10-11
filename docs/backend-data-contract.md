@@ -55,6 +55,12 @@ Every inventory card receives a stable PalletFlip SKU such as `PF-12345` when
 automatic SKU generation is enabled. This internal stock identity works without
 a marketplace account and remains separate from eBay listing and offer IDs.
 
+The seller-approved `listing_price` is stored separately from the AI-assisted
+low, high, and floor estimates. Mobile and web synchronize that exact value so
+a cross-device reload cannot silently replace the owner's decision with the
+high estimate. Existing inventory is backfilled from its prior high estimate;
+that migration source remains visible in activity history.
+
 Each sale records the number of units sold. Its database trigger locks the
 inventory row, rejects a quantity above the current available balance, and
 appends an idempotent negative `sale` movement. Partial sales leave the
