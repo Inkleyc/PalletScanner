@@ -21,16 +21,18 @@ export default function DashboardScreen() {
     try {
       const now = new Date(); const nextDay = new Date(now.getTime() + 86400000).toISOString();
       const [lineResult, shipmentResult, returnResult, jobResult, assistedResult] = await Promise.all([
-        supabase.from("order_lines").select("id", { count: "exact", head: true }).neq("match_state", "matched"),
-        supabase.from("shipments").select("id,state,ship_by_at").not("state", "in", '("delivered","picked_up","cancelled","shipped")'),
+        supabase.from("order_lines").select("order_id").neq("match_state", "matched"),
+        supabase.from("shipments").select("order_id,state,ship_by_at").not("state", "in", '("delivered","picked_up","cancelled","shipped")'),
         supabase.from("returns").select("id", { count: "exact", head: true }).not("state", "in", '("resolved","closed","cancelled")').lte("action_due_at", nextDay),
         supabase.from("marketplace_action_jobs").select("id", { count: "exact", head: true }).in("status", ["pending", "running", "retry_wait", "failed"]),
-        supabase.from("assisted_channel_tasks").select("id", { count: "exact", head: true }).eq("state", "open"),
+        supabase.from("assisted_channel_tasks").select("order_id").eq("state", "open"),
       ]);
       const failure = [lineResult, shipmentResult, returnResult, jobResult, assistedResult].find((result) => result.error)?.error;
       if (failure) throw failure;
-      const urgentShipments = (shipmentResult.data ?? []).filter((shipment) => shipment.state === "exception" || (shipment.ship_by_at && Date.parse(shipment.ship_by_at) <= Date.parse(nextDay))).length;
-      setAttentionCount(Number(lineResult.count || 0) + urgentShipments + Number(returnResult.count || 0) + Number(jobResult.count || 0) + Number(assistedResult.count || 0));
+      const affectedOrders = new Set((lineResult.data ?? []).map((line) => line.order_id));
+      (assistedResult.data ?? []).forEach((task) => affectedOrders.add(task.order_id));
+      (shipmentResult.data ?? []).filter((shipment) => shipment.state === "exception" || (shipment.ship_by_at && Date.parse(shipment.ship_by_at) <= Date.parse(nextDay))).forEach((shipment) => affectedOrders.add(shipment.order_id));
+      setAttentionCount(affectedOrders.size + Number(returnResult.count || 0) + Number(jobResult.count || 0));
     } catch (error) { setAttentionError(error instanceof Error ? error.message : "Could not load operational attention."); }
     finally { setRefreshing(false); }
   }, []);
