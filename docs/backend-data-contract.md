@@ -89,6 +89,13 @@ price, and floor while holding the records for update; stale or client-altered
 recommendations are rejected. Approval changes only the internal price, appends
 audit history, and records that no outbound marketplace change occurred.
 
+The owner may instead dismiss the exact current recommendation. The dismissal
+stores the approved, suggested, and floor prices plus the policy snapshot and
+reopens after one configured review interval. A changed approved price or a
+newly calculated suggestion invalidates the dismissal immediately. The history
+is owner-readable, append-only through a guarded command, and never changes a
+marketplace listing.
+
 Each sale records the number of units sold. Its database trigger locks the
 inventory row, rejects a quantity above the current available balance, and
 appends an idempotent negative `sale` movement. Partial sales leave the

@@ -210,6 +210,8 @@ for (const marker of [
   "Suggestion only",
   "Recommendations never change PalletFlip or eBay prices",
   "Apply to PalletFlip",
+  "Not now",
+  "price change will reopen it sooner",
   "This does not change eBay",
   "never changes eBay without explicit approval",
   "Allow reviewed outbound actions",

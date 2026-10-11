@@ -215,6 +215,10 @@ const applyPricingRecommendation = await readFile(
   new URL("../supabase/migrations/202610100047_apply_pricing_recommendation.sql", import.meta.url),
   "utf8",
 );
+const pricingRecommendationDismissals = await readFile(
+  new URL("../supabase/migrations/202610100048_pricing_recommendation_dismissals.sql", import.meta.url),
+  "utf8",
+);
 
 for (const table of ["pallets", "inventory_items", "item_photos", "marketplace_listings", "sales", "activity_events"]) {
   if (!schema.includes(`create table public.${table}`)) {
@@ -327,6 +331,9 @@ for (const marker of ["pricing_recommendations_enabled", "pricing_review_after_d
 }
 for (const marker of ["apply_pricing_recommendation", "status <> 'active'", "pricing_recommendations_enabled", "greatest(item_row.floor_price", "The recommendation changed", "pricing.recommendation_applied", "outbound_marketplace_change', false"]) {
   if (!applyPricingRecommendation.includes(marker)) throw new Error(`Pricing recommendation approval is missing safety marker: ${marker}`);
+}
+for (const marker of ["create table public.pricing_recommendation_decisions", "enable row level security", "dismiss_pricing_recommendation", "revisit_after", "security definer", "pricing.recommendation_dismissed", "outbound_marketplace_change', false"]) {
+  if (!pricingRecommendationDismissals.includes(marker)) throw new Error(`Pricing recommendation dismissal is missing safety marker: ${marker}`);
 }
 for (const marker of ["record_shipment_label", "state <> 'ready_for_label'", "state = 'label_purchased'", "final_shipping_cost", "shipment.label_recorded"]) {
   if (!recordShipmentLabel.includes(marker)) throw new Error(`Shipment-label recording is missing safety marker: ${marker}`);
