@@ -82,6 +82,7 @@ export const buildOperationalProfitability = ({ acquisitions = [], items = [], m
   const priceSnapshotUnits = priceSnapshotSales.reduce((sum, sale) => sum + sale.quantity, 0);
   const automatedSaleCount = saleRows.filter((sale) => sale.source === "marketplace_fulfillment").length;
   const manualSaleCount = saleRows.length - automatedSaleCount;
+  const unknownFeeSaleCount = saleRows.filter((sale) => sale.fees_state === "unknown").length;
   const returnedUnits = returnRows.reduce((sum, row) => sum + row.return_lines.reduce((lineSum, line) => lineSum + line.quantity, 0), 0);
   const allocatedSoldUnits = saleRows.filter((sale) => amount(acquisitionById.get(sale.acquisitionId)?.acquiredUnits) > 0).reduce((sum, sale) => sum + sale.quantity, 0);
   const returnImpactByItem = new Map();
@@ -126,6 +127,7 @@ export const buildOperationalProfitability = ({ acquisitions = [], items = [], m
       priceSnapshotCoveragePercent: soldUnits > 0 ? roundMoney(priceSnapshotUnits / soldUnits * 100) : 100,
       automatedSaleCount,
       manualSaleCount,
+      unknownFeeSaleCount,
     },
     acquisitions: performanceByAcquisition,
     items: itemPerformance,

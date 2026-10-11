@@ -11,6 +11,15 @@ import { buildOperationalProfitability } from "../src/profitability-model.js";
   assert.equal(report.summary.manualSaleCount, 1);
 }
 
+{
+  const report = buildOperationalProfitability({ sales: [
+    { item_id: "pending-fees", source: "marketplace_fulfillment", fees_state: "unknown", sold_price: 20 },
+    { item_id: "known-fees", source: "manual", fees_state: "confirmed", sold_price: 10, fees: 2 },
+  ] });
+  assert.equal(report.summary.unknownFeeSaleCount, 1);
+  assert.equal(report.summary.directSellingCosts, 2);
+}
+
 test("allocates landed cost and keeps refunds separate from original sales", () => {
   const report = buildOperationalProfitability({
     acquisitions: [{ id: "a1", name: "Pallet 1", purchase_price: 100, inbound_freight: 20, buyers_premium: 10, acquisition_tax: 0 }],
