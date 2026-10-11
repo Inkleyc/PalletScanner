@@ -1211,14 +1211,17 @@ function OrdersContent({ onShowReturns }) {
   const [trackingTarget, setTrackingTarget] = useState(null);
   const [trackingDraft, setTrackingDraft] = useState({ status: "delivered", description: "", location: "", occurredAt: new Date().toISOString().slice(0, 16) });
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [refreshedAt, setRefreshedAt] = useState(null);
   const [error, setError] = useState("");
-  const loadOrders = async () => setOrders(await listImportedEbayOrders());
+  const loadOrders = async () => { const rows = await listImportedEbayOrders(); setOrders(rows); setRefreshedAt(new Date()); };
   useEffect(() => {
     let active = true;
     if (getRepositoryMode() !== "cloud") { setLoading(false); return () => { active = false; }; }
-    Promise.all([listImportedEbayOrders(), listPackagePresets()]).then(([rows, presets]) => { if (active) { setOrders(rows); setPackagePresets(presets); } }).catch((loadError) => { if (active) setError(loadError instanceof Error ? loadError.message : "Could not load orders."); }).finally(() => { if (active) setLoading(false); });
+    Promise.all([listImportedEbayOrders(), listPackagePresets()]).then(([rows, presets]) => { if (active) { setOrders(rows); setPackagePresets(presets); setRefreshedAt(new Date()); } }).catch((loadError) => { if (active) setError(loadError instanceof Error ? loadError.message : "Could not load orders."); }).finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
   }, []);
+  const refreshOrders = async () => { setRefreshing(true); setError(""); try { await loadOrders(); } catch (loadError) { setError(loadError instanceof Error ? loadError.message : "Could not refresh orders."); } finally { setRefreshing(false); } };
   const saveMatch = async () => {
     if (!matchTarget || !matchItemId) return;
     setSavingMatch(true); setError("");
@@ -1384,7 +1387,7 @@ function OrdersContent({ onShowReturns }) {
     return <div className="view-stack">
       <section className="metrics-grid"><Metric label="Orders" value={orders.length} /><Metric label="In fulfillment" value={orders.filter((order) => order.shipment && !["delivered", "picked_up", "cancelled"].includes(order.shipment.state)).length} /><Metric label="Lines needing match" value={unmatched} tone={unmatched > 0 ? "warning" : "success"} /><Metric label="Manual actions" value={openAssistedTasks} tone={openAssistedTasks > 0 ? "warning" : "success"} /></section>
       <section className="panel table-panel">
-        <div className="panel-heading"><div><h3>Orders</h3><span>eBay imports and seller-entered sales share one reservation and fulfillment workflow.</span></div><label><span className="visually-hidden">Search orders</span><input type="search" value={orderSearch} onChange={(event) => setOrderSearch(event.target.value)} placeholder="Search order, SKU, or item" /></label></div>
+        <div className="panel-heading"><div><h3>Orders</h3><span>eBay imports and seller-entered sales share one reservation and fulfillment workflow.{refreshedAt ? ` Updated ${refreshedAt.toLocaleTimeString()}.` : ""}</span></div><div className="button-row"><label><span className="visually-hidden">Search orders</span><input type="search" value={orderSearch} onChange={(event) => setOrderSearch(event.target.value)} placeholder="Search order, SKU, or item" /></label><button type="button" disabled={refreshing} onClick={refreshOrders}>{refreshing ? "Refreshing…" : "Refresh"}</button></div></div>
         <div className="saved-views" aria-label="Filter orders"><button aria-pressed={queueFilter === "attention"} onClick={() => setQueueFilter("attention")}><span>Needs attention</span></button><button aria-pressed={queueFilter === "fulfillment"} onClick={() => setQueueFilter("fulfillment")}><span>Open</span></button><button aria-pressed={queueFilter === "complete"} onClick={() => setQueueFilter("complete")}><span>Complete</span></button><button aria-pressed={queueFilter === "all"} onClick={() => setQueueFilter("all")}><span>All</span></button></div>
         {error && <p className="error-text">{error}</p>}
         <div className="table-scroll"><table><thead><tr><th>Order</th><th>Source</th><th>Created</th><th>Payment</th><th>Fulfillment</th><th>Lines</th><th>Attention</th><th /></tr></thead><tbody>{orders.length === 0 ? <tr><td className="empty-table-cell" colSpan="8">No orders yet. Import eBay orders from Settings or record a manual sale from Inventory.</td></tr> : visibleOrders.length === 0 ? <tr><td className="empty-table-cell" colSpan="8">{normalizedSearch ? "No orders match this search and view." : "No orders in this view."}</td></tr> : visibleOrders.map((order) => {
@@ -1471,10 +1474,11 @@ function ReturnsContent() {
   const [returns, setReturns] = useState([]);
   const [orders, setOrders] = useState([]);
   const [working, setWorking] = useState(false);
+  const [refreshedAt, setRefreshedAt] = useState(null);
   const [error, setError] = useState("");
   const [evidenceTarget, setEvidenceTarget] = useState(null);
   const evidenceInput = useRef(null);
-  const load = async () => { const [returnRows, orderRows] = await Promise.all([listReturns(), listImportedEbayOrders()]); setReturns(returnRows); setOrders(orderRows); };
+  const load = async () => { const [returnRows, orderRows] = await Promise.all([listReturns(), listImportedEbayOrders()]); setReturns(returnRows); setOrders(orderRows); setRefreshedAt(new Date()); };
   useEffect(() => { if (getRepositoryMode() === "cloud") load().catch((loadError) => setError(loadError instanceof Error ? loadError.message : "Could not load returns.")); }, []);
   if (getRepositoryMode() !== "cloud") return <section className="panel getting-started"><h3>Returns require cloud inventory</h3><p>Sign in from Settings to preserve order and return history.</p></section>;
   const run = async (action) => { setWorking(true); setError(""); try { await action(); await load(); } catch (actionError) { setError(actionError instanceof Error ? actionError.message : "Could not update the return."); } finally { setWorking(false); } };
@@ -1646,7 +1650,7 @@ function ReturnsContent() {
       <Metric label="Return financial impact" value={currency(totalFinancialImpact)} tone={totalFinancialImpact < 0 ? "warning" : "success"} />
     </section>
     <section className="panel table-panel">
-      <div className="panel-heading"><div><h3>Returns</h3><span>Returned inventory stays unavailable until receipt, inspection, and an explicit disposition.</span></div><button className="primary-button" type="button" disabled={working} onClick={createReturn}>Open manual return</button></div>
+      <div className="panel-heading"><div><h3>Returns</h3><span>Returned inventory stays unavailable until receipt, inspection, and an explicit disposition.{refreshedAt ? ` Updated ${refreshedAt.toLocaleTimeString()}.` : ""}</span></div><div className="button-row"><button type="button" disabled={working} onClick={() => run(async () => {})}>{working ? "Refreshing…" : "Refresh"}</button><button className="primary-button" type="button" disabled={working} onClick={createReturn}>Open manual return</button></div></div>
       {error && <p className="error-text">{error}</p>}
       {returns.length === 0 ? <p className="empty-table-cell">No returns recorded.</p> : sortedReturns.map((entry) => <section className="sale-card" key={entry.id}><div>
         <strong>Order {entry.orders?.external_order_id || entry.order_id} · {entry.state.replaceAll("_", " ")}</strong>
