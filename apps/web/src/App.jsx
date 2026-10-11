@@ -17,7 +17,7 @@ import { isSupabaseConfigured, supabase } from "./supabase.js";
 import { buildAnalytics } from "./analytics-model.js";
 import { buildOperationalProfitability } from "./profitability-model.js";
 import { reconcileEbayPreview } from "./ebay-reconciliation.js";
-import { applyPricingRecommendation, archivePackagePreset, closeReturnCase, confirmLocalPickupHandoff, confirmSaleFees, confirmShipmentPackage, confirmShipmentPicked, confirmShipmentShipped, createManualReturn, createUnverifiedInventoryFromObservation, dismissPricingRecommendation, dispositionReturnLine, getEbayMarketplaceControl, getPricingRecommendationSettings, importObservedEbayOrders, importObservedEbayReturns, inspectReturnLine, listEbayObservationSnapshots, listImportedEbayOrders, listMarketplaceActionJobs, listMarketplaceQuantityQueue, listPackagePresets, listReturns, listShippedSaleRecovery, loadEbayObservationSnapshot, loadOperationalProfitabilityData, matchImportedOrderLine, queueEbayQuantitySync, receiveReturnLine, reconcileShippedFulfillmentSales, recordConfirmedReturnDecision, recordEbayReconciliationDecision, recordReturnCommunication, recordReturnFinancialEvent, recordReturnShippingHandoff, recordShipmentLabel, recordTrackingEvent, releaseCancelledOrderReservations, reserveImportedOrder, resolveMarketplacePriceReview, resolveReturnIdentityDiscrepancy, retryFailedMarketplaceActionJob, saveEbayObservationSnapshot, savePackagePreset, setEbayOutboundPause, startOrderFulfillment, startReturnReplacement, updatePricingRecommendationSettings, uploadReturnEvidence } from "./marketplace-observation-repository.js";
+import { applyPricingRecommendation, archivePackagePreset, closeReturnCase, confirmLocalPickupHandoff, confirmSaleFees, confirmShipmentPackage, confirmShipmentPicked, confirmShipmentShipped, createManualReturn, createUnverifiedInventoryFromObservation, dismissPricingRecommendation, dispositionReturnLine, getEbayMarketplaceControl, getPricingRecommendationSettings, importObservedEbayOrders, importObservedEbayReturns, inspectReturnLine, listEbayObservationSnapshots, listImportedEbayOrders, listMarketplaceActionJobs, listMarketplaceQuantityQueue, listPackagePresets, listReturns, listShippedSaleRecovery, loadEbayObservationSnapshot, loadOperationalProfitabilityData, matchImportedOrderLine, queueEbayQuantitySync, receiveReturnLine, reconcileShippedFulfillmentSales, recordConfirmedReturnDecision, recordEbayReconciliationDecision, recordReturnCommunication, recordReturnFinancialEvent, recordReturnLineRefund, recordReturnShippingHandoff, recordShipmentLabel, recordTrackingEvent, releaseCancelledOrderReservations, reserveImportedOrder, resolveMarketplacePriceReview, resolveReturnIdentityDiscrepancy, retryFailedMarketplaceActionJob, saveEbayObservationSnapshot, savePackagePreset, setEbayOutboundPause, startOrderFulfillment, startReturnReplacement, updatePricingRecommendationSettings, uploadReturnEvidence } from "./marketplace-observation-repository.js";
 import { buildPricingRecommendations } from "./pricing-recommendation-model.js";
 import { cancelManualSaleOrder, completeAssistedChannelTask, createManualSaleOrder } from "./marketplace-observation-repository.js";
 import { ActivityPanel } from "./activity-panel.jsx";
@@ -1502,10 +1502,23 @@ function ReturnsContent() {
   };
   const recordMoney = (returnEntry) => {
     const type = window.prompt("Type: refund, partial_refund, fee_credit, return_shipping, replacement_shipping, or other", "refund"); if (!type?.trim()) return;
+    const normalizedType = type.trim().toLowerCase();
+    if (["refund", "partial_refund"].includes(normalizedType)) {
+      const eligibleLines = returnEntry.return_lines.filter((line) => Number(line.order_lines?.fulfilled_quantity || 0) > Number(line.order_lines?.refunded_quantity || 0));
+      if (eligibleLines.length === 0) return setError("No fulfilled, unrefunded units are available on this return.");
+      const choices = eligibleLines.map((line, index) => `${index + 1}. ${line.order_lines?.seller_sku || line.order_lines?.title || "Returned item"} · ${Number(line.order_lines.fulfilled_quantity) - Number(line.order_lines.refunded_quantity || 0)} refundable`).join("\n");
+      const selection = window.prompt(`Choose the refunded line by number:\n\n${choices}`, "1"); if (selection === null) return;
+      const line = eligibleLines[Number(selection) - 1]; if (!line) return setError("Choose a listed return line number.");
+      const maximum = Math.min(Number(line.quantity), Number(line.order_lines.fulfilled_quantity) - Number(line.order_lines.refunded_quantity || 0));
+      const quantity = Number(window.prompt("Refunded quantity", String(maximum))); if (!Number.isInteger(quantity) || quantity < 1 || quantity > maximum) return setError(`Enter a whole-number refund quantity from 1 to ${maximum}.`);
+      const amount = Number(window.prompt("Refund amount", "0.00")); if (!Number.isFinite(amount) || amount < 0) return setError("Enter a non-negative refund amount.");
+      const note = window.prompt("Refund note", "Confirmed from marketplace or payment record"); if (note === null) return;
+      return run(() => recordReturnLineRefund({ returnLineId: line.id, quantity, amount, eventKey: `manual:${crypto.randomUUID()}`, note: note.trim() }));
+    }
     const amountAnswer = window.prompt("Amount", "0.00"); if (amountAnswer === null) return;
     const amount = Number(amountAnswer); if (!Number.isFinite(amount) || amount < 0) return setError("Enter a non-negative financial amount.");
     const note = window.prompt("Financial note", "Recorded from marketplace or payment record"); if (note === null) return;
-    run(() => recordReturnFinancialEvent({ returnId: returnEntry.id, type: type.trim().toLowerCase(), amount, eventKey: `manual:${crypto.randomUUID()}`, note: note.trim() }));
+    run(() => recordReturnFinancialEvent({ returnId: returnEntry.id, type: normalizedType, amount, eventKey: `manual:${crypto.randomUUID()}`, note: note.trim() }));
   };
   const closeCase = (returnEntry) => {
     if (returnEntry.return_lines.some((line) => line.inventory_state === "quarantined")) return setError("Received return inventory must be inspected and dispositioned before closure.");

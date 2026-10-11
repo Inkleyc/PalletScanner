@@ -396,7 +396,7 @@ export const listReturns = async () => {
   const userResult = await supabase.auth.getUser();
   if (userResult.error || !userResult.data.user) throw new Error("Sign in to manage returns.");
   const result = await supabase.from("returns")
-    .select("*, orders(external_order_id), return_lines(*, order_lines(title,seller_sku), return_inspections(*), return_identity_resolutions(*)), return_financial_events(*), return_decisions(*), return_communications(*), return_evidence(*), shipments!shipments_return_fk(*, shipment_packages(*), replacement_shipment_lines(*), tracking_events(*))")
+    .select("*, orders(external_order_id), return_lines(*, order_lines(title,seller_sku,quantity,fulfilled_quantity,refunded_quantity), return_inspections(*), return_identity_resolutions(*)), return_financial_events(*), return_decisions(*), return_communications(*), return_evidence(*), shipments!shipments_return_fk(*, shipment_packages(*), replacement_shipment_lines(*), tracking_events(*))")
     .eq("owner_id", userResult.data.user.id)
     .order("created_at", { ascending: false });
   throwIfError(result);
@@ -529,6 +529,13 @@ export const dispositionReturnLine = async ({ returnLineId, disposition, note })
 export const recordReturnFinancialEvent = async ({ returnId, type, amount, currency = "USD", eventKey, note = "", occurredAt = new Date().toISOString() }) => {
   if (!supabase) throw new Error("Supabase is not configured for this dashboard.");
   const result = await supabase.rpc("record_return_financial_event", { target_return_id: returnId, financial_event_type: type, financial_amount: amount, financial_currency: currency, financial_event_key: eventKey, financial_note: note, financial_occurred_at: occurredAt });
+  throwIfError(result);
+  return result.data;
+};
+
+export const recordReturnLineRefund = async ({ returnLineId, quantity, amount, currency = "USD", eventKey, note = "", occurredAt = new Date().toISOString() }) => {
+  if (!supabase) throw new Error("Supabase is not configured for this dashboard.");
+  const result = await supabase.rpc("record_return_line_refund", { target_return_line_id: returnLineId, refund_quantity: quantity, refund_amount: amount, refund_currency: currency, refund_event_key: eventKey, refund_note: note, refund_occurred_at: occurredAt });
   throwIfError(result);
   return result.data;
 };
