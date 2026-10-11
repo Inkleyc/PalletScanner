@@ -568,6 +568,13 @@ export const updatePricingRecommendationSettings = async ({ enabled, reviewAfter
   return result.data;
 };
 
+export const applyPricingRecommendation = async ({ listingId, proposedPrice }) => {
+  if (!supabase) throw new Error("Supabase is not configured for this dashboard.");
+  const result = await supabase.rpc("apply_pricing_recommendation", { target_listing_id: listingId, proposed_price: proposedPrice });
+  throwIfError(result);
+  return result.data;
+};
+
 export const listMarketplaceActionJobs = async () => {
   if (!supabase) throw new Error("Supabase is not configured for this dashboard.");
   const userResult = await supabase.auth.getUser();

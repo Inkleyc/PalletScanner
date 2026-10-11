@@ -209,6 +209,8 @@ for (const marker of [
   "Enable suggestions",
   "Suggestion only",
   "Recommendations never change PalletFlip or eBay prices",
+  "Apply to PalletFlip",
+  "This does not change eBay",
   "never changes eBay without explicit approval",
   "Allow reviewed outbound actions",
   "Turning off the pause does not enable automatic synchronization",

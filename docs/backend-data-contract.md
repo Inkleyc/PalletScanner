@@ -83,6 +83,12 @@ rejects a value below the floor, and still does not push that edit to eBay.
 The mobile item editor enforces the same floor and explains that saving the
 approved value alone does not update an already-active marketplace listing.
 
+An owner may explicitly apply the current suggestion to PalletFlip. The server
+recalculates the recommendation from the current policy, listing age, approved
+price, and floor while holding the records for update; stale or client-altered
+recommendations are rejected. Approval changes only the internal price, appends
+audit history, and records that no outbound marketplace change occurred.
+
 Each sale records the number of units sold. Its database trigger locks the
 inventory row, rejects a quantity above the current available balance, and
 appends an idempotent negative `sale` movement. Partial sales leave the

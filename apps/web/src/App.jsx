@@ -17,7 +17,7 @@ import { isSupabaseConfigured, supabase } from "./supabase.js";
 import { buildAnalytics } from "./analytics-model.js";
 import { buildOperationalProfitability } from "./profitability-model.js";
 import { reconcileEbayPreview } from "./ebay-reconciliation.js";
-import { archivePackagePreset, closeReturnCase, confirmShipmentPackage, confirmShipmentPicked, confirmShipmentShipped, createManualReturn, createUnverifiedInventoryFromObservation, dispositionReturnLine, getEbayMarketplaceControl, getPricingRecommendationSettings, importObservedEbayOrders, importObservedEbayReturns, inspectReturnLine, listEbayObservationSnapshots, listImportedEbayOrders, listMarketplaceActionJobs, listMarketplaceQuantityQueue, listPackagePresets, listReturns, loadEbayObservationSnapshot, loadOperationalProfitabilityData, matchImportedOrderLine, queueEbayQuantitySync, receiveReturnLine, recordConfirmedReturnDecision, recordEbayReconciliationDecision, recordReturnCommunication, recordReturnFinancialEvent, recordReturnShippingHandoff, recordShipmentLabel, recordTrackingEvent, releaseCancelledOrderReservations, reserveImportedOrder, resolveMarketplacePriceReview, resolveReturnIdentityDiscrepancy, retryFailedMarketplaceActionJob, saveEbayObservationSnapshot, savePackagePreset, setEbayOutboundPause, startOrderFulfillment, startReturnReplacement, updatePricingRecommendationSettings, uploadReturnEvidence } from "./marketplace-observation-repository.js";
+import { applyPricingRecommendation, archivePackagePreset, closeReturnCase, confirmShipmentPackage, confirmShipmentPicked, confirmShipmentShipped, createManualReturn, createUnverifiedInventoryFromObservation, dispositionReturnLine, getEbayMarketplaceControl, getPricingRecommendationSettings, importObservedEbayOrders, importObservedEbayReturns, inspectReturnLine, listEbayObservationSnapshots, listImportedEbayOrders, listMarketplaceActionJobs, listMarketplaceQuantityQueue, listPackagePresets, listReturns, loadEbayObservationSnapshot, loadOperationalProfitabilityData, matchImportedOrderLine, queueEbayQuantitySync, receiveReturnLine, recordConfirmedReturnDecision, recordEbayReconciliationDecision, recordReturnCommunication, recordReturnFinancialEvent, recordReturnShippingHandoff, recordShipmentLabel, recordTrackingEvent, releaseCancelledOrderReservations, reserveImportedOrder, resolveMarketplacePriceReview, resolveReturnIdentityDiscrepancy, retryFailedMarketplaceActionJob, saveEbayObservationSnapshot, savePackagePreset, setEbayOutboundPause, startOrderFulfillment, startReturnReplacement, updatePricingRecommendationSettings, uploadReturnEvidence } from "./marketplace-observation-repository.js";
 import { buildPricingRecommendations } from "./pricing-recommendation-model.js";
 import { ActivityPanel } from "./activity-panel.jsx";
 import { PalletManager } from "./pallet-manager.jsx";
@@ -667,6 +667,13 @@ function QuantitySyncQueue() {
     catch (priceError) { setError(priceError instanceof Error ? priceError.message : "Could not record the price decision."); }
     finally { setQueueingId(null); }
   };
+  const applyRecommendation = async (entry) => {
+    if (!window.confirm(`Approve ${currency(entry.suggestedPrice)} as the new PalletFlip listing price for ${entry.name}? This does not change eBay.`)) return;
+    setQueueingId(entry.listingId); setError("");
+    try { await applyPricingRecommendation({ listingId: entry.listingId, proposedPrice: entry.suggestedPrice }); await repository.hydrate(); setRows(await listMarketplaceQuantityQueue()); }
+    catch (priceError) { setError(priceError instanceof Error ? priceError.message : "Could not apply the pricing recommendation."); }
+    finally { setQueueingId(null); }
+  };
   if (getRepositoryMode() !== "cloud") return null;
   const mismatches = (rows ?? []).filter((row) => row.advertised_quantity !== row.desired_quantity);
   const priceReviews = (rows ?? []).filter((row) => row.price !== null && row.inventory_items?.listing_price !== null && Number(row.price) !== Number(row.inventory_items.listing_price) && !(row.price_reviewed_external_price !== null && row.price_reviewed_approved_price !== null && Number(row.price_reviewed_external_price) === Number(row.price) && Number(row.price_reviewed_approved_price) === Number(row.inventory_items.listing_price)));
@@ -689,7 +696,7 @@ function QuantitySyncQueue() {
     </div>}
     {rows && pricingSettings?.pricing_recommendations_enabled && <div className="check-list reconciliation-records">
       <strong>{pricingRecommendations.length} aging price recommendation{pricingRecommendations.length === 1 ? "" : "s"}</strong>
-      {pricingRecommendations.length === 0 ? <small>No active listing has crossed the configured review age.</small> : pricingRecommendations.slice(0, 50).map((entry) => <div className="check-row" key={`recommend-${entry.listingId}`}><span className="check-dot" /><span><strong>{entry.sku}</strong> · {entry.name} · {entry.ageDays} days · approved {currency(entry.approvedPrice)} · suggested {currency(entry.suggestedPrice)} · floor {currency(entry.floorPrice)}</span><span className="badge warning">Suggestion only</span></div>)}
+      {pricingRecommendations.length === 0 ? <small>No active listing has crossed the configured review age.</small> : pricingRecommendations.slice(0, 50).map((entry) => <div className="reconciliation-decision-row" key={`recommend-${entry.listingId}`}><div className="check-row"><span className="check-dot" /><span><strong>{entry.sku}</strong> · {entry.name} · {entry.ageDays} days · approved {currency(entry.approvedPrice)} · suggested {currency(entry.suggestedPrice)} · floor {currency(entry.floorPrice)}</span><span className="badge warning">Suggestion only</span></div><button type="button" disabled={queueingId === entry.listingId} onClick={() => applyRecommendation(entry)}>{queueingId === entry.listingId ? "Applying…" : "Apply to PalletFlip"}</button></div>)}
       <small>Recommendations never change PalletFlip or eBay prices. Review the item and edit its approved price separately.</small>
     </div>}
     {jobs && <div className="check-list reconciliation-records">
