@@ -231,6 +231,10 @@ const observeMarketplacePrice = await readFile(
   new URL("../supabase/migrations/202610100051_observe_marketplace_price.sql", import.meta.url),
   "utf8",
 );
+const salePriceSnapshot = await readFile(
+  new URL("../supabase/migrations/202610100052_sale_price_snapshot.sql", import.meta.url),
+  "utf8",
+);
 
 for (const table of ["pallets", "inventory_items", "item_photos", "marketplace_listings", "sales", "activity_events"]) {
   if (!schema.includes(`create table public.${table}`)) {
@@ -355,6 +359,9 @@ for (const marker of ["dismiss_pricing_recommendation", "for update", "revisit_a
 }
 for (const marker of ["capture_observed_ebay_offer_price", "marketplace_observations_update_offer_price", "capture_imported_listing_price", "inventory_items_update_imported_listing_price", "last_observed_payload#>>'{price,value}'", "platform = 'ebay'"]) {
   if (!observeMarketplacePrice.includes(marker)) throw new Error(`Marketplace price observation is missing contract marker: ${marker}`);
+}
+for (const marker of ["listing_price_at_sale", "legacy_unknown", "approved_at_sale", "capture_sale_listing_price", "before insert on public.sales"]) {
+  if (!salePriceSnapshot.includes(marker)) throw new Error(`Sale price snapshot is missing contract marker: ${marker}`);
 }
 for (const marker of ["record_shipment_label", "state <> 'ready_for_label'", "state = 'label_purchased'", "final_shipping_cost", "shipment.label_recorded"]) {
   if (!recordShipmentLabel.includes(marker)) throw new Error(`Shipment-label recording is missing safety marker: ${marker}`);

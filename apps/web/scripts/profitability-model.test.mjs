@@ -65,3 +65,16 @@ test("does not count a package preset estimate before packing is confirmed", () 
   assert.equal(report.summary.packagingSupplyCost, 0);
   assert.equal(report.summary.estimatedProfit, 0);
 });
+
+test("reports sale-to-list realization only from authoritative sale snapshots", () => {
+  const report = buildOperationalProfitability({
+    items: [{ id: "i1", name: "One" }],
+    sales: [
+      { item_id: "i1", quantity: 2, sold_price: 160, listing_price_at_sale: 100, price_snapshot_source: "approved_at_sale" },
+      { item_id: "i1", quantity: 1, sold_price: 50, listing_price_at_sale: null, price_snapshot_source: "legacy_unknown" },
+    ],
+  });
+  assert.equal(report.summary.priceRealizationPercent, 80);
+  assert.equal(report.summary.priceSnapshotCoveragePercent, 66.67);
+  assert.equal(report.items[0].priceRealizationPercent, 80);
+});

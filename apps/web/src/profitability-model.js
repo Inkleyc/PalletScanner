@@ -33,7 +33,8 @@ export const buildOperationalProfitability = ({ acquisitions = [], items = [], m
     const gross = amount(sale.sold_price);
     const directCosts = amount(sale.fees) + amount(sale.shipping_cost);
     const acquisitionCost = amount(acquisition?.allocatedUnitCost) * quantity;
-    return { ...sale, item, acquisitionId: item?.acquisition_id ?? null, quantity, gross, directCosts, acquisitionCost, estimatedProfitBeforeReturns: gross - directCosts - acquisitionCost };
+    const listingValueAtSale = sale.price_snapshot_source === "approved_at_sale" && sale.listing_price_at_sale != null ? amount(sale.listing_price_at_sale) * quantity : null;
+    return { ...sale, item, acquisitionId: item?.acquisition_id ?? null, quantity, gross, directCosts, acquisitionCost, listingValueAtSale, estimatedProfitBeforeReturns: gross - directCosts - acquisitionCost };
   });
   const returnRows = returns.map((returnEntry) => {
     const financialImpact = (returnEntry.return_financial_events ?? []).reduce((sum, event) => sum + eventImpact(event), 0);
@@ -75,6 +76,10 @@ export const buildOperationalProfitability = ({ acquisitions = [], items = [], m
   const allocatedSoldCost = saleRows.reduce((sum, sale) => sum + sale.acquisitionCost, 0);
   const returnFinancialImpact = returnRows.reduce((sum, row) => sum + row.financialImpact, 0);
   const soldUnits = saleRows.reduce((sum, sale) => sum + sale.quantity, 0);
+  const priceSnapshotSales = saleRows.filter((sale) => sale.listingValueAtSale !== null);
+  const listedValueAtSale = priceSnapshotSales.reduce((sum, sale) => sum + sale.listingValueAtSale, 0);
+  const snapshotGrossRevenue = priceSnapshotSales.reduce((sum, sale) => sum + sale.gross, 0);
+  const priceSnapshotUnits = priceSnapshotSales.reduce((sum, sale) => sum + sale.quantity, 0);
   const returnedUnits = returnRows.reduce((sum, row) => sum + row.return_lines.reduce((lineSum, line) => lineSum + line.quantity, 0), 0);
   const allocatedSoldUnits = saleRows.filter((sale) => amount(acquisitionById.get(sale.acquisitionId)?.acquiredUnits) > 0).reduce((sum, sale) => sum + sale.quantity, 0);
   const returnImpactByItem = new Map();
@@ -94,7 +99,9 @@ export const buildOperationalProfitability = ({ acquisitions = [], items = [], m
     const directCosts = relatedSales.reduce((sum, sale) => sum + sale.directCosts, 0) + (packagingCostByItem.get(itemId) ?? 0);
     const allocatedCost = relatedSales.reduce((sum, sale) => sum + sale.acquisitionCost, 0);
     const returnImpact = returnImpactByItem.get(itemId) ?? 0;
-    return { id: itemId, name: item?.name ?? "Unknown item", sku: item?.client_id ?? "", category: item?.category ?? "Uncategorized", condition: item?.condition ?? "Unknown", quantitySold, grossRevenue: roundMoney(grossRevenue), directCosts: roundMoney(directCosts), allocatedCost: roundMoney(allocatedCost), returnImpact: roundMoney(returnImpact), estimatedProfit: roundMoney(grossRevenue - directCosts - allocatedCost + returnImpact) };
+    const listedValue = relatedSales.filter((sale) => sale.listingValueAtSale !== null).reduce((sum, sale) => sum + sale.listingValueAtSale, 0);
+    const snapshotGross = relatedSales.filter((sale) => sale.listingValueAtSale !== null).reduce((sum, sale) => sum + sale.gross, 0);
+    return { id: itemId, name: item?.name ?? "Unknown item", sku: item?.client_id ?? "", category: item?.category ?? "Uncategorized", condition: item?.condition ?? "Unknown", quantitySold, grossRevenue: roundMoney(grossRevenue), directCosts: roundMoney(directCosts), allocatedCost: roundMoney(allocatedCost), returnImpact: roundMoney(returnImpact), priceRealizationPercent: listedValue > 0 ? roundMoney(snapshotGross / listedValue * 100) : null, estimatedProfit: roundMoney(grossRevenue - directCosts - allocatedCost + returnImpact) };
   }).sort((left, right) => right.estimatedProfit - left.estimatedProfit);
   const projectedAvailableValue = items.reduce((sum, item) => sum + Math.max(0, amount(item.available)) * ((amount(item.low_price) + amount(item.high_price)) / 2), 0);
   const observedOrderSubtotal = orders.filter((order) => String(order.payment_state).toLowerCase() === "paid").reduce((sum, order) => sum + amount(order.pricing_summary?.priceSubtotal?.value ?? order.pricing_summary?.priceSubtotal?.amount), 0);
@@ -113,6 +120,8 @@ export const buildOperationalProfitability = ({ acquisitions = [], items = [], m
       soldUnits,
       returnedUnits,
       returnRatePercent: soldUnits > 0 ? roundMoney(returnedUnits / soldUnits * 100) : 0,
+      priceRealizationPercent: listedValueAtSale > 0 ? roundMoney(snapshotGrossRevenue / listedValueAtSale * 100) : null,
+      priceSnapshotCoveragePercent: soldUnits > 0 ? roundMoney(priceSnapshotUnits / soldUnits * 100) : 100,
     },
     acquisitions: performanceByAcquisition,
     items: itemPerformance,

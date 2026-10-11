@@ -74,6 +74,12 @@ Review rows link to the exact eBay listing when an observed URL or listing ID is
 available, allowing a deliberate handoff to eBay's seller tools without giving
 the recommendation workflow outbound mutation authority.
 
+New recorded sales snapshot the approved unit listing price in the same insert
+transaction. Analysis reports gross sale revenue as a percentage of that
+quantity-adjusted listed value and exposes snapshot coverage. Earlier sales are
+labeled `legacy_unknown` and excluded from realization instead of being
+backfilled with a current price that may not reflect the original listing.
+
 The owner can resolve a current difference by keeping the PalletFlip price or
 adopting the observed eBay price. Keeping the price records and suppresses only
 that exact observed/approved pair; a later change on either side returns to the
