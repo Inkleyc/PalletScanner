@@ -101,6 +101,12 @@ another aging markdown can appear for that listing. The timestamp is written in
 the same transaction as the approval activity, preventing repeated markdowns
 from being stacked immediately down to the floor.
 
+Item History resolves both the client compatibility ID and authoritative cloud
+UUID so per-item activity does not disappear when events originate in database
+commands. It presents price decisions and recommendations alongside quantity
+movements and reservations; the global Settings activity remains available for
+account-wide review.
+
 Each sale records the number of units sold. Its database trigger locks the
 inventory row, rejects a quantity above the current available balance, and
 appends an idempotent negative `sale` movement. Partial sales leave the

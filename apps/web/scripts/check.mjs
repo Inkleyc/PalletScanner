@@ -114,6 +114,8 @@ for (const marker of [
   "Record sale",
   "InventoryHistory",
   "History",
+  "No inventory history has been recorded yet",
+  "Approved price",
   "Quantity adjustment reason",
   "Archived inventory",
   "Restore item",
@@ -365,6 +367,9 @@ if (repositoryNotificationCount !== 1) {
 }
 if (!(await repository.listActivity(String(originalItem.id))).some((event) => event.type === "item.updated")) {
   throw new Error("Local repository did not record inventory activity.");
+}
+if (!(await repository.listActivity(["missing-entity", String(originalItem.id)])).some((event) => event.type === "item.updated")) {
+  throw new Error("Local repository did not support multi-identity activity lookup.");
 }
 if (!(await repository.listMovements(originalItem.id)).some((movement) => movement.type === "correction" && movement.reason === "Count correction")) {
   throw new Error("Local repository did not record a quantity correction movement.");

@@ -219,8 +219,9 @@ export const repository = {
     return clone(recorded);
   },
   async listActivity(entityId) {
+    const entityIds = Array.isArray(entityId) ? new Set(entityId.map(String)) : null;
     return clone(state.activity)
-      .filter((event) => entityId === undefined || event.entityId === String(entityId))
+      .filter((event) => entityId === undefined || (entityIds ? entityIds.has(event.entityId) : event.entityId === String(entityId)))
       .sort((first, second) => second.occurredAt - first.occurredAt);
   },
   async listMovements(itemId) {

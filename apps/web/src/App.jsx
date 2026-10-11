@@ -320,6 +320,7 @@ function RecordSale({ item, onRecorded }) {
 function InventoryHistory({ item }) {
   const [movements, setMovements] = useState([]);
   const [reservations, setReservations] = useState([]);
+  const [activity, setActivity] = useState([]);
   const [loading, setLoading] = useState(true);
   const [working, setWorking] = useState(false);
   const [error, setError] = useState("");
@@ -329,12 +330,12 @@ function InventoryHistory({ item }) {
     let active = true;
     setLoading(true);
     setError("");
-    Promise.all([repository.listMovements(item.id), repository.listReservations(item.id)])
-      .then(([movementRows, reservationRows]) => { if (active) { setMovements(movementRows); setReservations(reservationRows); } })
+    Promise.all([repository.listMovements(item.id), repository.listReservations(item.id), repository.listActivity(item.serverId ? [item.id, item.serverId] : item.id)])
+      .then(([movementRows, reservationRows, activityRows]) => { if (active) { setMovements(movementRows); setReservations(reservationRows); setActivity(activityRows); } })
       .catch((historyError) => { if (active) setError(historyError instanceof Error ? historyError.message : "Could not load inventory history."); })
       .finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
-  }, [item.id, item.available, item.quantity, refreshKey]);
+  }, [item.id, item.serverId, item.available, item.quantity, item.listing_price, refreshKey]);
 
   const placeHold = async () => {
     const quantityAnswer = window.prompt("How many units should be held?", "1");
@@ -357,7 +358,7 @@ function InventoryHistory({ item }) {
 
   if (loading) return <p>Loading inventory history…</p>;
   const activeReservations = reservations.filter((reservation) => ["active", "shortage"].includes(reservation.state));
-  return <div><div className="detail-grid"><div><span>On hand</span><strong>{item.onHand ?? item.quantity}</strong></div><div><span>Reserved</span><strong>{item.reserved ?? 0}</strong></div><div><span>Available</span><strong>{item.available ?? item.quantity}</strong></div><div><span>Shortage</span><strong>{item.shortage ?? 0}</strong></div></div><div className="button-row"><button disabled={working || item.archivedAt || getQuantity(item) < 1} onClick={placeHold}>Place inventory hold</button></div>{error && <p className="error-text">{error}</p>}{activeReservations.map((reservation) => <section className="sale-card" key={reservation.id}><div><strong>{reservation.reservedQuantity} held{reservation.shortageQuantity > 0 ? ` · ${reservation.shortageQuantity} short` : ""}</strong><span>{reservation.reason || "Inventory hold"}</span></div><button disabled={working} onClick={() => releaseHold(reservation.id)}>Release hold</button></section>)}{!error && movements.length === 0 && <p>No quantity movements have been recorded yet.</p>}{movements.map((movement) => <section className="sale-card" key={movement.id}><div><strong>{movement.quantity > 0 ? "+" : ""}{movement.quantity} · {movement.type.replaceAll("_", " ")}</strong><span>{movement.reason || "Inventory movement"} · {new Date(movement.occurredAt).toLocaleString()}</span></div></section>)}</div>;
+  return <div><div className="detail-grid"><div><span>On hand</span><strong>{item.onHand ?? item.quantity}</strong></div><div><span>Reserved</span><strong>{item.reserved ?? 0}</strong></div><div><span>Available</span><strong>{item.available ?? item.quantity}</strong></div><div><span>Shortage</span><strong>{item.shortage ?? 0}</strong></div></div><div className="button-row"><button disabled={working || item.archivedAt || getQuantity(item) < 1} onClick={placeHold}>Place inventory hold</button></div>{error && <p className="error-text">{error}</p>}{activeReservations.map((reservation) => <section className="sale-card" key={reservation.id}><div><strong>{reservation.reservedQuantity} held{reservation.shortageQuantity > 0 ? ` · ${reservation.shortageQuantity} short` : ""}</strong><span>{reservation.reason || "Inventory hold"}</span></div><button disabled={working} onClick={() => releaseHold(reservation.id)}>Release hold</button></section>)}{!error && movements.length === 0 && activity.length === 0 && <p>No inventory history has been recorded yet.</p>}{movements.map((movement) => <section className="sale-card" key={`movement-${movement.id}`}><div><strong>{movement.quantity > 0 ? "+" : ""}{movement.quantity} · {movement.type.replaceAll("_", " ")}</strong><span>{movement.reason || "Inventory movement"} · {new Date(movement.occurredAt).toLocaleString()}</span></div></section>)}{activity.map((event) => <section className="sale-card" key={`activity-${event.id}`}><div><strong>{event.type.replaceAll(".", " · ").replaceAll("_", " ")}</strong><span>{event.details?.approved_price !== undefined ? `Approved price ${currency(Number(event.details.approved_price))} · ` : ""}{event.details?.suggested_price !== undefined ? `Suggested ${currency(Number(event.details.suggested_price))} · ` : ""}{new Date(event.occurredAt).toLocaleString()}</span></div></section>)}</div>;
 }
 
 function InventoryDetail({ item, palletName, pallets, onSave, onRemove, onSaleRecorded, onClose, allowEditing = true, showWorkflowActions = true, locationTrackingEnabled = false }) {
