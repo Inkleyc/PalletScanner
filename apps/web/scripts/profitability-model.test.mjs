@@ -20,6 +20,12 @@ import { buildOperationalProfitability } from "../src/profitability-model.js";
   assert.equal(report.summary.directSellingCosts, 2);
 }
 
+{
+  const report = buildOperationalProfitability({ sales: [{ item_id: "shipped", sold_price: 40, shipping_income: 8, shipping_cost: 6 }] });
+  assert.equal(report.summary.grossRevenue, 48);
+  assert.equal(report.summary.estimatedProfit, 42);
+}
+
 test("allocates landed cost and keeps refunds separate from original sales", () => {
   const report = buildOperationalProfitability({
     acquisitions: [{ id: "a1", name: "Pallet 1", purchase_price: 100, inbound_freight: 20, buyers_premium: 10, acquisition_tax: 0 }],

@@ -30,7 +30,7 @@ export const buildOperationalProfitability = ({ acquisitions = [], items = [], m
     const item = itemById.get(sale.item_id);
     const acquisition = acquisitionById.get(item?.acquisition_id);
     const quantity = Math.max(1, amount(sale.quantity));
-    const gross = amount(sale.sold_price);
+    const gross = amount(sale.sold_price) + amount(sale.shipping_income);
     const directCosts = amount(sale.fees) + amount(sale.shipping_cost);
     const acquisitionCost = amount(acquisition?.allocatedUnitCost) * quantity;
     const listingValueAtSale = sale.price_snapshot_source === "approved_at_sale" && sale.listing_price_at_sale != null ? amount(sale.listing_price_at_sale) * quantity : null;

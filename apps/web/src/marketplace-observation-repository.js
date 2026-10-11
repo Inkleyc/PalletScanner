@@ -438,7 +438,7 @@ export const loadOperationalProfitabilityData = async () => {
     supabase.from("acquisitions").select("id,name,type,purchase_price,inbound_freight,buyers_premium,acquisition_tax,status").eq("owner_id", ownerId),
     supabase.from("inventory_items").select("id,client_id,acquisition_id,name,category,condition,available,low_price,high_price").eq("owner_id", ownerId),
     supabase.from("inventory_movements").select("inventory_item_id,quantity,movement_type,occurred_at").eq("owner_id", ownerId),
-    supabase.from("sales").select("id,item_id,marketplace,quantity,sold_price,fees,fees_state,shipping_cost,listing_price_at_sale,price_snapshot_source,source,order_line_id,sold_at").eq("owner_id", ownerId),
+    supabase.from("sales").select("id,item_id,marketplace,quantity,sold_price,fees,fees_state,shipping_income,shipping_cost,listing_price_at_sale,price_snapshot_source,source,order_line_id,sold_at").eq("owner_id", ownerId),
     supabase.from("returns").select("id,state,return_financial_events(event_type,amount,currency,occurred_at),return_lines(quantity,inventory_item_id,order_lines(inventory_item_id))").eq("owner_id", ownerId),
     supabase.from("orders").select("id,payment_state,pricing_summary,external_created_at").eq("owner_id", ownerId),
     supabase.from("shipment_packages").select("id,measurement_state,supply_cost,shipment_package_lines(quantity,order_lines(inventory_item_id))").eq("owner_id", ownerId),
