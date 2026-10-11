@@ -297,6 +297,7 @@ function RecordSale({ item, onRecorded }) {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [orderCreated, setOrderCreated] = useState(false);
+  const [manualOrderRequestKey] = useState(() => crypto.randomUUID());
   useEffect(() => { let active = true; setLoading(true); repository.listSales(item.id).then((sales) => { if (active) setRecordedSales(sales); }).catch(() => { if (active) setRecordedSales([]); }).finally(() => { if (active) setLoading(false); }); return () => { active = false; }; }, [item.id, item.soldPrice]);
   const update = (field) => (event) => setDraft((current) => ({ ...current, [field]: event.target.value }));
   const save = async (event) => {
@@ -309,7 +310,8 @@ function RecordSale({ item, onRecorded }) {
       if (getRepositoryMode() === "cloud") {
         if (!item.serverId) throw new Error("The cloud item could not be found.");
         const fulfillmentMethod = window.confirm("Will the buyer pick this order up locally?\n\nOK = Local pickup\nCancel = Shipping") ? "local_pickup" : "shipping";
-        await createManualSaleOrder({ itemId: item.serverId, quantity, marketplace: draft.marketplace, soldPrice, fees, fulfillmentMethod, requestKey: crypto.randomUUID() });
+        const order = await createManualSaleOrder({ itemId: item.serverId, quantity, marketplace: draft.marketplace, soldPrice, fees, fulfillmentMethod, requestKey: manualOrderRequestKey });
+        await startOrderFulfillment(order.id, null);
         await repository.hydrate();
         setOrderCreated(true);
       } else {
