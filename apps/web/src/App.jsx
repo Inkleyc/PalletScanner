@@ -1616,7 +1616,8 @@ function ReturnsContent() {
 }
 
 function OrdersPanel() {
-  const [section, setSection] = useState("orders");
+  const [section, setSectionState] = useState(() => readPreference("palletscanner.ordersSection", "orders"));
+  const setSection = (nextSection) => { localStorage.setItem("palletscanner.ordersSection", nextSection); setSectionState(nextSection); };
   return <div className="view-stack"><div className="saved-views" aria-label="Order operations"><button aria-pressed={section === "orders"} onClick={() => setSection("orders")}><span>Orders</span></button><button aria-pressed={section === "returns"} onClick={() => setSection("returns")}><span>Returns</span></button></div>{section === "orders" ? <OrdersContent /> : <ReturnsContent />}</div>;
 }
 
@@ -1642,12 +1643,12 @@ function OperationsAttention({ onNavigate }) {
   if (!summary) return <section className="panel"><strong>Loading operational attention…</strong></section>;
   const total = summary.orderIssues + summary.returnIssues + summary.marketplaceIssues + summary.recoveryIssues;
   const entries = [
-    { label: "Orders and shipping", count: summary.orderIssues, detail: "Matches, assisted actions, shipment exceptions, and ship-by deadlines", view: "orders" },
-    { label: "Returns", count: summary.returnIssues, detail: "Open return actions due within 24 hours or overdue", view: "orders" },
+    { label: "Orders and shipping", count: summary.orderIssues, detail: "Matches, assisted actions, shipment exceptions, and ship-by deadlines", view: "orders", section: "orders" },
+    { label: "Returns", count: summary.returnIssues, detail: "Open return actions due within 24 hours or overdue", view: "orders", section: "returns" },
     { label: "Marketplace actions", count: summary.marketplaceIssues, detail: "Queued, retrying, stalled, or failed eBay work", view: "settings" },
     { label: "Sale recovery", count: summary.recoveryIssues, detail: "Shipped orders missing their realized sale record", view: "analysis" },
   ];
-  return <section className="panel"><div className="panel-heading"><div><p className="eyebrow">Operations</p><h3>{total === 0 ? "No urgent operational work" : `${total} item${total === 1 ? "" : "s"} need attention`}</h3><span>Live summary from fulfillment, returns, marketplace actions, and financial recovery.</span></div><span className={`badge ${total === 0 ? "success" : "warning"}`}>{total === 0 ? "Clear" : "Action needed"}</span></div><div className="check-list">{entries.map((entry) => <div className="check-row" key={entry.label}><span className={`check-dot ${entry.count === 0 ? "ok" : ""}`} /><span><strong>{entry.label}: {entry.count}</strong> · {entry.detail}</span><button type="button" onClick={() => onNavigate(entry.view)}>Review</button></div>)}</div></section>;
+  return <section className="panel"><div className="panel-heading"><div><p className="eyebrow">Operations</p><h3>{total === 0 ? "No urgent operational work" : `${total} item${total === 1 ? "" : "s"} need attention`}</h3><span>Live summary from fulfillment, returns, marketplace actions, and financial recovery.</span></div><span className={`badge ${total === 0 ? "success" : "warning"}`}>{total === 0 ? "Clear" : "Action needed"}</span></div><div className="check-list">{entries.map((entry) => <div className="check-row" key={entry.label}><span className={`check-dot ${entry.count === 0 ? "ok" : ""}`} /><span><strong>{entry.label}: {entry.count}</strong> · {entry.detail}</span><button type="button" onClick={() => onNavigate(entry.view, entry.section)}>Review {entry.label.toLowerCase()}</button></div>)}</div></section>;
 }
 
 const dashboardViews = ["overview", "review", "inventory", "orders", "pallets", "analysis", "settings"];
@@ -1762,7 +1763,8 @@ export function App() {
 
   const reviewItems = items.filter((item) => matchesWorkFilter(item, workFilter));
   const inventoryModalItem = allItems.find((item) => item.id === inventoryModalId) ?? null;
-  const navigate = (nextView) => {
+  const navigate = (nextView, ordersSection) => {
+    if (nextView === "orders" && ordersSection) localStorage.setItem("palletscanner.ordersSection", ordersSection);
     setView(nextView);
     window.history.replaceState(null, "", `#${nextView}`);
     window.scrollTo({ top: 0, behavior: "smooth" });
