@@ -32,6 +32,14 @@ const summarizeOffer = (offer) => ({
   raw: offer,
 });
 
+const summarizeShippingFulfillment = (fulfillment) => ({
+  fulfillmentId: fulfillment.fulfillmentId ?? null,
+  shippedDate: fulfillment.shippedDate ?? null,
+  shippingCarrierCode: fulfillment.shippingCarrierCode ?? null,
+  trackingNumber: fulfillment.trackingNumber ?? null,
+  lineItems: fulfillment.lineItems ?? [],
+});
+
 const summarizeOrder = (order) => ({
   orderId: order.orderId ?? null,
   creationDate: order.creationDate ?? null,
@@ -91,6 +99,16 @@ export const createEbayReadService = ({ ebayFetch, getUserAccessToken }) => ({
       }).then((value) => ({ value, error: null })).catch((error) => ({ value: null, error: error instanceof Error ? error.message : "eBay returns are unavailable." })),
     ]);
     const returnResult = returnOutcome.value;
+    const orders = orderResult?.orders ?? [];
+    const fulfillmentResults = await Promise.all(orders.map(async (order) => {
+      if (!order.orderId || (!(order.fulfillmentHrefs?.length > 0) && !["IN_PROGRESS", "FULFILLED"].includes(order.orderFulfillmentStatus))) return [];
+      try {
+        const result = await ebayFetch(`/sell/fulfillment/v1/order/${encodeURIComponent(order.orderId)}/shipping_fulfillment`, { headers });
+        return (result?.fulfillments ?? []).map(summarizeShippingFulfillment);
+      } catch {
+        return [];
+      }
+    }));
 
     return {
       observeOnly: true,
@@ -108,7 +126,7 @@ export const createEbayReadService = ({ ebayFetch, getUserAccessToken }) => ({
       },
       inventoryItems: (inventoryResult?.inventoryItems ?? []).map(summarizeInventoryItem),
       offers: (offerResult?.offers ?? []).map(summarizeOffer),
-      orders: (orderResult?.orders ?? []).map(summarizeOrder),
+      orders: orders.map((order, index) => ({ ...summarizeOrder(order), shippingFulfillments: fulfillmentResults[index] })),
       returns: (returnResult?.members ?? []).map(summarizeReturn),
       returnsUnavailable: returnOutcome.error,
     };

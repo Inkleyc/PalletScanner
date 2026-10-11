@@ -1289,6 +1289,18 @@ function OrdersContent() {
     catch (shipmentError) { setError(shipmentError instanceof Error ? shipmentError.message : "Could not confirm carrier handoff."); }
     finally { setReservingOrder(false); }
   };
+  const adoptObservedEbayFulfillment = async (shipment, fulfillment) => {
+    const service = window.prompt("eBay shipping service", "Imported from eBay"); if (!service?.trim()) return;
+    const cost = Number(window.prompt("Final eBay label cost", "0.00")); if (!Number.isFinite(cost) || cost < 0) return setError("Enter a non-negative final label cost.");
+    if (!window.confirm(`Use ${fulfillment.shippingCarrierCode} tracking ${fulfillment.trackingNumber} and confirm eBay's ${new Date(fulfillment.shippedDate).toLocaleString()} carrier handoff? This consumes the reserved inventory.`)) return;
+    setReservingOrder(true); setError("");
+    try {
+      await recordShipmentLabel({ shipmentId: shipment.id, source: "ebay", carrier: fulfillment.shippingCarrierCode, service: service.trim(), trackingNumber: fulfillment.trackingNumber, cost });
+      await confirmShipmentShipped(shipment.id, fulfillment.shippedDate);
+      await loadOrders();
+    } catch (shipmentError) { setError(shipmentError instanceof Error ? shipmentError.message : "Could not adopt the observed eBay fulfillment."); }
+    finally { setReservingOrder(false); }
+  };
   const confirmPickup = async (shipment) => {
     if (!window.confirm("Confirm that the buyer has physically received this order? This consumes the reserved inventory and records the sale.")) return;
     setReservingOrder(true); setError("");
@@ -1399,6 +1411,7 @@ function OrdersContent() {
   if (selectedOrder?.shipment) {
     const shipment = selectedOrder.shipment;
     const shipmentPackage = shipment.shipment_packages?.[0];
+    const observedFulfillments = (selectedOrder.raw_payload?.observedShippingFulfillments ?? []).filter((entry) => entry.shippedDate && entry.shippingCarrierCode && entry.trackingNumber);
     const estimatedOunces = Number(shipmentPackage?.estimated_weight_grams || 0) / 28.349523125;
     return <div className="view-stack">
       <section className="panel getting-started">
@@ -1415,6 +1428,7 @@ function OrdersContent() {
           {shipment.state === "ready_to_pick" && <button className="primary-button" type="button" disabled={reservingOrder} onClick={() => confirmPick(shipment)}>{reservingOrder ? "Confirming..." : "Confirm items picked"}</button>}
           {shipment.state === "ready_to_pack" && shipmentPackage && <button className="primary-button" type="button" disabled={reservingOrder} onClick={() => openPackageConfirmation(shipmentPackage)}>Enter final package measurements</button>}
           {shipment.state === "ready_for_label" && <a className="button-link primary-button" href="https://www.ebay.com/sh/ord/?filter=status:AWAITING_SHIPMENT" target="_blank" rel="noreferrer">Purchase label in eBay</a>}
+          {shipment.state === "ready_for_label" && observedFulfillments.length === 1 && <button className="primary-button" type="button" disabled={reservingOrder} onClick={() => adoptObservedEbayFulfillment(shipment, observedFulfillments[0])}>Use observed eBay shipment</button>}
           {shipment.state === "ready_for_label" && <button type="button" disabled={reservingOrder} onClick={() => { setLabelTarget(shipment); setLabelDraft({ source: "ebay", carrier: "", service: "", trackingNumber: "", cost: "" }); }}>Record purchased label</button>}
           {shipment.state === "label_purchased" && <button className="primary-button" type="button" disabled={reservingOrder} onClick={() => markShipped(shipment)}>{reservingOrder ? "Confirming..." : "Confirm carrier handoff"}</button>}
           {["shipped", "exception"].includes(shipment.state) && <button className="primary-button" type="button" disabled={reservingOrder} onClick={() => openTrackingEvent(shipment, "delivered")}>Record delivery</button>}
@@ -1422,6 +1436,7 @@ function OrdersContent() {
           {shipment.state === "exception" && <button type="button" disabled={reservingOrder} onClick={() => openTrackingEvent(shipment, "in_transit")}>Record movement resumed</button>}
         </div>
         {shipment.tracking_number && <div className="analysis-note"><strong>{shipment.carrier} · {shipment.service}</strong><span>Tracking {shipment.tracking_number} · Label cost {currency(Number(shipment.final_shipping_cost || 0))}</span></div>}
+        {shipment.state === "ready_for_label" && observedFulfillments.length > 1 && <div className="analysis-note"><strong>Multiple eBay packages observed</strong><span>Review this order in eBay and record each shipment manually. PalletFlip's current launch workflow supports one package per order.</span></div>}
       </section>
       {selectedOrder.assistedTasks?.some((task) => task.state === "open") && <section className="panel"><div className="panel-heading"><div><p className="eyebrow">Urgent marketplace action</p><h3>Protect inventory on Facebook</h3><span>PalletFlip cannot change a personal Facebook Marketplace listing automatically.</span></div></div>{selectedOrder.assistedTasks.filter((task) => task.state === "open").map((task) => <div className="analysis-note" key={task.id}><strong>Remove the sold listing or adjust its quantity</strong><span>Complete this only after Facebook reflects the remaining PalletFlip inventory.</span><button className="primary-button" type="button" disabled={reservingOrder} onClick={() => completeAssistedTask(task)}>{reservingOrder ? "Saving..." : "Confirm Facebook updated"}</button></div>)}</section>}
       <section className="panel table-panel"><div className="panel-heading"><div><h3>Pick list</h3><span>Confirm the exact items and quantities before sealing the package.</span></div></div><div className="table-scroll"><table><thead><tr><th>SKU</th><th>Item</th><th>Quantity</th><th>Reservation</th></tr></thead><tbody>{selectedOrder.lines.map((line) => <tr key={line.id}><td><strong>{line.seller_sku || "No SKU"}</strong></td><td>{line.title || "Untitled order line"}</td><td>{orderLineFulfillableQuantity(line)}</td><td>{line.inventory_reservations?.state?.replaceAll("_", " ") || "Missing"}</td></tr>)}</tbody></table></div></section>

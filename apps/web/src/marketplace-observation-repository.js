@@ -132,7 +132,7 @@ export const importObservedEbayOrders = async ({ preview, reconciliation }) => {
     cancellation_state: (order.cancellationState || "NONE_REQUESTED").toLowerCase(),
     currency: order.pricingSummary?.total?.currency ?? order.pricingSummary?.priceSubtotal?.currency ?? null,
     pricing_summary: order.pricingSummary ?? {},
-    raw_payload: order.raw ?? order,
+    raw_payload: { ...(order.raw ?? order), observedShippingFulfillments: order.shippingFulfillments ?? [] },
     external_created_at: order.creationDate,
     external_updated_at: order.lastModifiedDate,
     imported_at: new Date().toISOString(),
@@ -304,11 +304,11 @@ export const recordShipmentLabel = async ({ shipmentId, source, carrier, service
   return result.data;
 };
 
-export const confirmShipmentShipped = async (shipmentId) => {
+export const confirmShipmentShipped = async (shipmentId, handoffAt = new Date().toISOString()) => {
   if (!supabase) throw new Error("Supabase is not configured for this dashboard.");
   const result = await supabase.rpc("confirm_shipment_shipped", {
     target_shipment_id: shipmentId,
-    carrier_handoff_at: new Date().toISOString(),
+    carrier_handoff_at: handoffAt,
   });
   throwIfError(result);
   return result.data;
