@@ -32,6 +32,11 @@ declare
   fulfilled_units integer;
 begin
   target_line_id := case when tg_op = 'DELETE' then old.order_line_id else new.order_line_id end;
+  if tg_op = 'UPDATE' and old.order_line_id is distinct from new.order_line_id and old.order_line_id is not null then
+    select coalesce(sum(quantity), 0)::integer into fulfilled_units
+    from public.sales where order_line_id = old.order_line_id;
+    update public.order_lines set fulfilled_quantity = fulfilled_units where id = old.order_line_id;
+  end if;
   if target_line_id is null then
     if tg_op = 'DELETE' then return old; else return new; end if;
   end if;

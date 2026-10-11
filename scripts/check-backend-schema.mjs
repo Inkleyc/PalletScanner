@@ -555,6 +555,7 @@ for (const marker of [
   "fulfilled_quantity between 0 and quantity - cancelled_quantity",
   "refunded_quantity between 0 and fulfilled_quantity",
   "sales_refresh_order_line_fulfilled_quantity",
+  "old.order_line_id is distinct from new.order_line_id",
   "order_lines_open_quantity_idx",
 ]) {
   if (!partialOrderLineQuantities.includes(marker)) {
