@@ -25,11 +25,12 @@ test("returns no recommendations when the setting is disabled", () => {
 
 test("hides only a current unexpired dismissal", () => {
   const base = { id: "old", status: "active", created_at: "2026-08-01T00:00:00Z", inventory_items: { listing_price: 100, floor_price: 50 } };
-  const current = { decision: "dismissed", approved_price: 100, suggested_price: 90, decided_at: "2026-10-01T00:00:00Z", revisit_after: "2026-11-01T00:00:00Z" };
+  const current = { decision: "dismissed", approved_price: 100, suggested_price: 90, review_after_days: 30, markdown_percent: 10, decided_at: "2026-10-01T00:00:00Z", revisit_after: "2026-11-01T00:00:00Z" };
   const now = Date.parse("2026-10-10T00:00:00Z");
   assert.equal(buildPricingRecommendations({ settings, now, listings: [{ ...base, pricing_recommendation_decisions: [current] }] }).length, 0);
   assert.equal(buildPricingRecommendations({ settings, now, listings: [{ ...base, inventory_items: { listing_price: 110, floor_price: 50 }, pricing_recommendation_decisions: [current] }] }).length, 1);
   assert.equal(buildPricingRecommendations({ settings, now: Date.parse("2026-11-02T00:00:00Z"), listings: [{ ...base, pricing_recommendation_decisions: [current] }] }).length, 1);
+  assert.equal(buildPricingRecommendations({ settings: { ...settings, pricing_review_after_days: 14 }, now, listings: [{ ...base, pricing_recommendation_decisions: [current] }] }).length, 1);
 });
 
 test("waits one review interval after an applied recommendation", () => {

@@ -509,7 +509,7 @@ export const listMarketplaceQuantityQueue = async () => {
   const userResult = await supabase.auth.getUser();
   if (userResult.error || !userResult.data.user) throw new Error("Sign in to review marketplace quantities.");
   const result = await supabase.from("marketplace_listings")
-    .select("id,platform,status,sku,external_listing_id,offer_id,advertised_quantity,desired_quantity,price,currency,price_reviewed_external_price,price_reviewed_approved_price,price_review_resolution,price_reviewed_at,pricing_recommendation_applied_at,quantity_sync_state,sync_paused,last_error,created_at,updated_at,inventory_items(name,seller_sku,available,listing_price,floor_price),pricing_recommendation_decisions(decision,approved_price,suggested_price,revisit_after,decided_at)")
+    .select("id,platform,status,sku,external_listing_id,offer_id,advertised_quantity,desired_quantity,price,currency,price_reviewed_external_price,price_reviewed_approved_price,price_review_resolution,price_reviewed_at,pricing_recommendation_applied_at,quantity_sync_state,sync_paused,last_error,created_at,updated_at,inventory_items(name,seller_sku,available,listing_price,floor_price),pricing_recommendation_decisions(decision,approved_price,suggested_price,review_after_days,markdown_percent,revisit_after,decided_at)")
     .eq("owner_id", userResult.data.user.id)
     .eq("platform", "ebay")
     .order("updated_at", { ascending: false });

@@ -223,6 +223,10 @@ const pricingRecommendationCooldown = await readFile(
   new URL("../supabase/migrations/202610100049_pricing_recommendation_cooldown.sql", import.meta.url),
   "utf8",
 );
+const idempotentPricingDismissal = await readFile(
+  new URL("../supabase/migrations/202610100050_idempotent_pricing_dismissal.sql", import.meta.url),
+  "utf8",
+);
 
 for (const table of ["pallets", "inventory_items", "item_photos", "marketplace_listings", "sales", "activity_events"]) {
   if (!schema.includes(`create table public.${table}`)) {
@@ -341,6 +345,9 @@ for (const marker of ["create table public.pricing_recommendation_decisions", "e
 }
 for (const marker of ["pricing_recommendation_applied_at", "mark_pricing_recommendation_applied", "after insert on public.activity_events", "pricing.recommendation_applied"]) {
   if (!pricingRecommendationCooldown.includes(marker)) throw new Error(`Pricing recommendation cooldown is missing safety marker: ${marker}`);
+}
+for (const marker of ["dismiss_pricing_recommendation", "for update", "revisit_after > now()", "if found then return decision_row", "pricing.recommendation_dismissed"]) {
+  if (!idempotentPricingDismissal.includes(marker)) throw new Error(`Idempotent pricing dismissal is missing safety marker: ${marker}`);
 }
 for (const marker of ["record_shipment_label", "state <> 'ready_for_label'", "state = 'label_purchased'", "final_shipping_cost", "shipment.label_recorded"]) {
   if (!recordShipmentLabel.includes(marker)) throw new Error(`Shipment-label recording is missing safety marker: ${marker}`);

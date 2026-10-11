@@ -95,6 +95,10 @@ reopens after one configured review interval. A changed approved price or a
 newly calculated suggestion invalidates the dismissal immediately. The history
 is owner-readable, append-only through a guarded command, and never changes a
 marketplace listing.
+Identical client retries return the current active dismissal after locking the
+listing, so a network retry cannot duplicate the decision or its audit event.
+Changing the recommendation policy invalidates the prior policy snapshot and
+reopens the work for review.
 
 Applying a recommendation starts the same configured review interval before
 another aging markdown can appear for that listing. The timestamp is written in
