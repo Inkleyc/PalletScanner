@@ -318,6 +318,17 @@ export const confirmLocalPickupHandoff = async (shipmentId) => {
   return result.data;
 };
 
+export const createManualSaleOrder = async ({ itemId, quantity, marketplace, soldPrice, fees, fulfillmentMethod, requestKey }) => {
+  if (!supabase) throw new Error("Supabase is not configured for this dashboard.");
+  const result = await supabase.rpc("create_manual_sale_order", {
+    target_item_id: itemId, sold_quantity: quantity, sale_marketplace: marketplace,
+    total_sold_price: soldPrice, expected_fees: fees, selected_fulfillment_method: fulfillmentMethod,
+    client_request_key: requestKey,
+  });
+  throwIfError(result);
+  return result.data;
+};
+
 export const recordTrackingEvent = async ({ shipmentId, eventKey, status, description = "", location = "", occurredAt = new Date().toISOString() }) => {
   if (!supabase) throw new Error("Supabase is not configured for this dashboard.");
   const result = await supabase.rpc("record_tracking_event", {
