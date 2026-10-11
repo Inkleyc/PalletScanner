@@ -170,6 +170,12 @@ three dimensions; it never promotes an estimate. Only after every package is
 confirmed does the shipment become `ready_for_label`. Both transitions append
 auditable activity events.
 
+Package confirmation also records the actual cost of boxes, mailers, tape, and
+packing material. A package preset supplies the editable default, while the
+confirmed package preserves the actual nonnegative amount. Operational profit
+counts this amount as a direct selling cost and allocates a multi-item package
+by packaged quantity.
+
 Label purchase remains an eBay or external handoff. After purchase,
 `record_shipment_label` requires final package confirmation and records the
 actual source, carrier, service, tracking number, and cost. It advances the

@@ -273,14 +273,15 @@ export const confirmShipmentPicked = async (shipmentId) => {
   return result.data;
 };
 
-export const confirmShipmentPackage = async ({ packageId, weightGrams, lengthMm, widthMm, heightMm }) => {
+export const confirmShipmentPackage = async ({ packageId, weightGrams, lengthMm, widthMm, heightMm, supplyCost = 0 }) => {
   if (!supabase) throw new Error("Supabase is not configured for this dashboard.");
-  const result = await supabase.rpc("confirm_shipment_package", {
+  const result = await supabase.rpc("confirm_shipment_package_with_cost", {
     target_package_id: packageId,
     confirmed_weight_grams: weightGrams,
     confirmed_length_mm: lengthMm,
     confirmed_width_mm: widthMm,
     confirmed_height_mm: heightMm,
+    confirmed_supply_cost: supplyCost,
   });
   throwIfError(result);
   return result.data;
@@ -433,16 +434,17 @@ export const loadOperationalProfitabilityData = async () => {
   const userResult = await supabase.auth.getUser();
   if (userResult.error || !userResult.data.user) throw new Error("Sign in to load profitability reporting.");
   const ownerId = userResult.data.user.id;
-  const [acquisitionResult, itemResult, movementResult, saleResult, returnResult, orderResult] = await Promise.all([
+  const [acquisitionResult, itemResult, movementResult, saleResult, returnResult, orderResult, packageResult] = await Promise.all([
     supabase.from("acquisitions").select("id,name,type,purchase_price,inbound_freight,buyers_premium,acquisition_tax,status").eq("owner_id", ownerId),
     supabase.from("inventory_items").select("id,client_id,acquisition_id,name,category,condition,available,low_price,high_price").eq("owner_id", ownerId),
     supabase.from("inventory_movements").select("inventory_item_id,quantity,movement_type,occurred_at").eq("owner_id", ownerId),
     supabase.from("sales").select("id,item_id,marketplace,quantity,sold_price,fees,shipping_cost,sold_at").eq("owner_id", ownerId),
     supabase.from("returns").select("id,state,return_financial_events(event_type,amount,currency,occurred_at),return_lines(quantity,inventory_item_id,order_lines(inventory_item_id))").eq("owner_id", ownerId),
     supabase.from("orders").select("id,payment_state,pricing_summary,external_created_at").eq("owner_id", ownerId),
+    supabase.from("shipment_packages").select("id,measurement_state,supply_cost,shipment_package_lines(quantity,order_lines(inventory_item_id))").eq("owner_id", ownerId),
   ]);
-  [acquisitionResult, itemResult, movementResult, saleResult, returnResult, orderResult].forEach(throwIfError);
-  return { acquisitions: acquisitionResult.data ?? [], items: itemResult.data ?? [], movements: movementResult.data ?? [], sales: saleResult.data ?? [], returns: returnResult.data ?? [], orders: orderResult.data ?? [] };
+  [acquisitionResult, itemResult, movementResult, saleResult, returnResult, orderResult, packageResult].forEach(throwIfError);
+  return { acquisitions: acquisitionResult.data ?? [], items: itemResult.data ?? [], movements: movementResult.data ?? [], sales: saleResult.data ?? [], returns: returnResult.data ?? [], orders: orderResult.data ?? [], packages: packageResult.data ?? [] };
 };
 
 export const dispositionReturnLine = async ({ returnLineId, disposition, note }) => {

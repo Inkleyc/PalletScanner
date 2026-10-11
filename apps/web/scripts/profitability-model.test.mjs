@@ -45,3 +45,23 @@ test("allocates a multi-item return impact by returned quantity", () => {
   assert.equal(report.items.find((item) => item.id === "i1").returnImpact, -10);
   assert.equal(report.items.find((item) => item.id === "i2").returnImpact, -20);
 });
+
+test("includes confirmed packaging supplies and allocates them by package quantity", () => {
+  const report = buildOperationalProfitability({
+    acquisitions: [{ id: "a1", name: "Lot", purchase_price: 0 }],
+    items: [{ id: "i1", acquisition_id: "a1", name: "One" }, { id: "i2", acquisition_id: "a1", name: "Two" }],
+    sales: [{ item_id: "i1", quantity: 1, sold_price: 30 }, { item_id: "i2", quantity: 2, sold_price: 60 }],
+    packages: [{ measurement_state: "confirmed", supply_cost: 9, shipment_package_lines: [{ quantity: 1, order_lines: { inventory_item_id: "i1" } }, { quantity: 2, order_lines: { inventory_item_id: "i2" } }] }],
+  });
+  assert.equal(report.summary.packagingSupplyCost, 9);
+  assert.equal(report.summary.directSellingCosts, 9);
+  assert.equal(report.summary.estimatedProfit, 81);
+  assert.equal(report.items.find((item) => item.id === "i1").directCosts, 3);
+  assert.equal(report.items.find((item) => item.id === "i2").directCosts, 6);
+});
+
+test("does not count a package preset estimate before packing is confirmed", () => {
+  const report = buildOperationalProfitability({ packages: [{ measurement_state: "estimated", supply_cost: 4 }] });
+  assert.equal(report.summary.packagingSupplyCost, 0);
+  assert.equal(report.summary.estimatedProfit, 0);
+});

@@ -191,6 +191,10 @@ const replacementFulfillment = await readFile(
   new URL("../supabase/migrations/202610100041_replacement_fulfillment.sql", import.meta.url),
   "utf8",
 );
+const shipmentSupplyCost = await readFile(
+  new URL("../supabase/migrations/202610100042_shipment_supply_cost.sql", import.meta.url),
+  "utf8",
+);
 
 for (const table of ["pallets", "inventory_items", "item_photos", "marketplace_listings", "sales", "activity_events"]) {
   if (!schema.includes(`create table public.${table}`)) {
@@ -285,6 +289,9 @@ for (const marker of ["start_order_fulfillment", "Only paid orders can enter ful
 }
 for (const marker of ["confirm_shipment_picked", "shipment.pick_confirmed", "confirm_shipment_package", "measurement_state = 'confirmed'", "state = 'ready_for_label'", "shipment.package_confirmed"]) {
   if (!pickPackConfirmation.includes(marker)) throw new Error(`Pick/pack confirmation is missing safety marker: ${marker}`);
+}
+for (const marker of ["supply_cost", "default_supply_cost", "confirm_shipment_package_with_cost", "confirmed_supply_cost < 0", "shipment.package_confirmed"]) {
+  if (!shipmentSupplyCost.includes(marker)) throw new Error(`Shipment supply-cost tracking is missing safety marker: ${marker}`);
 }
 for (const marker of ["record_shipment_label", "state <> 'ready_for_label'", "state = 'label_purchased'", "final_shipping_cost", "shipment.label_recorded"]) {
   if (!recordShipmentLabel.includes(marker)) throw new Error(`Shipment-label recording is missing safety marker: ${marker}`);

@@ -3,8 +3,17 @@ const amount = (value) => Number.isFinite(Number(value)) ? Number(value) : 0;
 
 const eventImpact = (event) => event.event_type === "fee_credit" ? amount(event.amount) : -amount(event.amount);
 
-export const buildOperationalProfitability = ({ acquisitions = [], items = [], movements = [], sales = [], returns = [], orders = [] }) => {
+export const buildOperationalProfitability = ({ acquisitions = [], items = [], movements = [], sales = [], returns = [], orders = [], packages = [] }) => {
   const itemById = new Map(items.map((item) => [item.id, item]));
+  const confirmedPackages = packages.filter((shipmentPackage) => shipmentPackage.measurement_state === "confirmed");
+  const packagingSupplyCost = confirmedPackages.reduce((sum, shipmentPackage) => sum + amount(shipmentPackage.supply_cost), 0);
+  const packagingCostByItem = new Map();
+  for (const shipmentPackage of confirmedPackages) {
+    const lines = (shipmentPackage.shipment_package_lines ?? []).map((line) => ({ itemId: line.order_lines?.inventory_item_id, quantity: Math.max(1, amount(line.quantity)) })).filter((line) => line.itemId);
+    const lineUnits = lines.reduce((sum, line) => sum + line.quantity, 0);
+    if (lineUnits <= 0) continue;
+    for (const line of lines) packagingCostByItem.set(line.itemId, (packagingCostByItem.get(line.itemId) ?? 0) + amount(shipmentPackage.supply_cost) * line.quantity / lineUnits);
+  }
   const acquiredUnitsByAcquisition = new Map();
   for (const movement of movements) {
     if (movement.movement_type !== "receipt" || amount(movement.quantity) <= 0) continue;
@@ -41,7 +50,9 @@ export const buildOperationalProfitability = ({ acquisitions = [], items = [], m
   const performanceByAcquisition = acquisitionRows.map((acquisition) => {
     const relatedSales = saleRows.filter((sale) => sale.acquisitionId === acquisition.id);
     const grossRevenue = relatedSales.reduce((sum, sale) => sum + sale.gross, 0);
-    const directCosts = relatedSales.reduce((sum, sale) => sum + sale.directCosts, 0);
+    const salesDirectCosts = relatedSales.reduce((sum, sale) => sum + sale.directCosts, 0);
+    const packagingCosts = items.filter((item) => item.acquisition_id === acquisition.id).reduce((sum, item) => sum + (packagingCostByItem.get(item.id) ?? 0), 0);
+    const directCosts = salesDirectCosts + packagingCosts;
     const allocatedSoldCost = relatedSales.reduce((sum, sale) => sum + sale.acquisitionCost, 0);
     const returnImpact = returnImpactByAcquisition.get(acquisition.id) ?? 0;
     const netCashAfterReturns = grossRevenue - directCosts + returnImpact;
@@ -60,7 +71,7 @@ export const buildOperationalProfitability = ({ acquisitions = [], items = [], m
     };
   }).sort((left, right) => right.estimatedProfit - left.estimatedProfit);
   const grossRevenue = saleRows.reduce((sum, sale) => sum + sale.gross, 0);
-  const directSellingCosts = saleRows.reduce((sum, sale) => sum + sale.directCosts, 0);
+  const directSellingCosts = saleRows.reduce((sum, sale) => sum + sale.directCosts, 0) + packagingSupplyCost;
   const allocatedSoldCost = saleRows.reduce((sum, sale) => sum + sale.acquisitionCost, 0);
   const returnFinancialImpact = returnRows.reduce((sum, row) => sum + row.financialImpact, 0);
   const soldUnits = saleRows.reduce((sum, sale) => sum + sale.quantity, 0);
@@ -80,7 +91,7 @@ export const buildOperationalProfitability = ({ acquisitions = [], items = [], m
     const relatedSales = saleRows.filter((sale) => sale.item_id === itemId);
     const quantitySold = relatedSales.reduce((sum, sale) => sum + sale.quantity, 0);
     const grossRevenue = relatedSales.reduce((sum, sale) => sum + sale.gross, 0);
-    const directCosts = relatedSales.reduce((sum, sale) => sum + sale.directCosts, 0);
+    const directCosts = relatedSales.reduce((sum, sale) => sum + sale.directCosts, 0) + (packagingCostByItem.get(itemId) ?? 0);
     const allocatedCost = relatedSales.reduce((sum, sale) => sum + sale.acquisitionCost, 0);
     const returnImpact = returnImpactByItem.get(itemId) ?? 0;
     return { id: itemId, name: item?.name ?? "Unknown item", sku: item?.client_id ?? "", category: item?.category ?? "Uncategorized", condition: item?.condition ?? "Unknown", quantitySold, grossRevenue: roundMoney(grossRevenue), directCosts: roundMoney(directCosts), allocatedCost: roundMoney(allocatedCost), returnImpact: roundMoney(returnImpact), estimatedProfit: roundMoney(grossRevenue - directCosts - allocatedCost + returnImpact) };
@@ -91,6 +102,7 @@ export const buildOperationalProfitability = ({ acquisitions = [], items = [], m
     summary: {
       grossRevenue: roundMoney(grossRevenue),
       directSellingCosts: roundMoney(directSellingCosts),
+      packagingSupplyCost: roundMoney(packagingSupplyCost),
       allocatedSoldCost: roundMoney(allocatedSoldCost),
       returnFinancialImpact: roundMoney(returnFinancialImpact),
       estimatedProfit: roundMoney(grossRevenue - directSellingCosts - allocatedSoldCost + returnFinancialImpact),
