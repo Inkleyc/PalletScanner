@@ -1620,6 +1620,36 @@ function OrdersPanel() {
   return <div className="view-stack"><div className="saved-views" aria-label="Order operations"><button aria-pressed={section === "orders"} onClick={() => setSection("orders")}><span>Orders</span></button><button aria-pressed={section === "returns"} onClick={() => setSection("returns")}><span>Returns</span></button></div>{section === "orders" ? <OrdersContent /> : <ReturnsContent />}</div>;
 }
 
+function OperationsAttention({ onNavigate }) {
+  const [summary, setSummary] = useState(null);
+  const [error, setError] = useState("");
+  useEffect(() => {
+    let active = true;
+    if (getRepositoryMode() !== "cloud") return () => { active = false; };
+    Promise.all([listImportedEbayOrders(), listReturns(), listMarketplaceActionJobs(), listShippedSaleRecovery()]).then(([orders, returns, jobs, recovery]) => {
+      if (!active) return;
+      const now = Date.now();
+      const terminalShipments = ["delivered", "picked_up", "cancelled", "shipped"];
+      const orderIssues = orders.filter((order) => { const shipBy = order.ship_by_at || order.shipment?.ship_by_at; return order.lines.some((line) => line.match_state !== "matched") || (order.assistedTasks ?? []).some((task) => task.state === "open") || order.shipment?.state === "exception" || (!terminalShipments.includes(order.shipment?.state) && shipBy && Date.parse(shipBy) <= now + 86400000); });
+      const returnIssues = returns.filter((entry) => !["resolved", "closed", "cancelled"].includes(entry.state) && entry.action_due_at && Date.parse(entry.action_due_at) <= now + 86400000);
+      const marketplaceIssues = jobs.filter((job) => ["pending", "running", "retry_wait", "failed"].includes(job.status));
+      setSummary({ orderIssues: orderIssues.length, returnIssues: returnIssues.length, marketplaceIssues: marketplaceIssues.length, recoveryIssues: recovery.length });
+    }).catch((loadError) => { if (active) setError(loadError instanceof Error ? loadError.message : "Could not load operational attention."); });
+    return () => { active = false; };
+  }, []);
+  if (getRepositoryMode() !== "cloud") return null;
+  if (error) return <section className="panel"><div className="panel-heading"><div><p className="eyebrow">Operations</p><h3>Attention summary unavailable</h3><span>{error}</span></div></div></section>;
+  if (!summary) return <section className="panel"><strong>Loading operational attention…</strong></section>;
+  const total = summary.orderIssues + summary.returnIssues + summary.marketplaceIssues + summary.recoveryIssues;
+  const entries = [
+    { label: "Orders and shipping", count: summary.orderIssues, detail: "Matches, assisted actions, shipment exceptions, and ship-by deadlines", view: "orders" },
+    { label: "Returns", count: summary.returnIssues, detail: "Open return actions due within 24 hours or overdue", view: "orders" },
+    { label: "Marketplace actions", count: summary.marketplaceIssues, detail: "Queued, retrying, stalled, or failed eBay work", view: "settings" },
+    { label: "Sale recovery", count: summary.recoveryIssues, detail: "Shipped orders missing their realized sale record", view: "analysis" },
+  ];
+  return <section className="panel"><div className="panel-heading"><div><p className="eyebrow">Operations</p><h3>{total === 0 ? "No urgent operational work" : `${total} item${total === 1 ? "" : "s"} need attention`}</h3><span>Live summary from fulfillment, returns, marketplace actions, and financial recovery.</span></div><span className={`badge ${total === 0 ? "success" : "warning"}`}>{total === 0 ? "Clear" : "Action needed"}</span></div><div className="check-list">{entries.map((entry) => <div className="check-row" key={entry.label}><span className={`check-dot ${entry.count === 0 ? "ok" : ""}`} /><span><strong>{entry.label}: {entry.count}</strong> · {entry.detail}</span><button type="button" onClick={() => onNavigate(entry.view)}>Review</button></div>)}</div></section>;
+}
+
 const dashboardViews = ["overview", "review", "inventory", "orders", "pallets", "analysis", "settings"];
 const viewCopy = {
   overview: ["Business overview", "Know what is selling, what is stuck, and what needs your decision."],
@@ -1778,6 +1808,7 @@ export function App() {
         {view === "overview" && <div className="view-stack"><div className="overview-scope"><span className="overview-scope-label">Viewing</span><div className="pallet-scope-select"><button className="pallet-scope-trigger" type="button" aria-haspopup="listbox" aria-expanded={overviewMenuOpen} onClick={() => setOverviewMenuOpen((open) => !open)}><span className={`status-dot ${overviewNeedsAttention ? "attention" : "clear"}`} /><span>{overviewPalletName}</span><span className="select-chevron" aria-hidden="true">▾</span></button>{overviewMenuOpen && <div className="pallet-scope-menu" role="listbox" aria-label="Overview pallet"><button type="button" role="option" aria-selected={overviewScope === "all"} onClick={() => { setOverviewPalletId("all"); setOverviewMenuOpen(false); }}><span className={`status-dot ${attention.length > 0 ? "attention" : "clear"}`} /><span>All pallets</span>{attention.length > 0 && <small>{attention.length} need attention</small>}</button>{pallets.map((pallet) => { const attentionCount = attention.filter((item) => item.palletId === pallet.id).length; return <button key={pallet.id} type="button" role="option" aria-selected={overviewScope === pallet.id} onClick={() => { setOverviewPalletId(pallet.id); setOverviewMenuOpen(false); }}><span className={`status-dot ${attentionCount > 0 ? "attention" : "clear"}`} /><span>{pallet.name}</span><small>{attentionCount > 0 ? `${attentionCount} need attention` : "Clear"}</small></button>; })}</div>}</div></div><section className="metrics-grid overview-metrics">
           <Metric label="Items" value={overviewTotals.totalItems} onClick={() => { setPalletFilter(overviewScope); navigate("inventory"); }} /><Metric label="Sold items" value={overviewTotals.soldCount} /><Metric label="Sell-through" value={`${overviewTotals.sellThrough.toFixed(0)}%`} tone="success" /><Metric label="Sold revenue" value={currency(overviewTotals.soldRevenue)} /><Metric label="Pallet cost" value={currency(overviewTotals.totalCost)} /><Metric label="Revenue less cost" value={currency(overviewTotals.grossProfit)} tone={overviewTotals.grossProfit >= 0 ? "success" : "danger"} />
         </section>
+        <OperationsAttention onNavigate={navigate} />
         {pallets.length === 0 && <section className="panel getting-started"><span className="admin-kicker">Start here</span><h3>Create your first pallet</h3><p>A pallet groups its purchase cost, inventory, listings, and profit. Create one before adding items.</p><button className="primary-button" onClick={async () => { const pallet = await repository.createPallet("Pallet 1"); await repository.setActivePallet(pallet.id); notify("Your first pallet is ready."); navigate("pallets"); }}>Create first pallet</button></section>}
         </div>}
         {view === "review" && <section className="panel review-panel"><div className="saved-views" aria-label="Review queues">{workViews.map((workView) => <button key={workView.id} aria-pressed={workFilter === workView.id} onClick={() => setWorkFilter(workView.id)}><span>{workView.label}</span><strong>{workView.count}</strong></button>)}</div><div className="review-workspace"><div className="review-list" aria-label="Items to review">{reviewItems.length === 0 ? <div className="empty-queue"><strong>This queue is clear</strong><span>Choose another review category.</span></div> : reviewItems.map((item) => <button key={item.id} onClick={() => setInventoryModalId(item.id)}><ItemThumbnail item={item} /><div><strong>{item.name}</strong><span>{palletName(item.palletId)} · {getDisplayPlatform(item)}</span></div><span className={`badge ${statusClass[getDisplayStatus(item)]}`}>{statusLabel[getDisplayStatus(item)]}</span></button>)}</div></div></section>}
