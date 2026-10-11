@@ -253,6 +253,9 @@ const buyerPaidShipping = await readFile(
 const reconcileShippedSales = await readFile(
   new URL("../supabase/migrations/202610100057_reconcile_shipped_sales.sql", import.meta.url), "utf8",
 );
+const confirmLocalPickup = await readFile(
+  new URL("../supabase/migrations/202610110001_confirm_local_pickup.sql", import.meta.url), "utf8",
+);
 
 for (const table of ["pallets", "inventory_items", "item_photos", "marketplace_listings", "sales", "activity_events"]) {
   if (!schema.includes(`create table public.${table}`)) {
@@ -395,6 +398,9 @@ for (const marker of ["shipping_income", "capture_fulfillment_shipping_income", 
 }
 for (const marker of ["reconcile_shipped_fulfillment_sales", "shipment_kind <> 'original'", "state not in ('shipped', 'delivered')", "on conflict (order_line_id)", "price_snapshot_source = 'legacy_unknown'", "inventory_changed', false", "to authenticated"]) {
   if (!reconcileShippedSales.includes(marker)) throw new Error(`Shipped-sale reconciliation is missing safety marker: ${marker}`);
+}
+for (const marker of ["confirm_local_pickup_handoff", "fulfillment_method <> 'local_pickup'", "state <> 'pickup_ready'", "active reserved inventory", "pickup-sale:", "state = 'picked_up'", "shipment.local_pickup_handoff_confirmed", "to authenticated"]) {
+  if (!confirmLocalPickup.includes(marker)) throw new Error(`Local-pickup handoff is missing safety marker: ${marker}`);
 }
 for (const marker of ["record_shipment_label", "state <> 'ready_for_label'", "state = 'label_purchased'", "final_shipping_cost", "shipment.label_recorded"]) {
   if (!recordShipmentLabel.includes(marker)) throw new Error(`Shipment-label recording is missing safety marker: ${marker}`);

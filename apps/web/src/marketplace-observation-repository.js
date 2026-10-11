@@ -311,6 +311,13 @@ export const confirmShipmentShipped = async (shipmentId) => {
   return result.data;
 };
 
+export const confirmLocalPickupHandoff = async (shipmentId) => {
+  if (!supabase) throw new Error("Supabase is not configured for this dashboard.");
+  const result = await supabase.rpc("confirm_local_pickup_handoff", { target_shipment_id: shipmentId, handoff_at: new Date().toISOString() });
+  throwIfError(result);
+  return result.data;
+};
+
 export const recordTrackingEvent = async ({ shipmentId, eventKey, status, description = "", location = "", occurredAt = new Date().toISOString() }) => {
   if (!supabase) throw new Error("Supabase is not configured for this dashboard.");
   const result = await supabase.rpc("record_tracking_event", {
