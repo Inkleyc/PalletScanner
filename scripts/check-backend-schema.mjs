@@ -250,6 +250,9 @@ const confirmSaleFees = await readFile(
 const buyerPaidShipping = await readFile(
   new URL("../supabase/migrations/202610100056_buyer_paid_shipping.sql", import.meta.url), "utf8",
 );
+const reconcileShippedSales = await readFile(
+  new URL("../supabase/migrations/202610100057_reconcile_shipped_sales.sql", import.meta.url), "utf8",
+);
 
 for (const table of ["pallets", "inventory_items", "item_photos", "marketplace_listings", "sales", "activity_events"]) {
   if (!schema.includes(`create table public.${table}`)) {
@@ -389,6 +392,9 @@ for (const marker of ["confirm_sale_fees", "for update", "confirmed_fees < 0", "
 }
 for (const marker of ["shipping_income", "capture_fulfillment_shipping_income", "deliveryCost,value", "new.source <> 'marketplace_fulfillment'", "before insert or update", "Safely repair fulfillment sales"]) {
   if (!buyerPaidShipping.includes(marker)) throw new Error(`Buyer-paid shipping is missing contract marker: ${marker}`);
+}
+for (const marker of ["reconcile_shipped_fulfillment_sales", "shipment_kind <> 'original'", "state not in ('shipped', 'delivered')", "on conflict (order_line_id)", "price_snapshot_source = 'legacy_unknown'", "inventory_changed', false", "to authenticated"]) {
+  if (!reconcileShippedSales.includes(marker)) throw new Error(`Shipped-sale reconciliation is missing safety marker: ${marker}`);
 }
 for (const marker of ["record_shipment_label", "state <> 'ready_for_label'", "state = 'label_purchased'", "final_shipping_cost", "shipment.label_recorded"]) {
   if (!recordShipmentLabel.includes(marker)) throw new Error(`Shipment-label recording is missing safety marker: ${marker}`);

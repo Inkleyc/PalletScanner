@@ -454,6 +454,13 @@ export const confirmSaleFees = async ({ saleId, fees }) => {
   return result.data;
 };
 
+export const reconcileShippedFulfillmentSales = async (shipmentId) => {
+  if (!supabase) throw new Error("Supabase is not configured for this dashboard.");
+  const result = await supabase.rpc("reconcile_shipped_fulfillment_sales", { target_shipment_id: shipmentId });
+  throwIfError(result);
+  return result.data;
+};
+
 export const dispositionReturnLine = async ({ returnLineId, disposition, note }) => {
   if (!supabase) throw new Error("Supabase is not configured for this dashboard.");
   const result = await supabase.rpc("disposition_return_line", { target_return_line_id: returnLineId, selected_disposition: disposition, disposition_note: note });
