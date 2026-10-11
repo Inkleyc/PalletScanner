@@ -1317,6 +1317,22 @@ function OrdersContent() {
     return line.match_state === "matched" && item?.verificationState !== "unverified_import" && Number(item?.available ?? item?.quantity ?? 0) >= Number(line.quantity);
   });
   const selectedCanFulfill = selectedOrder && !selectedOrder.shipment && selectedOrder.lines.length > 0 && selectedOrder.lines.every((line) => line.reservation_id && line.inventory_reservations?.state === "active");
+  if (!selectedOrder) {
+    const openAssistedTasks = orders.reduce((sum, order) => sum + (order.assistedTasks ?? []).filter((task) => task.state === "open").length, 0);
+    return <div className="view-stack">
+      <section className="metrics-grid"><Metric label="Orders" value={orders.length} /><Metric label="In fulfillment" value={orders.filter((order) => order.shipment && !["delivered", "picked_up", "cancelled"].includes(order.shipment.state)).length} /><Metric label="Lines needing match" value={unmatched} tone={unmatched > 0 ? "warning" : "success"} /><Metric label="Manual actions" value={openAssistedTasks} tone={openAssistedTasks > 0 ? "warning" : "success"} /></section>
+      <section className="panel table-panel">
+        <div className="panel-heading"><div><h3>Orders</h3><span>eBay imports and seller-entered sales share one reservation and fulfillment workflow.</span></div></div>
+        {error && <p className="error-text">{error}</p>}
+        <div className="table-scroll"><table><thead><tr><th>Order</th><th>Source</th><th>Created</th><th>Payment</th><th>Fulfillment</th><th>Lines</th><th>Attention</th><th /></tr></thead><tbody>{orders.length === 0 ? <tr><td className="empty-table-cell" colSpan="8">No orders yet. Import eBay orders from Settings or record a manual sale from Inventory.</td></tr> : orders.map((order) => {
+          const unresolved = order.lines.filter((line) => line.match_state !== "matched").length;
+          const assisted = (order.assistedTasks ?? []).filter((task) => task.state === "open").length;
+          const sourceLabel = order.source === "ebay" ? "eBay" : order.raw_payload?.marketplace === "facebook" ? "Facebook assisted" : "Manual";
+          return <tr key={order.id}><td><strong>{order.source === "manual" ? order.lines[0]?.title || "Manual sale" : order.external_order_id}</strong><span>{order.source === "manual" ? order.external_order_id.slice(-8) : order.external_order_id}</span></td><td>{sourceLabel}</td><td>{order.external_created_at ? new Date(order.external_created_at).toLocaleString() : "Unknown"}</td><td>{order.payment_state.replaceAll("_", " ")}</td><td>{order.shipment?.state?.replaceAll("_", " ") || order.fulfillment_state.replaceAll("_", " ")}</td><td>{order.lines.reduce((sum, line) => sum + Number(line.quantity), 0)} units / {order.lines.length} lines</td><td><span className={`badge ${unresolved === 0 && assisted === 0 ? "success" : "warning"}`}>{unresolved > 0 ? `${unresolved} need match` : assisted > 0 ? `${assisted} manual action` : "Clear"}</span></td><td><button type="button" onClick={() => setSelectedOrderId(order.id)}>Inspect</button></td></tr>;
+        })}</tbody></table></div>
+      </section>
+    </div>;
+  }
   if (selectedOrder && selectedCancelled) return <div className="view-stack">
     <section className="panel getting-started">
       <span className="admin-kicker">Cancellation confirmed by eBay</span>
