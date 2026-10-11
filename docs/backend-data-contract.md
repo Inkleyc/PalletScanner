@@ -96,6 +96,11 @@ newly calculated suggestion invalidates the dismissal immediately. The history
 is owner-readable, append-only through a guarded command, and never changes a
 marketplace listing.
 
+Applying a recommendation starts the same configured review interval before
+another aging markdown can appear for that listing. The timestamp is written in
+the same transaction as the approval activity, preventing repeated markdowns
+from being stacked immediately down to the floor.
+
 Each sale records the number of units sold. Its database trigger locks the
 inventory row, rejects a quantity above the current available balance, and
 appends an idempotent negative `sale` movement. Partial sales leave the

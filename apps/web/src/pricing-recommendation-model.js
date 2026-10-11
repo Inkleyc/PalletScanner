@@ -10,6 +10,8 @@ export const buildPricingRecommendations = ({ listings = [], settings, now = Dat
     const floorPrice = Number(item?.floor_price || 0);
     const ageDays = Math.floor((now - Date.parse(listing.created_at)) / 86400000);
     if (listing.status !== "active" || !Number.isFinite(approvedPrice) || approvedPrice <= 0 || !Number.isFinite(ageDays) || ageDays < reviewDays) return [];
+    const appliedAt = Date.parse(listing.pricing_recommendation_applied_at);
+    if (Number.isFinite(appliedAt) && appliedAt + reviewDays * 86400000 > now) return [];
     const suggestedPrice = money(Math.max(floorPrice, approvedPrice * (1 - markdownPercent / 100)));
     if (suggestedPrice >= approvedPrice) return [];
     const latestDecision = [...(listing.pricing_recommendation_decisions ?? [])].sort((left, right) => Date.parse(right.decided_at) - Date.parse(left.decided_at))[0];

@@ -31,3 +31,9 @@ test("hides only a current unexpired dismissal", () => {
   assert.equal(buildPricingRecommendations({ settings, now, listings: [{ ...base, inventory_items: { listing_price: 110, floor_price: 50 }, pricing_recommendation_decisions: [current] }] }).length, 1);
   assert.equal(buildPricingRecommendations({ settings, now: Date.parse("2026-11-02T00:00:00Z"), listings: [{ ...base, pricing_recommendation_decisions: [current] }] }).length, 1);
 });
+
+test("waits one review interval after an applied recommendation", () => {
+  const listing = { id: "old", status: "active", created_at: "2026-08-01T00:00:00Z", pricing_recommendation_applied_at: "2026-10-01T00:00:00Z", inventory_items: { listing_price: 90, floor_price: 50 } };
+  assert.equal(buildPricingRecommendations({ settings, now: Date.parse("2026-10-10T00:00:00Z"), listings: [listing] }).length, 0);
+  assert.equal(buildPricingRecommendations({ settings, now: Date.parse("2026-11-01T00:00:01Z"), listings: [listing] }).length, 1);
+});
