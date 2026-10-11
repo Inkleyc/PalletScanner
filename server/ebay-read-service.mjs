@@ -61,6 +61,7 @@ const summarizeOrder = (order) => {
     title: line.title ?? null,
     quantity: Number(line.quantity ?? 0),
     lineItemCost: line.lineItemCost ?? null,
+    refunds: line.refunds ?? [],
   })),
   raw: order,
   };
