@@ -2,6 +2,15 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { buildOperationalProfitability } from "../src/profitability-model.js";
 
+{
+  const report = buildOperationalProfitability({ sales: [
+    { item_id: "automated", source: "marketplace_fulfillment", sold_price: 20 },
+    { item_id: "manual", source: "manual", sold_price: 10 },
+  ] });
+  assert.equal(report.summary.automatedSaleCount, 1);
+  assert.equal(report.summary.manualSaleCount, 1);
+}
+
 test("allocates landed cost and keeps refunds separate from original sales", () => {
   const report = buildOperationalProfitability({
     acquisitions: [{ id: "a1", name: "Pallet 1", purchase_price: 100, inbound_freight: 20, buyers_premium: 10, acquisition_tax: 0 }],

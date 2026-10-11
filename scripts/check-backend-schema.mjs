@@ -235,6 +235,10 @@ const salePriceSnapshot = await readFile(
   new URL("../supabase/migrations/202610100052_sale_price_snapshot.sql", import.meta.url),
   "utf8",
 );
+const fulfillmentSales = await readFile(
+  new URL("../supabase/migrations/202610100053_fulfillment_sales.sql", import.meta.url),
+  "utf8",
+);
 
 for (const table of ["pallets", "inventory_items", "item_photos", "marketplace_listings", "sales", "activity_events"]) {
   if (!schema.includes(`create table public.${table}`)) {
@@ -362,6 +366,9 @@ for (const marker of ["capture_observed_ebay_offer_price", "marketplace_observat
 }
 for (const marker of ["listing_price_at_sale", "legacy_unknown", "approved_at_sale", "capture_sale_listing_price", "before insert on public.sales"]) {
   if (!salePriceSnapshot.includes(marker)) throw new Error(`Sale price snapshot is missing contract marker: ${marker}`);
+}
+for (const marker of ["marketplace_fulfillment", "sales_one_fulfillment_sale_per_order_line_idx", "if new.source = 'marketplace_fulfillment'", "Shipment confirmation already owns the inventory movement", "on conflict (order_line_id)", "shipment.sale_recording_incomplete", "unrecorded_sale_lines", "shipment_row.shipment_kind = 'replacement'"]) {
+  if (!fulfillmentSales.includes(marker)) throw new Error(`Fulfillment sales are missing safety marker: ${marker}`);
 }
 for (const marker of ["record_shipment_label", "state <> 'ready_for_label'", "state = 'label_purchased'", "final_shipping_cost", "shipment.label_recorded"]) {
   if (!recordShipmentLabel.includes(marker)) throw new Error(`Shipment-label recording is missing safety marker: ${marker}`);
