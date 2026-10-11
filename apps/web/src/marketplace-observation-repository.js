@@ -329,6 +329,13 @@ export const createManualSaleOrder = async ({ itemId, quantity, marketplace, sol
   return result.data;
 };
 
+export const cancelManualSaleOrder = async ({ orderId, reason }) => {
+  if (!supabase) throw new Error("Supabase is not configured for this dashboard.");
+  const result = await supabase.rpc("cancel_manual_sale_order", { target_order_id: orderId, cancellation_reason: reason });
+  throwIfError(result);
+  return Number(result.data ?? 0);
+};
+
 export const recordTrackingEvent = async ({ shipmentId, eventKey, status, description = "", location = "", occurredAt = new Date().toISOString() }) => {
   if (!supabase) throw new Error("Supabase is not configured for this dashboard.");
   const result = await supabase.rpc("record_tracking_event", {
