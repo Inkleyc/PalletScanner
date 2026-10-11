@@ -3,7 +3,7 @@ import { readFile } from "node:fs/promises";
 const read = (path) => readFile(new URL(path, import.meta.url), "utf8");
 const [
   foundation, workflow, manualIntake, finances, shipping, decisions,
-  communications, identity, identityResolution, closure, replacement, repository, app,
+  communications, identity, identityResolution, closure, replacement, lineRefunds, repository, app,
 ] = await Promise.all([
   read("../supabase/migrations/202610100031_returns_foundation.sql"),
   read("../supabase/migrations/202610100032_return_receipt_inspection_disposition.sql"),
@@ -16,6 +16,7 @@ const [
   read("../supabase/migrations/202610100039_return_identity_resolution.sql"),
   read("../supabase/migrations/202610100040_close_return_case.sql"),
   read("../supabase/migrations/202610100041_replacement_fulfillment.sql"),
+  read("../supabase/migrations/202610110007_line_attributed_refunds.sql"),
   read("../apps/web/src/marketplace-observation-repository.js"),
   read("../apps/web/src/App.jsx"),
 ]);
@@ -26,6 +27,8 @@ const scenarios = [
   ["receipt quarantines every returned unit", workflow, ["return_receipt", "return_quarantine", "reserved_quantity <> line_row.quantity"]],
   ["inspection precedes disposition", workflow, ["Inspect the return before choosing its disposition", "quarantine_reservation_id"]],
   ["financial history is append-only", finances, ["record_return_financial_event", "external_event_id = trim(financial_event_key)"]],
+  ["partial refunds are line and quantity attributed", lineRefunds, ["record_return_line_refund", "return_line_id", "refunded_quantity", "Refund quantity exceeds fulfilled quantity"]],
+  ["line refunds are idempotent and audited", lineRefunds, ["external_event_id = trim(refund_event_key)", "return.line_refund_recorded", "for update"]],
   ["return shipping is an external handoff", shipping, ["record_return_shipping_handoff", "return-label:", "A different return shipment is already recorded"]],
   ["marketplace decisions require confirmation", decisions, ["marketplace_confirmation is not true", "changes_inventory', false", "records_financial_event', false"]],
   ["messages are recorded but not falsely submitted", communications, ["Confirm the message exists in eBay", "message_submitted_by_palletflip', false"]],
