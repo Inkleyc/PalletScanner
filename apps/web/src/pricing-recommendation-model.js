@@ -17,6 +17,6 @@ export const buildPricingRecommendations = ({ listings = [], settings, now = Dat
     const latestDecision = [...(listing.pricing_recommendation_decisions ?? [])].sort((left, right) => Date.parse(right.decided_at) - Date.parse(left.decided_at))[0];
     const currentDismissal = latestDecision?.decision === "dismissed" && Number(latestDecision.approved_price) === approvedPrice && Number(latestDecision.suggested_price) === suggestedPrice && Number(latestDecision.review_after_days) === reviewDays && Number(latestDecision.markdown_percent) === markdownPercent && Date.parse(latestDecision.revisit_after) > now;
     if (currentDismissal) return [];
-    return [{ listingId: listing.id, sku: item?.seller_sku || listing.sku || "No SKU", name: item?.name || "Unknown item", ageDays, approvedPrice, floorPrice, suggestedPrice, markdownPercent }];
+    return [{ listingId: listing.id, listingUrl: listing.listing_url || (listing.external_listing_id ? `https://www.ebay.com/itm/${encodeURIComponent(listing.external_listing_id)}` : null), sku: item?.seller_sku || listing.sku || "No SKU", name: item?.name || "Unknown item", ageDays, approvedPrice, floorPrice, suggestedPrice, markdownPercent }];
   }).sort((left, right) => right.ageDays - left.ageDays);
 };

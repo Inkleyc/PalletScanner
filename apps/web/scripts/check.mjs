@@ -214,6 +214,7 @@ for (const marker of [
   "Apply to PalletFlip",
   "Not now",
   "price change will reopen it sooner",
+  "Open listing in eBay",
   "This does not change eBay",
   "never changes eBay without explicit approval",
   "Allow reviewed outbound actions",

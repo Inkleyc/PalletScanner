@@ -70,6 +70,9 @@ Offer observation copies eBay's normalized price and three-letter currency into
 the reconciled listing for both matched and newly imported inventory. Existing
 stored offer evidence is backfilled, and missing or invalid price evidence is
 left unknown rather than guessed.
+Review rows link to the exact eBay listing when an observed URL or listing ID is
+available, allowing a deliberate handoff to eBay's seller tools without giving
+the recommendation workflow outbound mutation authority.
 
 The owner can resolve a current difference by keeping the PalletFlip price or
 adopting the observed eBay price. Keeping the price records and suppresses only
