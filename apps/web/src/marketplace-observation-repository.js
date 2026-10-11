@@ -336,6 +336,13 @@ export const cancelManualSaleOrder = async ({ orderId, reason }) => {
   return Number(result.data ?? 0);
 };
 
+export const completeAssistedChannelTask = async (taskId) => {
+  if (!supabase) throw new Error("Supabase is not configured for this dashboard.");
+  const result = await supabase.rpc("complete_assisted_channel_task", { target_task_id: taskId, external_action_confirmed: true });
+  throwIfError(result);
+  return result.data;
+};
+
 export const recordTrackingEvent = async ({ shipmentId, eventKey, status, description = "", location = "", occurredAt = new Date().toISOString() }) => {
   if (!supabase) throw new Error("Supabase is not configured for this dashboard.");
   const result = await supabase.rpc("record_tracking_event", {
