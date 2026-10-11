@@ -66,6 +66,10 @@ new value, and contemporaneous low/high/floor range in append-only activity.
 The eBay control panel compares the last observed marketplace price with the
 approved PalletFlip price and presents differences as review-only work. This
 foundation never queues or executes a price change.
+Offer observation copies eBay's normalized price and three-letter currency into
+the reconciled listing for both matched and newly imported inventory. Existing
+stored offer evidence is backfilled, and missing or invalid price evidence is
+left unknown rather than guessed.
 
 The owner can resolve a current difference by keeping the PalletFlip price or
 adopting the observed eBay price. Keeping the price records and suppresses only

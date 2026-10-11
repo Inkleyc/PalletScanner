@@ -280,7 +280,7 @@ if (getStaleInventoryItems(items, new Date("2026-07-15T12:00:00Z")).length === 0
 
 const reconciliation = reconcileEbayPreview({
   inventoryItems: [{ sku: "PF-1", quantity: 2 }, { sku: "PF-2", quantity: 1 }, { sku: "PF-DUPLICATE", quantity: 1 }, { sku: "missing", quantity: 1 }, { sku: "", quantity: 1, productIdentifiers: { upc: ["0-12345-67890-5"] } }],
-  offers: [{ sku: "pf-1", offerId: "offer-1", availableQuantity: 2 }, { sku: "", offerId: "offer-known" }, { sku: "PF-1", offerId: "offer-known" }],
+  offers: [{ sku: "pf-1", offerId: "offer-1", availableQuantity: 2, price: { value: "49.99", currency: "USD" } }, { sku: "", offerId: "offer-known" }, { sku: "PF-1", offerId: "offer-known" }],
   orders: [{ orderId: "order-1", lineItems: [{ sku: "PF-1" }, { sku: "", legacyItemId: "listing-known" }, { sku: "" }] }],
 }, [
   { id: 1, serverId: "inventory-server-1", sellerSku: "pf-1", available: 2 },
@@ -319,6 +319,9 @@ if (!observationRows.some((row) => row.inventory_item_id && row.reconciliation_s
 }
 if (!observationRows.some((row) => row.resource_type === "offer" && row.external_id === "offer-1" && row.observed_quantity === 2 && row.observed_payload.offerId === "offer-1")) {
   throw new Error("Marketplace observation snapshot did not preserve normalized offer identity and quantity.");
+}
+if (!observationRows.some((row) => row.resource_type === "offer" && row.observed_payload.price?.value === "49.99" && row.observed_payload.price?.currency === "USD")) {
+  throw new Error("Marketplace observation snapshot did not preserve observed offer price evidence.");
 }
 
 const snapshot = repository.getSnapshot();
