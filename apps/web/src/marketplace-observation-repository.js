@@ -216,16 +216,19 @@ export const listImportedEbayOrders = async () => {
   if (!supabase) throw new Error("Supabase is not configured for this dashboard.");
   const userResult = await supabase.auth.getUser();
   if (userResult.error || !userResult.data.user) throw new Error("Sign in to view imported orders.");
-  const [orderResult, lineResult, shipmentResult] = await Promise.all([
+  const [orderResult, lineResult, shipmentResult, assistedTaskResult] = await Promise.all([
     supabase.from("orders").select("*").eq("owner_id", userResult.data.user.id).order("external_created_at", { ascending: false }),
     supabase.from("order_lines").select("*, inventory_reservations(state)").eq("owner_id", userResult.data.user.id).order("created_at"),
     supabase.from("shipments").select("*, shipment_packages(*), tracking_events(*)").eq("owner_id", userResult.data.user.id).order("created_at"),
+    supabase.from("assisted_channel_tasks").select("*").eq("owner_id", userResult.data.user.id).order("created_at"),
   ]);
-  throwIfError(orderResult); throwIfError(lineResult); throwIfError(shipmentResult);
+  throwIfError(orderResult); throwIfError(lineResult); throwIfError(shipmentResult); throwIfError(assistedTaskResult);
   const linesByOrder = new Map();
   for (const line of lineResult.data ?? []) linesByOrder.set(line.order_id, [...(linesByOrder.get(line.order_id) ?? []), line]);
   const shipmentByOrder = new Map((shipmentResult.data ?? []).filter((shipment) => shipment.shipment_kind !== "replacement").map((shipment) => [shipment.order_id, shipment]));
-  return (orderResult.data ?? []).map((order) => ({ ...order, lines: linesByOrder.get(order.id) ?? [], shipment: shipmentByOrder.get(order.id) ?? null }));
+  const assistedTasksByOrder = new Map();
+  for (const task of assistedTaskResult.data ?? []) assistedTasksByOrder.set(task.order_id, [...(assistedTasksByOrder.get(task.order_id) ?? []), task]);
+  return (orderResult.data ?? []).map((order) => ({ ...order, lines: linesByOrder.get(order.id) ?? [], shipment: shipmentByOrder.get(order.id) ?? null, assistedTasks: assistedTasksByOrder.get(order.id) ?? [] }));
 };
 
 export const matchImportedOrderLine = async ({ lineId, inventoryItemId }) => {
