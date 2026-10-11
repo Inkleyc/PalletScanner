@@ -73,6 +73,12 @@ that exact observed/approved pair; a later change on either side returns to the
 queue. Adopting updates the internal approved price and its audit history. Both
 decisions explicitly record that no outbound marketplace change occurred.
 
+Optional aging recommendations are disabled by default. The owner configures a
+review age from 7–365 days and a suggested markdown no greater than 50 percent.
+Only active listings older than the threshold are considered, and a suggestion
+can never go below the item's floor price. Recommendations are calculated for
+review and cannot update the approved PalletFlip price or the marketplace.
+
 Each sale records the number of units sold. Its database trigger locks the
 inventory row, rejects a quantity above the current available balance, and
 appends an idempotent negative `sale` movement. Partial sales leave the

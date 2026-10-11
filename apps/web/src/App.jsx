@@ -17,7 +17,8 @@ import { isSupabaseConfigured, supabase } from "./supabase.js";
 import { buildAnalytics } from "./analytics-model.js";
 import { buildOperationalProfitability } from "./profitability-model.js";
 import { reconcileEbayPreview } from "./ebay-reconciliation.js";
-import { archivePackagePreset, closeReturnCase, confirmShipmentPackage, confirmShipmentPicked, confirmShipmentShipped, createManualReturn, createUnverifiedInventoryFromObservation, dispositionReturnLine, getEbayMarketplaceControl, importObservedEbayOrders, importObservedEbayReturns, inspectReturnLine, listEbayObservationSnapshots, listImportedEbayOrders, listMarketplaceActionJobs, listMarketplaceQuantityQueue, listPackagePresets, listReturns, loadEbayObservationSnapshot, loadOperationalProfitabilityData, matchImportedOrderLine, queueEbayQuantitySync, receiveReturnLine, recordConfirmedReturnDecision, recordEbayReconciliationDecision, recordReturnCommunication, recordReturnFinancialEvent, recordReturnShippingHandoff, recordShipmentLabel, recordTrackingEvent, releaseCancelledOrderReservations, reserveImportedOrder, resolveMarketplacePriceReview, resolveReturnIdentityDiscrepancy, retryFailedMarketplaceActionJob, saveEbayObservationSnapshot, savePackagePreset, setEbayOutboundPause, startOrderFulfillment, startReturnReplacement, uploadReturnEvidence } from "./marketplace-observation-repository.js";
+import { archivePackagePreset, closeReturnCase, confirmShipmentPackage, confirmShipmentPicked, confirmShipmentShipped, createManualReturn, createUnverifiedInventoryFromObservation, dispositionReturnLine, getEbayMarketplaceControl, getPricingRecommendationSettings, importObservedEbayOrders, importObservedEbayReturns, inspectReturnLine, listEbayObservationSnapshots, listImportedEbayOrders, listMarketplaceActionJobs, listMarketplaceQuantityQueue, listPackagePresets, listReturns, loadEbayObservationSnapshot, loadOperationalProfitabilityData, matchImportedOrderLine, queueEbayQuantitySync, receiveReturnLine, recordConfirmedReturnDecision, recordEbayReconciliationDecision, recordReturnCommunication, recordReturnFinancialEvent, recordReturnShippingHandoff, recordShipmentLabel, recordTrackingEvent, releaseCancelledOrderReservations, reserveImportedOrder, resolveMarketplacePriceReview, resolveReturnIdentityDiscrepancy, retryFailedMarketplaceActionJob, saveEbayObservationSnapshot, savePackagePreset, setEbayOutboundPause, startOrderFulfillment, startReturnReplacement, updatePricingRecommendationSettings, uploadReturnEvidence } from "./marketplace-observation-repository.js";
+import { buildPricingRecommendations } from "./pricing-recommendation-model.js";
 import { ActivityPanel } from "./activity-panel.jsx";
 import { PalletManager } from "./pallet-manager.jsx";
 import {
@@ -597,12 +598,13 @@ function QuantitySyncQueue() {
   const [rows, setRows] = useState(null);
   const [jobs, setJobs] = useState(null);
   const [account, setAccount] = useState(null);
+  const [pricingSettings, setPricingSettings] = useState(null);
   const [saving, setSaving] = useState(false);
   const [queueingId, setQueueingId] = useState(null);
   const [error, setError] = useState("");
   const load = async () => {
     setError("");
-    try { const [nextRows, nextAccount, nextJobs] = await Promise.all([listMarketplaceQuantityQueue(), getEbayMarketplaceControl(), listMarketplaceActionJobs()]); setRows(nextRows); setAccount(nextAccount); setJobs(nextJobs); }
+    try { const [nextRows, nextAccount, nextJobs, nextPricingSettings] = await Promise.all([listMarketplaceQuantityQueue(), getEbayMarketplaceControl(), listMarketplaceActionJobs(), getPricingRecommendationSettings()]); setRows(nextRows); setAccount(nextAccount); setJobs(nextJobs); setPricingSettings(nextPricingSettings); }
     catch (loadError) { setError(loadError instanceof Error ? loadError.message : "Could not load the quantity queue."); }
   };
   const executeJob = async (jobId) => {
@@ -663,6 +665,7 @@ function QuantitySyncQueue() {
   if (getRepositoryMode() !== "cloud") return null;
   const mismatches = (rows ?? []).filter((row) => row.advertised_quantity !== row.desired_quantity);
   const priceReviews = (rows ?? []).filter((row) => row.price !== null && row.inventory_items?.listing_price !== null && Number(row.price) !== Number(row.inventory_items.listing_price) && !(row.price_reviewed_external_price !== null && row.price_reviewed_approved_price !== null && Number(row.price_reviewed_external_price) === Number(row.price) && Number(row.price_reviewed_approved_price) === Number(row.inventory_items.listing_price)));
+  const pricingRecommendations = buildPricingRecommendations({ listings: rows ?? [], settings: pricingSettings });
   return <article className="admin-card integration-card">
     <div className="status-line"><strong>eBay quantity protection</strong><span className={`badge ${account && !account.outbound_paused ? "success" : "warning"}`}>{account && !account.outbound_paused ? "Review required" : "Outbound paused"}</span></div>
     <p>PalletFlip calculates the quantity eBay should advertise from available inventory. It never changes eBay without explicit approval.</p>
@@ -679,11 +682,35 @@ function QuantitySyncQueue() {
       {priceReviews.length === 0 ? <small>Observed eBay prices match the seller-approved PalletFlip prices, or their current difference has been reviewed.</small> : priceReviews.slice(0, 50).map((row) => <div className="reconciliation-decision-row" key={`price-${row.id}`}><div className="check-row"><span className="check-dot" /><span><strong>{row.inventory_items?.seller_sku || row.sku || "No SKU"}</strong> · {row.inventory_items?.name || "Unknown item"} · eBay {currency(Number(row.price))} · approved {currency(Number(row.inventory_items.listing_price))}</span><span className="badge warning">Review only</span></div><div className="button-row"><button type="button" disabled={queueingId === row.id} onClick={() => resolvePrice(row, "keep_approved")}>Keep approved price</button><button type="button" disabled={queueingId === row.id} onClick={() => resolvePrice(row, "adopt_external")}>Adopt eBay price</button></div></div>)}
       <small>PalletFlip observes price differences but does not reprice active listings. Price changes require a separate reviewed workflow.</small>
     </div>}
+    {rows && pricingSettings?.pricing_recommendations_enabled && <div className="check-list reconciliation-records">
+      <strong>{pricingRecommendations.length} aging price recommendation{pricingRecommendations.length === 1 ? "" : "s"}</strong>
+      {pricingRecommendations.length === 0 ? <small>No active listing has crossed the configured review age.</small> : pricingRecommendations.slice(0, 50).map((entry) => <div className="check-row" key={`recommend-${entry.listingId}`}><span className="check-dot" /><span><strong>{entry.sku}</strong> · {entry.name} · {entry.ageDays} days · approved {currency(entry.approvedPrice)} · suggested {currency(entry.suggestedPrice)} · floor {currency(entry.floorPrice)}</span><span className="badge warning">Suggestion only</span></div>)}
+      <small>Recommendations never change PalletFlip or eBay prices. Review the item and edit its approved price separately.</small>
+    </div>}
     {jobs && <div className="check-list reconciliation-records">
       <strong>Marketplace action exceptions</strong>
       {jobs.length === 0 ? <small>No marketplace actions are waiting or failed.</small> : jobs.map((job) => { const retryDue = job.status === "retry_wait" && Date.parse(job.next_attempt_at) <= Date.now(); const staleClaim = job.status === "running" && Date.parse(job.updated_at) <= Date.now() - 300000; const runnable = job.status === "pending" || retryDue || staleClaim; return <div className="reconciliation-decision-row" key={job.id}><div className="check-row"><span className={`check-dot ${job.status === "pending" ? "ok" : ""}`} /><span><strong>{job.marketplace_listings?.inventory_items?.seller_sku || job.marketplace_listings?.sku || job.payload?.sku || "No SKU"}</strong> · {job.marketplace_listings?.inventory_items?.name || job.action_type.replaceAll("_", " ")} · {job.status.replaceAll("_", " ")} · attempt {job.attempt_count}/{job.max_attempts}{job.status === "retry_wait" ? ` · retry after ${new Date(job.next_attempt_at).toLocaleString()}` : ""}{job.last_error ? ` · ${job.last_error}` : ""}</span></div>{runnable && <button type="button" disabled={queueingId === job.id || account?.outbound_paused} onClick={() => runDueJob(job)}>{queueingId === job.id ? "Running..." : staleClaim ? "Recover stalled action" : retryDue ? "Run due retry" : "Run queued action"}</button>}{job.status === "failed" && <button type="button" disabled={queueingId === job.id || account?.outbound_paused} onClick={() => retryJob(job)}>{queueingId === job.id ? "Retrying..." : "Retry failed action"}</button>}</div>; })}
     </div>}
   </article>;
+}
+
+function PricingRecommendationSettings() {
+  const [draft, setDraft] = useState(null);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+  useEffect(() => { if (getRepositoryMode() === "cloud") getPricingRecommendationSettings().then((value) => setDraft(value)).catch((loadError) => setError(loadError instanceof Error ? loadError.message : "Could not load pricing settings.")); }, []);
+  if (getRepositoryMode() !== "cloud") return null;
+  if (!draft) return <section className="panel"><strong>Loading pricing recommendations…</strong>{error && <p className="error-text">{error}</p>}</section>;
+  const save = async (event) => {
+    event.preventDefault();
+    const reviewAfterDays = Number(draft.pricing_review_after_days); const markdownPercent = Number(draft.pricing_markdown_percent);
+    if (!Number.isInteger(reviewAfterDays) || reviewAfterDays < 7 || reviewAfterDays > 365 || !Number.isFinite(markdownPercent) || markdownPercent <= 0 || markdownPercent > 50) return setError("Use 7–365 days and a markdown greater than 0% and no more than 50%.");
+    setSaving(true); setError("");
+    try { setDraft(await updatePricingRecommendationSettings({ enabled: draft.pricing_recommendations_enabled, reviewAfterDays, markdownPercent })); }
+    catch (saveError) { setError(saveError instanceof Error ? saveError.message : "Could not save pricing settings."); }
+    finally { setSaving(false); }
+  };
+  return <section className="panel"><div className="panel-heading"><div><p className="eyebrow">Pricing review</p><h3>Aging recommendations</h3><span>Optional floor-protected suggestions for stale active listings. Off by default.</span></div></div><form onSubmit={save}><div className="edit-grid"><label><span>Enable suggestions</span><input type="checkbox" checked={draft.pricing_recommendations_enabled} onChange={(event) => setDraft((current) => ({ ...current, pricing_recommendations_enabled: event.target.checked }))} /></label><label><span>Review after days</span><input required type="number" min="7" max="365" step="1" value={draft.pricing_review_after_days} onChange={(event) => setDraft((current) => ({ ...current, pricing_review_after_days: event.target.value }))} /></label><label><span>Suggested markdown</span><input required type="number" min="0.01" max="50" step="0.01" value={draft.pricing_markdown_percent} onChange={(event) => setDraft((current) => ({ ...current, pricing_markdown_percent: event.target.value }))} /><small>Never recommends below the item floor price.</small></label></div>{error && <p className="error-text">{error}</p>}<div className="button-row"><button className="primary-button" type="submit" disabled={saving}>{saving ? "Saving…" : "Save pricing settings"}</button></div><p className="analysis-disclaimer">Suggestions never update PalletFlip or eBay prices. Changing an active listing remains a separate reviewed action.</p></form></section>;
 }
 
 function PackagePresetSettings() {
@@ -1617,7 +1644,7 @@ export function App() {
         </section>}
         {inventoryModalItem && <div className="modal-backdrop" role="presentation" onMouseDown={() => setInventoryModalId(null)}><div className="inventory-detail-modal" role="dialog" aria-modal="true" aria-label={`${inventoryModalItem.name} inventory record`} onMouseDown={(event) => event.stopPropagation()}><InventoryDetail item={inventoryModalItem} palletName={palletName(inventoryModalItem.palletId)} pallets={pallets} locationTrackingEnabled={locationTrackingEnabled} showWorkflowActions={false} onClose={() => setInventoryModalId(null)} onSave={async (item, options) => { await repository.saveItem(item, options); notify(item.archivedAt === null ? "Inventory item restored." : "Changes saved."); }} onRemove={async (id) => { await repository.removeItem(id); setInventoryModalId(null); notify("Inventory item archived."); }} onSaleRecorded={() => notify("Sale recorded. Analysis is updated.")} /></div></div>}
         {addingItem && <AddItemDialog pallets={pallets} activePalletId={snapshot.activePalletId} onCancel={() => setAddingItem(false)} onCreate={async (item) => { await repository.saveItem(item); setAddingItem(false); setInventoryModalId(item.id); notify("Item added. Add photos or edit its details."); }} />}
-        <div className="settings-mount" hidden={view !== "settings"}><div className="view-stack"><section className="panel"><div className="panel-heading"><div><p className="eyebrow">Inventory preferences</p><h3>Storage locations</h3><span>Optional for garages, shelves, bins, or racks.</span></div><label><input type="checkbox" checked={locationTrackingEnabled} onChange={(event) => setLocationTrackingEnabled(event.target.checked)} /> Enable location tracking</label></div></section><PackagePresetSettings /><EbaySettings /><ActivityPanel snapshot={snapshot} /></div></div>
+        <div className="settings-mount" hidden={view !== "settings"}><div className="view-stack"><section className="panel"><div className="panel-heading"><div><p className="eyebrow">Inventory preferences</p><h3>Storage locations</h3><span>Optional for garages, shelves, bins, or racks.</span></div><label><input type="checkbox" checked={locationTrackingEnabled} onChange={(event) => setLocationTrackingEnabled(event.target.checked)} /> Enable location tracking</label></div></section><PricingRecommendationSettings /><PackagePresetSettings /><EbaySettings /><ActivityPanel snapshot={snapshot} /></div></div>
         {toast && <div className="toast" role="status">{toast}</div>}
       </main>
     </div>

@@ -1221,6 +1221,12 @@ observed eBay order subtotal remain visibly separate from realized recorded
 sales. This completes the launch reporting foundation without pulling deferred
 overhead accounting or guarded repricing into the current scope.
 
+Pricing foundation status: the seller-approved listing price now synchronizes
+across mobile and web, changes are audited, and observed eBay differences have
+a guarded keep/adopt reconciliation. Optional aging recommendations are
+configurable, floor-protected, off by default, and suggestion-only. Outbound
+repricing remains deferred until its rules and real seller history are trusted.
+
 ## Definition of Done for Every Phase
 
 - domain rules and ownership are documented;

@@ -509,7 +509,7 @@ export const listMarketplaceQuantityQueue = async () => {
   const userResult = await supabase.auth.getUser();
   if (userResult.error || !userResult.data.user) throw new Error("Sign in to review marketplace quantities.");
   const result = await supabase.from("marketplace_listings")
-    .select("id,platform,status,sku,external_listing_id,offer_id,advertised_quantity,desired_quantity,price,currency,price_reviewed_external_price,price_reviewed_approved_price,price_review_resolution,price_reviewed_at,quantity_sync_state,sync_paused,last_error,updated_at,inventory_items(name,seller_sku,available,listing_price)")
+    .select("id,platform,status,sku,external_listing_id,offer_id,advertised_quantity,desired_quantity,price,currency,price_reviewed_external_price,price_reviewed_approved_price,price_review_resolution,price_reviewed_at,quantity_sync_state,sync_paused,last_error,created_at,updated_at,inventory_items(name,seller_sku,available,listing_price,floor_price)")
     .eq("owner_id", userResult.data.user.id)
     .eq("platform", "ebay")
     .order("updated_at", { ascending: false });
@@ -550,6 +550,20 @@ export const queueEbayQuantitySync = async (listingId) => {
 export const resolveMarketplacePriceReview = async ({ listingId, resolution }) => {
   if (!supabase) throw new Error("Supabase is not configured for this dashboard.");
   const result = await supabase.rpc("resolve_marketplace_price_review", { target_listing_id: listingId, selected_resolution: resolution });
+  throwIfError(result);
+  return result.data;
+};
+
+export const getPricingRecommendationSettings = async () => {
+  if (!supabase) throw new Error("Supabase is not configured for this dashboard.");
+  const result = await supabase.from("business_settings").select("pricing_recommendations_enabled,pricing_review_after_days,pricing_markdown_percent").maybeSingle();
+  throwIfError(result);
+  return result.data;
+};
+
+export const updatePricingRecommendationSettings = async ({ enabled, reviewAfterDays, markdownPercent }) => {
+  if (!supabase) throw new Error("Supabase is not configured for this dashboard.");
+  const result = await supabase.rpc("update_pricing_recommendation_settings", { recommendations_enabled: enabled, review_after_days: reviewAfterDays, markdown_percent: markdownPercent });
   throwIfError(result);
   return result.data;
 };
