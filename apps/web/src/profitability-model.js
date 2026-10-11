@@ -107,7 +107,7 @@ export const buildOperationalProfitability = ({ acquisitions = [], items = [], m
     return { id: itemId, name: item?.name ?? "Unknown item", sku: item?.client_id ?? "", category: item?.category ?? "Uncategorized", condition: item?.condition ?? "Unknown", quantitySold, grossRevenue: roundMoney(grossRevenue), directCosts: roundMoney(directCosts), allocatedCost: roundMoney(allocatedCost), returnImpact: roundMoney(returnImpact), priceSnapshotGrossRevenue: roundMoney(snapshotGross), listedValueAtSale: roundMoney(listedValue), priceRealizationPercent: listedValue > 0 ? roundMoney(snapshotGross / listedValue * 100) : null, estimatedProfit: roundMoney(grossRevenue - directCosts - allocatedCost + returnImpact) };
   }).sort((left, right) => right.estimatedProfit - left.estimatedProfit);
   const projectedAvailableValue = items.reduce((sum, item) => sum + Math.max(0, amount(item.available)) * ((amount(item.low_price) + amount(item.high_price)) / 2), 0);
-  const observedOrderSubtotal = orders.filter((order) => String(order.payment_state).toLowerCase() === "paid").reduce((sum, order) => sum + amount(order.pricing_summary?.priceSubtotal?.value ?? order.pricing_summary?.priceSubtotal?.amount), 0);
+  const observedOrderSubtotal = orders.filter((order) => order.source === "ebay" && String(order.payment_state).toLowerCase() === "paid").reduce((sum, order) => sum + amount(order.pricing_summary?.priceSubtotal?.value ?? order.pricing_summary?.priceSubtotal?.amount), 0);
   return {
     summary: {
       grossRevenue: roundMoney(grossRevenue),

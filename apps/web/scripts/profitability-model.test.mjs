@@ -26,6 +26,14 @@ import { buildOperationalProfitability } from "../src/profitability-model.js";
   assert.equal(report.summary.estimatedProfit, 42);
 }
 
+{
+  const report = buildOperationalProfitability({ orders: [
+    { source: "ebay", payment_state: "paid", pricing_summary: { priceSubtotal: { value: "40" } } },
+    { source: "manual", payment_state: "paid", pricing_summary: { priceSubtotal: { value: "25" } } },
+  ] });
+  assert.equal(report.summary.observedOrderSubtotal, 40);
+}
+
 test("allocates landed cost and keeps refunds separate from original sales", () => {
   const report = buildOperationalProfitability({
     acquisitions: [{ id: "a1", name: "Pallet 1", purchase_price: 100, inbound_freight: 20, buyers_premium: 10, acquisition_tax: 0 }],
@@ -46,7 +54,7 @@ test("allocates landed cost and keeps refunds separate from original sales", () 
 });
 
 test("keeps observed order subtotal outside estimated profit", () => {
-  const report = buildOperationalProfitability({ orders: [{ payment_state: "PAID", pricing_summary: { priceSubtotal: { value: "250.00" } } }] });
+  const report = buildOperationalProfitability({ orders: [{ source: "ebay", payment_state: "PAID", pricing_summary: { priceSubtotal: { value: "250.00" } } }] });
   assert.equal(report.summary.observedOrderSubtotal, 250);
   assert.equal(report.summary.estimatedProfit, 0);
   assert.equal(report.summary.acquisitionAllocationCoveragePercent, 100);
