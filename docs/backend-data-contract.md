@@ -110,6 +110,38 @@ visible. Due retries and stale claims can be run again without creating another
 job. An exhausted job requires explicit owner approval, resets its bounded
 attempt counter, and preserves the prior error in append-only audit history.
 
+## Operational Profitability
+
+The Analysis dashboard calculates an operational estimate from authoritative
+cloud records. Gross revenue comes only from recorded `sales`. Direct selling
+costs include recorded marketplace fees and seller-paid shipping. The sold
+quantity receives a proportional share of its acquisition's landed cost, where
+landed cost is purchase price plus inbound freight, buyer premium, and
+acquisition tax. Append-only return financial events adjust the result without
+erasing or rewriting the original sale.
+
+The calculation is:
+
+`recorded gross - fees - shipping - allocated landed cost + return impact`
+
+Fee credits are positive return impact; refunds, return shipping, replacement
+shipping, and other return costs are negative. Multi-item return impact is
+allocated by returned quantity. The dashboard reports allocation coverage and
+warns when a sale cannot be assigned acquisition cost, rather than treating
+unknown cost as trustworthy profit.
+
+Projected available value is reported separately using the midpoint of each
+item's current low/high asking-price range. Paid eBay order subtotal is also
+shown separately as observed context and is never added to profit, preventing a
+recorded sale and its imported order from being counted twice. Return rate is
+returned units divided by recorded sold units. The report is operational
+guidance, not tax or accounting advice; general overhead, labor, mileage, and
+sales tax accounting remain outside the launch calculation.
+
+CSV and print/PDF output preserve acquisition cost recovery and item-level
+profitability alongside the existing descriptive category, condition,
+marketplace, and pallet sections.
+
 ## Shipping Foundation
 
 Shipping records use grams and millimeters as stable storage units while clients

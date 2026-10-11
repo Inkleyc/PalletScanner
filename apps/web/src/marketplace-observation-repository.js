@@ -428,6 +428,23 @@ export const startReturnReplacement = async ({ returnLineId, inventoryItemId, qu
   return result.data;
 };
 
+export const loadOperationalProfitabilityData = async () => {
+  if (!supabase) throw new Error("Supabase is not configured for this dashboard.");
+  const userResult = await supabase.auth.getUser();
+  if (userResult.error || !userResult.data.user) throw new Error("Sign in to load profitability reporting.");
+  const ownerId = userResult.data.user.id;
+  const [acquisitionResult, itemResult, movementResult, saleResult, returnResult, orderResult] = await Promise.all([
+    supabase.from("acquisitions").select("id,name,type,purchase_price,inbound_freight,buyers_premium,acquisition_tax,status").eq("owner_id", ownerId),
+    supabase.from("inventory_items").select("id,client_id,acquisition_id,name,category,condition,available,low_price,high_price").eq("owner_id", ownerId),
+    supabase.from("inventory_movements").select("inventory_item_id,quantity,movement_type,occurred_at").eq("owner_id", ownerId),
+    supabase.from("sales").select("id,item_id,marketplace,quantity,sold_price,fees,shipping_cost,sold_at").eq("owner_id", ownerId),
+    supabase.from("returns").select("id,state,return_financial_events(event_type,amount,currency,occurred_at),return_lines(quantity,inventory_item_id,order_lines(inventory_item_id))").eq("owner_id", ownerId),
+    supabase.from("orders").select("id,payment_state,pricing_summary,external_created_at").eq("owner_id", ownerId),
+  ]);
+  [acquisitionResult, itemResult, movementResult, saleResult, returnResult, orderResult].forEach(throwIfError);
+  return { acquisitions: acquisitionResult.data ?? [], items: itemResult.data ?? [], movements: movementResult.data ?? [], sales: saleResult.data ?? [], returns: returnResult.data ?? [], orders: orderResult.data ?? [] };
+};
+
 export const dispositionReturnLine = async ({ returnLineId, disposition, note }) => {
   if (!supabase) throw new Error("Supabase is not configured for this dashboard.");
   const result = await supabase.rpc("disposition_return_line", { target_return_line_id: returnLineId, selected_disposition: disposition, disposition_note: note });

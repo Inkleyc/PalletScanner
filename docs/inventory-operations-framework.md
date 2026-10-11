@@ -1214,6 +1214,13 @@ validation.
 
 Exit: new channels do not duplicate core inventory or order logic.
 
+Reporting foundation status: operational estimated profit, acquisition cost
+recovery, item profitability, return rate, allocation coverage, and CSV/print
+output are implemented for signed-in cloud data. Projected inventory value and
+observed eBay order subtotal remain visibly separate from realized recorded
+sales. This completes the launch reporting foundation without pulling deferred
+overhead accounting or guarded repricing into the current scope.
+
 ## Definition of Done for Every Phase
 
 - domain rules and ownership are documented;
