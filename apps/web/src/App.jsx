@@ -1290,7 +1290,7 @@ function OrdersContent() {
     finally { setReservingOrder(false); }
   };
   const adoptObservedEbayFulfillment = async (shipment, fulfillment) => {
-    const service = window.prompt("eBay shipping service", "Imported from eBay"); if (!service?.trim()) return;
+    const service = window.prompt("eBay shipping service", selectedOrder?.raw_payload?.observedSelectedShippingService?.service || "Imported from eBay"); if (!service?.trim()) return;
     const cost = Number(window.prompt("Final eBay label cost", "0.00")); if (!Number.isFinite(cost) || cost < 0) return setError("Enter a non-negative final label cost.");
     if (!window.confirm(`Use ${fulfillment.shippingCarrierCode} tracking ${fulfillment.trackingNumber} and confirm eBay's ${new Date(fulfillment.shippedDate).toLocaleString()} carrier handoff? This consumes the reserved inventory.`)) return;
     setReservingOrder(true); setError("");

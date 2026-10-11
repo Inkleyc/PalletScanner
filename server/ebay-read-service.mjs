@@ -40,13 +40,18 @@ const summarizeShippingFulfillment = (fulfillment) => ({
   lineItems: fulfillment.lineItems ?? [],
 });
 
-const summarizeOrder = (order) => ({
+const summarizeOrder = (order) => {
+  const shipByDates = (order.lineItems ?? []).map((line) => line.lineItemFulfillmentInstructions?.shipByDate).filter(Boolean).sort();
+  const shippingStep = (order.fulfillmentStartInstructions ?? []).find((instruction) => instruction.shippingStep)?.shippingStep;
+  return {
   orderId: order.orderId ?? null,
   creationDate: order.creationDate ?? null,
   lastModifiedDate: order.lastModifiedDate ?? null,
   orderFulfillmentStatus: order.orderFulfillmentStatus ?? null,
   orderPaymentStatus: order.orderPaymentStatus ?? null,
   cancellationState: order.cancelStatus?.cancelState ?? "NONE_REQUESTED",
+  shipByDate: shipByDates[0] ?? null,
+  selectedShippingService: shippingStep ? { carrier: shippingStep.shippingCarrierCode ?? null, service: shippingStep.shippingServiceCode ?? null } : null,
   pricingSummary: order.pricingSummary ?? null,
   lineItems: (order.lineItems ?? []).map((line) => ({
     lineItemId: line.lineItemId ?? null,
@@ -58,7 +63,8 @@ const summarizeOrder = (order) => ({
     lineItemCost: line.lineItemCost ?? null,
   })),
   raw: order,
-});
+  };
+};
 
 const dateValue = (value) => value?.value ?? value ?? null;
 const summarizeReturn = (entry) => ({

@@ -13,7 +13,7 @@ test("builds an observe-only inventory, offer, order, and return preview", async
       if (pathname.includes("/offer")) return { total: 1, offers: [{ offerId: "offer-1", sku: "PF-1", status: "PUBLISHED", availableQuantity: 2, listing: { listingId: "listing-1" } }] };
       if (pathname.includes("post-order")) return { paginationOutput: { totalNumberOfEntries: 1 }, members: [{ returnId: "return-1", orderId: "order-1", state: "RETURN_STARTED", status: "RETURN_REQUESTED", currentType: "MONEY_BACK", creationInfo: { reason: "DOES_NOT_FIT", creationDate: { value: "2026-10-10T10:00:00Z" }, item: { itemId: "legacy-1", transactionId: "txn-1", returnQuantity: 1 } }, sellerResponseDue: { respondByDate: { value: "2026-10-11T10:00:00Z" } } }] };
       if (pathname.includes("shipping_fulfillment")) return { fulfillments: [{ fulfillmentId: "fulfillment-1", shippedDate: "2026-10-10T12:00:00Z", shippingCarrierCode: "USPS", trackingNumber: "9400" }] };
-      return { total: 1, orders: [{ orderId: "order-1", orderFulfillmentStatus: "FULFILLED", fulfillmentHrefs: ["fulfillment-1"], cancelStatus: { cancelState: "CANCELED" }, lineItems: [{ lineItemId: "line-1", sku: "PF-1", quantity: 1 }] }] };
+      return { total: 1, orders: [{ orderId: "order-1", orderFulfillmentStatus: "FULFILLED", fulfillmentHrefs: ["fulfillment-1"], cancelStatus: { cancelState: "CANCELED" }, fulfillmentStartInstructions: [{ shippingStep: { shippingCarrierCode: "USPS", shippingServiceCode: "USPSGroundAdvantage" } }], lineItems: [{ lineItemId: "line-1", sku: "PF-1", quantity: 1, lineItemFulfillmentInstructions: { shipByDate: "2026-10-11T20:00:00Z" } }] }] };
     },
   });
 
@@ -26,6 +26,8 @@ test("builds an observe-only inventory, offer, order, and return preview", async
   assert.equal(preview.orders[0].lineItems[0].sku, "PF-1");
   assert.equal(preview.orders[0].cancellationState, "CANCELED");
   assert.equal(preview.orders[0].shippingFulfillments[0].trackingNumber, "9400");
+  assert.equal(preview.orders[0].shipByDate, "2026-10-11T20:00:00Z");
+  assert.equal(preview.orders[0].selectedShippingService.service, "USPSGroundAdvantage");
   assert.equal(preview.returns[0].returnId, "return-1");
   assert.equal(preview.returns[0].item.legacyTransactionId, "txn-1");
   assert.equal(preview.pagination.returnTotal, 1);
