@@ -826,6 +826,7 @@ function EbaySettings({ mode = "all" }) {
   const [locationDraft, setLocationDraft] = useState({ name: "Main inventory", postalCode: "", city: "", stateOrProvince: "", country: "US" });
   const [importPreview, setImportPreview] = useState(null);
   const [previewLoading, setPreviewLoading] = useState(false);
+  const [inboundSyncing, setInboundSyncing] = useState(false);
   const [snapshotSaving, setSnapshotSaving] = useState(false);
   const [ordersImporting, setOrdersImporting] = useState(false);
   const [returnsImporting, setReturnsImporting] = useState(false);
@@ -933,6 +934,22 @@ function EbaySettings({ mode = "all" }) {
       setMessage("Observe-only preview refreshed. Nothing was changed.");
     } catch (error) { setMessage(error instanceof Error ? error.message : "Could not preview eBay data."); }
     finally { setPreviewLoading(false); }
+  };
+
+  const syncInboundEbay = async () => {
+    if (!window.confirm("Read the latest eBay data, save an audit snapshot, and import observed orders and available returns? This will not reserve, restock, or change inventory.")) return;
+    setInboundSyncing(true); setMessage("");
+    try {
+      const parameters = new URLSearchParams({ limit: "50", inventoryOffset: "0", offerOffset: "0", orderOffset: "0", returnOffset: "0" });
+      const preview = await request(`/ebay/import-preview?${parameters}`);
+      const nextReconciliation = reconcileEbayPreview(preview, repository.getSnapshot().items);
+      setImportPreview(preview);
+      const snapshotResult = await saveEbayObservationSnapshot({ preview, reconciliation: nextReconciliation });
+      const orderResult = await importObservedEbayOrders({ preview, reconciliation: nextReconciliation });
+      const returnResult = preview.returnsUnavailable ? { imported: 0, unmatched: 0 } : await importObservedEbayReturns(preview);
+      setMessage(`Inbound eBay sync saved ${snapshotResult.observationCount} audit records, ${orderResult.orders} orders, ${orderResult.lines} lines, and ${returnResult.imported} returns.${returnResult.unmatched ? ` ${returnResult.unmatched} returns need order-line matching.` : ""}`);
+    } catch (error) { setMessage(error instanceof Error ? error.message : "Could not sync inbound eBay data."); }
+    finally { setInboundSyncing(false); }
   };
 
   const reconciliation = reconcileEbayPreview(importPreview, repository.getSnapshot().items);
@@ -1087,7 +1104,7 @@ function EbaySettings({ mode = "all" }) {
         {mode !== "settings" && <article className="admin-card integration-card">
           <div className="status-line"><strong>Observe-only reconciliation</strong><span className="badge primary">Observe only</span></div>
           <p>Compare eBay inventory, offers, and recent orders with PalletFlip SKUs. This preview cannot import records or change quantities.</p>
-          <button type="button" onClick={() => loadImportPreview(false)} disabled={previewLoading || !status?.connected}>{previewLoading ? "Reading eBay data..." : "Preview eBay data"}</button>
+          <div className="button-row"><button type="button" onClick={() => loadImportPreview(false)} disabled={previewLoading || inboundSyncing || !status?.connected}>{previewLoading ? "Reading eBay data..." : "Preview eBay data"}</button><button className="primary-button" type="button" onClick={syncInboundEbay} disabled={previewLoading || inboundSyncing || !status?.connected || getRepositoryMode() !== "cloud"}>{inboundSyncing ? "Syncing inbound data…" : "Sync inbound eBay data"}</button></div>
           {!status?.connected && <small>Connect eBay and check its status before loading a preview.</small>}
           {importPreview && <>
             <div className="check-list">
