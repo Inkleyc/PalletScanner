@@ -17,7 +17,7 @@ import { isSupabaseConfigured, supabase } from "./supabase.js";
 import { buildAnalytics } from "./analytics-model.js";
 import { buildOperationalProfitability } from "./profitability-model.js";
 import { reconcileEbayPreview } from "./ebay-reconciliation.js";
-import { applyPricingRecommendation, archivePackagePreset, closeReturnCase, confirmLocalPickupHandoff, confirmSaleFees, confirmShipmentPackage, confirmShipmentPicked, confirmShipmentShipped, createManualReturn, createUnverifiedInventoryFromObservation, dismissPricingRecommendation, dispositionReturnLine, getEbayMarketplaceControl, getPricingRecommendationSettings, importObservedEbayOrders, importObservedEbayReturns, inspectReturnLine, listEbayObservationSnapshots, listImportedEbayOrders, listMarketplaceActionJobs, listMarketplaceQuantityQueue, listPackagePresets, listReturns, listShippedSaleRecovery, loadEbayObservationSnapshot, loadOperationalProfitabilityData, matchImportedOrderLine, queueEbayQuantitySync, receiveReturnLine, reconcileShippedFulfillmentSales, recordConfirmedReturnDecision, recordEbayReconciliationDecision, recordReturnCommunication, recordReturnFinancialEvent, recordReturnLineRefund, recordReturnShippingHandoff, recordShipmentLabel, recordTrackingEvent, releaseCancelledOrderReservations, reserveImportedOrder, resolveMarketplacePriceReview, resolveReturnIdentityDiscrepancy, retryFailedMarketplaceActionJob, saveEbayObservationSnapshot, savePackagePreset, setEbayOutboundPause, startOrderFulfillment, startReturnReplacement, updatePricingRecommendationSettings, uploadReturnEvidence } from "./marketplace-observation-repository.js";
+import { applyPricingRecommendation, archivePackagePreset, closeReturnCase, confirmLocalPickupHandoff, confirmSaleFees, confirmShipmentPackage, confirmShipmentPicked, confirmShipmentShipped, createManualReturn, createUnverifiedInventoryFromObservation, dismissPricingRecommendation, dispositionReturnLine, getEbayMarketplaceControl, getOperationalAttentionSummary, getPricingRecommendationSettings, importObservedEbayOrders, importObservedEbayReturns, inspectReturnLine, listEbayObservationSnapshots, listImportedEbayOrders, listMarketplaceActionJobs, listMarketplaceQuantityQueue, listPackagePresets, listReturns, listShippedSaleRecovery, loadEbayObservationSnapshot, loadOperationalProfitabilityData, matchImportedOrderLine, queueEbayQuantitySync, receiveReturnLine, reconcileShippedFulfillmentSales, recordConfirmedReturnDecision, recordEbayReconciliationDecision, recordReturnCommunication, recordReturnFinancialEvent, recordReturnLineRefund, recordReturnShippingHandoff, recordShipmentLabel, recordTrackingEvent, releaseCancelledOrderReservations, reserveImportedOrder, resolveMarketplacePriceReview, resolveReturnIdentityDiscrepancy, retryFailedMarketplaceActionJob, saveEbayObservationSnapshot, savePackagePreset, setEbayOutboundPause, startOrderFulfillment, startReturnReplacement, updatePricingRecommendationSettings, uploadReturnEvidence } from "./marketplace-observation-repository.js";
 import { buildPricingRecommendations } from "./pricing-recommendation-model.js";
 import { cancelManualSaleOrder, completeAssistedChannelTask, createManualSaleOrder } from "./marketplace-observation-repository.js";
 import { ActivityPanel } from "./activity-panel.jsx";
@@ -1704,15 +1704,10 @@ function OperationsAttention({ onNavigate }) {
     let active = true;
     if (getRepositoryMode() !== "cloud") return () => { active = false; };
     setRefreshing(true); setError("");
-    Promise.all([listImportedEbayOrders(), listReturns(), listMarketplaceActionJobs(), listShippedSaleRecovery()]).then(([orders, returns, jobs, recovery]) => {
+    getOperationalAttentionSummary().then((nextSummary) => {
       if (!active) return;
-      const now = Date.now();
-      const terminalShipments = ["delivered", "picked_up", "cancelled", "shipped"];
-      const orderIssues = orders.filter((order) => { const shipBy = order.ship_by_at || order.shipment?.ship_by_at; return order.lines.some((line) => line.match_state !== "matched" || orderLineHasUnrecordedRefund(line)) || (order.assistedTasks ?? []).some((task) => task.state === "open") || order.shipment?.state === "exception" || (!terminalShipments.includes(order.shipment?.state) && shipBy && Date.parse(shipBy) <= now + 86400000); });
-      const returnIssues = returns.filter((entry) => !["resolved", "closed", "cancelled"].includes(entry.state) && entry.action_due_at && Date.parse(entry.action_due_at) <= now + 86400000);
-      const marketplaceIssues = jobs.filter((job) => ["pending", "running", "retry_wait", "failed"].includes(job.status));
-      setSummary({ orderIssues: orderIssues.length, returnIssues: returnIssues.length, marketplaceIssues: marketplaceIssues.length, recoveryIssues: recovery.length });
-      setRefreshedAt(new Date());
+      setSummary(nextSummary);
+      setRefreshedAt(new Date(nextSummary.calculatedAt || Date.now()));
     }).catch((loadError) => { if (active) setError(loadError instanceof Error ? loadError.message : "Could not load operational attention."); }).finally(() => { if (active) setRefreshing(false); });
     const interval = window.setInterval(() => setRefreshKey((value) => value + 1), 60000);
     return () => { active = false; window.clearInterval(interval); };

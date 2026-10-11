@@ -676,6 +676,13 @@ export const listMarketplaceActionJobs = async () => {
   return result.data ?? [];
 };
 
+export const getOperationalAttentionSummary = async () => {
+  if (!supabase) throw new Error("Supabase is not configured for this dashboard.");
+  const result = await supabase.rpc("get_operational_attention_summary");
+  throwIfError(result);
+  return result.data;
+};
+
 export const retryFailedMarketplaceActionJob = async (jobId) => {
   if (!supabase) throw new Error("Supabase is not configured for this dashboard.");
   const result = await supabase.rpc("retry_failed_marketplace_action_job", { target_job_id: jobId });

@@ -99,6 +99,10 @@ const lineAttributedRefunds = await readFile(
   new URL("../supabase/migrations/202610110007_line_attributed_refunds.sql", import.meta.url),
   "utf8",
 );
+const operationalAttentionSummary = await readFile(
+  new URL("../supabase/migrations/202610110008_operational_attention_summary.sql", import.meta.url),
+  "utf8",
+);
 const importedOrderReservation = await readFile(
   new URL("../supabase/migrations/202610100017_reserve_imported_order.sql", import.meta.url),
   "utf8",
@@ -574,6 +578,20 @@ for (const marker of [
 ]) {
   if (!lineAttributedRefunds.includes(marker)) {
     throw new Error(`Line-attributed refund schema is missing safety marker: ${marker}`);
+  }
+}
+
+for (const marker of [
+  "get_operational_attention_summary",
+  "auth.uid()",
+  "affected_orders",
+  "line.refunded_quantity = 0",
+  "interval '24 hours'",
+  "sale.order_line_id = line.id",
+  "to authenticated",
+]) {
+  if (!operationalAttentionSummary.includes(marker)) {
+    throw new Error(`Operational attention summary is missing safety marker: ${marker}`);
   }
 }
 
