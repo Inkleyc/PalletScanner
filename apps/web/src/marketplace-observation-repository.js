@@ -447,6 +447,13 @@ export const loadOperationalProfitabilityData = async () => {
   return { acquisitions: acquisitionResult.data ?? [], items: itemResult.data ?? [], movements: movementResult.data ?? [], sales: saleResult.data ?? [], returns: returnResult.data ?? [], orders: orderResult.data ?? [], packages: packageResult.data ?? [] };
 };
 
+export const confirmSaleFees = async ({ saleId, fees }) => {
+  if (!supabase) throw new Error("Supabase is not configured for this dashboard.");
+  const result = await supabase.rpc("confirm_sale_fees", { target_sale_id: saleId, confirmed_fees: fees });
+  throwIfError(result);
+  return result.data;
+};
+
 export const dispositionReturnLine = async ({ returnLineId, disposition, note }) => {
   if (!supabase) throw new Error("Supabase is not configured for this dashboard.");
   const result = await supabase.rpc("disposition_return_line", { target_return_line_id: returnLineId, selected_disposition: disposition, disposition_note: note });

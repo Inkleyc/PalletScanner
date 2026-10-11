@@ -243,6 +243,10 @@ const saleFeeCompleteness = await readFile(
   new URL("../supabase/migrations/202610100054_sale_fee_completeness.sql", import.meta.url),
   "utf8",
 );
+const confirmSaleFees = await readFile(
+  new URL("../supabase/migrations/202610100055_confirm_sale_fees.sql", import.meta.url),
+  "utf8",
+);
 
 for (const table of ["pallets", "inventory_items", "item_photos", "marketplace_listings", "sales", "activity_events"]) {
   if (!schema.includes(`create table public.${table}`)) {
@@ -376,6 +380,9 @@ for (const marker of ["marketplace_fulfillment", "sales_one_fulfillment_sale_per
 }
 for (const marker of ["fees_state", "confirmed", "unknown", "mark_fulfillment_sale_fees_unknown", "new.source = 'marketplace_fulfillment'", "before insert on public.sales"]) {
   if (!saleFeeCompleteness.includes(marker)) throw new Error(`Sale fee completeness is missing contract marker: ${marker}`);
+}
+for (const marker of ["confirm_sale_fees", "for update", "confirmed_fees < 0", "source <> 'marketplace_fulfillment'", "Marketplace fees were already confirmed", "sale.marketplace_fees_confirmed", "to authenticated"]) {
+  if (!confirmSaleFees.includes(marker)) throw new Error(`Sale fee confirmation is missing safety marker: ${marker}`);
 }
 for (const marker of ["record_shipment_label", "state <> 'ready_for_label'", "state = 'label_purchased'", "final_shipping_cost", "shipment.label_recorded"]) {
   if (!recordShipmentLabel.includes(marker)) throw new Error(`Shipment-label recording is missing safety marker: ${marker}`);
