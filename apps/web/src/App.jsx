@@ -19,7 +19,7 @@ import { buildOperationalProfitability } from "./profitability-model.js";
 import { reconcileEbayPreview } from "./ebay-reconciliation.js";
 import { applyPricingRecommendation, archivePackagePreset, closeReturnCase, confirmLocalPickupHandoff, confirmSaleFees, confirmShipmentPackage, confirmShipmentPicked, confirmShipmentShipped, createManualReturn, createUnverifiedInventoryFromObservation, dismissPricingRecommendation, dispositionReturnLine, getEbayMarketplaceControl, getPricingRecommendationSettings, importObservedEbayOrders, importObservedEbayReturns, inspectReturnLine, listEbayObservationSnapshots, listImportedEbayOrders, listMarketplaceActionJobs, listMarketplaceQuantityQueue, listPackagePresets, listReturns, listShippedSaleRecovery, loadEbayObservationSnapshot, loadOperationalProfitabilityData, matchImportedOrderLine, queueEbayQuantitySync, receiveReturnLine, reconcileShippedFulfillmentSales, recordConfirmedReturnDecision, recordEbayReconciliationDecision, recordReturnCommunication, recordReturnFinancialEvent, recordReturnShippingHandoff, recordShipmentLabel, recordTrackingEvent, releaseCancelledOrderReservations, reserveImportedOrder, resolveMarketplacePriceReview, resolveReturnIdentityDiscrepancy, retryFailedMarketplaceActionJob, saveEbayObservationSnapshot, savePackagePreset, setEbayOutboundPause, startOrderFulfillment, startReturnReplacement, updatePricingRecommendationSettings, uploadReturnEvidence } from "./marketplace-observation-repository.js";
 import { buildPricingRecommendations } from "./pricing-recommendation-model.js";
-import { createManualSaleOrder } from "./marketplace-observation-repository.js";
+import { cancelManualSaleOrder, createManualSaleOrder } from "./marketplace-observation-repository.js";
 import { ActivityPanel } from "./activity-panel.jsx";
 import { PalletManager } from "./pallet-manager.jsx";
 import {
@@ -1270,6 +1270,15 @@ function OrdersContent() {
     catch (pickupError) { setError(pickupError instanceof Error ? pickupError.message : "Could not confirm local pickup handoff."); }
     finally { setReservingOrder(false); }
   };
+  const cancelManualOrder = async (order) => {
+    const reason = window.prompt("Why was this manual sale cancelled?", "Buyer backed out");
+    if (!reason?.trim()) return;
+    if (!window.confirm("Cancel this sale order and release its reserved inventory?")) return;
+    setReservingOrder(true); setError("");
+    try { await cancelManualSaleOrder({ orderId: order.id, reason: reason.trim() }); await loadOrders(); }
+    catch (cancelError) { setError(cancelError instanceof Error ? cancelError.message : "Could not cancel the manual sale order."); }
+    finally { setReservingOrder(false); }
+  };
   const openTrackingEvent = (shipment, status) => {
     setTrackingTarget(shipment);
     setTrackingDraft({ status, description: status === "delivered" ? "Delivery confirmed" : "", location: "", occurredAt: new Date().toISOString().slice(0, 16) });
@@ -1326,6 +1335,7 @@ function OrdersContent() {
         <div className="button-row">
           <button type="button" onClick={() => setSelectedOrderId(null)}>Back to orders</button>
           {shipment.state === "pickup_ready" && <button className="primary-button" type="button" disabled={reservingOrder} onClick={() => confirmPickup(shipment)}>{reservingOrder ? "Confirming..." : "Confirm buyer pickup"}</button>}
+          {selectedOrder.source === "manual" && !["shipped", "delivered", "picked_up", "cancelled"].includes(shipment.state) && <button className="danger-button" type="button" disabled={reservingOrder} onClick={() => cancelManualOrder(selectedOrder)}>Cancel sale order</button>}
           {shipment.state === "ready_to_pick" && <button className="primary-button" type="button" disabled={reservingOrder} onClick={() => confirmPick(shipment)}>{reservingOrder ? "Confirming..." : "Confirm items picked"}</button>}
           {shipment.state === "ready_to_pack" && shipmentPackage && <button className="primary-button" type="button" disabled={reservingOrder} onClick={() => openPackageConfirmation(shipmentPackage)}>Enter final package measurements</button>}
           {shipment.state === "ready_for_label" && <a className="button-link primary-button" href="https://www.ebay.com/sh/ord/?filter=status:AWAITING_SHIPMENT" target="_blank" rel="noreferrer">Purchase label in eBay</a>}
