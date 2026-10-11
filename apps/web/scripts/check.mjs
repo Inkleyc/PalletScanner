@@ -110,6 +110,7 @@ for (const marker of [
   "Sale-to-list realization",
   "Snapshot coverage",
   "Legacy sales without an approved-price snapshot",
+  "Item price realization",
   "Return rate",
   "Observed eBay order subtotal is context only",
   "Condition performance",
