@@ -203,6 +203,10 @@ const listingPriceAudit = await readFile(
   new URL("../supabase/migrations/202610100044_listing_price_audit.sql", import.meta.url),
   "utf8",
 );
+const priceReconciliationDecisions = await readFile(
+  new URL("../supabase/migrations/202610100045_price_reconciliation_decisions.sql", import.meta.url),
+  "utf8",
+);
 
 for (const table of ["pallets", "inventory_items", "item_photos", "marketplace_listings", "sales", "activity_events"]) {
   if (!schema.includes(`create table public.${table}`)) {
@@ -306,6 +310,9 @@ for (const marker of ["add column listing_price", "listing_price >= 0", "listing
 }
 for (const marker of ["audit_inventory_listing_price_change", "after update of listing_price", "old.listing_price is distinct from new.listing_price", "inventory.listing_price_changed", "previous_price"]) {
   if (!listingPriceAudit.includes(marker)) throw new Error(`Listing-price audit is missing safety marker: ${marker}`);
+}
+for (const marker of ["resolve_marketplace_price_review", "keep_approved", "adopt_external", "for update", "marketplace.price_review_resolved", "outbound_marketplace_change', false"]) {
+  if (!priceReconciliationDecisions.includes(marker)) throw new Error(`Price reconciliation is missing safety marker: ${marker}`);
 }
 for (const marker of ["record_shipment_label", "state <> 'ready_for_label'", "state = 'label_purchased'", "final_shipping_cost", "shipment.label_recorded"]) {
   if (!recordShipmentLabel.includes(marker)) throw new Error(`Shipment-label recording is missing safety marker: ${marker}`);

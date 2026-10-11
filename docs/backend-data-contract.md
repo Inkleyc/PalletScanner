@@ -67,6 +67,12 @@ The eBay control panel compares the last observed marketplace price with the
 approved PalletFlip price and presents differences as review-only work. This
 foundation never queues or executes a price change.
 
+The owner can resolve a current difference by keeping the PalletFlip price or
+adopting the observed eBay price. Keeping the price records and suppresses only
+that exact observed/approved pair; a later change on either side returns to the
+queue. Adopting updates the internal approved price and its audit history. Both
+decisions explicitly record that no outbound marketplace change occurred.
+
 Each sale records the number of units sold. Its database trigger locks the
 inventory row, rejects a quantity above the current available balance, and
 appends an idempotent negative `sale` movement. Partial sales leave the

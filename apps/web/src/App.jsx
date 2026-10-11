@@ -17,7 +17,7 @@ import { isSupabaseConfigured, supabase } from "./supabase.js";
 import { buildAnalytics } from "./analytics-model.js";
 import { buildOperationalProfitability } from "./profitability-model.js";
 import { reconcileEbayPreview } from "./ebay-reconciliation.js";
-import { archivePackagePreset, closeReturnCase, confirmShipmentPackage, confirmShipmentPicked, confirmShipmentShipped, createManualReturn, createUnverifiedInventoryFromObservation, dispositionReturnLine, getEbayMarketplaceControl, importObservedEbayOrders, importObservedEbayReturns, inspectReturnLine, listEbayObservationSnapshots, listImportedEbayOrders, listMarketplaceActionJobs, listMarketplaceQuantityQueue, listPackagePresets, listReturns, loadEbayObservationSnapshot, loadOperationalProfitabilityData, matchImportedOrderLine, queueEbayQuantitySync, receiveReturnLine, recordConfirmedReturnDecision, recordEbayReconciliationDecision, recordReturnCommunication, recordReturnFinancialEvent, recordReturnShippingHandoff, recordShipmentLabel, recordTrackingEvent, releaseCancelledOrderReservations, reserveImportedOrder, resolveReturnIdentityDiscrepancy, retryFailedMarketplaceActionJob, saveEbayObservationSnapshot, savePackagePreset, setEbayOutboundPause, startOrderFulfillment, startReturnReplacement, uploadReturnEvidence } from "./marketplace-observation-repository.js";
+import { archivePackagePreset, closeReturnCase, confirmShipmentPackage, confirmShipmentPicked, confirmShipmentShipped, createManualReturn, createUnverifiedInventoryFromObservation, dispositionReturnLine, getEbayMarketplaceControl, importObservedEbayOrders, importObservedEbayReturns, inspectReturnLine, listEbayObservationSnapshots, listImportedEbayOrders, listMarketplaceActionJobs, listMarketplaceQuantityQueue, listPackagePresets, listReturns, loadEbayObservationSnapshot, loadOperationalProfitabilityData, matchImportedOrderLine, queueEbayQuantitySync, receiveReturnLine, recordConfirmedReturnDecision, recordEbayReconciliationDecision, recordReturnCommunication, recordReturnFinancialEvent, recordReturnShippingHandoff, recordShipmentLabel, recordTrackingEvent, releaseCancelledOrderReservations, reserveImportedOrder, resolveMarketplacePriceReview, resolveReturnIdentityDiscrepancy, retryFailedMarketplaceActionJob, saveEbayObservationSnapshot, savePackagePreset, setEbayOutboundPause, startOrderFulfillment, startReturnReplacement, uploadReturnEvidence } from "./marketplace-observation-repository.js";
 import { ActivityPanel } from "./activity-panel.jsx";
 import { PalletManager } from "./pallet-manager.jsx";
 import {
@@ -652,9 +652,17 @@ function QuantitySyncQueue() {
     catch (retryError) { setError(retryError instanceof Error ? retryError.message : "Could not run the marketplace retry."); }
     finally { try { const [nextRows, nextJobs] = await Promise.all([listMarketplaceQuantityQueue(), listMarketplaceActionJobs()]); setRows(nextRows); setJobs(nextJobs); } catch { /* Keep the retry result visible. */ } setQueueingId(null); }
   };
+  const resolvePrice = async (row, resolution) => {
+    const adopting = resolution === "adopt_external";
+    if (!window.confirm(adopting ? "Adopt the currently observed eBay price as PalletFlip's approved price? This does not change eBay." : "Keep the PalletFlip approved price and dismiss this observed difference? This does not change eBay.")) return;
+    setQueueingId(row.id); setError("");
+    try { await resolveMarketplacePriceReview({ listingId: row.id, resolution }); if (adopting) await repository.hydrate(); setRows(await listMarketplaceQuantityQueue()); }
+    catch (priceError) { setError(priceError instanceof Error ? priceError.message : "Could not record the price decision."); }
+    finally { setQueueingId(null); }
+  };
   if (getRepositoryMode() !== "cloud") return null;
   const mismatches = (rows ?? []).filter((row) => row.advertised_quantity !== row.desired_quantity);
-  const priceReviews = (rows ?? []).filter((row) => row.price !== null && row.inventory_items?.listing_price !== null && Number(row.price) !== Number(row.inventory_items.listing_price));
+  const priceReviews = (rows ?? []).filter((row) => row.price !== null && row.inventory_items?.listing_price !== null && Number(row.price) !== Number(row.inventory_items.listing_price) && !(row.price_reviewed_external_price !== null && row.price_reviewed_approved_price !== null && Number(row.price_reviewed_external_price) === Number(row.price) && Number(row.price_reviewed_approved_price) === Number(row.inventory_items.listing_price)));
   return <article className="admin-card integration-card">
     <div className="status-line"><strong>eBay quantity protection</strong><span className={`badge ${account && !account.outbound_paused ? "success" : "warning"}`}>{account && !account.outbound_paused ? "Review required" : "Outbound paused"}</span></div>
     <p>PalletFlip calculates the quantity eBay should advertise from available inventory. It never changes eBay without explicit approval.</p>
@@ -668,7 +676,7 @@ function QuantitySyncQueue() {
     </div>}
     {rows && <div className="check-list reconciliation-records">
       <strong>{priceReviews.length} listing price review{priceReviews.length === 1 ? "" : "s"}</strong>
-      {priceReviews.length === 0 ? <small>Observed eBay prices match the seller-approved PalletFlip prices.</small> : priceReviews.slice(0, 50).map((row) => <div className="check-row" key={`price-${row.id}`}><span className="check-dot" /><span><strong>{row.inventory_items?.seller_sku || row.sku || "No SKU"}</strong> · {row.inventory_items?.name || "Unknown item"} · eBay {currency(Number(row.price))} · approved {currency(Number(row.inventory_items.listing_price))}</span><span className="badge warning">Review only</span></div>)}
+      {priceReviews.length === 0 ? <small>Observed eBay prices match the seller-approved PalletFlip prices, or their current difference has been reviewed.</small> : priceReviews.slice(0, 50).map((row) => <div className="reconciliation-decision-row" key={`price-${row.id}`}><div className="check-row"><span className="check-dot" /><span><strong>{row.inventory_items?.seller_sku || row.sku || "No SKU"}</strong> · {row.inventory_items?.name || "Unknown item"} · eBay {currency(Number(row.price))} · approved {currency(Number(row.inventory_items.listing_price))}</span><span className="badge warning">Review only</span></div><div className="button-row"><button type="button" disabled={queueingId === row.id} onClick={() => resolvePrice(row, "keep_approved")}>Keep approved price</button><button type="button" disabled={queueingId === row.id} onClick={() => resolvePrice(row, "adopt_external")}>Adopt eBay price</button></div></div>)}
       <small>PalletFlip observes price differences but does not reprice active listings. Price changes require a separate reviewed workflow.</small>
     </div>}
     {jobs && <div className="check-list reconciliation-records">
