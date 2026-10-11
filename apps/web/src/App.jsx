@@ -1175,6 +1175,7 @@ function AnalysisPanel({ snapshot }) {
 function OrdersContent() {
   const [orders, setOrders] = useState([]);
   const [queueFilter, setQueueFilter] = useState("attention");
+  const [orderSearch, setOrderSearch] = useState("");
   const [packagePresets, setPackagePresets] = useState([]);
   const [selectedOrderId, setSelectedOrderId] = useState(null);
   const [matchTarget, setMatchTarget] = useState(null);
@@ -1340,17 +1341,19 @@ function OrdersContent() {
     const orderDeadlineRisk = (order) => !["delivered", "picked_up", "cancelled", "shipped"].includes(order.shipment?.state) && Number.isFinite(Date.parse(order.ship_by_at || order.shipment?.ship_by_at)) && Date.parse(order.ship_by_at || order.shipment?.ship_by_at) - now <= 24 * 60 * 60 * 1000;
     const orderNeedsAttention = (order) => order.lines.some((line) => line.match_state !== "matched") || (order.assistedTasks ?? []).some((task) => task.state === "open") || order.shipment?.state === "exception" || orderDeadlineRisk(order) || (order.cancellation_state?.toLowerCase() === "canceled" && order.lines.some((line) => line.inventory_reservations && ["active", "shortage"].includes(line.inventory_reservations.state)));
     const orderIsComplete = (order) => ["delivered", "picked_up", "cancelled"].includes(order.shipment?.state) || (order.cancellation_state?.toLowerCase() === "canceled" && !orderNeedsAttention(order));
-    const visibleOrders = orders.filter((order) => queueFilter === "all" || (queueFilter === "attention" && orderNeedsAttention(order)) || (queueFilter === "fulfillment" && !orderIsComplete(order)) || (queueFilter === "complete" && orderIsComplete(order))).sort((left, right) => {
+    const normalizedSearch = orderSearch.trim().toLowerCase();
+    const orderMatchesSearch = (order) => !normalizedSearch || [order.external_order_id, order.raw_payload?.marketplace, ...order.lines.flatMap((line) => [line.seller_sku, line.title])].some((value) => String(value || "").toLowerCase().includes(normalizedSearch));
+    const visibleOrders = orders.filter((order) => orderMatchesSearch(order) && (queueFilter === "all" || (queueFilter === "attention" && orderNeedsAttention(order)) || (queueFilter === "fulfillment" && !orderIsComplete(order)) || (queueFilter === "complete" && orderIsComplete(order)))).sort((left, right) => {
       const priority = (order) => order.shipment?.state === "exception" ? 0 : orderDeadlineRisk(order) ? 1 : order.lines.some((line) => line.match_state !== "matched") ? 2 : (order.assistedTasks ?? []).some((task) => task.state === "open") ? 3 : orderIsComplete(order) ? 5 : 4;
       return priority(left) - priority(right) || Date.parse(left.ship_by_at || left.shipment?.ship_by_at || left.external_created_at || 0) - Date.parse(right.ship_by_at || right.shipment?.ship_by_at || right.external_created_at || 0);
     });
     return <div className="view-stack">
       <section className="metrics-grid"><Metric label="Orders" value={orders.length} /><Metric label="In fulfillment" value={orders.filter((order) => order.shipment && !["delivered", "picked_up", "cancelled"].includes(order.shipment.state)).length} /><Metric label="Lines needing match" value={unmatched} tone={unmatched > 0 ? "warning" : "success"} /><Metric label="Manual actions" value={openAssistedTasks} tone={openAssistedTasks > 0 ? "warning" : "success"} /></section>
       <section className="panel table-panel">
-        <div className="panel-heading"><div><h3>Orders</h3><span>eBay imports and seller-entered sales share one reservation and fulfillment workflow.</span></div></div>
+        <div className="panel-heading"><div><h3>Orders</h3><span>eBay imports and seller-entered sales share one reservation and fulfillment workflow.</span></div><label><span className="visually-hidden">Search orders</span><input type="search" value={orderSearch} onChange={(event) => setOrderSearch(event.target.value)} placeholder="Search order, SKU, or item" /></label></div>
         <div className="saved-views" aria-label="Filter orders"><button aria-pressed={queueFilter === "attention"} onClick={() => setQueueFilter("attention")}><span>Needs attention</span></button><button aria-pressed={queueFilter === "fulfillment"} onClick={() => setQueueFilter("fulfillment")}><span>Open</span></button><button aria-pressed={queueFilter === "complete"} onClick={() => setQueueFilter("complete")}><span>Complete</span></button><button aria-pressed={queueFilter === "all"} onClick={() => setQueueFilter("all")}><span>All</span></button></div>
         {error && <p className="error-text">{error}</p>}
-        <div className="table-scroll"><table><thead><tr><th>Order</th><th>Source</th><th>Created</th><th>Payment</th><th>Fulfillment</th><th>Lines</th><th>Attention</th><th /></tr></thead><tbody>{orders.length === 0 ? <tr><td className="empty-table-cell" colSpan="8">No orders yet. Import eBay orders from Settings or record a manual sale from Inventory.</td></tr> : visibleOrders.length === 0 ? <tr><td className="empty-table-cell" colSpan="8">No orders in this view.</td></tr> : visibleOrders.map((order) => {
+        <div className="table-scroll"><table><thead><tr><th>Order</th><th>Source</th><th>Created</th><th>Payment</th><th>Fulfillment</th><th>Lines</th><th>Attention</th><th /></tr></thead><tbody>{orders.length === 0 ? <tr><td className="empty-table-cell" colSpan="8">No orders yet. Import eBay orders from Settings or record a manual sale from Inventory.</td></tr> : visibleOrders.length === 0 ? <tr><td className="empty-table-cell" colSpan="8">{normalizedSearch ? "No orders match this search and view." : "No orders in this view."}</td></tr> : visibleOrders.map((order) => {
           const unresolved = order.lines.filter((line) => line.match_state !== "matched").length;
           const assisted = (order.assistedTasks ?? []).filter((task) => task.state === "open").length;
           const shipBy = Date.parse(order.ship_by_at || order.shipment?.ship_by_at);
