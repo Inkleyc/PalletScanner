@@ -1,5 +1,6 @@
 import * as WebBrowser from "expo-web-browser";
-import { useCallback, useEffect, useState } from "react";
+import { useFocusEffect } from "@react-navigation/native";
+import { useCallback, useState } from "react";
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
 import { AppPalette } from "@/constants/app-palette";
@@ -33,7 +34,7 @@ export default function DashboardScreen() {
     } catch (error) { setAttentionError(error instanceof Error ? error.message : "Could not load operational attention."); }
     finally { setRefreshing(false); }
   }, []);
-  useEffect(() => { void loadAttention(); }, [loadAttention]);
+  useFocusEffect(useCallback(() => { void loadAttention(); }, [loadAttention]));
   const openDashboard = async () => {
     if (!DASHBOARD_URL) {
       Alert.alert(
