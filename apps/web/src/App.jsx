@@ -1661,9 +1661,13 @@ function OrdersPanel() {
 function OperationsAttention({ onNavigate }) {
   const [summary, setSummary] = useState(null);
   const [error, setError] = useState("");
+  const [refreshKey, setRefreshKey] = useState(0);
+  const [refreshing, setRefreshing] = useState(false);
+  const [refreshedAt, setRefreshedAt] = useState(null);
   useEffect(() => {
     let active = true;
     if (getRepositoryMode() !== "cloud") return () => { active = false; };
+    setRefreshing(true); setError("");
     Promise.all([listImportedEbayOrders(), listReturns(), listMarketplaceActionJobs(), listShippedSaleRecovery()]).then(([orders, returns, jobs, recovery]) => {
       if (!active) return;
       const now = Date.now();
@@ -1672,9 +1676,11 @@ function OperationsAttention({ onNavigate }) {
       const returnIssues = returns.filter((entry) => !["resolved", "closed", "cancelled"].includes(entry.state) && entry.action_due_at && Date.parse(entry.action_due_at) <= now + 86400000);
       const marketplaceIssues = jobs.filter((job) => ["pending", "running", "retry_wait", "failed"].includes(job.status));
       setSummary({ orderIssues: orderIssues.length, returnIssues: returnIssues.length, marketplaceIssues: marketplaceIssues.length, recoveryIssues: recovery.length });
-    }).catch((loadError) => { if (active) setError(loadError instanceof Error ? loadError.message : "Could not load operational attention."); });
-    return () => { active = false; };
-  }, []);
+      setRefreshedAt(new Date());
+    }).catch((loadError) => { if (active) setError(loadError instanceof Error ? loadError.message : "Could not load operational attention."); }).finally(() => { if (active) setRefreshing(false); });
+    const interval = window.setInterval(() => setRefreshKey((value) => value + 1), 60000);
+    return () => { active = false; window.clearInterval(interval); };
+  }, [refreshKey]);
   if (getRepositoryMode() !== "cloud") return null;
   if (error) return <section className="panel"><div className="panel-heading"><div><p className="eyebrow">Operations</p><h3>Attention summary unavailable</h3><span>{error}</span></div></div></section>;
   if (!summary) return <section className="panel"><strong>Loading operational attention…</strong></section>;
@@ -1685,7 +1691,7 @@ function OperationsAttention({ onNavigate }) {
     { label: "Marketplace actions", count: summary.marketplaceIssues, detail: "Queued, retrying, stalled, or failed eBay work", view: "settings" },
     { label: "Sale recovery", count: summary.recoveryIssues, detail: "Shipped orders missing their realized sale record", view: "analysis" },
   ];
-  return <section className="panel"><div className="panel-heading"><div><p className="eyebrow">Operations</p><h3>{total === 0 ? "No urgent operational work" : `${total} item${total === 1 ? "" : "s"} need attention`}</h3><span>Live summary from fulfillment, returns, marketplace actions, and financial recovery.</span></div><span className={`badge ${total === 0 ? "success" : "warning"}`}>{total === 0 ? "Clear" : "Action needed"}</span></div><div className="check-list">{entries.map((entry) => <div className="check-row" key={entry.label}><span className={`check-dot ${entry.count === 0 ? "ok" : ""}`} /><span><strong>{entry.label}: {entry.count}</strong> · {entry.detail}</span><button type="button" onClick={() => onNavigate(entry.view, entry.section)}>Review {entry.label.toLowerCase()}</button></div>)}</div></section>;
+  return <section className="panel"><div className="panel-heading"><div><p className="eyebrow">Operations</p><h3>{total === 0 ? "No urgent operational work" : `${total} item${total === 1 ? "" : "s"} need attention`}</h3><span>Live summary from fulfillment, returns, marketplace actions, and financial recovery.{refreshedAt ? ` Updated ${refreshedAt.toLocaleTimeString()}.` : ""}</span></div><div className="button-row"><span className={`badge ${total === 0 ? "success" : "warning"}`}>{total === 0 ? "Clear" : "Action needed"}</span><button type="button" disabled={refreshing} onClick={() => setRefreshKey((value) => value + 1)}>{refreshing ? "Refreshing…" : "Refresh"}</button></div></div><div className="check-list">{entries.map((entry) => <div className="check-row" key={entry.label}><span className={`check-dot ${entry.count === 0 ? "ok" : ""}`} /><span><strong>{entry.label}: {entry.count}</strong> · {entry.detail}</span><button type="button" onClick={() => onNavigate(entry.view, entry.section)}>Review {entry.label.toLowerCase()}</button></div>)}</div></section>;
 }
 
 const dashboardViews = ["overview", "review", "inventory", "orders", "pallets", "analysis", "settings"];
