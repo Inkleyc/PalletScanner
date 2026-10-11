@@ -259,6 +259,9 @@ const confirmLocalPickup = await readFile(
 const createManualSaleOrder = await readFile(
   new URL("../supabase/migrations/202610110002_create_manual_sale_order.sql", import.meta.url), "utf8",
 );
+const manualOrderSaleDetails = await readFile(
+  new URL("../supabase/migrations/202610110003_manual_order_sale_details.sql", import.meta.url), "utf8",
+);
 
 for (const table of ["pallets", "inventory_items", "item_photos", "marketplace_listings", "sales", "activity_events"]) {
   if (!schema.includes(`create table public.${table}`)) {
@@ -407,6 +410,9 @@ for (const marker of ["confirm_local_pickup_handoff", "fulfillment_method <> 'lo
 }
 for (const marker of ["create_manual_sale_order", "source = 'manual'", "verification_state <> 'verified'", "sold_quantity > item_row.available", "reserve_inventory", "Manual sale inventory could not be fully reserved", "order.manual_sale_created", "to authenticated"]) {
   if (!createManualSaleOrder.includes(marker)) throw new Error(`Manual sale order creation is missing safety marker: ${marker}`);
+}
+for (const marker of ["apply_manual_order_sale_details", "order_row.source = 'manual'", "raw_payload->>'marketplace'", "sellerFees,value", "fees_state := 'confirmed'", "order_source <> 'manual'"]) {
+  if (!manualOrderSaleDetails.includes(marker)) throw new Error(`Manual order sale details are missing contract marker: ${marker}`);
 }
 for (const marker of ["record_shipment_label", "state <> 'ready_for_label'", "state = 'label_purchased'", "final_shipping_cost", "shipment.label_recorded"]) {
   if (!recordShipmentLabel.includes(marker)) throw new Error(`Shipment-label recording is missing safety marker: ${marker}`);

@@ -19,6 +19,7 @@ import { buildOperationalProfitability } from "./profitability-model.js";
 import { reconcileEbayPreview } from "./ebay-reconciliation.js";
 import { applyPricingRecommendation, archivePackagePreset, closeReturnCase, confirmLocalPickupHandoff, confirmSaleFees, confirmShipmentPackage, confirmShipmentPicked, confirmShipmentShipped, createManualReturn, createUnverifiedInventoryFromObservation, dismissPricingRecommendation, dispositionReturnLine, getEbayMarketplaceControl, getPricingRecommendationSettings, importObservedEbayOrders, importObservedEbayReturns, inspectReturnLine, listEbayObservationSnapshots, listImportedEbayOrders, listMarketplaceActionJobs, listMarketplaceQuantityQueue, listPackagePresets, listReturns, listShippedSaleRecovery, loadEbayObservationSnapshot, loadOperationalProfitabilityData, matchImportedOrderLine, queueEbayQuantitySync, receiveReturnLine, reconcileShippedFulfillmentSales, recordConfirmedReturnDecision, recordEbayReconciliationDecision, recordReturnCommunication, recordReturnFinancialEvent, recordReturnShippingHandoff, recordShipmentLabel, recordTrackingEvent, releaseCancelledOrderReservations, reserveImportedOrder, resolveMarketplacePriceReview, resolveReturnIdentityDiscrepancy, retryFailedMarketplaceActionJob, saveEbayObservationSnapshot, savePackagePreset, setEbayOutboundPause, startOrderFulfillment, startReturnReplacement, updatePricingRecommendationSettings, uploadReturnEvidence } from "./marketplace-observation-repository.js";
 import { buildPricingRecommendations } from "./pricing-recommendation-model.js";
+import { createManualSaleOrder } from "./marketplace-observation-repository.js";
 import { ActivityPanel } from "./activity-panel.jsx";
 import { PalletManager } from "./pallet-manager.jsx";
 import {
@@ -292,9 +293,10 @@ function RecordSale({ item, onRecorded }) {
   const [open, setOpen] = useState(false);
   const [recordedSales, setRecordedSales] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [draft, setDraft] = useState({ marketplace: "facebook", quantity: "1", soldPrice: item.soldPrice == null ? "" : String(item.soldPrice), fees: "0", shippingCost: "0", soldAt: new Date().toISOString().slice(0, 10) });
+  const [draft, setDraft] = useState({ marketplace: "facebook", fulfillmentMethod: "shipping", quantity: "1", soldPrice: item.soldPrice == null ? "" : String(item.soldPrice), fees: "0", shippingCost: "0", soldAt: new Date().toISOString().slice(0, 10) });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const [orderCreated, setOrderCreated] = useState(false);
   useEffect(() => { let active = true; setLoading(true); repository.listSales(item.id).then((sales) => { if (active) setRecordedSales(sales); }).catch(() => { if (active) setRecordedSales([]); }).finally(() => { if (active) setLoading(false); }); return () => { active = false; }; }, [item.id, item.soldPrice]);
   const update = (field) => (event) => setDraft((current) => ({ ...current, [field]: event.target.value }));
   const save = async (event) => {
@@ -304,8 +306,16 @@ function RecordSale({ item, onRecorded }) {
     if (![soldPrice, fees, shippingCost].every((value) => Number.isFinite(value) && value >= 0) || !Number.isFinite(soldAt)) return setError("Enter a valid sale price, costs, and date.");
     setSaving(true); setError("");
     try {
-      await repository.recordSale({ itemId: item.id, marketplace: draft.marketplace, quantity, soldPrice, fees, shippingCost, soldAt });
-      setRecordedSales(await repository.listSales(item.id));
+      if (getRepositoryMode() === "cloud") {
+        if (!item.serverId) throw new Error("The cloud item could not be found.");
+        const fulfillmentMethod = window.confirm("Will the buyer pick this order up locally?\n\nOK = Local pickup\nCancel = Shipping") ? "local_pickup" : "shipping";
+        await createManualSaleOrder({ itemId: item.serverId, quantity, marketplace: draft.marketplace, soldPrice, fees, fulfillmentMethod, requestKey: crypto.randomUUID() });
+        await repository.hydrate();
+        setOrderCreated(true);
+      } else {
+        await repository.recordSale({ itemId: item.id, marketplace: draft.marketplace, quantity, soldPrice, fees, shippingCost, soldAt });
+        setRecordedSales(await repository.listSales(item.id));
+      }
       setOpen(false);
       onRecorded();
     } catch (saleError) { setError(saleError instanceof Error ? saleError.message : "Could not record the sale."); }
@@ -313,6 +323,7 @@ function RecordSale({ item, onRecorded }) {
   };
   const hasDetailedSale = recordedSales.some((sale) => !sale.id.startsWith("preview-sale-") && !sale.id.startsWith("legacy-sale-"));
   if (loading) return <section className="sale-card"><div><strong>Checking sale details…</strong></div></section>;
+  if (orderCreated) return <section className="sale-card"><div><strong>Sale order created</strong><span>Inventory is reserved. Complete shipping or confirm buyer pickup from Orders before PalletFlip records the sale.</span></div></section>;
   if (item.soldPrice !== null && hasDetailedSale) return <section className="sale-card"><div><strong>Sold for {currency(item.soldPrice)}</strong><span>The complete sale appears in Analysis.</span></div></section>;
   return <><section className="sale-card"><div><strong>{item.soldPrice === null ? "Did this item sell?" : `Sold for ${currency(item.soldPrice)}`}</strong><span>{item.soldPrice === null ? "Record the marketplace, quantity, and costs to improve your analysis." : "Add the missing marketplace, costs, and date so this sale can be analyzed accurately."}</span></div><button className="primary-button" onClick={() => setOpen(true)}>{item.soldPrice === null ? "Record sale" : "Complete sale details"}</button></section>{open && <div className="modal-backdrop" role="presentation" onMouseDown={() => setOpen(false)}><form className="edit-modal item-edit-modal" role="dialog" aria-modal="true" aria-labelledby="record-sale-title" onSubmit={save} onMouseDown={(event) => event.stopPropagation()}><div><h3 id="record-sale-title">Record sale</h3><p>Gross price minus fees and shipping becomes net proceeds.</p></div><div className="edit-grid"><label><span>Marketplace</span><select value={draft.marketplace} onChange={update("marketplace")}><option value="facebook">Facebook</option><option value="ebay">eBay</option><option value="other">Other</option></select></label><label><span>Quantity</span><input required type="number" min="1" max={getQuantity(item)} step="1" value={draft.quantity} onChange={update("quantity")} /></label><label><span>Total sold price</span><input autoFocus required type="number" min="0" step="0.01" value={draft.soldPrice} onChange={update("soldPrice")} /></label><label><span>Marketplace fees</span><input type="number" min="0" step="0.01" value={draft.fees} onChange={update("fees")} /></label><label><span>Shipping cost</span><input type="number" min="0" step="0.01" value={draft.shippingCost} onChange={update("shippingCost")} /></label><label><span>Sold date</span><input required type="date" value={draft.soldAt} onChange={update("soldAt")} /></label></div>{error && <p className="error-text">{error}</p>}<div className="button-row"><button type="button" onClick={() => setOpen(false)}>Cancel</button><button className="primary-button" type="submit" disabled={saving}>{saving ? "Recording…" : "Save sale"}</button></div></form></div>}</>;
 }
