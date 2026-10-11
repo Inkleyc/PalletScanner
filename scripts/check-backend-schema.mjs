@@ -91,6 +91,10 @@ const orderLineMatching = await readFile(
   new URL("../supabase/migrations/202610100016_match_order_line.sql", import.meta.url),
   "utf8",
 );
+const partialOrderLineQuantities = await readFile(
+  new URL("../supabase/migrations/202610110006_partial_order_line_quantities.sql", import.meta.url),
+  "utf8",
+);
 const importedOrderReservation = await readFile(
   new URL("../supabase/migrations/202610100017_reserve_imported_order.sql", import.meta.url),
   "utf8",
@@ -537,6 +541,20 @@ for (const marker of [
 ]) {
   if (!inventoryReservationCommands.includes(marker)) {
     throw new Error(`Inventory reservation commands are missing safety marker: ${marker}`);
+  }
+}
+
+for (const marker of [
+  "cancelled_quantity",
+  "fulfilled_quantity",
+  "refunded_quantity",
+  "fulfilled_quantity between 0 and quantity - cancelled_quantity",
+  "refunded_quantity between 0 and fulfilled_quantity",
+  "sales_refresh_order_line_fulfilled_quantity",
+  "order_lines_open_quantity_idx",
+]) {
+  if (!partialOrderLineQuantities.includes(marker)) {
+    throw new Error(`Partial order-line schema is missing safety marker: ${marker}`);
   }
 }
 
