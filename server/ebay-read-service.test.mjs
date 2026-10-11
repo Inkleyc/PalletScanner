@@ -66,3 +66,25 @@ test("keeps orders usable when shipping fulfillment details are unavailable", as
   assert.equal(preview.orders[0].orderId, "order-2");
   assert.deepEqual(preview.orders[0].shippingFulfillments, []);
 });
+
+test("bounds concurrent shipping fulfillment lookups", async () => {
+  let active = 0; let maximumActive = 0;
+  const service = createEbayReadService({
+    getUserAccessToken: async () => "token",
+    ebayFetch: async (pathname) => {
+      if (pathname.includes("shipping_fulfillment")) {
+        active += 1; maximumActive = Math.max(maximumActive, active);
+        await new Promise((resolve) => setImmediate(resolve));
+        active -= 1;
+        return { fulfillments: [] };
+      }
+      if (pathname.includes("post-order")) return { members: [] };
+      if (pathname.includes("inventory_item")) return { inventoryItems: [] };
+      if (pathname.includes("/offer")) return { offers: [] };
+      return { orders: Array.from({ length: 12 }, (_, index) => ({ orderId: `order-${index}`, orderFulfillmentStatus: "IN_PROGRESS", fulfillmentHrefs: [`fulfillment-${index}`], lineItems: [] })) };
+    },
+  });
+  const preview = await service.getImportPreview("seller");
+  assert.equal(preview.orders.length, 12);
+  assert.equal(maximumActive, 5);
+});

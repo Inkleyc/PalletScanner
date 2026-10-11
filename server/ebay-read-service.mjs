@@ -107,15 +107,20 @@ export const createEbayReadService = ({ ebayFetch, getUserAccessToken }) => ({
     ]);
     const returnResult = returnOutcome.value;
     const orders = orderResult?.orders ?? [];
-    const fulfillmentResults = await Promise.all(orders.map(async (order) => {
-      if (!order.orderId || (!(order.fulfillmentHrefs?.length > 0) && !["IN_PROGRESS", "FULFILLED"].includes(order.orderFulfillmentStatus))) return [];
-      try {
-        const result = await ebayFetch(`/sell/fulfillment/v1/order/${encodeURIComponent(order.orderId)}/shipping_fulfillment`, { headers });
-        return (result?.fulfillments ?? []).map(summarizeShippingFulfillment);
-      } catch {
-        return [];
-      }
-    }));
+    const fulfillmentResults = [];
+    for (let index = 0; index < orders.length; index += 5) {
+      const batch = orders.slice(index, index + 5);
+      const results = await Promise.all(batch.map(async (order) => {
+        if (!order.orderId || (!(order.fulfillmentHrefs?.length > 0) && !["IN_PROGRESS", "FULFILLED"].includes(order.orderFulfillmentStatus))) return [];
+        try {
+          const result = await ebayFetch(`/sell/fulfillment/v1/order/${encodeURIComponent(order.orderId)}/shipping_fulfillment`, { headers });
+          return (result?.fulfillments ?? []).map(summarizeShippingFulfillment);
+        } catch {
+          return [];
+        }
+      }));
+      fulfillmentResults.push(...results);
+    }
 
     return {
       observeOnly: true,
