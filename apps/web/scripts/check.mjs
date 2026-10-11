@@ -204,6 +204,8 @@ for (const marker of [
   "Adopt eBay price",
   "This does not change eBay",
   "Aging recommendations",
+  "Approved listing price",
+  "saving does not update eBay",
   "Enable suggestions",
   "Suggestion only",
   "Recommendations never change PalletFlip or eBay prices",

@@ -78,6 +78,8 @@ review age from 7–365 days and a suggested markdown no greater than 50 percent
 Only active listings older than the threshold are considered, and a suggestion
 can never go below the item's floor price. Recommendations are calculated for
 review and cannot update the approved PalletFlip price or the marketplace.
+The web item editor exposes the approved price as a separate deliberate field,
+rejects a value below the floor, and still does not push that edit to eBay.
 
 Each sale records the number of units sold. Its database trigger locks the
 inventory row, rejects a quantity above the current available balance, and

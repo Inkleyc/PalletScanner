@@ -61,6 +61,7 @@ const itemDraft = (item) => ({
   low: String(price(item, "low")),
   high: String(price(item, "high")),
   floor: String(price(item, "floor")),
+  listingPrice: String(item.listing_price ?? price(item, "high")),
   status: getDisplayStatus(item),
   platform: getDisplayPlatform(item),
   soldPrice: item.soldPrice == null ? "" : String(item.soldPrice),
@@ -381,6 +382,7 @@ function InventoryDetail({ item, palletName, pallets, onSave, onRemove, onSaleRe
     const low = Number(draft.low);
     const high = Number(draft.high);
     const floor = Number(draft.floor);
+    const listingPrice = Number(draft.listingPrice);
     const itemWeightOz = draft.itemWeightOz.trim() === "" ? null : Number(draft.itemWeightOz);
     const soldPrice = draft.soldPrice.trim() === "" ? null : Number(draft.soldPrice);
     const quantityChanged = quantity !== getQuantity(item);
@@ -388,8 +390,9 @@ function InventoryDetail({ item, palletName, pallets, onSave, onRemove, onSaleRe
     if (!draft.name.trim() || !draft.condition.trim()) return setError("Name and condition are required.");
     if (!Number.isInteger(quantity) || quantity < 1) return setError("Quantity must be a whole number of at least 1.");
     if (quantityChanged && !draft.quantityReason.trim()) return setError("Choose a reason whenever you change quantity.");
-    if (![low, high, floor].every((value) => Number.isFinite(value) && value >= 0)) return setError("Prices must be valid non-negative numbers.");
+    if (![low, high, floor, listingPrice].every((value) => Number.isFinite(value) && value >= 0)) return setError("Prices must be valid non-negative numbers.");
     if (high < low) return setError("High price cannot be lower than low price.");
+    if (listingPrice < floor) return setError("Approved listing price cannot be lower than the floor price.");
     if (itemWeightOz !== null && (!Number.isFinite(itemWeightOz) || itemWeightOz <= 0)) return setError("Item weight must be blank or greater than zero.");
     if (soldPrice !== null && (!Number.isFinite(soldPrice) || soldPrice < 0)) return setError("Sold price must be blank or a valid non-negative number.");
     setSaving(true); setError("");
@@ -409,6 +412,7 @@ function InventoryDetail({ item, palletName, pallets, onSave, onRemove, onSaleRe
         low_price: low,
         high_price: high,
         floor_price: floor,
+        listing_price: listingPrice,
         status: soldPrice === null && draft.status === "sold" ? "ready" : soldPrice !== null ? "sold" : draft.status,
         platform: draft.platform,
         best_platform: draft.platform,
@@ -464,6 +468,7 @@ function InventoryDetail({ item, palletName, pallets, onSave, onRemove, onSaleRe
         <label><span>Low price</span><input type="number" min="0" step="0.01" value={draft.low} onChange={update("low")} /></label>
         <label><span>High price</span><input type="number" min="0" step="0.01" value={draft.high} onChange={update("high")} /></label>
         <label><span>Floor price</span><input type="number" min="0" step="0.01" value={draft.floor} onChange={update("floor")} /></label>
+        <label><span>Approved listing price</span><input type="number" min="0" step="0.01" value={draft.listingPrice} onChange={update("listingPrice")} /><small>This is the exact seller-approved price; saving does not update eBay.</small></label>
         <label><span>Status</span><select value={draft.status} onChange={update("status")}>{Object.entries(statusLabel).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
         <label><span>Platform</span><select value={draft.platform} onChange={update("platform")}><option>Facebook</option><option>eBay</option><option>Review</option></select></label>
         <label className="wide-field"><span>Listing title</span><input value={draft.listing_title} onChange={update("listing_title")} /></label>
