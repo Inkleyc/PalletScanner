@@ -50,3 +50,19 @@ test("keeps the preview usable when Post-Order returns are unavailable", async (
   assert.deepEqual(preview.returns, []);
   assert.match(preview.returnsUnavailable, /not supported in Sandbox/);
 });
+
+test("keeps orders usable when shipping fulfillment details are unavailable", async () => {
+  const service = createEbayReadService({
+    getUserAccessToken: async () => "token",
+    ebayFetch: async (pathname) => {
+      if (pathname.includes("shipping_fulfillment")) throw new Error("Temporary fulfillment failure");
+      if (pathname.includes("post-order")) return { members: [] };
+      if (pathname.includes("inventory_item")) return { inventoryItems: [] };
+      if (pathname.includes("/offer")) return { offers: [] };
+      return { orders: [{ orderId: "order-2", orderFulfillmentStatus: "IN_PROGRESS", fulfillmentHrefs: ["fulfillment-2"], lineItems: [] }] };
+    },
+  });
+  const preview = await service.getImportPreview("seller");
+  assert.equal(preview.orders[0].orderId, "order-2");
+  assert.deepEqual(preview.orders[0].shippingFulfillments, []);
+});
