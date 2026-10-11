@@ -461,6 +461,29 @@ export const reconcileShippedFulfillmentSales = async (shipmentId) => {
   return result.data;
 };
 
+export const listShippedSaleRecovery = async () => {
+  if (!supabase) throw new Error("Supabase is not configured for this dashboard.");
+  const userResult = await supabase.auth.getUser();
+  if (userResult.error || !userResult.data.user) throw new Error("Sign in to review shipped-sale recovery.");
+  const ownerId = userResult.data.user.id;
+  const [shipmentResult, lineResult, saleResult, orderResult] = await Promise.all([
+    supabase.from("shipments").select("id,order_id,state,shipped_at,shipment_kind").eq("owner_id", ownerId).in("state", ["shipped", "delivered"]).eq("shipment_kind", "original"),
+    supabase.from("order_lines").select("id,order_id,title,seller_sku,line_cost").eq("owner_id", ownerId),
+    supabase.from("sales").select("order_line_id").eq("owner_id", ownerId).not("order_line_id", "is", null),
+    supabase.from("orders").select("id,external_order_id").eq("owner_id", ownerId),
+  ]);
+  [shipmentResult, lineResult, saleResult, orderResult].forEach(throwIfError);
+  const recordedLineIds = new Set((saleResult.data ?? []).map((sale) => sale.order_line_id));
+  const orderById = new Map((orderResult.data ?? []).map((order) => [order.id, order]));
+  const linesByOrder = new Map();
+  for (const line of lineResult.data ?? []) linesByOrder.set(line.order_id, [...(linesByOrder.get(line.order_id) ?? []), line]);
+  return (shipmentResult.data ?? []).map((shipment) => ({
+    ...shipment,
+    externalOrderId: orderById.get(shipment.order_id)?.external_order_id ?? shipment.order_id,
+    missingLines: (linesByOrder.get(shipment.order_id) ?? []).filter((line) => !recordedLineIds.has(line.id)),
+  })).filter((shipment) => shipment.missingLines.length > 0);
+};
+
 export const dispositionReturnLine = async ({ returnLineId, disposition, note }) => {
   if (!supabase) throw new Error("Supabase is not configured for this dashboard.");
   const result = await supabase.rpc("disposition_return_line", { target_return_line_id: returnLineId, selected_disposition: disposition, disposition_note: note });
