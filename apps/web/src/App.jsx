@@ -1174,6 +1174,7 @@ function AnalysisPanel({ snapshot }) {
 
 function OrdersContent() {
   const [orders, setOrders] = useState([]);
+  const [queueFilter, setQueueFilter] = useState("attention");
   const [packagePresets, setPackagePresets] = useState([]);
   const [selectedOrderId, setSelectedOrderId] = useState(null);
   const [matchTarget, setMatchTarget] = useState(null);
@@ -1335,12 +1336,16 @@ function OrdersContent() {
   const selectedCanFulfill = selectedOrder && !selectedOrder.shipment && selectedOrder.lines.length > 0 && selectedOrder.lines.every((line) => line.reservation_id && line.inventory_reservations?.state === "active");
   if (!selectedOrder) {
     const openAssistedTasks = orders.reduce((sum, order) => sum + (order.assistedTasks ?? []).filter((task) => task.state === "open").length, 0);
+    const orderNeedsAttention = (order) => order.lines.some((line) => line.match_state !== "matched") || (order.assistedTasks ?? []).some((task) => task.state === "open") || order.shipment?.state === "exception" || (order.cancellation_state?.toLowerCase() === "canceled" && order.lines.some((line) => line.inventory_reservations && ["active", "shortage"].includes(line.inventory_reservations.state)));
+    const orderIsComplete = (order) => ["delivered", "picked_up", "cancelled"].includes(order.shipment?.state) || (order.cancellation_state?.toLowerCase() === "canceled" && !orderNeedsAttention(order));
+    const visibleOrders = orders.filter((order) => queueFilter === "all" || (queueFilter === "attention" && orderNeedsAttention(order)) || (queueFilter === "fulfillment" && !orderIsComplete(order)) || (queueFilter === "complete" && orderIsComplete(order)));
     return <div className="view-stack">
       <section className="metrics-grid"><Metric label="Orders" value={orders.length} /><Metric label="In fulfillment" value={orders.filter((order) => order.shipment && !["delivered", "picked_up", "cancelled"].includes(order.shipment.state)).length} /><Metric label="Lines needing match" value={unmatched} tone={unmatched > 0 ? "warning" : "success"} /><Metric label="Manual actions" value={openAssistedTasks} tone={openAssistedTasks > 0 ? "warning" : "success"} /></section>
       <section className="panel table-panel">
         <div className="panel-heading"><div><h3>Orders</h3><span>eBay imports and seller-entered sales share one reservation and fulfillment workflow.</span></div></div>
+        <div className="saved-views" aria-label="Filter orders"><button aria-pressed={queueFilter === "attention"} onClick={() => setQueueFilter("attention")}><span>Needs attention</span></button><button aria-pressed={queueFilter === "fulfillment"} onClick={() => setQueueFilter("fulfillment")}><span>Open</span></button><button aria-pressed={queueFilter === "complete"} onClick={() => setQueueFilter("complete")}><span>Complete</span></button><button aria-pressed={queueFilter === "all"} onClick={() => setQueueFilter("all")}><span>All</span></button></div>
         {error && <p className="error-text">{error}</p>}
-        <div className="table-scroll"><table><thead><tr><th>Order</th><th>Source</th><th>Created</th><th>Payment</th><th>Fulfillment</th><th>Lines</th><th>Attention</th><th /></tr></thead><tbody>{orders.length === 0 ? <tr><td className="empty-table-cell" colSpan="8">No orders yet. Import eBay orders from Settings or record a manual sale from Inventory.</td></tr> : orders.map((order) => {
+        <div className="table-scroll"><table><thead><tr><th>Order</th><th>Source</th><th>Created</th><th>Payment</th><th>Fulfillment</th><th>Lines</th><th>Attention</th><th /></tr></thead><tbody>{orders.length === 0 ? <tr><td className="empty-table-cell" colSpan="8">No orders yet. Import eBay orders from Settings or record a manual sale from Inventory.</td></tr> : visibleOrders.length === 0 ? <tr><td className="empty-table-cell" colSpan="8">No orders in this view.</td></tr> : visibleOrders.map((order) => {
           const unresolved = order.lines.filter((line) => line.match_state !== "matched").length;
           const assisted = (order.assistedTasks ?? []).filter((task) => task.state === "open").length;
           const sourceLabel = order.source === "ebay" ? "eBay" : order.raw_payload?.marketplace === "facebook" ? "Facebook assisted" : "Manual";
@@ -1611,7 +1616,7 @@ const viewCopy = {
   review: ["Review", "Work through inventory decisions one item at a time."],
   pallets: ["Pallets", "Track the cost, recovery, and health of each purchase."],
   inventory: ["Inventory", "Search, filter, and manage the complete inventory record."],
-  orders: ["Orders", "Review imported marketplace orders and unresolved item matches."],
+  orders: ["Orders", "Manage imported and seller-entered sales from reservation through delivery or pickup."],
   analysis: ["Data & Analysis", "Learn what sells, where it sells, and what actually returns a profit."],
   settings: ["Settings", "Manage your account, backups, and activity history."],
 };
