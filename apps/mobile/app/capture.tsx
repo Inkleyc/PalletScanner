@@ -895,7 +895,7 @@ const styles = StyleSheet.create({
   },
   photoStrip: { marginBottom: 16 },
   thumbContainer: { position: "relative", marginRight: 8 },
-  thumb: { width: 90, height: 90, borderRadius: 8, backgroundColor: "#f0f0f0" },
+  thumb: { width: 90, height: 90, borderRadius: 8, backgroundColor: AppPalette.surfaceMuted },
   removeBtn: {
     position: "absolute",
     top: 4,
@@ -907,7 +907,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  removeBtnText: { color: "#fff", fontSize: 12, fontWeight: "600" },
+  removeBtnText: { color: AppPalette.primaryOn, fontSize: 12, fontWeight: "600" },
   photoCount: { fontSize: 13, color: AppPalette.textMuted, marginTop: 8 },
   actionRow: { flexDirection: "row", gap: 12, marginBottom: 20 },
   analyzeBtn: {

@@ -141,7 +141,7 @@ export default function PalletsScreen() {
             value={newPalletName}
             onChangeText={setNewPalletName}
             placeholder="Leave blank for the default name"
-            placeholderTextColor="#9ca3af"
+            placeholderTextColor={AppPalette.textSoft}
           />
           <TouchableOpacity style={styles.primaryBtn} onPress={handleCreatePallet}>
             <Text style={styles.primaryBtnText}>Create Pallet</Text>
@@ -221,7 +221,7 @@ export default function PalletsScreen() {
               value={editValue}
               onChangeText={setEditValue}
               placeholder={editing?.field === "cost" ? "Pallet cost" : "Pallet name"}
-              placeholderTextColor="#9ca3af"
+              placeholderTextColor={AppPalette.textSoft}
               keyboardType={editing?.field === "cost" ? "decimal-pad" : "default"}
               autoFocus
             />

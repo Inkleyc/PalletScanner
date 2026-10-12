@@ -165,7 +165,7 @@ export default function HomeScreen() {
               value={newPalletName}
               onChangeText={setNewPalletName}
               placeholder="Pallet name"
-              placeholderTextColor="#9ca3af"
+              placeholderTextColor={AppPalette.textSoft}
               autoFocus
             />
             <View style={styles.modalActions}>

@@ -1554,14 +1554,14 @@ const styles = StyleSheet.create({
   buttonRow: { flexDirection: "row", gap: 12, marginBottom: 12 },
   btn: {
     flex: 1,
-    backgroundColor: "#fff",
+    backgroundColor: AppPalette.surface,
     padding: 14,
     borderRadius: 10,
     alignItems: "center",
     borderWidth: 1,
-    borderColor: "#d1d5db",
+    borderColor: AppPalette.border,
   },
-  btnText: { color: "#111827", fontWeight: "600", fontSize: 15 },
+  btnText: { color: AppPalette.text, fontWeight: "600", fontSize: 15 },
   barcodeBtn: {
     backgroundColor: AppPalette.primaryStrong,
     padding: 14,
@@ -1569,7 +1569,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginBottom: 10,
   },
-  barcodeBtnText: { color: "#fff", fontWeight: "600", fontSize: 15 },
+  barcodeBtnText: { color: AppPalette.primaryOn, fontWeight: "600", fontSize: 15 },
   manualBarcodeToggle: {
     alignItems: "center",
     borderColor: AppPalette.border,
@@ -1792,7 +1792,7 @@ const styles = StyleSheet.create({
   },
   photoStrip: { marginBottom: 16 },
   thumbContainer: { position: "relative", marginRight: 8 },
-  thumb: { width: 90, height: 90, borderRadius: 8, backgroundColor: "#f0f0f0" },
+  thumb: { width: 90, height: 90, borderRadius: 8, backgroundColor: AppPalette.surfaceMuted },
   removeBtn: {
     position: "absolute",
     top: 4,
@@ -1804,7 +1804,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  removeBtnText: { color: "#fff", fontSize: 12, fontWeight: "600" },
+  removeBtnText: { color: AppPalette.primaryOn, fontSize: 12, fontWeight: "600" },
   photoCount: { fontSize: 13, color: AppPalette.textMuted, marginTop: 8 },
   actionRow: { flexDirection: "row", gap: 12, marginBottom: 20 },
   analyzeBtn: {
