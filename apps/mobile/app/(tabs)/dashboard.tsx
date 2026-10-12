@@ -88,9 +88,11 @@ export default function DashboardScreen() {
           Manage inventory, review listings, and view reports in the web
           dashboard.
         </Text>
-        {attention ? <View style={[styles.attentionCard, attentionCount === 0 && styles.attentionCardClear]}><View style={styles.attentionHeading}><Text style={styles.attentionValue}>{attentionCount}</Text><View style={styles.attentionCopy}><Text style={styles.attentionTitle}>{attentionCount === 0 ? "Operations are clear" : "Operational items need attention"}</Text><Text style={styles.attentionDetail}>{attentionCount === 0 ? "No urgent order, return, marketplace, or recovery work." : "Open the exact web queue that needs your attention."}</Text></View></View>{attentionEntries.filter((entry) => entry.count > 0).map((entry) => <TouchableOpacity key={entry.key} style={styles.attentionRow} disabled={!DASHBOARD_URL} onPress={() => { void openDashboard(entry.view, entry.section); }}><Text style={styles.attentionRowLabel}>{entry.label}</Text><Text style={styles.attentionRowCount}>{entry.count} ›</Text></TouchableOpacity>)}</View> : null}
+        {attention ? <View style={[styles.attentionCard, attentionCount === 0 && styles.attentionCardClear]}><View style={styles.attentionHeading}><Text accessibilityRole="text" accessibilityLabel={`${attentionCount} operational items need attention`} style={styles.attentionValue}>{attentionCount}</Text><View style={styles.attentionCopy}><Text style={styles.attentionTitle}>{attentionCount === 0 ? "Operations are clear" : "Operational items need attention"}</Text><Text style={styles.attentionDetail}>{attentionCount === 0 ? "No urgent order, return, marketplace, or recovery work." : "Open the exact web queue that needs your attention."}</Text></View></View>{attentionEntries.filter((entry) => entry.count > 0).map((entry) => <TouchableOpacity accessibilityRole="button" accessibilityLabel={`Open ${entry.label}, ${entry.count} items need attention`} accessibilityState={{ disabled: !DASHBOARD_URL }} key={entry.key} style={[styles.attentionRow, !DASHBOARD_URL && styles.disabledAction]} disabled={!DASHBOARD_URL} onPress={() => { void openDashboard(entry.view, entry.section); }}><Text style={styles.attentionRowLabel}>{entry.label}</Text><Text style={styles.attentionRowCount}>{entry.count} ›</Text></TouchableOpacity>)}</View> : null}
         {attentionError ? <Text style={styles.configurationHint}>{attentionError}</Text> : null}
         <TouchableOpacity
+          accessibilityRole="button"
+          accessibilityLabel="Open PalletFlip web dashboard"
           style={[
             styles.primaryButton,
             !DASHBOARD_URL && styles.primaryButtonDisabled,
@@ -106,7 +108,7 @@ export default function DashboardScreen() {
             The web dashboard address has not been added to this build yet.
           </Text>
         ) : null}
-        <TouchableOpacity style={styles.refreshButton} disabled={refreshing} onPress={() => { void loadAttention(); }}><Text style={styles.refreshButtonText}>{refreshing ? "Refreshing…" : "Refresh operational count"}</Text></TouchableOpacity>
+        <TouchableOpacity accessibilityRole="button" accessibilityLabel="Refresh operational attention count" accessibilityState={{ busy: refreshing, disabled: refreshing }} style={styles.refreshButton} disabled={refreshing} onPress={() => { void loadAttention(); }}><Text style={styles.refreshButtonText}>{refreshing ? "Refreshing…" : "Refresh operational count"}</Text></TouchableOpacity>
       </View>
     </View>
   );
@@ -164,9 +166,10 @@ const styles = StyleSheet.create({
   attentionCopy: { flex: 1 },
   attentionTitle: { color: AppPalette.text, fontSize: 15, fontWeight: "700" },
   attentionDetail: { color: AppPalette.textMuted, fontSize: 13, lineHeight: 18, marginTop: 3 },
-  attentionRow: { alignItems: "center", borderTopColor: AppPalette.border, borderTopWidth: 1, flexDirection: "row", justifyContent: "space-between", marginTop: 12, paddingTop: 12 },
+  attentionRow: { alignItems: "center", borderTopColor: AppPalette.border, borderTopWidth: 1, flexDirection: "row", justifyContent: "space-between", marginTop: 8, minHeight: 44, paddingTop: 8 },
+  disabledAction: { opacity: 0.55 },
   attentionRowLabel: { color: AppPalette.text, fontSize: 14, fontWeight: "600" },
   attentionRowCount: { color: AppPalette.primaryStrong, fontSize: 14, fontWeight: "800" },
-  refreshButton: { alignItems: "center", marginTop: 12, paddingVertical: 10 },
+  refreshButton: { alignItems: "center", justifyContent: "center", marginTop: 12, minHeight: 44, paddingVertical: 10 },
   refreshButtonText: { color: AppPalette.primary, fontSize: 14, fontWeight: "600" },
 });

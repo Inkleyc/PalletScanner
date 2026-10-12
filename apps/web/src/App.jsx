@@ -1854,7 +1854,8 @@ export function App() {
     if (nextView === "orders" && ordersSection) localStorage.setItem("palletscanner.ordersSection", ordersSection);
     setView(nextView);
     window.history.replaceState(null, "", `#${nextView}`);
-    window.scrollTo({ top: 0, behavior: "smooth" });
+    const reduceMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+    window.scrollTo({ top: 0, behavior: reduceMotion ? "auto" : "smooth" });
   };
   const notify = (message) => {
     setToast(message);
