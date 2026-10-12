@@ -22,7 +22,16 @@ test("jwt auth mode rejects an unauthenticated request", () => {
   process.env.PALLETSCANNER_JWT_SECRET = "test-only-secret";
   assert.throws(
     () => authenticateRequest({ headers: {} }),
-    /Authentication required/,
+    (error) => error.statusCode === 401 && /Authentication required/.test(error.message),
+  );
+});
+
+test("jwt auth mode classifies malformed token JSON as unauthorized", () => {
+  process.env.PALLETSCANNER_AUTH_MODE = "jwt";
+  process.env.PALLETSCANNER_JWT_SECRET = "test-only-secret";
+  assert.throws(
+    () => authenticateRequest({ headers: { authorization: "Bearer not-json.payload.signature" } }),
+    (error) => error.statusCode === 401 && error.message === "Invalid authentication token.",
   );
 });
 

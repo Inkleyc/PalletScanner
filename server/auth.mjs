@@ -10,6 +10,20 @@ const getConfiguredAuthMode = () =>
 const decodeBase64Url = (value) =>
   Buffer.from(value.replace(/-/g, "+").replace(/_/g, "/"), "base64");
 
+const authenticationError = (message = "Invalid authentication token.") => {
+  const error = new Error(message);
+  error.statusCode = 401;
+  return error;
+};
+
+const parseTokenPart = (value) => {
+  try {
+    return JSON.parse(decodeBase64Url(value).toString("utf8"));
+  } catch {
+    throw authenticationError();
+  }
+};
+
 const verifyHs256Jwt = (token) => {
   const secret = process.env.PALLETSCANNER_JWT_SECRET;
   if (!secret) {
@@ -18,13 +32,13 @@ const verifyHs256Jwt = (token) => {
 
   const parts = token.split(".");
   if (parts.length !== 3) {
-    throw new Error("Invalid authentication token.");
+    throw authenticationError();
   }
 
   const [encodedHeader, encodedPayload, encodedSignature] = parts;
-  const header = JSON.parse(decodeBase64Url(encodedHeader).toString("utf8"));
+  const header = parseTokenPart(encodedHeader);
   if (header.alg !== "HS256") {
-    throw new Error("Only HS256 authentication tokens are supported.");
+    throw authenticationError();
   }
 
   const expectedSignature = createHmac("sha256", secret)
@@ -35,15 +49,15 @@ const verifyHs256Jwt = (token) => {
     expectedSignature.length !== actualSignature.length ||
     !timingSafeEqual(expectedSignature, actualSignature)
   ) {
-    throw new Error("Invalid authentication token signature.");
+    throw authenticationError();
   }
 
-  const payload = JSON.parse(decodeBase64Url(encodedPayload).toString("utf8"));
+  const payload = parseTokenPart(encodedPayload);
   if (!payload.sub) {
-    throw new Error("Authentication token is missing a user subject.");
+    throw authenticationError();
   }
   if (payload.exp && Number(payload.exp) * 1000 <= Date.now()) {
-    throw new Error("Authentication token has expired.");
+    throw authenticationError("Authentication token has expired.");
   }
 
   return {
@@ -62,7 +76,7 @@ export const authenticateRequest = (req) => {
 
   const authorization = req.headers.authorization ?? "";
   if (!authorization.startsWith("Bearer ")) {
-    throw new Error("Authentication required.");
+    throw authenticationError("Authentication required.");
   }
   const token = authorization.slice("Bearer ".length).trim();
 
@@ -77,7 +91,7 @@ export const authenticateRequest = (req) => {
       expected.length !== actual.length ||
       !timingSafeEqual(expected, actual)
     ) {
-      throw new Error("Invalid authentication token.");
+      throw authenticationError();
     }
     return { userId: "sandbox", claims: {} };
   }
