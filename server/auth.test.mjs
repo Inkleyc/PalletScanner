@@ -44,6 +44,17 @@ test("jwt auth mode accepts a valid signed user subject", () => {
   assert.equal(result.userId, "seller-123");
 });
 
+test("jwt auth mode rejects a signed token without an expiration", () => {
+  const secret = "test-only-secret";
+  process.env.PALLETSCANNER_AUTH_MODE = "jwt";
+  process.env.PALLETSCANNER_JWT_SECRET = secret;
+  const token = sign({ sub: "seller-123" }, secret);
+  assert.throws(
+    () => authenticateRequest({ headers: { authorization: `Bearer ${token}` } }),
+    (error) => error.statusCode === 401,
+  );
+});
+
 test("jwt auth mode rejects an expired token", () => {
   const secret = "test-only-secret";
   process.env.PALLETSCANNER_AUTH_MODE = "jwt";

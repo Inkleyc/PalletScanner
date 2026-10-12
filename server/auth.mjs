@@ -56,7 +56,11 @@ const verifyHs256Jwt = (token) => {
   if (!payload.sub) {
     throw authenticationError();
   }
-  if (payload.exp && Number(payload.exp) * 1000 <= Date.now()) {
+  const expiresAt = Number(payload.exp);
+  if (!Number.isFinite(expiresAt) || expiresAt <= 0) {
+    throw authenticationError();
+  }
+  if (expiresAt * 1000 <= Date.now()) {
     throw authenticationError("Authentication token has expired.");
   }
 
