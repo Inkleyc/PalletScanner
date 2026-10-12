@@ -78,17 +78,22 @@ export const createEbayTokenStore = ({
     try {
       const raw = await readFile(getTokenPath(userId), "utf8");
       return decryptPayload(JSON.parse(raw));
-    } catch {
-      if (userId === "local") {
-        try {
-          const legacyRaw = await readFile(legacyTokenFile, "utf8");
-          return JSON.parse(legacyRaw);
-        } catch {
-          return null;
+    } catch (error) {
+      if (error?.code !== "ENOENT") {
+        throw new Error("Stored eBay connection could not be read.", { cause: error });
+      }
+    }
+    if (userId === "local") {
+      try {
+        const legacyRaw = await readFile(legacyTokenFile, "utf8");
+        return JSON.parse(legacyRaw);
+      } catch (error) {
+        if (error?.code !== "ENOENT") {
+          throw new Error("Legacy eBay connection could not be read.", { cause: error });
         }
       }
-      return null;
     }
+    return null;
   };
 
   const save = async (userId, tokenPayload) => {
