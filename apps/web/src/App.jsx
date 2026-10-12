@@ -1689,7 +1689,12 @@ function ReturnsContent() {
 }
 
 function OrdersPanel() {
-  const [section, setSectionState] = useState(() => readPreference("palletscanner.ordersSection", "orders"));
+  const [section, setSectionState] = useState(() => {
+    const linkedSection = new URLSearchParams(window.location.search).get("ordersSection");
+    return ["orders", "returns"].includes(linkedSection)
+      ? linkedSection
+      : readPreference("palletscanner.ordersSection", "orders");
+  });
   const setSection = (nextSection) => { localStorage.setItem("palletscanner.ordersSection", nextSection); setSectionState(nextSection); };
   return <div className="view-stack"><div className="saved-views" aria-label="Order operations"><button aria-pressed={section === "orders"} onClick={() => setSection("orders")}><span>Orders</span></button><button aria-pressed={section === "returns"} onClick={() => setSection("returns")}><span>Returns</span></button></div>{section === "orders" ? <OrdersContent onShowReturns={() => setSection("returns")} /> : <ReturnsContent />}</div>;
 }
