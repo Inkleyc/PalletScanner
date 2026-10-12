@@ -10,6 +10,7 @@ import { createEbayTokenStore } from "./ebay-token-store.mjs";
 import { createEbayReadService } from "./ebay-read-service.mjs";
 import { createMarketplaceJobExecutor } from "./marketplace-job-executor.mjs";
 import { readRequestBody } from "./request-body.mjs";
+import { createSlidingWindowRateLimiter } from "./rate-limit.mjs";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -77,7 +78,14 @@ const rehearsalOrigin = process.env.PALLETSCANNER_REHEARSAL_ORIGIN ?? "";
 const listingRateLimit = Number(
   process.env.PALLETSCANNER_LISTING_RATE_LIMIT_PER_MINUTE ?? 20,
 );
+const barcodeRateLimit = Number(
+  process.env.PALLETSCANNER_BARCODE_RATE_LIMIT_PER_MINUTE ?? 60,
+);
 const createAiMessage = createAiService();
+const enforceBarcodeRateLimit = createSlidingWindowRateLimiter({
+  limit: barcodeRateLimit,
+  message: "Too many barcode lookups. Wait a minute and try again.",
+});
 
 const ebayScopes =
   process.env.EBAY_SCOPE ??
@@ -1360,7 +1368,8 @@ const server = createServer(async (req, res) => {
     }
 
     if (req.method === "GET" && url.pathname === "/barcode/lookup") {
-      authenticateRequest(req);
+      const { userId } = authenticateRequest(req);
+      enforceBarcodeRateLimit(userId);
       sendJson(req, res, 200, await lookupBarcode(url.searchParams.get("barcode")));
       return;
     }

@@ -1,22 +1,14 @@
+import { createSlidingWindowRateLimiter } from "./rate-limit.mjs";
+
 export const createAiService = ({
   apiKey = process.env.ANTHROPIC_API_KEY,
   model = process.env.ANTHROPIC_MODEL ?? "claude-sonnet-5",
   rateLimit = Number(process.env.PALLETSCANNER_AI_RATE_LIMIT_PER_MINUTE ?? 10),
 } = {}) => {
-  const requestTimesByUser = new Map();
-  const enforceRateLimit = (userId) => {
-    const windowStart = Date.now() - 60_000;
-    const recent = (requestTimesByUser.get(userId) ?? []).filter(
-      (timestamp) => timestamp > windowStart,
-    );
-    if (recent.length >= rateLimit) {
-      const error = new Error("Too many AI requests. Wait a minute and try again.");
-      error.statusCode = 429;
-      throw error;
-    }
-    recent.push(Date.now());
-    requestTimesByUser.set(userId, recent);
-  };
+  const enforceRateLimit = createSlidingWindowRateLimiter({
+    limit: rateLimit,
+    message: "Too many AI requests. Wait a minute and try again.",
+  });
 
   return async (userId, payload) => {
     enforceRateLimit(userId);
