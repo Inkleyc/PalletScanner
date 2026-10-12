@@ -321,6 +321,7 @@ const getAuthorizationUrl = (userId) => {
 const requestToken = async (params) => {
   const response = await fetch(`${apiBaseUrl}/identity/v1/oauth2/token`, {
     method: "POST",
+    signal: AbortSignal.timeout(30_000),
     headers: {
       Authorization: `Basic ${buildBasicAuthorization()}`,
       "Content-Type": "application/x-www-form-urlencoded",

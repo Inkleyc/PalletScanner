@@ -4,6 +4,8 @@ export const createAiService = ({
   apiKey = process.env.ANTHROPIC_API_KEY,
   model = process.env.ANTHROPIC_MODEL ?? "claude-sonnet-5",
   rateLimit = Number(process.env.PALLETSCANNER_AI_RATE_LIMIT_PER_MINUTE ?? 10),
+  timeoutMs = Number(process.env.PALLETSCANNER_AI_TIMEOUT_MS ?? 90_000),
+  fetchImpl = fetch,
 } = {}) => {
   const enforceRateLimit = createSlidingWindowRateLimiter({
     limit: rateLimit,
@@ -22,8 +24,9 @@ export const createAiService = ({
       error.statusCode = 400;
       throw error;
     }
-    const response = await fetch("https://api.anthropic.com/v1/messages", {
+    const response = await fetchImpl("https://api.anthropic.com/v1/messages", {
       method: "POST",
+      signal: AbortSignal.timeout(timeoutMs),
       headers: {
         "Content-Type": "application/json",
         "x-api-key": apiKey,
