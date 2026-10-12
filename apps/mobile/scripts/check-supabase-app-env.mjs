@@ -35,6 +35,7 @@ loadDotEnv(".env.local");
 
 const supabaseUrl = readEnv("EXPO_PUBLIC_SUPABASE_URL");
 const anonKey = readEnv("EXPO_PUBLIC_SUPABASE_ANON_KEY");
+const backendUrl = readEnv("EXPO_PUBLIC_AI_API_BASE_URL") || readEnv("EXPO_PUBLIC_EBAY_API_BASE_URL");
 
 if (readEnv("EXPO_PUBLIC_ANTHROPIC_API_KEY")) {
   failures.push(
@@ -61,13 +62,21 @@ if (!anonKey) {
   );
 }
 
-console.log("PalletFlip Supabase app environment check");
+if (!backendUrl) {
+  failures.push(
+    "EXPO_PUBLIC_AI_API_BASE_URL or EXPO_PUBLIC_EBAY_API_BASE_URL is required for secure AI, barcode, and eBay requests.",
+  );
+} else if (!backendUrl.startsWith("https://")) {
+  failures.push("The production backend URL must use HTTPS.");
+}
+
+console.log("PalletFlip mobile production environment check");
 console.log("");
 
 if (failures.length === 0) {
-  console.log("Required Supabase app env: PASS");
+  console.log("Required mobile app env: PASS");
 } else {
-  console.log("Required Supabase app env: FAIL");
+  console.log("Required mobile app env: FAIL");
   for (const failure of failures) {
     console.log(`- ${failure}`);
   }

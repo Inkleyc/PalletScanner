@@ -41,6 +41,7 @@ const requiredProductionValues = [
   "PALLETSCANNER_ALLOWED_ORIGIN",
   "SUPABASE_URL",
   "SUPABASE_ANON_KEY",
+  "ANTHROPIC_API_KEY",
 ];
 
 const failures = [];
