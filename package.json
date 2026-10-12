@@ -13,7 +13,7 @@
     "ios": "npm run ios -w @palletscanner/mobile",
     "lint": "npm run lint -w @palletscanner/mobile",
     "ebay-server": "node ./server/ebay-server.mjs",
-    "server:check": "node --check ./server/auth.mjs && node --check ./server/ai-service.mjs && node --check ./server/barcode-service.mjs && node --check ./server/ebay-token-store.mjs && node --check ./server/ebay-read-service.mjs && node --check ./server/marketplace-job-executor.mjs && node --check ./server/ebay-server.mjs && node --check ./server/production-check.mjs && node --check ./server/generate-production-secrets.mjs && node --check ./server/generate-test-jwt.mjs && node --test ./server/auth.test.mjs ./server/ebay-read-service.test.mjs ./server/marketplace-job-executor.test.mjs",
+    "server:check": "node --check ./server/auth.mjs && node --check ./server/ai-service.mjs && node --check ./server/barcode-service.mjs && node --check ./server/ebay-token-store.mjs && node --check ./server/ebay-read-service.mjs && node --check ./server/marketplace-job-executor.mjs && node --check ./server/request-body.mjs && node --check ./server/ebay-server.mjs && node --check ./server/production-check.mjs && node --check ./server/generate-production-secrets.mjs && node --check ./server/generate-test-jwt.mjs && node --test ./server/auth.test.mjs ./server/request-body.test.mjs ./server/ebay-read-service.test.mjs ./server/marketplace-job-executor.test.mjs",
     "schema:check": "node ./scripts/check-backend-schema.mjs",
     "return:lifecycle-check": "node ./scripts/check-return-lifecycle.mjs",
     "ebay:production-check": "node ./server/production-check.mjs",

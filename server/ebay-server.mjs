@@ -9,6 +9,7 @@ import { lookupBarcode } from "./barcode-service.mjs";
 import { createEbayTokenStore } from "./ebay-token-store.mjs";
 import { createEbayReadService } from "./ebay-read-service.mjs";
 import { createMarketplaceJobExecutor } from "./marketplace-job-executor.mjs";
+import { readRequestBody } from "./request-body.mjs";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -223,19 +224,6 @@ const validateProductionConfiguration = () => {
 };
 
 validateProductionConfiguration();
-
-const readRequestBody = (req) =>
-  new Promise((resolve, reject) => {
-    let body = "";
-    req.on("data", (chunk) => {
-      body += chunk;
-      if (body.length > 30_000_000) {
-        reject(new Error("Request body too large."));
-      }
-    });
-    req.on("end", () => resolve(body));
-    req.on("error", reject);
-  });
 
 const getCorsOrigin = (req) => {
   if (rehearsalOrigin && req.headers.origin === rehearsalOrigin) {
