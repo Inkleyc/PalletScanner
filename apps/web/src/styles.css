@@ -255,7 +255,7 @@ a:focus-visible {
 }
 
 .overview-scope-label {
-  color: #697364;
+  color: var(--app-text-muted);
   font-size: 12px;
   font-weight: 800;
   text-transform: uppercase;
@@ -276,7 +276,7 @@ a:focus-visible {
 }
 
 .select-chevron {
-  color: #697364;
+  color: var(--app-text-muted);
   font-size: 14px;
 }
 
@@ -296,8 +296,8 @@ a:focus-visible {
 }
 
 .pallet-scope-menu {
-  background: #ffffff;
-  border: 1px solid #bdc8b3;
+  background: var(--app-surface);
+  border: 1px solid var(--app-border-strong);
   border-radius: 8px;
   box-shadow: 0 12px 32px rgba(23, 34, 27, 0.18);
   display: grid;
@@ -322,19 +322,19 @@ a:focus-visible {
 
 .pallet-scope-menu button:hover,
 .pallet-scope-menu button[aria-selected="true"] {
-  background: #eef5ec;
+  background: var(--app-primary-soft);
 }
 
 .pallet-scope-menu small {
-  color: #697364;
+  color: var(--app-text-muted);
   font-size: 11px;
   font-weight: 600;
 }
 
 .metric,
 .panel {
-  background: #ffffff;
-  border: 1px solid #d9dfd2;
+  background: var(--app-surface);
+  border: 1px solid var(--app-border);
   border-radius: 8px;
 }
 
@@ -348,17 +348,17 @@ a:focus-visible {
 }
 
 .metric-button:hover {
-  border-color: #b6c4ab;
-  background: #f7f8f4;
+  border-color: var(--app-border-strong);
+  background: var(--app-surface-muted);
 }
 
 .metric-button:focus {
-  outline: 2px solid #789066;
+  outline: 2px solid var(--app-primary);
   outline-offset: 2px;
 }
 
 .metric span {
-  color: #697364;
+  color: var(--app-text-muted);
   display: block;
   font-size: 12px;
   font-weight: 800;
@@ -412,8 +412,8 @@ a:focus-visible {
 }
 
 .saved-views {
-  background: #eef1e9;
-  border: 1px solid #d9dfd2;
+  background: var(--app-surface-muted);
+  border: 1px solid var(--app-border);
   border-radius: 8px;
   display: grid;
   gap: 4px;
@@ -440,7 +440,7 @@ a:focus-visible {
 }
 
 .inventory-heading > div > span {
-  color: #697364;
+  color: var(--app-text-muted);
   font-size: 13px;
 }
 
@@ -451,9 +451,9 @@ a:focus-visible {
 }
 
 .saved-views button strong {
-  background: #eef1e9;
+  background: var(--app-primary-soft);
   border-radius: 999px;
-  color: #566451;
+  color: var(--app-primary);
   font-size: 11px;
   min-width: 22px;
   padding: 2px 6px;
@@ -840,7 +840,7 @@ a:focus-visible {
 }
 
 .settings-group-heading {
-  border-bottom: 1px solid #d9dfd2;
+  border-bottom: 1px solid var(--app-border);
   grid-column: 1 / -1;
   margin-top: 12px;
   padding: 6px 0 10px;
@@ -856,14 +856,14 @@ a:focus-visible {
 }
 
 .settings-group-heading p {
-  color: #64705f;
+  color: var(--app-text-muted);
   font-size: 13px;
   margin: 4px 0 0;
 }
 
 .pallet-card {
-  background: #f7f8f4;
-  border: 1px solid #d9dfd2;
+  background: var(--app-surface-muted);
+  border: 1px solid var(--app-border);
   border-radius: 8px;
   padding: 14px;
 }
@@ -874,14 +874,14 @@ a:focus-visible {
 
 .pallet-card[data-pallet-card-id]:hover,
 .pallet-card[data-pallet-card-id]:focus {
-  border-color: #789066;
-  box-shadow: 0 0 0 2px rgba(120, 144, 102, 0.16);
+  border-color: var(--app-primary);
+  box-shadow: 0 0 0 2px rgba(35, 74, 107, 0.16);
   outline: none;
 }
 
 .pallet-card.selected-card {
-  background: #eef5ec;
-  border-color: #789066;
+  background: var(--app-primary-soft);
+  border-color: var(--app-primary);
 }
 
 .pallet-card-heading,
@@ -922,7 +922,7 @@ a:focus-visible {
 
 .modal-backdrop {
   align-items: center;
-  background: rgba(23, 34, 27, 0.55);
+  background: rgba(23, 32, 51, 0.55);
   display: flex;
   inset: 0;
   justify-content: center;
@@ -932,8 +932,8 @@ a:focus-visible {
 }
 
 .edit-modal {
-  background: #ffffff;
-  border: 1px solid #d9dfd2;
+  background: var(--app-surface);
+  border: 1px solid var(--app-border);
   border-radius: 8px;
   box-shadow: 0 18px 50px rgba(23, 34, 27, 0.24);
   display: grid;
@@ -1079,7 +1079,7 @@ a:focus-visible {
 }
 
 .detail-tabs {
-  border-bottom: 1px solid #d9dfd2;
+  border-bottom: 1px solid var(--app-border);
   display: flex;
   gap: 24px;
 }
@@ -1089,13 +1089,13 @@ a:focus-visible {
   border: 0;
   border-bottom: 3px solid transparent;
   border-radius: 0;
-  color: #64705f;
+  color: var(--app-text-muted);
   padding: 8px 2px 11px;
 }
 
 .detail-tabs button[aria-selected="true"] {
-  border-bottom-color: #315f3b;
-  color: #17221b;
+  border-bottom-color: var(--app-primary-strong);
+  color: var(--app-primary-strong);
 }
 
 .detail-tab-panel {
@@ -1121,7 +1121,7 @@ a:focus-visible {
 }
 
 .edit-modal p {
-  color: #697364;
+  color: var(--app-text-muted);
   margin-top: 5px;
 }
 
@@ -1131,7 +1131,7 @@ a:focus-visible {
 }
 
 .edit-modal label span {
-  color: #697364;
+  color: var(--app-text-muted);
   font-size: 11px;
   font-weight: 800;
   text-transform: uppercase;
@@ -1142,8 +1142,8 @@ a:focus-visible {
 }
 
 .admin-card {
-  background: #f7f8f4;
-  border: 1px solid #d9dfd2;
+  background: var(--app-surface-muted);
+  border: 1px solid var(--app-border);
   border-radius: 8px;
   padding: 14px;
   display: flex;
