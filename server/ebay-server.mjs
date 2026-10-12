@@ -257,6 +257,10 @@ const authenticateAiRequest = (req) => {
 const sendJson = (req, res, statusCode, payload) => {
   res.writeHead(statusCode, {
     "Content-Type": "application/json; charset=utf-8",
+    "Cache-Control": "no-store",
+    "Referrer-Policy": "no-referrer",
+    "X-Content-Type-Options": "nosniff",
+    Vary: "Origin",
     "Access-Control-Allow-Origin": getCorsOrigin(req),
     "Access-Control-Allow-Headers": "Content-Type, Authorization",
     "Access-Control-Allow-Methods": "GET,POST,OPTIONS",
@@ -267,6 +271,12 @@ const sendJson = (req, res, statusCode, payload) => {
 const sendHtml = (req, res, statusCode, html) => {
   res.writeHead(statusCode, {
     "Content-Type": "text/html; charset=utf-8",
+    "Cache-Control": "no-store",
+    "Content-Security-Policy": "default-src 'none'; style-src 'unsafe-inline'; frame-ancestors 'none'; base-uri 'none'",
+    "Referrer-Policy": "no-referrer",
+    "X-Content-Type-Options": "nosniff",
+    "X-Frame-Options": "DENY",
+    Vary: "Origin",
     "Access-Control-Allow-Origin": getCorsOrigin(req),
   });
   res.end(html);
@@ -1315,6 +1325,10 @@ const server = createServer(async (req, res) => {
 
   if (req.method === "OPTIONS") {
     res.writeHead(204, {
+      "Cache-Control": "no-store",
+      "Referrer-Policy": "no-referrer",
+      "X-Content-Type-Options": "nosniff",
+      Vary: "Origin",
       "Access-Control-Allow-Origin": getCorsOrigin(req),
       "Access-Control-Allow-Headers": "Content-Type, Authorization",
       "Access-Control-Allow-Methods": "GET,POST,OPTIONS",
