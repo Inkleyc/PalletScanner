@@ -1969,7 +1969,7 @@ const styles = StyleSheet.create({
   deletePalletBtn: {
     backgroundColor: AppPalette.dangerSoft,
     borderWidth: 1,
-    borderColor: "#efc0b9",
+    borderColor: AppPalette.dangerBorder,
     paddingHorizontal: 12,
     paddingVertical: 9,
     borderRadius: 8,
@@ -2148,7 +2148,7 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: AppPalette.successSoft,
     borderWidth: 1,
-    borderColor: "#cfe7dc",
+    borderColor: AppPalette.successBorder,
     padding: 12,
     borderRadius: 8,
     alignItems: "center",
@@ -2157,7 +2157,7 @@ const styles = StyleSheet.create({
   bulkEbayBtn: {
     backgroundColor: AppPalette.infoSoft,
     borderWidth: 1,
-    borderColor: "#c9d9f1",
+    borderColor: AppPalette.infoBorder,
     padding: 12,
     borderRadius: 8,
     alignItems: "center",
@@ -2167,7 +2167,7 @@ const styles = StyleSheet.create({
   bulkFacebookBtn: {
     backgroundColor: AppPalette.primarySoft,
     borderWidth: 1,
-    borderColor: "#cfdeed",
+    borderColor: AppPalette.primaryBorder,
     padding: 12,
     borderRadius: 8,
     alignItems: "center",
@@ -2205,7 +2205,7 @@ const styles = StyleSheet.create({
   bundleBtn: {
     backgroundColor: AppPalette.primarySoft,
     borderWidth: 1,
-    borderColor: "#cfdeed",
+    borderColor: AppPalette.primaryBorder,
     padding: 12,
     borderRadius: 8,
     alignItems: "center",
@@ -2277,7 +2277,7 @@ const styles = StyleSheet.create({
     marginHorizontal: 12,
     marginTop: 12,
     borderWidth: 1,
-    borderColor: "#efc0b9",
+    borderColor: AppPalette.dangerBorder,
     backgroundColor: AppPalette.dangerSoft,
     borderRadius: 10,
     padding: 10,
@@ -2315,7 +2315,7 @@ const styles = StyleSheet.create({
   facebookDraftBanner: {
     backgroundColor: AppPalette.warningSoft,
     borderWidth: 1,
-    borderColor: "#f4d7a2",
+    borderColor: AppPalette.warningBorder,
   },
   listedBannerClose: {
     width: 18,
@@ -2498,7 +2498,7 @@ const styles = StyleSheet.create({
     marginHorizontal: 12,
     marginBottom: 8,
     borderWidth: 1,
-    borderColor: "#c9d9f1",
+    borderColor: AppPalette.infoBorder,
     backgroundColor: AppPalette.infoSoft,
     borderRadius: 8,
     paddingVertical: 10,

@@ -652,7 +652,7 @@ const styles = StyleSheet.create({
   },
   resetCard: {
     backgroundColor: AppPalette.dangerSoft,
-    borderColor: "#efc0b9",
+    borderColor: AppPalette.dangerBorder,
     borderRadius: 12,
     borderWidth: 1,
     marginBottom: 16,

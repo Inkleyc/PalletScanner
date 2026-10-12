@@ -418,7 +418,7 @@ const styles = StyleSheet.create({
   deleteBtn: {
     backgroundColor: AppPalette.dangerSoft,
     borderWidth: 1,
-    borderColor: "#efc0b9",
+    borderColor: AppPalette.dangerBorder,
     borderRadius: 8,
     paddingHorizontal: 12,
     paddingVertical: 10,

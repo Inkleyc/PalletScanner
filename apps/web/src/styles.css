@@ -52,7 +52,7 @@ textarea {
 }
 
 button:disabled {
-  cursor: wait;
+  cursor: not-allowed;
   opacity: 0.62;
 }
 
@@ -987,7 +987,7 @@ a:focus-visible {
 }
 
 .ebay-questions-modal label small {
-  color: var(--muted);
+  color: var(--app-text-muted);
   line-height: 1.4;
 }
 
@@ -1000,8 +1000,8 @@ a:focus-visible {
 
 .required-details {
   padding: 16px;
-  border: 1px solid var(--border);
-  background: var(--surface-soft);
+  border: 1px solid var(--app-border);
+  background: var(--app-surface-muted);
 }
 
 .required-details > div:first-child {
@@ -1010,7 +1010,7 @@ a:focus-visible {
 
 .required-details p,
 .required-details small {
-  color: var(--muted);
+  color: var(--app-text-muted);
 }
 
 .required-details p {
