@@ -1,10 +1,20 @@
 :root {
   color-scheme: light;
+  --app-background: #eef2f7;
+  --app-surface: #ffffff;
+  --app-surface-muted: #f7f9fc;
+  --app-border: #d7dee8;
+  --app-border-strong: #c4cfdd;
+  --app-text: #172033;
+  --app-text-muted: #667085;
+  --app-primary: #234a6b;
+  --app-primary-strong: #17324d;
+  --app-primary-soft: #e7f0f8;
   font-family:
     Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
     sans-serif;
-  background: #f4f5f0;
-  color: #20251f;
+  background: var(--app-background);
+  color: var(--app-text);
 }
 
 * {
@@ -54,8 +64,8 @@ button:disabled {
 }
 
 .sidebar {
-  background: #17221b;
-  color: #f8fbf2;
+  background: var(--app-primary-strong);
+  color: #ffffff;
   padding: 28px;
   display: flex;
   flex-direction: column;
@@ -76,7 +86,7 @@ button:disabled {
 
 .eyebrow {
   margin: 0 0 8px;
-  color: #789066;
+  color: var(--app-primary);
   font-size: 12px;
   font-weight: 800;
   text-transform: uppercase;
@@ -89,8 +99,8 @@ nav {
 
 nav button {
   background: transparent;
-  color: #dbe8cf;
-  border: 1px solid rgba(219, 232, 207, 0.16);
+  color: #dbe7f1;
+  border: 1px solid rgba(219, 231, 241, 0.18);
   border-radius: 8px;
   padding: 11px 12px;
   font-weight: 700;
@@ -110,17 +120,17 @@ nav button {
 }
 
 nav button.active .nav-count {
-  background: #17221b;
-  color: #f8fbf2;
+  background: var(--app-primary-strong);
+  color: #ffffff;
 }
 
 nav button:hover {
-  background: rgba(219, 232, 207, 0.1);
+  background: rgba(219, 231, 241, 0.12);
 }
 
 nav button.active {
-  background: #dbe8cf;
-  color: #17221b;
+  background: var(--app-primary-soft);
+  color: var(--app-primary-strong);
 }
 
 .main {
@@ -175,7 +185,7 @@ nav button.active {
 }
 
 .getting-started p {
-  color: #697364;
+  color: var(--app-text-muted);
   max-width: 620px;
 }
 
@@ -203,17 +213,27 @@ nav button.active {
 }
 
 button {
-  border: 1px solid #bdc8b3;
-  background: #ffffff;
-  color: #20251f;
+  border: 1px solid var(--app-border-strong);
+  background: var(--app-surface);
+  color: var(--app-text);
   border-radius: 8px;
   padding: 10px 14px;
   font-weight: 800;
+  cursor: pointer;
+}
+
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+a:focus-visible {
+  outline: 3px solid rgba(43, 108, 176, 0.35);
+  outline-offset: 2px;
 }
 
 .primary-button {
-  background: #315f3b;
-  border-color: #315f3b;
+  background: var(--app-primary-strong);
+  border-color: var(--app-primary-strong);
   color: #fff;
 }
 
@@ -425,8 +445,8 @@ button {
 }
 
 .saved-views button[aria-pressed="true"] {
-  background: #315f3b;
-  border-color: #315f3b;
+  background: var(--app-primary-strong);
+  border-color: var(--app-primary-strong);
   color: #ffffff;
 }
 
@@ -646,7 +666,7 @@ button {
 }
 
 .toast {
-  background: #17221b;
+  background: var(--app-primary-strong);
   border-radius: 9px;
   bottom: 24px;
   box-shadow: 0 10px 32px rgba(23, 34, 27, 0.22);
@@ -661,8 +681,8 @@ button {
 .sale-card,
 .sale-form,
 .analysis-note {
-  background: #eef5ec;
-  border: 1px solid #c9d8bf;
+  background: var(--app-primary-soft);
+  border: 1px solid var(--app-border);
   border-radius: 9px;
   padding: 13px;
 }
