@@ -1372,6 +1372,7 @@ const server = createServer(async (req, res) => {
     }
 
     if (req.method === "GET" && url.pathname === "/barcode/lookup") {
+      authenticateRequest(req);
       sendJson(req, res, 200, await lookupBarcode(url.searchParams.get("barcode")));
       return;
     }
