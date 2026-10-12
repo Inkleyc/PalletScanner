@@ -288,7 +288,15 @@ const buildBasicAuthorization = () => {
   return Buffer.from(`${clientId}:${clientSecret}`).toString("base64");
 };
 
+const pruneExpiredOauthStates = () => {
+  const now = Date.now();
+  for (const [state, record] of oauthStates) {
+    if (record.expiresAt <= now) oauthStates.delete(state);
+  }
+};
+
 const getAuthorizationUrl = (userId) => {
+  pruneExpiredOauthStates();
   const clientId = requireEnv("EBAY_CLIENT_ID");
   const ruName = requireEnv("EBAY_RUNAME");
   const state = `${Date.now().toString(36)}-${Math.random()
@@ -1448,6 +1456,7 @@ const server = createServer(async (req, res) => {
       const error = url.searchParams.get("error");
 
       if (error) {
+        if (state) oauthStates.delete(state);
         sendHtml(
           req,
           res,
@@ -1477,6 +1486,7 @@ const server = createServer(async (req, res) => {
 
       const oauthState = state ? oauthStates.get(state) : null;
       if (!oauthState || oauthState.expiresAt <= Date.now()) {
+        if (state) oauthStates.delete(state);
         sendHtml(
           req,
           res,
