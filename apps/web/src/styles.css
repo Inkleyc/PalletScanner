@@ -190,13 +190,13 @@ nav button.active {
 }
 
 .advanced-settings {
-  border-top: 1px solid #d9dfd2;
+  border-top: 1px solid var(--app-border);
   margin-top: 14px;
   padding-top: 12px;
 }
 
 .advanced-settings summary {
-  color: #566451;
+  color: var(--app-text-muted);
   cursor: pointer;
   font-size: 13px;
   font-weight: 800;
@@ -467,8 +467,8 @@ a:focus-visible {
 
 .bulk-bar {
   align-items: center;
-  background: #edf5e9;
-  border: 1px solid #bacbad;
+  background: var(--app-primary-soft);
+  border: 1px solid var(--app-border-strong);
   border-radius: 9px;
   display: flex;
   flex-wrap: wrap;
@@ -530,7 +530,7 @@ a:focus-visible {
 .detail-pane .inventory-detail {
   background: transparent;
   border: 0;
-  border-left: 1px solid #d9dfd2;
+  border-left: 1px solid var(--app-border);
   border-radius: 0;
   margin: 0;
   padding: 0 0 0 18px;
@@ -612,7 +612,7 @@ a:focus-visible {
 }
 
 .review-list > button > div span {
-  color: #697364;
+  color: var(--app-text-muted);
   font-size: 12px;
 }
 
@@ -629,8 +629,8 @@ a:focus-visible {
 }
 
 .pipeline-stage {
-  background: #eef1e9;
-  border: 1px solid #d9dfd2;
+  background: var(--app-surface-muted);
+  border: 1px solid var(--app-border);
   border-radius: 10px;
   min-height: 230px;
   padding: 12px;
@@ -649,7 +649,7 @@ a:focus-visible {
 }
 
 .pipeline-items > small {
-  color: #7a8476;
+  color: var(--app-text-muted);
   padding: 12px 4px;
 }
 
@@ -661,7 +661,7 @@ a:focus-visible {
 }
 
 .pipeline-items button span {
-  color: #697364;
+  color: var(--app-text-muted);
   font-size: 12px;
 }
 
@@ -705,7 +705,7 @@ a:focus-visible {
 .sale-form span,
 .analysis-note span,
 .analysis-disclaimer {
-  color: #697364;
+  color: var(--app-text-muted);
   font-size: 13px;
 }
 
@@ -745,7 +745,7 @@ a:focus-visible {
 }
 
 .analysis-filter-grid label > span {
-  color: #697364;
+  color: var(--app-text-muted);
   font-size: 11px;
   font-weight: 800;
   text-transform: uppercase;
@@ -753,7 +753,7 @@ a:focus-visible {
 
 .analysis-filter-grid input,
 .analysis-filter-grid select {
-  border: 1px solid #bdc8b3;
+  border: 1px solid var(--app-border-strong);
   border-radius: 8px;
   min-width: 0;
   padding: 9px 10px;
@@ -761,7 +761,7 @@ a:focus-visible {
 }
 
 .active-filter-summary {
-  color: #566451;
+  color: var(--app-text-muted);
   font-size: 13px;
   font-weight: 700;
   margin: 0;
@@ -788,7 +788,7 @@ a:focus-visible {
 }
 
 .rate-cell i {
-  background: #4f7b50;
+  background: var(--app-primary);
   border-radius: 999px;
   display: block;
   height: 5px;
@@ -809,14 +809,14 @@ a:focus-visible {
 }
 
 .inventory-tools span {
-  color: #697364;
+  color: var(--app-text-muted);
   font-size: 12px;
   font-weight: 800;
   white-space: nowrap;
 }
 
 .reset-filter-button {
-  background: #f7f8f4;
+  background: var(--app-surface-muted);
   flex: 0 0 auto;
   padding: 10px 12px;
 }
@@ -980,7 +980,7 @@ a:focus-visible {
 }
 
 .ebay-questions-modal label > span {
-  color: #4f5b4c;
+  color: var(--app-text-muted);
   font-size: 12px;
   font-weight: 800;
   text-transform: uppercase;
@@ -1018,7 +1018,7 @@ a:focus-visible {
 }
 
 .add-item-photos {
-  border-bottom: 1px solid #d9dfd2;
+  border-bottom: 1px solid var(--app-border);
   display: grid;
   gap: 12px;
   padding-bottom: 16px;
@@ -1029,8 +1029,8 @@ a:focus-visible {
 }
 
 .inventory-detail-modal {
-  background: #ffffff;
-  border: 1px solid #d9dfd2;
+  background: var(--app-surface);
+  border: 1px solid var(--app-border);
   border-radius: 8px;
   box-shadow: 0 18px 50px rgba(23, 34, 27, 0.24);
   max-height: min(760px, calc(100vh - 64px));
@@ -1056,7 +1056,7 @@ a:focus-visible {
 }
 
 .item-detail-workspace {
-  border-top: 1px solid #d9dfd2;
+  border-top: 1px solid var(--app-border);
   display: grid;
   gap: 24px;
   grid-template-columns: minmax(230px, 0.65fr) minmax(0, 1.35fr);
@@ -1167,8 +1167,8 @@ a:focus-visible {
 .location-form,
 .setup-warning,
 .setup-empty {
-  background: #ffffff;
-  border: 1px solid #d9dfd2;
+  background: var(--app-surface);
+  border: 1px solid var(--app-border);
   border-radius: 8px;
   padding: 12px;
 }
@@ -1197,7 +1197,7 @@ a:focus-visible {
 
 .setup-warning span,
 .setup-empty span {
-  color: #64705f;
+  color: var(--app-text-muted);
   font-size: 13px;
   line-height: 1.45;
 }
@@ -1211,7 +1211,7 @@ a:focus-visible {
 }
 
 .admin-card p {
-  color: #64705f;
+  color: var(--app-text-muted);
   font-size: 13px;
   line-height: 1.45;
   margin: 0;
@@ -1224,10 +1224,10 @@ a:focus-visible {
 
 .planned-chip {
   align-self: flex-start;
-  background: #eef1e9;
-  border: 1px solid #d9dfd2;
+  background: var(--app-primary-soft);
+  border: 1px solid var(--app-border);
   border-radius: 999px;
-  color: #52604c;
+  color: var(--app-primary);
   font-size: 12px;
   font-weight: 800;
   margin-top: auto;
@@ -1252,7 +1252,7 @@ a:focus-visible {
 
 .admin-card label span,
 .status-line small {
-  color: #697364;
+  color: var(--app-text-muted);
   font-size: 11px;
   font-weight: 800;
   text-transform: uppercase;
@@ -1271,7 +1271,7 @@ a:focus-visible {
 }
 
 .check-list {
-  border: 1px solid #d9dfd2;
+  border: 1px solid var(--app-border);
   border-radius: 8px;
   display: grid;
   gap: 8px;
@@ -1280,7 +1280,7 @@ a:focus-visible {
 
 .check-row {
   align-items: center;
-  color: #3a4436;
+  color: var(--app-text);
   display: flex;
   font-size: 13px;
   gap: 8px;
@@ -1305,7 +1305,7 @@ a:focus-visible {
 
 .reconciliation-records .check-row {
   align-items: flex-start;
-  border-bottom: 1px solid #edf0e9;
+  border-bottom: 1px solid var(--app-border);
   padding-bottom: 8px;
 }
 
@@ -1325,7 +1325,7 @@ a:focus-visible {
 }
 
 .reconciliation-decision-row {
-  border-bottom: 1px solid #edf0e9;
+  border-bottom: 1px solid var(--app-border);
   display: grid;
   gap: 8px;
   padding-bottom: 10px;
@@ -1358,7 +1358,7 @@ a:focus-visible {
 }
 
 .admin-kicker {
-  color: #697364;
+  color: var(--app-text-muted);
   font-size: 11px;
   font-weight: 800;
   text-transform: uppercase;
@@ -1373,7 +1373,7 @@ a:focus-visible {
 .queue-item span,
 td,
 th {
-  color: #64705f;
+  color: var(--app-text-muted);
 }
 
 dl {
@@ -1384,7 +1384,7 @@ dl {
 }
 
 dt {
-  color: #697364;
+  color: var(--app-text-muted);
   font-size: 11px;
   font-weight: 800;
   text-transform: uppercase;
@@ -1407,21 +1407,21 @@ dd {
 .queue-item,
 .listing-queue-item,
 .aging-queue-item {
-  border: 1px solid #d9dfd2;
+  border: 1px solid var(--app-border);
   border-radius: 8px;
   cursor: pointer;
   padding: 12px;
 }
 
 .empty-queue {
-  background: #f7f8f4;
-  border: 1px dashed #cbd3c2;
+  background: var(--app-surface-muted);
+  border: 1px dashed var(--app-border-strong);
   border-radius: 8px;
   padding: 14px;
 }
 
 .empty-queue span {
-  color: #64705f;
+  color: var(--app-text-muted);
   display: block;
   font-size: 13px;
   margin-top: 4px;
@@ -1430,13 +1430,13 @@ dd {
 .queue-item:hover,
 .listing-queue-item:hover,
 .aging-queue-item:hover {
-  background: #f7f8f4;
+  background: var(--app-surface-muted);
 }
 
 .queue-item:focus,
 .listing-queue-item:focus,
 .aging-queue-item:focus {
-  outline: 2px solid #789066;
+  outline: 2px solid var(--app-primary);
   outline-offset: 2px;
 }
 
@@ -1457,8 +1457,8 @@ dd {
 
 .badge {
   border-radius: 999px;
-  background: #eef1e9;
-  color: #20251f;
+  background: var(--app-primary-soft);
+  color: var(--app-text);
   font-size: 12px;
   font-weight: 800;
   padding: 6px 10px;
@@ -1473,11 +1473,11 @@ input,
 select,
 textarea {
   min-width: 240px;
-  border: 1px solid #cbd3c2;
+  border: 1px solid var(--app-border-strong);
   border-radius: 8px;
   padding: 10px 12px;
-  background: #ffffff;
-  color: #20251f;
+  background: var(--app-surface);
+  color: var(--app-text);
 }
 
 textarea {
@@ -1490,7 +1490,7 @@ textarea {
 }
 
 .edit-form label > span {
-  color: #697364;
+  color: var(--app-text-muted);
   font-size: 11px;
   font-weight: 800;
   text-transform: uppercase;
@@ -1522,21 +1522,21 @@ textarea {
 }
 
 .photo-review {
-  border-top: 1px solid #d9dfd2;
+  border-top: 1px solid var(--app-border);
   display: grid;
   gap: 10px;
   padding-top: 14px;
 }
 
 .listing-copy {
-  border-top: 1px solid #d9dfd2;
+  border-top: 1px solid var(--app-border);
   display: grid;
   gap: 12px;
   padding-top: 14px;
 }
 
 .item-primary-content {
-  border-top: 1px solid #d9dfd2;
+  border-top: 1px solid var(--app-border);
   display: grid;
   gap: 20px;
   grid-template-columns: minmax(240px, 0.75fr) minmax(0, 1.25fr);
@@ -1559,14 +1559,14 @@ textarea {
 }
 
 .listing-copy span {
-  color: #64705f;
+  color: var(--app-text-muted);
   font-size: 11px;
   font-weight: 800;
   text-transform: uppercase;
 }
 
 .listing-copy p {
-  color: #394536;
+  color: var(--app-text);
   line-height: 1.5;
   margin: 0;
   white-space: pre-wrap;
@@ -1574,7 +1574,7 @@ textarea {
 
 .photo-review > small,
 .photo-review .card-row span {
-  color: #64705f;
+  color: var(--app-text-muted);
   display: block;
   font-size: 12px;
   margin-top: 3px;
@@ -1589,7 +1589,7 @@ textarea {
 .photo-grid img,
 .photo-placeholder {
   aspect-ratio: 1;
-  border: 1px solid #d9dfd2;
+  border: 1px solid var(--app-border);
   border-radius: 8px;
   object-fit: cover;
   width: 100%;
@@ -1608,8 +1608,8 @@ textarea {
 
 .photo-remove {
   align-items: center;
-  background: #ffffff;
-  border: 1px solid #c8d0c1;
+  background: var(--app-surface);
+  border: 1px solid var(--app-border-strong);
   border-radius: 50%;
   display: flex;
   font-size: 18px;
@@ -1636,7 +1636,7 @@ textarea {
 .marketplace-action,
 .marketplace-confirm {
   align-items: center;
-  border: 1px solid #d9dfd2;
+  border: 1px solid var(--app-border);
   border-radius: 8px;
   display: flex;
   gap: 16px;
@@ -1650,7 +1650,7 @@ textarea {
 
 .marketplace-action span,
 .marketplace-confirm span {
-  color: #64705f;
+  color: var(--app-text-muted);
   display: block;
   font-size: 12px;
   margin-top: 4px;
@@ -1663,10 +1663,10 @@ textarea {
 }
 
 .button-link {
-  background: #ffffff;
-  border: 1px solid #cbd3c2;
+  background: var(--app-surface);
+  border: 1px solid var(--app-border-strong);
   border-radius: 8px;
-  color: #20251f;
+  color: var(--app-text);
   font-size: 13px;
   font-weight: 700;
   padding: 10px 12px;
@@ -1675,8 +1675,8 @@ textarea {
 
 .photo-placeholder {
   align-items: center;
-  background: #eef1e9;
-  color: #52604c;
+  background: var(--app-primary-soft);
+  color: var(--app-primary);
   display: flex;
   flex-direction: column;
   justify-content: center;
@@ -1695,7 +1695,7 @@ textarea {
 
 .activity-row {
   align-items: center;
-  border-bottom: 1px solid #e3e8dd;
+  border-bottom: 1px solid var(--app-border);
   display: flex;
   justify-content: space-between;
   padding: 10px 0;
@@ -1703,7 +1703,7 @@ textarea {
 
 .activity-row span,
 .activity-row time {
-  color: #64705f;
+  color: var(--app-text-muted);
   display: block;
   font-size: 12px;
   margin-top: 3px;
@@ -1718,7 +1718,7 @@ table {
 th,
 td {
   text-align: left;
-  border-bottom: 1px solid #e3e8dd;
+  border-bottom: 1px solid var(--app-border);
   padding: 12px 8px;
   font-size: 14px;
 }
@@ -1728,17 +1728,17 @@ tbody tr[data-inventory-row] {
 }
 
 tbody tr[data-inventory-row]:hover {
-  background: #f7f8f4;
+  background: var(--app-surface-muted);
 }
 
 tbody tr[data-inventory-row]:focus {
-  outline: 2px solid #789066;
+  outline: 2px solid var(--app-primary);
   outline-offset: -2px;
 }
 
 .item-thumbnail {
   aspect-ratio: 1;
-  border: 1px solid #d9dfd2;
+  border: 1px solid var(--app-border);
   border-radius: 6px;
   display: block;
   height: 48px;
@@ -1748,8 +1748,8 @@ tbody tr[data-inventory-row]:focus {
 
 .item-thumbnail.placeholder {
   align-items: center;
-  background: #eef1e9;
-  color: #52604c;
+  background: var(--app-primary-soft);
+  color: var(--app-primary);
   display: flex;
   font-size: 11px;
   font-weight: 800;
@@ -1759,11 +1759,11 @@ tbody tr[data-inventory-row]:focus {
 }
 
 .selected-row {
-  background: #eef5ec;
+  background: var(--app-primary-soft);
 }
 
 .empty-table-cell {
-  color: #697364;
+  color: var(--app-text-muted);
   font-weight: 700;
   padding: 22px 8px;
   text-align: center;
@@ -1771,8 +1771,8 @@ tbody tr[data-inventory-row]:focus {
 
 .inventory-context {
   align-items: center;
-  background: #eef5ec;
-  border: 1px solid #c9d8bf;
+  background: var(--app-primary-soft);
+  border: 1px solid var(--app-border);
   border-radius: 8px;
   display: flex;
   gap: 18px;
@@ -1800,7 +1800,7 @@ tbody tr[data-inventory-row]:focus {
 }
 
 .inventory-context dt {
-  color: #697364;
+  color: var(--app-text-muted);
   font-size: 11px;
   font-weight: 700;
   text-transform: uppercase;
@@ -1813,7 +1813,7 @@ tbody tr[data-inventory-row]:focus {
 }
 
 th {
-  color: #3a4436;
+  color: var(--app-text);
   font-size: 12px;
   text-transform: uppercase;
 }
@@ -1850,8 +1850,8 @@ th {
 }
 
 .inventory-detail {
-  background: #f7f8f4;
-  border: 1px solid #d9dfd2;
+  background: var(--app-surface-muted);
+  border: 1px solid var(--app-border);
   border-radius: 8px;
   display: grid;
   gap: 14px;
