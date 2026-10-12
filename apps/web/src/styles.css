@@ -1874,7 +1874,7 @@ th {
 }
 
 .detail-grid span {
-  color: #697364;
+  color: var(--app-text-muted);
   display: block;
   font-size: 11px;
   font-weight: 800;
@@ -1883,7 +1883,7 @@ th {
 }
 
 .detail-grid strong {
-  color: #20251f;
+  color: var(--app-text);
   display: block;
   font-size: 14px;
   overflow-wrap: anywhere;
@@ -1950,8 +1950,11 @@ th {
 
   .metrics-grid,
   .pallet-grid,
-  .admin-grid,
   .analysis-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .admin-grid {
     grid-template-columns: 1fr;
   }
 
@@ -2003,7 +2006,7 @@ th {
   }
 
   .review-list {
-    border-bottom: 1px solid #d9dfd2;
+    border-bottom: 1px solid var(--app-border);
     border-right: 0;
     max-height: 320px;
     padding-bottom: 14px;
@@ -2022,7 +2025,7 @@ th {
 
   .detail-pane .inventory-detail {
     border-left: 0;
-    border-top: 1px solid #d9dfd2;
+    border-top: 1px solid var(--app-border);
     padding: 18px 0 0;
   }
 
@@ -2082,6 +2085,66 @@ th {
 
 }
 
+@media (max-width: 600px) {
+  .sidebar {
+    gap: 18px;
+    padding: 16px;
+  }
+
+  .sidebar h1 {
+    font-size: 24px;
+  }
+
+  nav button {
+    min-height: 44px;
+  }
+
+  .main {
+    padding: 12px;
+  }
+
+  .metrics-grid,
+  .pallet-grid,
+  .analysis-grid,
+  .analysis-filter-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .panel,
+  .metric {
+    padding: 14px;
+  }
+
+  .overview-scope {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .pallet-scope-trigger,
+  .pallet-scope-menu {
+    min-width: 0;
+    width: 100%;
+  }
+
+  .saved-views {
+    grid-template-columns: 1fr;
+  }
+
+  .modal-backdrop {
+    align-items: flex-end;
+    padding: 0;
+  }
+
+  .edit-modal,
+  .inventory-detail-modal {
+    border-bottom-left-radius: 0;
+    border-bottom-right-radius: 0;
+    max-height: 92vh;
+    max-width: none;
+    width: 100%;
+  }
+}
+
 @media print {
   @page {
     margin: 0.45in;
@@ -2116,7 +2179,7 @@ th {
   }
 
   .report-heading {
-    border-bottom: 2px solid #315f3b;
+    border-bottom: 2px solid var(--app-primary-strong);
     margin-bottom: 14px;
     padding-bottom: 10px;
   }
