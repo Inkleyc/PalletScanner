@@ -46,6 +46,10 @@ You can use [server/ebay.env.example](c:/Users/colto/PalletScanner/server/ebay.e
 - `PALLETSCANNER_LISTING_RATE_LIMIT_PER_MINUTE=20`
 - `ANTHROPIC_API_KEY=...`
 - `ANTHROPIC_MODEL=claude-sonnet-5`
+
+Keep `ANTHROPIC_API_KEY` on the backend only. Remove the retired
+`EXPO_PUBLIC_ANTHROPIC_API_KEY` setting from mobile environments; Expo public
+variables are bundled into the client and must never contain provider secrets.
 - `PALLETSCANNER_AI_RATE_LIMIT_PER_MINUTE=10`
 
 ## Setup notes

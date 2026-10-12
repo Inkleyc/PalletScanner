@@ -81,6 +81,12 @@ if (hasValue("EXPO_PUBLIC_PALLETSCANNER_AUTH_TOKEN")) {
   );
 }
 
+if (hasValue("EXPO_PUBLIC_ANTHROPIC_API_KEY")) {
+  failures.push(
+    "EXPO_PUBLIC_ANTHROPIC_API_KEY must be removed; AI credentials belong only in the backend ANTHROPIC_API_KEY setting.",
+  );
+}
+
 if (!hasValue("EBAY_CATEGORY_ID")) {
   warnings.push(
     "EBAY_CATEGORY_ID is blank. Production will use dynamic category suggestions.",

@@ -36,6 +36,12 @@ loadDotEnv(".env.local");
 const supabaseUrl = readEnv("EXPO_PUBLIC_SUPABASE_URL");
 const anonKey = readEnv("EXPO_PUBLIC_SUPABASE_ANON_KEY");
 
+if (readEnv("EXPO_PUBLIC_ANTHROPIC_API_KEY")) {
+  failures.push(
+    "EXPO_PUBLIC_ANTHROPIC_API_KEY must be removed. Mobile AI requests must use the secure PalletFlip backend.",
+  );
+}
+
 if (!supabaseUrl) {
   failures.push("EXPO_PUBLIC_SUPABASE_URL is required.");
 } else if (!/^https:\/\/[a-z0-9-]+\.supabase\.co$/i.test(supabaseUrl)) {
