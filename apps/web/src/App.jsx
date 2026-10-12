@@ -1695,6 +1695,14 @@ function OrdersPanel() {
       ? linkedSection
       : readPreference("palletscanner.ordersSection", "orders");
   });
+  useEffect(() => {
+    const currentUrl = new URL(window.location.href);
+    const linkedSection = currentUrl.searchParams.get("ordersSection");
+    if (!["orders", "returns"].includes(linkedSection)) return;
+    localStorage.setItem("palletscanner.ordersSection", linkedSection);
+    currentUrl.searchParams.delete("ordersSection");
+    window.history.replaceState(null, "", `${currentUrl.pathname}${currentUrl.search}${currentUrl.hash}`);
+  }, []);
   const setSection = (nextSection) => { localStorage.setItem("palletscanner.ordersSection", nextSection); setSectionState(nextSection); };
   return <div className="view-stack"><div className="saved-views" aria-label="Order operations"><button aria-pressed={section === "orders"} onClick={() => setSection("orders")}><span>Orders</span></button><button aria-pressed={section === "returns"} onClick={() => setSection("returns")}><span>Returns</span></button></div>{section === "orders" ? <OrdersContent onShowReturns={() => setSection("returns")} /> : <ReturnsContent />}</div>;
 }
