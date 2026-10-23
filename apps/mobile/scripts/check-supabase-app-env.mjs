@@ -43,6 +43,14 @@ if (readEnv("EXPO_PUBLIC_ANTHROPIC_API_KEY")) {
   );
 }
 
+if (readEnv("EXPO_PUBLIC_ENABLE_TEST_MODE") === "true") {
+  failures.push("EXPO_PUBLIC_ENABLE_TEST_MODE must be false or omitted in production.");
+}
+
+if (readEnv("EXPO_PUBLIC_ENABLE_DEMO_INVENTORY") === "true") {
+  failures.push("EXPO_PUBLIC_ENABLE_DEMO_INVENTORY must be false or omitted in production.");
+}
+
 if (!supabaseUrl) {
   failures.push("EXPO_PUBLIC_SUPABASE_URL is required.");
 } else if (!/^https:\/\/[a-z0-9-]+\.supabase\.co$/i.test(supabaseUrl)) {

@@ -1,4 +1,5 @@
 import * as FileSystem from "expo-file-system/legacy";
+import * as SecureStore from "expo-secure-store";
 import { Platform } from "react-native";
 import {
   createClient,
@@ -19,6 +20,7 @@ const TEST_MODE_AVAILABLE =
   process.env.EXPO_PUBLIC_ENABLE_TEST_MODE === "true";
 const supabaseStorageKey = "supabase-auth";
 const supabaseStorageFile = `${FileSystem.documentDirectory}supabase-auth.json`;
+const supabaseSecureStorageKey = "palletflip.supabase-auth";
 const testModeStorageKey = "palletflip-test-mode";
 const testModeStorageFile = `${FileSystem.documentDirectory}palletflip-test-mode`;
 
@@ -53,24 +55,34 @@ const notify = () => listeners.forEach((listener) => listener());
 const nativeStorage = {
   getItem: async () => {
     try {
+      const securelyStoredSession = await SecureStore.getItemAsync(
+        supabaseSecureStorageKey,
+      );
+      if (securelyStoredSession) {
+        return securelyStoredSession;
+      }
+
       const info = await FileSystem.getInfoAsync(supabaseStorageFile);
       if (!info.exists) {
         return null;
       }
-      return await FileSystem.readAsStringAsync(supabaseStorageFile, {
+      const legacySession = await FileSystem.readAsStringAsync(supabaseStorageFile, {
         encoding: "utf8",
       });
+      await SecureStore.setItemAsync(supabaseSecureStorageKey, legacySession);
+      await FileSystem.deleteAsync(supabaseStorageFile, { idempotent: true });
+      return legacySession;
     } catch {
       return null;
     }
   },
   setItem: async (_key: string, value: string) => {
-    await FileSystem.writeAsStringAsync(supabaseStorageFile, value, {
-      encoding: "utf8",
-    });
+    await SecureStore.setItemAsync(supabaseSecureStorageKey, value);
+    await FileSystem.deleteAsync(supabaseStorageFile, { idempotent: true });
   },
   removeItem: async () => {
     try {
+      await SecureStore.deleteItemAsync(supabaseSecureStorageKey);
       await FileSystem.deleteAsync(supabaseStorageFile, {
         idempotent: true,
       });

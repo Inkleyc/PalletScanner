@@ -30,8 +30,7 @@
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
       "permissions": [
-        "android.permission.CAMERA",
-        "android.permission.RECORD_AUDIO"
+        "android.permission.CAMERA"
       ]
     },
     "web": {
@@ -65,6 +64,7 @@
           "cameraPermission": "Allow PalletFlip to take product photos."
         }
       ],
+      "expo-secure-store",
       "expo-mail-composer"
     ],
     "experiments": {

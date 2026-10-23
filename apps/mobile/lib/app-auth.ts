@@ -1,4 +1,5 @@
 import * as FileSystem from "expo-file-system/legacy";
+import * as SecureStore from "expo-secure-store";
 import { Platform } from "react-native";
 
 import {
@@ -14,6 +15,7 @@ type AuthState = {
 type AuthListener = () => void;
 
 const authFile = `${FileSystem.documentDirectory}app-auth.json`;
+const authSecureStorageKey = "palletflip.backend-auth";
 const authWebKey = "app-auth";
 const authListeners = new Set<AuthListener>();
 
@@ -53,9 +55,8 @@ const persistAuthState = async () => {
       return;
     }
 
-    await FileSystem.writeAsStringAsync(authFile, payload, {
-      encoding: "utf8",
-    });
+    await SecureStore.setItemAsync(authSecureStorageKey, payload);
+    await FileSystem.deleteAsync(authFile, { idempotent: true });
   } catch {
     // Keep the in-memory token for this session even if persistence fails.
   }
@@ -68,14 +69,20 @@ export const hydrateAppAuth = async () => {
 
   hydratePromise = (async () => {
     try {
-      const raw =
-        Platform.OS === "web"
-          ? await readWebStorage(authWebKey)
-          : (await FileSystem.getInfoAsync(authFile)).exists
-            ? await FileSystem.readAsStringAsync(authFile, {
-                encoding: "utf8",
-              })
-            : null;
+      let raw = Platform.OS === "web"
+        ? await readWebStorage(authWebKey)
+        : await SecureStore.getItemAsync(authSecureStorageKey);
+
+      if (Platform.OS !== "web" && !raw) {
+        const legacyFile = await FileSystem.getInfoAsync(authFile);
+        if (legacyFile.exists) {
+          raw = await FileSystem.readAsStringAsync(authFile, {
+            encoding: "utf8",
+          });
+          await SecureStore.setItemAsync(authSecureStorageKey, raw);
+          await FileSystem.deleteAsync(authFile, { idempotent: true });
+        }
+      }
 
       if (!raw) {
         return;

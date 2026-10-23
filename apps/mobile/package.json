@@ -12,6 +12,7 @@
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "sync:test": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --test ./scripts/cloud-sync-policy.test.mjs",
     "supabase:app-check": "node ./scripts/check-supabase-app-env.mjs",
+    "emulator:check": "node ./scripts/check-android-emulator-env.mjs",
     "build:android-preview": "eas build --platform android --profile preview",
     "build:ios-preview": "eas build --platform ios --profile preview",
     "build:development": "eas build --profile development"
@@ -37,6 +38,7 @@
     "expo-linking": "~8.0.12",
     "expo-mail-composer": "~15.0.8",
     "expo-router": "~6.0.23",
+    "expo-secure-store": "~15.0.8",
     "expo-sharing": "~14.0.8",
     "expo-splash-screen": "~31.0.13",
     "expo-status-bar": "~3.0.9",

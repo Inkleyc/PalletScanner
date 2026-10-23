@@ -64,6 +64,10 @@ import {
   type ListingFilter,
 } from "@palletscanner/core";
 import {
+  getSupabaseAuthSnapshot,
+  subscribeSupabaseAuth,
+} from "@/lib/supabase-auth";
+import {
   buildInventoryCsv,
   calculateInventoryValueSummary,
   createInventoryExportBasename,
@@ -85,6 +89,9 @@ const demoInventorySeed = [
   { id: 910006, name: "Samsung VR5000 Robot Vacuum and Mop", category: "Vacuum cleaners", condition: "Used - excellent", low: 115, high: 175, floor: 95, list: 159.99, platform: "eBay", photo: "https://www.galaxus.ch/im/productimages/2/7/1/3/5/3/4/1/5/4/7/5/2/8/6/8/8/2/6/1abccb06-67a7-48c6-a5e2-2453abc039ee_cropped.png", title: "Samsung VR5000 2-in-1 Robot Vacuum and Mop Wi-Fi", description: "Clean Samsung VR5000 robotic vacuum and mop in excellent used condition. Includes charging equipment and accessories pictured." },
   { id: 910007, name: "Bose QuietComfort Headphones With Case", category: "Headphones", condition: "Seller refurbished", low: 110, high: 165, floor: 95, list: 149.99, platform: "eBay", photo: "https://i.ebayimg.com/images/g/IaoAAeSwNKxptCJe/s-l1200.jpg", title: "Bose QuietComfort Wireless Headphones Beige With Case and Charger", description: "Professionally refurbished Bose QuietComfort headphones with carrying case and charging cable. Tested and ready to use." },
 ];
+
+const DEMO_INVENTORY_ENABLED =
+  process.env.EXPO_PUBLIC_ENABLE_DEMO_INVENTORY === "true";
 
 
 const getListedPlatforms = (item: InventoryItem) =>
@@ -142,6 +149,11 @@ export default function InventoryScreen() {
     getActivePalletId,
     getActivePalletId,
   );
+  const auth = useSyncExternalStore(
+    subscribeSupabaseAuth,
+    getSupabaseAuthSnapshot,
+    getSupabaseAuthSnapshot,
+  );
   const [bulkEbayQueue, setBulkEbayQueue] = useState<number[]>([]);
   const [bulkFacebookQueue, setBulkFacebookQueue] = useState<number[]>([]);
   const [selectedPalletId, setSelectedPalletId] = useState<string>("all");
@@ -180,7 +192,15 @@ export default function InventoryScreen() {
     pallets.find((pallet) => pallet.id === activePalletId) ?? null;
 
   useEffect(() => {
-    if (!__DEV__ || demoSeedStarted.current || items.length === 0 || pallets.length === 0) return;
+    if (
+      !__DEV__ ||
+      !DEMO_INVENTORY_ENABLED ||
+      !auth.testMode ||
+      auth.signedIn ||
+      demoSeedStarted.current ||
+      items.length === 0 ||
+      pallets.length === 0
+    ) return;
     const missing = demoInventorySeed.filter((seed) => !items.some((item) => item.id === seed.id));
     if (missing.length === 0) return;
     demoSeedStarted.current = true;
@@ -210,7 +230,7 @@ export default function InventoryScreen() {
       ebayItemSpecifics: {},
       capturedAt: new Date(Date.now() - (index + 1) * 86400000).toISOString(),
     })));
-  }, [activePallet?.id, items, pallets]);
+  }, [activePallet?.id, auth.signedIn, auth.testMode, items, pallets]);
   const getPalletName = (palletId: string) =>
     pallets.find((pallet) => pallet.id === palletId)?.name ?? "Unknown pallet";
   const filterOptions = useMemo(
