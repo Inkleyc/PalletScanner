@@ -3,9 +3,11 @@ const { defineConfig } = require('eslint/config');
 const expoConfig = require('eslint-config-expo/flat');
 
 module.exports = defineConfig([
+  {
+    ignores: ['dist/**', 'web-build/**', '.expo/**'],
+  },
   expoConfig,
   {
-    ignores: ['dist/*'],
     settings: {
       'import/resolver': {
         node: {
