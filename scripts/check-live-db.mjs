@@ -19,6 +19,11 @@
 // required and a failure is a failure — a half-configured run must not
 // silently pass. Run it explicitly with `npm run check:live`.
 //
+// Env names: the SUPABASE_* names above are accepted, as are the names
+// `supabase status --output env` actually exports — API_URL, ANON_KEY and
+// DB_URL — as fallbacks. A set SUPABASE_* variable wins over its alias.
+// The checks below run against the resolved values either way.
+//
 // Safety: SUPABASE_URL / SUPABASE_DB_URL must point at 127.0.0.1 or
 // localhost. Anything else (including *.supabase.co) is rejected before
 // any request is made. No token, password, or key is ever printed.
@@ -30,9 +35,9 @@ import { promisify } from "node:util";
 
 const execFileAsync = promisify(execFile);
 
-const SUPABASE_URL = process.env.SUPABASE_URL ?? "";
-const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY ?? "";
-const SUPABASE_DB_URL = process.env.SUPABASE_DB_URL ?? "";
+const SUPABASE_URL = process.env.SUPABASE_URL || process.env.API_URL || "";
+const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY || process.env.ANON_KEY || "";
+const SUPABASE_DB_URL = process.env.SUPABASE_DB_URL || process.env.DB_URL || "";
 
 if (!SUPABASE_URL && !SUPABASE_ANON_KEY && !SUPABASE_DB_URL) {
   console.log(
@@ -42,7 +47,7 @@ if (!SUPABASE_URL && !SUPABASE_ANON_KEY && !SUPABASE_DB_URL) {
 }
 if (!SUPABASE_URL || !SUPABASE_ANON_KEY || !SUPABASE_DB_URL) {
   throw new Error(
-    "Live-DB check misconfigured: set SUPABASE_URL, SUPABASE_ANON_KEY and SUPABASE_DB_URL together (from `supabase status -o env`), or unset all three to skip.",
+    "Live-DB check misconfigured: set SUPABASE_URL, SUPABASE_ANON_KEY and SUPABASE_DB_URL together (or their `supabase status -o env` names API_URL, ANON_KEY and DB_URL), or unset all of them to skip.",
   );
 }
 
