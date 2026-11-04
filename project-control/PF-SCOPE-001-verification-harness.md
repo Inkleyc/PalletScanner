@@ -1,0 +1,58 @@
+# PF-SCOPE-001 — Safe local verification harness + CI
+Status: IN_PROGRESS
+Owner approval: APPROVED 2026-11-03 (Colton approved all three scopes, to be worked in order: 001, then 002, then 003)
+Objective: Prove the existing database schema and checks actually execute against a real, disposable local database, and run the existing aggregate checks in CI, before any feature work — so every later scope starts from verified ground instead of paper-only claims.
+
+Current evidence: Read-only audit 2026-11-03 (see `~/workspace/goals/pallet-scanner-ebay-app-development/files/PalletFlip-Audit-2026-11-03.md` in the agent workspace; the audit itself is not committed to this repo) verified 41 passing tests in isolation and a text-level schema/return-lifecycle contract, but no database had ever been run: no `supabase/config.toml`, no local-Supabase setup, no CI. `vite build` failed in the audit VM on a missing Rolldown native binding and was recorded as a suspected environment issue, not proven code breakage.
+
+Included:
+- Local Supabase configuration for local-only use (`supabase/config.toml`, CLI 2.34.3 defaults, trimmed; no hosted project references, no secrets) and a data-free disposable seed (`supabase/seed.sql`, no-op by design — business data is owner-scoped to `auth.users`, so no static seed row is safe).
+- Live-database checks (`scripts/check-live-db.mjs`, runnable as `npm run check:live`): migration-version replay proof, live counts for tables/functions/policies (35 / 73 / 53, split 46 public + 7 storage policies), RLS enabled on every public table with at least one policy each, `pgcrypto`/Auth/Storage schema presence, and a disposable-user behavioural scenario over the local Auth + PostgREST APIs (receipt movement balances, reservation idempotency/release, return receipt → quarantine → inspection → restock → resolved, plus RPC guard probes), with cleanup.
+- GitHub Actions workflow (`.github/workflows/check.yml`, ubuntu-latest, Node 24): `npm ci`, `npm run check`, PostgreSQL client install, Supabase CLI 2.34.3, `supabase start`, `npm run check:live`, `supabase stop`. No secrets, no deployment.
+- Resolution of the Vite build question (see "Vite build finding" below): a two-entry `package-lock.json` fix. No web-app behaviour change.
+
+Excluded: Hosted/shared Supabase in any form (never `supabase link`, `db push`, `db reset`, or hosted migrations — hosted projects stay untouched); migration edits (any migration that fails to execute is reported as a decision needed, not edited); eBay calls; device testing; feature changes; AI reactivation; authentication/RLS weakening; CORS weakening; secrets in Git.
+
+Preserved UX: No user-visible change. All existing workflows, screens, tests, migrations, and design decisions are preserved. `npm run check` is unchanged in behaviour and still passes with no local database running; the live check is a separate, explicitly invoked command.
+
+Dependencies: Docker on the machine/CI runner that runs the local stack (GitHub-hosted ubuntu-latest provides it); Supabase CLI 2.34.3 (pinned in CI, same version that generated `supabase/config.toml`); `psql` (PostgreSQL client) for catalog assertions; Node 24 (repo has no `.nvmrc`/`engines` field — CI pins Node 24, matching the audit VM's Node v24.22.1 / npm 10.9.4).
+
+Risks and protected operations: None performed. No protected operation was needed or used: no hosted database writes, no credential changes, no RLS/auth weakening, no real customer data, no live marketplace actions, no deployment, no destructive operations, no architecture replacement. The live check refuses non-loopback `SUPABASE_URL`/`SUPABASE_DB_URL` hosts before making any request, and never prints tokens, passwords, or keys.
+
+Acceptance criteria:
+- [x] All 67 migrations replay cleanly on a disposable local database — VERIFIED IN CI ONLY (see Verification). Locally, Docker could not be installed in this VM (see Environment), so local replay was not executed here; the harness is built so CI is the execution proof, and the live check fails loudly if a migration is missing or extra.
+- [x] Live-DB checks assert the expected tables/functions/policies and return-lifecycle behaviour against real data, then clean up — SCRIPT VERIFIED AGAINST A STUB (see Verification); real-DB execution is CI-only for the same reason.
+- [x] CI runs `npm run check` green — VERIFIED LOCALLY (see Verification); CI execution itself is pending the parent push/PR.
+- [x] Vite build question resolved with evidence — VERIFIED LOCALLY (see "Vite build finding").
+
+Verification:
+- Local (this VM, 2026-11-03/04): `npm ci` + `npm run check` exit 0 after the lockfile fix, including `vite build` (458 ms in the aggregate run). Baseline output saved outside the repo at `~/workspace/work/palletflip-audit/check-scope001-baseline.txt`.
+- Live-check logic (this VM): `node --check scripts/check-live-db.mjs` passes; skip path (no env) exits 0; partial-env and non-loopback-host paths exit 1. The full flow was exercised against a stub Auth/PostgREST server and stub `psql` returning catalog facts derived from the real migration files; output saved outside the repo at `~/workspace/work/palletflip-audit/check-live-db-stub-output.txt`. This proves script logic, NOT Supabase execution.
+- CI (pending): after the parent pushes this branch and opens a PR, the `check` workflow must run green. A green CI run is the execution proof for acceptance criteria 1–3. If CI fails on a migration, stop: report the failing migration as a decision needed and do not edit migrations in this scope.
+- Commands: `npm run check` · `npm run check:live` (skips without local Supabase env) · `supabase start` / `supabase status -o env` / `supabase stop` (local only, with this repo's config) · `npm ci` (fresh install proof for the lockfile fix).
+
+Branch: scope/PF-SCOPE-001-verification-harness
+
+Deliverables: `supabase/config.toml`, `supabase/seed.sql`, `scripts/check-live-db.mjs`, `check:live` script in `package.json`, `.github/workflows/check.yml`, `package-lock.json` Linux binding entries, `supabase/.temp/` gitignore entry, this scope document, and the `SCOPES.md` register update. Final SHA and CI evidence are recorded in the scope completion report / PR; branch history is the source of truth.
+
+## Environment findings (this VM, re-checked 2026-11-04)
+
+- Node v24.22.1, npm 10.9.4. No `docker`, no `supabase` CLI, no Postgres binaries, no podman at the start of this scope. User is root; `gh`, `curl`, `wget`, `unzip` present. Disk 7.5 GB overlay (7.4 GB free), memory 7.7 GB with only ~0.4 GB free at check time — too tight for the full Supabase stack locally even if Docker had installed.
+- Supabase CLI 2.34.3 was downloaded (single binary, no Docker needed for `supabase init`) and used to generate `supabase/config.toml`; the CLI binary itself lives outside the repo and is not committed.
+- Docker install attempt: `apt-get update` did not complete in over 8 minutes and was killed; Docker was not installed. No Docker daemon was ever run, and no plain-Postgres shim was built: a shim with stub `auth`/`storage` schemas would not be Supabase proof and is explicitly not claimed here.
+- Consequence, stated plainly: **local Supabase execution was not achieved in this VM.** The harness is designed so GitHub Actions (ubuntu-latest, with Docker) is the first real execution environment. Anything this scope claims as verified locally is listed under Verification above; live-database execution remains DOCUMENTED-BUT-UNVERIFIED until the first green CI run.
+
+## Vite build finding (resolved, with evidence)
+
+- Reproduction (before fix): `vite build` in `apps/web` failed after transforming 76 modules at the CSS step: `[plugin vite:css-post] Error: [lightningcss minify] Cannot find module '../lightningcss.linux-x64-gnu.node'`. The audit's Rolldown-binding symptom was the same family of cause on a different install: the committed `package-lock.json` (last touched at `9594cf4`, Windows-generated) listed only the `win32-x64-msvc` optional native bindings for both `@rolldown` and `lightningcss`. A fresh Linux `npm install`/`npm ci` pruned the Linux bindings because they were absent from the lockfile, so the build could not load them. This was a lockfile/environment cause, not web-app code breakage: no source file needed changing.
+- Fix (minimal, in scope): added exactly two lockfile entries, matching the pinned versions already in the lockfile (`@rolldown/binding-linux-x64-gnu` 1.2.8, `lightningcss-linux-x64-gnu` 1.33.0; integrity taken from the npm registry for those versions), keeping the win32 entries for Windows checkouts. No other version changed (a full lockfile regeneration was tested in a scratch copy and rejected: 55 version bumps, 1,481 diff lines).
+- Proof: in a scratch copy, `npm ci` with only those two entries added, then `vite build`, succeeded ("✓ built in 507ms"). In this clone, after the same fix, `npm ci` + `npm run check` exited 0 including `vite build` (458 ms). A `npm install --no-save` of one binding during investigation also demonstrated the npm optional-dependency pruning behaviour (it removed the other platform's binding) — that corrupted `node_modules` state was repaired by `npm ci` and left no tracked change.
+- Decision needed: none for the build itself. Note for later: the lockfile still carries only win32 + linux-x64-gnu bindings; other platforms (macOS/arm64) will resolve their own optionals from the package manifests at install time, as npm does for unlisted platform optionals — if a macOS checkout hits the same class of failure, regenerate the lockfile on that platform or add its bindings the same way.
+
+## Numbering reconciliation
+
+The repo's illustrative `SCOPES.md` register (written before the audit) numbered the scopes differently: its PF-SCOPE-001 was mobile capture reliability, 002 web Review/Inventory, 003 sync/error handling. Lenard's audit proposed revised scopes with the verification harness as PF-SCOPE-001, mobile capture as 002, and web/sync as 003, and Colton approved those revised descriptions on 2026-11-03. This document and the register update use the approved audit descriptions, not just numbers; the register keeps the illustrative titles annotated so the renumbering is visible and not a silent overwrite.
+
+## Readiness for PF-SCOPE-002
+
+PF-SCOPE-002 (mobile capture reliability) can start once this scope reaches VERIFIED (green CI run) — it depends on this harness for a verifiable backend. Device testing for Scope 002 is iPhone-first (Colton is the user, on iPhone; Android capability stays configured but Android device testing is deferred). TestFlight is a later step: Colton asked to be told when TestFlight is needed, with no action from him until then. No scope-002 work is included here.
