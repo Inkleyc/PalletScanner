@@ -1,5 +1,6 @@
 import { useState } from "react";
 
+import { getItemPhotos } from "@palletscanner/core";
 import { currency } from "./dashboard-model.js";
 
 export function Metric({ label, value, tone = "", onClick }) {
@@ -12,7 +13,7 @@ export function Metric({ label, value, tone = "", onClick }) {
 }
 
 export function ItemThumbnail({ item }) {
-  const uri = item.photos?.[0] ?? item.photo;
+  const uri = getItemPhotos(item)[0];
   if (!uri || uri.startsWith("mock://")) {
     return <div className="item-thumbnail placeholder" aria-label={uri ? `${item.name} preview photo` : `${item.name} has no photo`}><span>{uri ? item.name.charAt(0).toUpperCase() : "No photo"}</span></div>;
   }
