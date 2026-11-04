@@ -11,6 +11,14 @@ Record approvals here with date, scope, rationale, and links. Never label a reco
 - **PF-D-007:** Muse proposes small scopes; owner approves each before autonomous execution.
 - **PF-D-008:** Protected data, credential, production and live marketplace operations require separate explicit approval.
 
+## Confirmed by owner, 2026-11-03 (alignment conversation)
+Direction confirmed; implementation of each item still requires a separately approved scope. See `project-control/FUTURE_DIRECTIONS.md`.
+
+- **PF-D-009:** PalletFlip is hobbyist/small-business first and open to feature discussion, with architecture seams that allow expansion to a more corporate tool. Do not build team/corporate administration now.
+- **PF-D-010:** eBay remains the first marketplace. Other low-maintenance marketplaces may be added one at a time, with PalletFlip as inventory authority and cross-channel withdrawal/quantity updates when an item sells on another channel. Facebook remains assisted-only in the current product; Muse-assisted posting is an experiment idea only, not approved behaviour.
+- **PF-D-011:** AI integration is wanted and vendor-agnostic — best AI for the purpose, not necessarily Claude/Anthropic. AI drafts; the owner decides. Re-enabling AI requires a separately approved scope; the handoff "do not re-enable AI" control remains in force until then.
+- **PF-D-012:** Pallet/lot sourcing is deferred to a later version. Get the current operations scope built and running first; keep only a manual won-lot-to-pallet seam.
+
 ## Established historical direction; verify against code and current docs
 - Mobile warehouse capture / web business management split.
 - eBay integration and assisted Facebook Marketplace posting (do not assume an official automated posting API).
@@ -22,7 +30,10 @@ Record approvals here with date, scope, rationale, and links. Never label a reco
 - First 2–3 development scopes and their acceptance criteria.
 - Any proposed redesign or new capability.
 - Safe local-development data setup and environment readiness.
-- When to revisit AI, demos, TestFlight, release and monetization.
+- When to revisit AI, demos, TestFlight, release and monetization. (AI direction is confirmed in PF-D-011; timing, provider evaluation, and scope are pending.)
+- Which marketplace, if any, is the second channel after eBay.
+- Whether a supervised Muse-assisted posting experiment is worth running, and under what approval-per-listing rules.
+- What would trigger revisiting team/corporate capabilities.
 
 ## New entry template
 `PF-D-NNN | Date | Decision | Approved by owner? | Affected scope | Rationale | Affected docs/code`

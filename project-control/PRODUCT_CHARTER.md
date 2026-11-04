@@ -24,5 +24,13 @@ PalletFlip is a mobile-first resale operations platform for individuals and smal
 **Later:** demo/TestFlight/release infrastructure, monetization, and AI reactivation unless specifically scoped/approved.
 **Not automatically authorized:** unrelated products, new sales channels, major navigation changes, unapproved feature expansion, Facebook auto-posting claims, production deployments or live customer operations.
 
+## Future direction (owner-confirmed 2026-11-03)
+Direction only — not authorization to build. See `project-control/FUTURE_DIRECTIONS.md` for detail. Each item requires a separately approved scope, and protected operations still require separate explicit owner approval.
+
+- Hobbyist/small-business first, with architecture seams (business boundary, marketplace adapters, domain operations) that allow expansion to a larger, more corporate tool without building team/corporate administration now.
+- More marketplaces over time, only where low-maintenance for the operator, added one at a time with PalletFlip as inventory authority and cross-channel withdrawal/quantity updates when an item sells elsewhere. eBay remains first.
+- AI integration is wanted, vendor-agnostic (not tied to Claude/Anthropic), assistive rather than authoritative: AI drafts, the owner decides, sold comps and floor/approved prices guardrail pricing.
+- Pallet/lot sourcing is deferred to a later version; the current scope starts after acquisition, with only a manual won-lot-to-pallet seam kept.
+
 ## Product completion
 An operator should be able to capture and manage inventory on mobile, make operational decisions on web, use supported listing/fulfillment/return workflows, and trust consistent inventory and financial state. Evidence and manual acceptance matter more than claims of completeness.
