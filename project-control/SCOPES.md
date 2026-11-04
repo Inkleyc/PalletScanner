@@ -3,8 +3,8 @@ Owner-approved scopes, approved 2026-11-03 by Colton, to be worked in order (001
 
 | ID | Working title (approved description) | State | Owner approval | Branch |
 | --- | --- | --- | --- | --- |
-| PF-SCOPE-001 | Safe local verification harness + CI | IN_PROGRESS | APPROVED 2026-11-03 | scope/PF-SCOPE-001-verification-harness |
-| PF-SCOPE-002 | Mobile scan/photo → draft → save → next-item reliability | APPROVED (queued) | APPROVED 2026-11-03 | — |
+| PF-SCOPE-001 | Safe local verification harness + CI | CLOSED | APPROVED 2026-11-03 | scope/PF-SCOPE-001-verification-harness |
+| PF-SCOPE-002 | Mobile scan/photo → draft → save → next-item reliability | IN_PROGRESS | APPROVED 2026-11-03 | scope/PF-SCOPE-002-mobile-capture-reliability |
 | PF-SCOPE-003 | Web Review/Inventory decisions + cross-surface sync proof | APPROVED (queued) | APPROVED 2026-11-03 | — |
 
 Scope document for PF-SCOPE-001: `project-control/PF-SCOPE-001-verification-harness.md`. Use `SCOPE_PROTOCOL.md` for the required proposal template and lifecycle. Add links to scope-specific documents and PRs as work progresses.

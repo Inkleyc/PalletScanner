@@ -1,5 +1,5 @@
 # PF-SCOPE-001 — Safe local verification harness + CI
-Status: IN_PROGRESS
+Status: CLOSED
 Owner approval: APPROVED 2026-11-03 (Colton approved all three scopes, to be worked in order: 001, then 002, then 003)
 Objective: Prove the existing database schema and checks actually execute against a real, disposable local database, and run the existing aggregate checks in CI, before any feature work — so every later scope starts from verified ground instead of paper-only claims.
 
@@ -22,13 +22,13 @@ Risks and protected operations: None performed. No protected operation was neede
 Acceptance criteria:
 - [x] All 67 migrations replay cleanly on a disposable local database — VERIFIED IN CI ONLY (see Verification). Locally, Docker could not be installed in this VM (see Environment), so local replay was not executed here; the harness is built so CI is the execution proof, and the live check fails loudly if a migration is missing or extra.
 - [x] Live-DB checks assert the expected tables/functions/policies and return-lifecycle behaviour against real data, then clean up — SCRIPT VERIFIED AGAINST A STUB (see Verification); real-DB execution is CI-only for the same reason.
-- [x] CI runs `npm run check` green — VERIFIED LOCALLY (see Verification); CI execution itself is pending the parent push/PR.
+- [x] CI runs `npm run check` green — VERIFIED IN CI (see Completion report, 2026-11-04).
 - [x] Vite build question resolved with evidence — VERIFIED LOCALLY (see "Vite build finding").
 
 Verification:
 - Local (this VM, 2026-11-03/04): `npm ci` + `npm run check` exit 0 after the lockfile fix, including `vite build` (458 ms in the aggregate run). Baseline output saved outside the repo at `~/workspace/work/palletflip-audit/check-scope001-baseline.txt`.
 - Live-check logic (this VM): `node --check scripts/check-live-db.mjs` passes; skip path (no env) exits 0; partial-env and non-loopback-host paths exit 1. The full flow was exercised against a stub Auth/PostgREST server and stub `psql` returning catalog facts derived from the real migration files; output saved outside the repo at `~/workspace/work/palletflip-audit/check-live-db-stub-output.txt`. This proves script logic, NOT Supabase execution.
-- CI (pending): after the parent pushes this branch and opens a PR, the `check` workflow must run green. A green CI run is the execution proof for acceptance criteria 1–3. If CI fails on a migration, stop: report the failing migration as a decision needed and do not edit migrations in this scope.
+- CI (2026-11-04, green): the `check` workflow ran green on the merged head — see Completion report. A green CI run is the execution proof for acceptance criteria 1–3. No migration failed; no migration was edited in this scope.
 - CI Fix 4 (2026-11-04, script-only, evidence from migration text — no migration failure): the fourth CI run failed at "receipt movement refreshed on_hand to 2: expected 2, got 3". Ground truth, from the migrations: inserting an `inventory_items` row with `quantity: 1` fires `inventory_items_audit_quantity` (`audit_compatibility_quantity_change`, `202610100003_inventory_quantity_audit.sql`, redefined in `202610100014_keep_legacy_quantity_in_sync.sql`), which inserts an opening receipt movement of +1; `refresh_inventory_item_balance` (same files, final form in `202610100014`) sets `on_hand` to the SUM of all movements for the item, so the item already holds on_hand 1 before the script's explicit receipt of 2, and 1 + 2 = 3. The acquisitions insert has no movement side effect (its only trigger is `acquisitions_set_updated_at`), and `assign_inventory_authority` (`202610100001_inventory_authority_foundation.sql`) only fills `business_id`/`acquisition_id`. Corrected balance trace, with no assertion weakened or deleted and one opening-balance assertion added: opening 1, after receipt 3, reservation available 2, release available 3, return receipt on_hand 4 / available 3, restock on_hand 4 / available 4. The script's expectations were updated to this trace together with this note, per the script's own update-together rule.
 - Commands: `npm run check` · `npm run check:live` (skips without local Supabase env) · `supabase start` / `supabase status -o env` / `supabase stop` (local only, with this repo's config) · `npm ci` (fresh install proof for the lockfile fix).
 
@@ -49,6 +49,20 @@ Deliverables: `supabase/config.toml`, `supabase/seed.sql`, `scripts/check-live-d
 - Fix (minimal, in scope): added exactly two lockfile entries, matching the pinned versions already in the lockfile (`@rolldown/binding-linux-x64-gnu` 1.2.8, `lightningcss-linux-x64-gnu` 1.33.0; integrity taken from the npm registry for those versions), keeping the win32 entries for Windows checkouts. No other version changed (a full lockfile regeneration was tested in a scratch copy and rejected: 55 version bumps, 1,481 diff lines).
 - Proof: in a scratch copy, `npm ci` with only those two entries added, then `vite build`, succeeded ("✓ built in 507ms"). In this clone, after the same fix, `npm ci` + `npm run check` exited 0 including `vite build` (458 ms). A `npm install --no-save` of one binding during investigation also demonstrated the npm optional-dependency pruning behaviour (it removed the other platform's binding) — that corrupted `node_modules` state was repaired by `npm ci` and left no tracked change.
 - Decision needed: none for the build itself. Note for later: the lockfile still carries only win32 + linux-x64-gnu bindings; other platforms (macOS/arm64) will resolve their own optionals from the package manifests at install time, as npm does for unlisted platform optionals — if a macOS checkout hits the same class of failure, regenerate the lockfile on that platform or add its bindings the same way.
+
+## Completion report (2026-11-04)
+
+| Field | Record |
+| --- | --- |
+| Status | CLOSED — VERIFIED by green CI, merged to `main` under the owner's conditional + blanket git permission (2026-11-03 23:06/23:08 MST). |
+| Final SHA | Merge commit `c6179b35335fde59ccb2b02d77bb8f0eec15d7cd` on `main` (PR #3, head `555da8cd7f7c7ececa625e2485bc9de510b7e2e9`). |
+| CI evidence | Green runs 41837504317 (push) and 41837513131 (PR synchronize), both `success`, 2026-11-04 ~06:26 MST. The `check` workflow ran `npm run check` green and the full live-DB scenario green against disposable local Supabase. |
+| What was proven | All 67 migrations replayed exactly once (35 tables / 73 functions / 53 policies); RLS enabled on every public table with at least one policy each; `pgcrypto`/Auth/Storage presence; disposable-user behavioural scenario — receipt movement balances (opening receipt + explicit receipt), reservation idempotency/release, return receipt → quarantine → identity inspection → restock → resolved, plus RPC guard probes including the denial probe for the retired `inspect_return_line` function. |
+| User-visible changes | None. Harness, CI, and lockfile fix only; no app/server behaviour change. |
+| Fixes inside this scope | Six script-only fixes to `scripts/check-live-db.mjs` (no migration edits, no workflow-file change, no checks weakened): env-name fallbacks for `supabase status` output names; quote stripping; acquisitions parent row creation; opening-receipt balance expectations; single-row RPC result handling; identity-inspection RPC. Each was verified against migration text and a stub before pushing; each CI failure's cause was read from the Actions logs, never guessed. |
+| Remaining gaps/risks | Local Supabase execution was never achieved in the audit VM (no Docker; see Environment findings) — CI on GitHub-hosted runners is the execution proof, and the runbook is `npm run check:live` with this repo's `supabase/config.toml`. The lockfile carries win32 + linux-x64-gnu bindings only (see Vite build finding). The workflow file could not be pushed via the GitHub connector (403, workflows permission) and was added via the GitHub web editor; granting the connector workflows permission would remove that manual step for future workflow changes. |
+| Owner decision required | None for this scope. |
+| Proposed next scope | PF-SCOPE-002 (mobile capture reliability), already approved 2026-11-03, worked next in order. |
 
 ## Numbering reconciliation
 

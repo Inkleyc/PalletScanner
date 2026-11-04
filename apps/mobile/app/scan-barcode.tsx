@@ -75,6 +75,7 @@ import {
   completeEbayListingRequirements,
   openListingDraft,
 } from "@/lib/listing-posting";
+import { BARCODE_LOOKUP_TIMEOUT_MS, withTimeout } from "@/lib/timeout";
 import {
   type CaptureAnalysisResult,
   parseMoneyAmount,
@@ -335,12 +336,23 @@ export default function BarcodeScanScreen() {
     setLoading(true);
     setCurrentItemId(null);
     if (!isAnthropicConfigured()) {
-      const fallbackDraft = createPhotoFallbackDraft();
-      applyAnalysisResult(fallbackDraft);
+      if (!result) {
+        // No draft exists yet: apply the fallback with the scanned barcode
+        // and photo carried through, as the error branch below already does.
+        // When a barcode draft already exists it is kept as-is: replacing
+        // it with a generic photo draft would silently drop the barcode.
+        const fallbackDraft = createPhotoFallbackDraft();
+        applyAnalysisResult(fallbackDraft, {
+          barcode: barcodeValue,
+          productImageUri,
+        });
+      }
       setLoading(false);
       Alert.alert(
         "Online analysis not configured",
-        "A basic editable draft was created so you can still save this item.",
+        result
+          ? "The current draft is still editable. Add the details yourself, then save this item."
+          : "A basic editable draft was created so you can still save this item.",
       );
       return;
     }
@@ -628,7 +640,13 @@ If a barcode draft exists, use it as product identity context and use the photos
     let lookupError: Error | null = null;
 
     try {
-      product = await lookupBarcodeProduct(normalizedBarcode);
+      // Bounded so a hung network falls through to the fallback prompt
+      // below instead of spinning forever with no recovery path.
+      product = await withTimeout(
+        lookupBarcodeProduct(normalizedBarcode),
+        BARCODE_LOOKUP_TIMEOUT_MS,
+        "Barcode lookup timed out. Check the connection and try again, or use the basic draft.",
+      );
     } catch (error) {
       lookupError = error instanceof Error ? error : new Error(String(error));
       product = null;
@@ -1103,7 +1121,7 @@ ${productSummary}
 
         {scannerOpen && (
           <View style={styles.scannerCard}>
-            {Platform.OS === "web" ? <WebBarcodeScanner active={scannerOpen} onDetected={(data) => handleBarcodeScanned({ data })} onReady={() => setListingPhotoActionStatus("Scanner ready. Hold the barcode steady inside the frame.")} onError={(message) => { setScannerOpen(false); setListingPhotoActionStatus("Scanner could not start."); Alert.alert("Scanner could not start", `${message}\n\nCheck Safari camera permission, then reopen the scanner.`); }} /> : <CameraView
+            {Platform.OS === "web" ? <WebBarcodeScanner active={scannerOpen} onDetected={(data) => handleBarcodeScanned({ data })} onReady={() => setListingPhotoActionStatus("Scanner ready. Hold the barcode steady inside the frame.")} onError={(message) => { resetBarcodeScanState(); setListingPhotoActionStatus("Scanner could not start."); Alert.alert("Scanner could not start", `${message}\n\nCheck Safari camera permission, then reopen the scanner.`); }} /> : <CameraView
               style={styles.scannerView}
               active={scannerOpen}
               autofocus="on"
@@ -1117,7 +1135,7 @@ ${productSummary}
                 );
               }}
               onMountError={(event) => {
-                setScannerOpen(false);
+                resetBarcodeScanState();
                 setListingPhotoActionStatus("Scanner could not start.");
                 Alert.alert(
                   "Scanner could not start",
