@@ -1,0 +1,67 @@
+# PalletFlip verification harness (PF-SCOPE-001).
+#
+# Runs the aggregate `npm run check` (lint, typechecks, unit/contract
+# checks, web scaffold + vite build) and then proves the migrations
+# execute against a real disposable local Supabase stack, via
+# `npm run check:live`. No secrets are required: the local Supabase keys
+# are disposable values that only ever point at 127.0.0.1. Nothing here
+# deploys, and nothing touches a hosted Supabase project or eBay.
+#
+# The local stack needs Docker, which GitHub-hosted ubuntu-latest
+# provides. It is not assumed to exist on a developer machine: locally,
+# `npm run check` stays green without a database, and `npm run check:live`
+# skips cleanly when no local Supabase is configured.
+name: check
+
+on:
+  push:
+    branches: ["main", "scope/**", "experiment/**"]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out
+        uses: actions/checkout@v4
+
+      - name: Set up Node 24
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci --no-audit --no-fund
+
+      - name: Run aggregate checks
+        run: npm run check
+
+      - name: Install PostgreSQL client (for live-DB catalog checks)
+        run: sudo apt-get update && sudo apt-get install -y postgresql-client
+
+      - name: Set up Supabase CLI
+        uses: supabase/setup-cli@v1
+        with:
+          version: "2.34.3"
+
+      - name: Start disposable local Supabase
+        run: supabase start
+
+      - name: Export local Supabase environment
+        run: supabase status --output env >> "$GITHUB_ENV"
+
+      - name: Run live-database checks
+        run: npm run check:live
+        env:
+          # Local Postgres direct URL (documented Supabase local defaults).
+          # `supabase status -o env` also exports SUPABASE_URL and
+          # SUPABASE_ANON_KEY, which the check uses for its HTTP scenario.
+          SUPABASE_DB_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
+
+      - name: Stop disposable local Supabase
+        if: always()
+        run: supabase stop --no-backup

@@ -42,6 +42,9 @@ server-data/
 
 app-example
 
+# local Supabase runtime state (PF-SCOPE-001); config.toml itself is tracked
+supabase/.temp/
+
 # generated native folders
 /ios
 /android
