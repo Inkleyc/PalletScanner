@@ -236,6 +236,28 @@ async function api(path, { method = "GET", token = null, body = undefined, expec
   return data;
 }
 
+// PostgREST return shapes differ by endpoint kind: table endpoints return
+// JSON arrays, but an RPC whose function RETURNS a single composite row
+// (not SETOF) returns a single JSON object. Every RPC this script calls
+// returns exactly one row — reserve_inventory and
+// release_inventory_reservation RETURNS public.inventory_reservations,
+// receive_return_line and disposition_return_line RETURNS
+// public.return_lines, inspect_return_line RETURNS
+// public.return_inspections, and create_manual_return RETURNS
+// public.returns (migrations 202610100008, 202610100032, 202610100033) —
+// so destructuring an RPC result as an array throws TypeError on real
+// PostgREST. Normalize explicitly: accept the object itself, or (defensively)
+// a one-element array, and fail loudly on anything else. Table-endpoint
+// results keep their array destructuring below.
+const singleRow = (data, label) => {
+  if (Array.isArray(data)) {
+    assert(data.length === 1, `${label} must return exactly one row, got ${data.length}`);
+    return data[0];
+  }
+  assert(data !== null && typeof data === "object", `${label} must return a single row object`);
+  return data;
+};
+
 // Create the disposable user through the local Auth API. Local config has
 // email confirmations off, so sign-up returns a session immediately.
 const signup = await api("/auth/v1/signup", {
@@ -342,38 +364,49 @@ try {
   assertEqual(current.available, 3, "receipt movement raised available to 3 (opening receipt 1 + receipt 2)");
 
   // Reservation: reserve 1, prove idempotency, release, prove balances return.
-  const [reservation] = await api("/rest/v1/rpc/reserve_inventory", {
-    method: "POST",
-    token: userToken,
-    body: {
-      target_item_id: item.id,
-      reservation_source_type: "live_check",
-      reservation_source_id: suffix,
-      requested_units: 1,
-      reservation_idempotency_key: `live-check-reserve-${suffix}`,
-    },
-  });
+  const reservation = singleRow(
+    await api("/rest/v1/rpc/reserve_inventory", {
+      method: "POST",
+      token: userToken,
+      body: {
+        target_item_id: item.id,
+        reservation_source_type: "live_check",
+        reservation_source_id: suffix,
+        requested_units: 1,
+        reservation_idempotency_key: `live-check-reserve-${suffix}`,
+      },
+    }),
+    "reserve_inventory",
+  );
+  assert(reservation.id, "reserve_inventory returned a reservation id");
   assertEqual(reservation.reserved_quantity, 1, "reserve_inventory reserved 1 unit");
   assertEqual(reservation.state, "active", "reserve_inventory reservation is active");
   current = await getItem();
   assertEqual(current.available, 2, "reservation reduced available to 2");
-  const [reservationAgain] = await api("/rest/v1/rpc/reserve_inventory", {
-    method: "POST",
-    token: userToken,
-    body: {
-      target_item_id: item.id,
-      reservation_source_type: "live_check",
-      reservation_source_id: suffix,
-      requested_units: 1,
-      reservation_idempotency_key: `live-check-reserve-${suffix}`,
-    },
-  });
+  const reservationAgain = singleRow(
+    await api("/rest/v1/rpc/reserve_inventory", {
+      method: "POST",
+      token: userToken,
+      body: {
+        target_item_id: item.id,
+        reservation_source_type: "live_check",
+        reservation_source_id: suffix,
+        requested_units: 1,
+        reservation_idempotency_key: `live-check-reserve-${suffix}`,
+      },
+    }),
+    "reserve_inventory",
+  );
   assert(reservationAgain.id === reservation.id, "reserve_inventory is idempotent on its key (same reservation returned)");
-  const [released] = await api("/rest/v1/rpc/release_inventory_reservation", {
-    method: "POST",
-    token: userToken,
-    body: { target_reservation_id: reservation.id },
-  });
+  const released = singleRow(
+    await api("/rest/v1/rpc/release_inventory_reservation", {
+      method: "POST",
+      token: userToken,
+      body: { target_reservation_id: reservation.id },
+    }),
+    "release_inventory_reservation",
+  );
+  assert(released.id === reservation.id, "release_inventory_reservation returned the same reservation");
   assertEqual(released.state, "released", "release_inventory_reservation released the reservation");
   current = await getItem();
   assertEqual(current.available, 3, "release restored available to 3");
@@ -432,16 +465,20 @@ try {
     body: { business_id: businessId, owner_id: userId, order_id: order.id, state: "shipped" },
   });
   created.shipmentId = shipment.id;
-  const [returnRow] = await api("/rest/v1/rpc/create_manual_return", {
-    method: "POST",
-    token: userToken,
-    body: {
-      target_order_line_id: orderLine.id,
-      returned_quantity: 1,
-      return_reason: "Live-DB check return",
-      client_request_key: `live-check-return-${suffix}`,
-    },
-  });
+  const returnRow = singleRow(
+    await api("/rest/v1/rpc/create_manual_return", {
+      method: "POST",
+      token: userToken,
+      body: {
+        target_order_line_id: orderLine.id,
+        returned_quantity: 1,
+        return_reason: "Live-DB check return",
+        client_request_key: `live-check-return-${suffix}`,
+      },
+    }),
+    "create_manual_return",
+  );
+  assert(returnRow.id, "create_manual_return returned a return id");
   created.returnId = returnRow.id;
   assertEqual(returnRow.state, "requested", "create_manual_return created a requested return");
   const [returnLine] = await api(`/rest/v1/return_lines?return_id=eq.${returnRow.id}&select=id,inventory_state,inventory_item_id`, {
@@ -450,37 +487,47 @@ try {
   assertEqual(returnLine.inventory_state, "unavailable", "return line starts unavailable");
   assertEqual(returnLine.inventory_item_id, item.id, "return line matched to the live-check item");
 
-  const [received] = await api("/rest/v1/rpc/receive_return_line", {
-    method: "POST",
-    token: userToken,
-    body: { target_return_line_id: returnLine.id, receipt_note: "Live-DB check receipt" },
-  });
+  const received = singleRow(
+    await api("/rest/v1/rpc/receive_return_line", {
+      method: "POST",
+      token: userToken,
+      body: { target_return_line_id: returnLine.id, receipt_note: "Live-DB check receipt" },
+    }),
+    "receive_return_line",
+  );
   assertEqual(received.inventory_state, "quarantined", "receive_return_line quarantined the return");
   current = await getItem();
   assertEqual(current.on_hand, 4, "return receipt raised on_hand to 4");
   assertEqual(current.available, 3, "quarantine reservation held available at 3");
 
-  await api("/rest/v1/rpc/inspect_return_line", {
-    method: "POST",
-    token: userToken,
-    body: {
-      target_return_line_id: returnLine.id,
-      received_condition: "Good",
-      received_completeness: "Complete",
-      inspection_notes: "Live-DB check inspection",
-      disposition_recommendation: "restock",
-    },
-  });
+  const inspection = singleRow(
+    await api("/rest/v1/rpc/inspect_return_line", {
+      method: "POST",
+      token: userToken,
+      body: {
+        target_return_line_id: returnLine.id,
+        received_condition: "Good",
+        received_completeness: "Complete",
+        inspection_notes: "Live-DB check inspection",
+        disposition_recommendation: "restock",
+      },
+    }),
+    "inspect_return_line",
+  );
+  assert(inspection.id, "inspect_return_line returned an inspection id");
   pass("inspect_return_line recorded an inspection after quarantine");
-  const [dispositioned] = await api("/rest/v1/rpc/disposition_return_line", {
-    method: "POST",
-    token: userToken,
-    body: {
-      target_return_line_id: returnLine.id,
-      selected_disposition: "restock",
-      disposition_note: "Live-DB check restock",
-    },
-  });
+  const dispositioned = singleRow(
+    await api("/rest/v1/rpc/disposition_return_line", {
+      method: "POST",
+      token: userToken,
+      body: {
+        target_return_line_id: returnLine.id,
+        selected_disposition: "restock",
+        disposition_note: "Live-DB check restock",
+      },
+    }),
+    "disposition_return_line",
+  );
   assertEqual(dispositioned.inventory_state, "restocked", "disposition_return_line restocked the return");
   const [resolvedReturn] = await api(`/rest/v1/returns?id=eq.${returnRow.id}&select=state`, { token: userToken });
   assertEqual(resolvedReturn.state, "resolved", "return resolved once its only line was dispositioned");
