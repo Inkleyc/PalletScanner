@@ -24,6 +24,12 @@
 // DB_URL — as fallbacks. A set SUPABASE_* variable wins over its alias.
 // The checks below run against the resolved values either way.
 //
+// Quoting: `supabase status --output env` wraps each exported value in
+// surrounding double quotes (e.g. API_URL="http://127.0.0.1:54321").
+// Surrounding matching quotes (double or single) are stripped from each
+// resolved value after trimming, and a value that is empty after stripping
+// counts as unset.
+//
 // Safety: SUPABASE_URL / SUPABASE_DB_URL must point at 127.0.0.1 or
 // localhost. Anything else (including *.supabase.co) is rejected before
 // any request is made. No token, password, or key is ever printed.
@@ -35,9 +41,21 @@ import { promisify } from "node:util";
 
 const execFileAsync = promisify(execFile);
 
-const SUPABASE_URL = process.env.SUPABASE_URL || process.env.API_URL || "";
-const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY || process.env.ANON_KEY || "";
-const SUPABASE_DB_URL = process.env.SUPABASE_DB_URL || process.env.DB_URL || "";
+const cleanEnvValue = (value) => {
+  let cleaned = (value ?? "").trim();
+  if (cleaned.length >= 2) {
+    const first = cleaned[0];
+    const last = cleaned[cleaned.length - 1];
+    if ((first === '"' || first === "'") && first === last) {
+      cleaned = cleaned.slice(1, -1).trim();
+    }
+  }
+  return cleaned;
+};
+
+const SUPABASE_URL = cleanEnvValue(process.env.SUPABASE_URL) || cleanEnvValue(process.env.API_URL);
+const SUPABASE_ANON_KEY = cleanEnvValue(process.env.SUPABASE_ANON_KEY) || cleanEnvValue(process.env.ANON_KEY);
+const SUPABASE_DB_URL = cleanEnvValue(process.env.SUPABASE_DB_URL) || cleanEnvValue(process.env.DB_URL);
 
 if (!SUPABASE_URL && !SUPABASE_ANON_KEY && !SUPABASE_DB_URL) {
   console.log(
