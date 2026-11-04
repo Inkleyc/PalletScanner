@@ -28,6 +28,14 @@ const loadDotEnv = (path = ".env") => {
 
 loadDotEnv();
 
+// Settled defaults (PF-SCOPE-007; see also server/ebay.env.example and
+// server/ebay.production.env.example). AI is deferred/off by default
+// (charter; PF-D-011): an AI provider key is required by this check only
+// when AI is explicitly enabled with PALLETSCANNER_AI_ENABLED=true.
+// Without that flag, a missing ANTHROPIC_API_KEY must not fail the
+// production readiness check, and no AI behaviour is enabled by this
+// script. AI reactivation still requires a separately approved scope.
+
 const requiredProductionValues = [
   "EBAY_CLIENT_ID",
   "EBAY_CLIENT_SECRET",
@@ -41,7 +49,6 @@ const requiredProductionValues = [
   "PALLETSCANNER_ALLOWED_ORIGIN",
   "SUPABASE_URL",
   "SUPABASE_ANON_KEY",
-  "ANTHROPIC_API_KEY",
 ];
 
 const failures = [];
@@ -58,6 +65,14 @@ for (const key of requiredProductionValues) {
   if (!hasValue(key)) {
     failures.push(`${key} is required.`);
   }
+}
+
+const aiEnabled =
+  readEnv("PALLETSCANNER_AI_ENABLED").toLowerCase() === "true";
+if (aiEnabled && !hasValue("ANTHROPIC_API_KEY")) {
+  failures.push(
+    "ANTHROPIC_API_KEY is required when PALLETSCANNER_AI_ENABLED=true.",
+  );
 }
 
 if (readEnv("PALLETSCANNER_AUTH_MODE") !== "jwt") {
