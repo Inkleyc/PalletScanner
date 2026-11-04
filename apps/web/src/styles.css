@@ -751,6 +751,12 @@ a:focus-visible {
   font-size: 13px;
 }
 
+.data-source-note {
+  color: var(--app-text-muted);
+  font-size: 13px;
+  margin: 0 0 12px;
+}
+
 .sale-form {
   display: grid;
   gap: 12px;

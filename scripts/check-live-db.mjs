@@ -3,7 +3,10 @@
 // Proves the migrations in supabase/migrations/ actually execute against a
 // real, disposable LOCAL Supabase stack (`supabase start`) and that the
 // inventory/reservation and return-lifecycle RPCs behave against real data
-// as a real signed-in user. It never touches a hosted project.
+// as a real signed-in user. It never touches a hosted project. Section 4
+// (PF-SCOPE-003) adds the cross-surface round-trip: a mobile-shape write,
+// a web-shape read, a web-shape write, then a mobile-shape read of the
+// same row, proving both surfaces share one inventory record.
 //
 // Transport:
 //   * Catalog assertions (migration versions, table/function/policy counts,
@@ -573,6 +576,95 @@ try {
   current = await getItem();
   assertEqual(current.on_hand, 4, "restock disposition kept on_hand at 4");
   assertEqual(current.available, 4, "restock disposition released quarantine, available is 4");
+
+  // -------------------------------------------------------------------------
+  // 4. Cross-surface round-trip (PF-SCOPE-003). Mobile sync
+  // (apps/mobile/lib/cloud-inventory-sync.ts) and the web cloud repository
+  // (apps/web/src/supabase-inventory-repository.js) upsert the same
+  // inventory_items row on (owner_id, client_id) with the same decision
+  // columns. Prove one surface's write is visible to the other with
+  // nothing rewritten: a mobile-shape write, a web-shape read, a
+  // web-shape write, then a mobile-shape read. Balances must not move:
+  // price/decision edits are not stock movements. The floor rule itself
+  // is app-level (apps/web/src/item-decision-model.js) and is covered by
+  // unit tests; the database is not expected to reject a below-floor
+  // price, so this section writes valid prices only.
+  // -------------------------------------------------------------------------
+  const roundTripSelect =
+    "id,client_id,low_price,high_price,floor_price,listing_price,best_platform,workflow_status,listing_title,listing_description,facebook_title,ebay_title,listed_platforms,on_hand,available";
+  const mobileShapeWrite = {
+    low_price: 10,
+    high_price: 20,
+    floor_price: 8,
+    listing_price: 20,
+    best_platform: "eBay",
+    workflow_status: "ready",
+    listing_title: "Round-trip item",
+    listing_description: "Mobile write, web read.",
+    listed_platforms: [],
+  };
+  const mobilePatched = await api(`/rest/v1/inventory_items?id=eq.${created.itemId}`, {
+    method: "PATCH",
+    token: userToken,
+    body: mobileShapeWrite,
+  });
+  assert(mobilePatched.length === 1, "mobile-shape write matched the live-check item");
+  assertEqual(Number(mobilePatched[0].listing_price), 20, "mobile-shape write stored the approved price");
+  const webShapeRead = await api(
+    `/rest/v1/inventory_items?id=eq.${created.itemId}&select=${roundTripSelect}`,
+    { token: userToken },
+  );
+  assert(webShapeRead.length === 1, "web-shape read sees the mobile-written row");
+  const webRead = webShapeRead[0];
+  assertEqual(Number(webRead.client_id), 900001, "round-trip preserved client_id");
+  assertEqual(Number(webRead.low_price), 10, "web-shape read sees the mobile low price");
+  assertEqual(Number(webRead.high_price), 20, "web-shape read sees the mobile high price");
+  assertEqual(Number(webRead.floor_price), 8, "web-shape read sees the mobile floor price");
+  assertEqual(Number(webRead.listing_price), 20, "web-shape read sees the mobile approved price");
+  assertEqual(webRead.best_platform, "eBay", "web-shape read sees the mobile platform choice");
+  assertEqual(webRead.workflow_status, "ready", "web-shape read sees the mobile workflow status");
+  assertEqual(webRead.listing_title, "Round-trip item", "web-shape read sees the mobile listing title");
+  assertEqual(JSON.stringify(webRead.listed_platforms), JSON.stringify([]), "web-shape read sees the mobile platform list");
+  assertEqual(Number(webRead.on_hand), 4, "decision edit did not move on_hand");
+  assertEqual(Number(webRead.available), 4, "decision edit did not move available");
+  const webShapeWrite = {
+    low_price: 12,
+    high_price: 24,
+    floor_price: 9,
+    listing_price: 24,
+    best_platform: "Facebook",
+    workflow_status: "needs_research",
+    listing_title: "Round-trip item (web edit)",
+    listing_description: "Web write, mobile read.",
+    facebook_title: "Round-trip item (Facebook)",
+    ebay_title: "Round-trip item (eBay)",
+    listed_platforms: ["facebook"],
+  };
+  const webPatched = await api(`/rest/v1/inventory_items?id=eq.${created.itemId}`, {
+    method: "PATCH",
+    token: userToken,
+    body: webShapeWrite,
+  });
+  assert(webPatched.length === 1, "web-shape write matched the live-check item");
+  assertEqual(Number(webPatched[0].listing_price), 24, "web-shape write stored the approved price");
+  const mobileShapeRead = await api(
+    `/rest/v1/inventory_items?id=eq.${created.itemId}&select=${roundTripSelect}`,
+    { token: userToken },
+  );
+  assert(mobileShapeRead.length === 1, "mobile-shape read sees the web-written row");
+  const mobileRead = mobileShapeRead[0];
+  assertEqual(Number(mobileRead.low_price), 12, "mobile-shape read sees the web low price");
+  assertEqual(Number(mobileRead.high_price), 24, "mobile-shape read sees the web high price");
+  assertEqual(Number(mobileRead.floor_price), 9, "mobile-shape read sees the web floor price");
+  assertEqual(Number(mobileRead.listing_price), 24, "mobile-shape read sees the web approved price");
+  assertEqual(mobileRead.best_platform, "Facebook", "mobile-shape read sees the web platform choice");
+  assertEqual(mobileRead.workflow_status, "needs_research", "mobile-shape read sees the web workflow status");
+  assertEqual(mobileRead.listing_title, "Round-trip item (web edit)", "mobile-shape read sees the web listing title");
+  assertEqual(mobileRead.facebook_title, "Round-trip item (Facebook)", "mobile-shape read sees the web Facebook title");
+  assertEqual(mobileRead.ebay_title, "Round-trip item (eBay)", "mobile-shape read sees the web eBay title");
+  assertEqual(JSON.stringify(mobileRead.listed_platforms), JSON.stringify(["facebook"]), "mobile-shape read sees the web platform list");
+  assertEqual(Number(mobileRead.on_hand), 4, "web decision edit did not move on_hand");
+  assertEqual(Number(mobileRead.available), 4, "web decision edit did not move available");
 } finally {
   // Cleanup: delete what this run created, in FK-safe order, as postgres
   // (RLS has no delete policy for orders/order lines, so HTTP cleanup alone
