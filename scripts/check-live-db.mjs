@@ -308,6 +308,20 @@ try {
     },
   });
   created.itemId = item.id;
+  // The item insert itself is stock, not an empty shell: the
+  // compatibility audit trigger (inventory_items_audit_quantity,
+  // 202610100003, redefined in 202610100014) inserts an opening receipt
+  // movement for the item's quantity, and
+  // refresh_inventory_item_balance sets on_hand to the SUM of all
+  // movements for the item. So quantity 1 here already means on_hand 1
+  // before any explicit receipt; the receipt below ADDS to it. The
+  // acquisitions insert has no such side effect (its only trigger is
+  // set_updated_at), and assign_inventory_authority only fills
+  // business_id/acquisition_id. Pin the opening balance explicitly so
+  // the ledger semantics stay visible if the expectations below move.
+  const opening = await getItem();
+  assertEqual(opening.on_hand, 1, "item creation opening receipt set on_hand to 1");
+  assertEqual(opening.available, 1, "item creation opening receipt set available to 1");
   await api("/rest/v1/inventory_movements", {
     method: "POST",
     token: userToken,
@@ -324,8 +338,8 @@ try {
     },
   });
   let current = await getItem();
-  assertEqual(current.on_hand, 2, "receipt movement refreshed on_hand to 2");
-  assertEqual(current.available, 2, "receipt movement refreshed available to 2");
+  assertEqual(current.on_hand, 3, "receipt movement raised on_hand to 3 (opening receipt 1 + receipt 2)");
+  assertEqual(current.available, 3, "receipt movement raised available to 3 (opening receipt 1 + receipt 2)");
 
   // Reservation: reserve 1, prove idempotency, release, prove balances return.
   const [reservation] = await api("/rest/v1/rpc/reserve_inventory", {
@@ -342,7 +356,7 @@ try {
   assertEqual(reservation.reserved_quantity, 1, "reserve_inventory reserved 1 unit");
   assertEqual(reservation.state, "active", "reserve_inventory reservation is active");
   current = await getItem();
-  assertEqual(current.available, 1, "reservation reduced available to 1");
+  assertEqual(current.available, 2, "reservation reduced available to 2");
   const [reservationAgain] = await api("/rest/v1/rpc/reserve_inventory", {
     method: "POST",
     token: userToken,
@@ -362,7 +376,7 @@ try {
   });
   assertEqual(released.state, "released", "release_inventory_reservation released the reservation");
   current = await getItem();
-  assertEqual(current.available, 2, "release restored available to 2");
+  assertEqual(current.available, 3, "release restored available to 3");
 
   // Guard probes: the RPCs must execute and reject unknown ids, not just
   // exist in migration text.
@@ -443,8 +457,8 @@ try {
   });
   assertEqual(received.inventory_state, "quarantined", "receive_return_line quarantined the return");
   current = await getItem();
-  assertEqual(current.on_hand, 3, "return receipt raised on_hand to 3");
-  assertEqual(current.available, 2, "quarantine reservation held available at 2");
+  assertEqual(current.on_hand, 4, "return receipt raised on_hand to 4");
+  assertEqual(current.available, 3, "quarantine reservation held available at 3");
 
   await api("/rest/v1/rpc/inspect_return_line", {
     method: "POST",
@@ -471,8 +485,8 @@ try {
   const [resolvedReturn] = await api(`/rest/v1/returns?id=eq.${returnRow.id}&select=state`, { token: userToken });
   assertEqual(resolvedReturn.state, "resolved", "return resolved once its only line was dispositioned");
   current = await getItem();
-  assertEqual(current.on_hand, 3, "restock disposition kept on_hand at 3");
-  assertEqual(current.available, 3, "restock disposition released quarantine, available is 3");
+  assertEqual(current.on_hand, 4, "restock disposition kept on_hand at 4");
+  assertEqual(current.available, 4, "restock disposition released quarantine, available is 4");
 } finally {
   // Cleanup: delete what this run created, in FK-safe order, as postgres
   // (RLS has no delete policy for orders/order lines, so HTTP cleanup alone
