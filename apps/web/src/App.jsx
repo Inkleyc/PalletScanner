@@ -12,6 +12,7 @@ import {
   summarizeInventory,
   summarizePallet,
 } from "./dashboard-model.js";
+import { applyBulkDecision, describeDataSource, toDecisionCandidate, validateItemDecision, validateItemPrices } from "./item-decision-model.js";
 import { getRepositoryMode, repository, useCloudRepository, useLocalRepository } from "./repository-router.js";
 import { isSupabaseConfigured, supabase } from "./supabase.js";
 import { buildAnalytics } from "./analytics-model.js";
@@ -110,7 +111,7 @@ function PhotoReview({ item, onSave }) {
       const low = Number(result.low_price); const high = Number(result.high_price); const floor = Number(result.floor_price);
       const nextLow = Number.isFinite(low) ? low : price(item, "low");
       const nextHigh = Number.isFinite(high) ? high : price(item, "high");
-      await onSave({
+      const nextItem = {
         ...item,
         name: result.name?.trim() || item.name,
         category: result.category?.trim() || item.category,
@@ -128,7 +129,13 @@ function PhotoReview({ item, onSave }) {
         listing_description_facebook: result.listing_description_facebook?.trim() || item.listing_description_facebook,
         ebayItemSpecifics: { ...(item.ebayItemSpecifics ?? {}), ...(result.ebay_item_specifics ?? {}) },
         status: "needs_review",
-      });
+      };
+      const priceErrors = validateItemPrices(toDecisionCandidate(nextItem));
+      if (priceErrors.length > 0) {
+        setError(`${priceErrors[0]} Fix the prices in the item editor before saving this analysis.`);
+        return;
+      }
+      await onSave(nextItem);
     } catch (analysisError) { setError(analysisError instanceof Error ? analysisError.message : "AI could not analyze these photos."); }
     finally { setWorking(""); }
   };
@@ -197,8 +204,10 @@ function AddItemDialog({ pallets, activePalletId, onCancel, onCreate }) {
     if (!draft.palletId) return setError("Choose a pallet first.");
     if (!Number.isInteger(quantity) || quantity < 1) return setError("Quantity must be a whole number of at least 1.");
     if (itemWeightOz !== null && (!Number.isFinite(itemWeightOz) || itemWeightOz <= 0)) return setError("Item weight must be blank or greater than zero.");
-    if (![low, high, floor].every((value) => Number.isFinite(value) && value >= 0)) return setError("Prices must be valid non-negative numbers.");
-    if (high < low) return setError("High price cannot be lower than low price.");
+    const listingPrice = preferredListingPrice(low, high);
+    const decisionErrors = validateItemDecision({ name: draft.name.trim() || "New item", condition: draft.condition.trim() || "Details need review", quantity, low, high, floor, listingPrice });
+    const firstDecisionError = decisionErrors[0];
+    if (firstDecisionError) return setError(firstDecisionError);
     setSaving(true); setError("");
     try {
       await onCreate({
@@ -211,7 +220,7 @@ function AddItemDialog({ pallets, activePalletId, onCancel, onCreate }) {
         itemWeightGrams: itemWeightOz === null ? null : Math.round(itemWeightOz * 28.349523125),
         low, high, floor,
         low_price: low, high_price: high, floor_price: floor,
-        listing_price: preferredListingPrice(low, high),
+        listing_price: listingPrice,
         status: "needs_review",
         platform: draft.platform,
         best_platform: draft.platform,
@@ -424,12 +433,12 @@ function InventoryDetail({ item, palletName, pallets, onSave, onRemove, onSaleRe
     const soldPrice = draft.soldPrice.trim() === "" ? null : Number(draft.soldPrice);
     const quantityChanged = quantity !== getQuantity(item);
     const persistedQuantity = item.quantity + (quantity - getQuantity(item));
-    if (!draft.name.trim() || !draft.condition.trim()) return setError("Name and condition are required.");
-    if (!Number.isInteger(quantity) || quantity < 1) return setError("Quantity must be a whole number of at least 1.");
-    if (quantityChanged && !draft.quantityReason.trim()) return setError("Choose a reason whenever you change quantity.");
-    if (![low, high, floor, listingPrice].every((value) => Number.isFinite(value) && value >= 0)) return setError("Prices must be valid non-negative numbers.");
-    if (high < low) return setError("High price cannot be lower than low price.");
-    if (listingPrice < floor) return setError("Approved listing price cannot be lower than the floor price.");
+    const decisionErrors = validateItemDecision(
+      { name: draft.name, condition: draft.condition, quantity, low, high, floor, listingPrice },
+      { previousQuantity: getQuantity(item), quantityReason: draft.quantityReason },
+    );
+    const firstDecisionError = decisionErrors[0];
+    if (firstDecisionError) return setError(firstDecisionError);
     if (itemWeightOz !== null && (!Number.isFinite(itemWeightOz) || itemWeightOz <= 0)) return setError("Item weight must be blank or greater than zero.");
     if (soldPrice !== null && (!Number.isFinite(soldPrice) || soldPrice < 0)) return setError("Sold price must be blank or a valid non-negative number.");
     setSaving(true); setError("");
@@ -521,6 +530,7 @@ function InventoryDetail({ item, palletName, pallets, onSave, onRemove, onSaleRe
     <>
     <section className="inventory-detail" aria-label="Selected inventory item">
       <div className="panel-heading"><h3>{item.name}</h3><div className="detail-header-actions">{allowEditing && <button onClick={() => setEditing(true)}>Edit item</button>}{onClose && <button type="button" onClick={onClose}>Close</button>}</div></div>
+      <p className="data-source-note">{describeDataSource(getRepositoryMode()).note}</p>
       <div className="item-detail-workspace">
         <PhotoReview item={item} onSave={onSave} />
         <div className="item-detail-content">
@@ -1878,11 +1888,19 @@ export function App() {
   const bulkUpdate = async (label, transform) => {
     const chosen = items.filter((item) => selectedIds.has(item.id));
     if (chosen.length === 0) return;
+    const { applied, skipped } = applyBulkDecision(chosen, transform);
+    if (applied.length === 0) {
+      notify(`No items ${label} — ${skipped[0]?.errors[0] ?? "no items passed the price checks."}`);
+      return;
+    }
     setBulkSaving(true);
     try {
-      for (const item of chosen) await repository.saveItem(transform(item));
-      setSelectedIds(new Set());
-      notify(`${chosen.length} item${chosen.length === 1 ? "" : "s"} ${label}.`);
+      for (const candidate of applied) await repository.saveItem(candidate);
+      // Keep skipped items selected so the operator can inspect them.
+      setSelectedIds(new Set(skipped.map(({ item }) => item.id)));
+      notify(skipped.length > 0
+        ? `${applied.length} item${applied.length === 1 ? "" : "s"} ${label}; ${skipped.length} skipped — ${skipped[0].errors[0]}`
+        : `${applied.length} item${applied.length === 1 ? "" : "s"} ${label}.`);
     } catch (error) {
       notify(error instanceof Error ? error.message : "Bulk update failed.");
     } finally { setBulkSaving(false); }
@@ -1909,7 +1927,7 @@ export function App() {
         <OperationsAttention onNavigate={navigate} />
         {pallets.length === 0 && <section className="panel getting-started"><span className="admin-kicker">Start here</span><h3>Create your first pallet</h3><p>A pallet groups its purchase cost, inventory, listings, and profit. Create one before adding items.</p><button className="primary-button" onClick={async () => { const pallet = await repository.createPallet("Pallet 1"); await repository.setActivePallet(pallet.id); notify("Your first pallet is ready."); navigate("pallets"); }}>Create first pallet</button></section>}
         </div>}
-        {view === "review" && <section className="panel review-panel"><div className="saved-views" aria-label="Review queues">{workViews.map((workView) => <button key={workView.id} aria-pressed={workFilter === workView.id} onClick={() => setWorkFilter(workView.id)}><span>{workView.label}</span><strong>{workView.count}</strong></button>)}</div><div className="review-workspace"><div className="review-list" aria-label="Items to review">{reviewItems.length === 0 ? <div className="empty-queue"><strong>This queue is clear</strong><span>Choose another review category.</span></div> : reviewItems.map((item) => <button key={item.id} onClick={() => setInventoryModalId(item.id)}><ItemThumbnail item={item} /><div><strong>{item.name}</strong><span>{palletName(item.palletId)} · {getDisplayPlatform(item)}</span></div><span className={`badge ${statusClass[getDisplayStatus(item)]}`}>{statusLabel[getDisplayStatus(item)]}</span></button>)}</div></div></section>}
+        {view === "review" && <section className="panel review-panel"><p className="data-source-note">{describeDataSource(getRepositoryMode()).note}</p><div className="saved-views" aria-label="Review queues">{workViews.map((workView) => <button key={workView.id} aria-pressed={workFilter === workView.id} onClick={() => setWorkFilter(workView.id)}><span>{workView.label}</span><strong>{workView.count}</strong></button>)}</div><div className="review-workspace"><div className="review-list" aria-label="Items to review">{reviewItems.length === 0 ? <div className="empty-queue"><strong>This queue is clear</strong><span>Choose another review category.</span></div> : reviewItems.map((item) => <button key={item.id} onClick={() => setInventoryModalId(item.id)}><ItemThumbnail item={item} /><div><strong>{item.name}</strong><span>{palletName(item.palletId)} · {getDisplayPlatform(item)}</span></div><span className={`badge ${statusClass[getDisplayStatus(item)]}`}>{statusLabel[getDisplayStatus(item)]}</span></button>)}</div></div></section>}
         {view === "pallets" && <PalletManager pallets={pallets} summaries={palletSummaries} activePalletId={snapshot.activePalletId} selectedPalletId={palletFilter} onFilter={(id) => { setPalletFilter(id); navigate("inventory"); }} />}
         {view === "analysis" && <AnalysisPanel snapshot={snapshot} />}
         {view === "orders" && <OrdersPanel />}
