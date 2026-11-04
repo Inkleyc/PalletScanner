@@ -50,7 +50,18 @@ const loadEnvFile = async (filename) => {
 await loadEnvFile(path.join(projectRoot, ".env"));
 await loadEnvFile(path.join(__dirname, ".env"));
 
-const EBAY_ENVIRONMENT = process.env.EBAY_ENVIRONMENT ?? "production";
+// Settled default (PF-SCOPE-007): EBAY_ENVIRONMENT has NO default. It must
+// be set explicitly to "sandbox" or "production" (via the environment or a
+// local .env file, loaded above). An unset value used to silently mean
+// production — the riskiest direction — so the server now refuses to start
+// instead of guessing. Production is only ever reached by explicit setting.
+// Deployed services set this explicitly (render.yaml: sandbox).
+const EBAY_ENVIRONMENT = process.env.EBAY_ENVIRONMENT;
+if (!EBAY_ENVIRONMENT) {
+  throw new Error(
+    "EBAY_ENVIRONMENT must be set explicitly to \"sandbox\" or \"production\"; it has no default.",
+  );
+}
 if (!["sandbox", "production"].includes(EBAY_ENVIRONMENT)) {
   throw new Error(
     "EBAY_ENVIRONMENT must be either \"sandbox\" or \"production\".",
@@ -73,7 +84,13 @@ const marketplaceId = process.env.EBAY_MARKETPLACE_ID ?? "EBAY_US";
 const currency = process.env.EBAY_CURRENCY ?? "USD";
 const locale = process.env.EBAY_LOCALE ?? "en-US";
 const fallbackCategoryId = process.env.EBAY_CATEGORY_ID ?? "";
-const allowedOrigin = process.env.PALLETSCANNER_ALLOWED_ORIGIN ?? "*";
+// Settled default (PF-SCOPE-007): PALLETSCANNER_ALLOWED_ORIGIN defaults
+// to "*" ONLY for sandbox/local runs. Production requires an explicit,
+// specific origin; an unset or "*" origin in production makes the server
+// refuse to start (see validateProductionConfiguration). Never rely on the
+// "*" default outside sandbox/local development.
+const allowedOrigin =
+  process.env.PALLETSCANNER_ALLOWED_ORIGIN ?? (isSandbox ? "*" : undefined);
 const rehearsalOrigin = process.env.PALLETSCANNER_REHEARSAL_ORIGIN ?? "";
 const listingRateLimit = Number(
   process.env.PALLETSCANNER_LISTING_RATE_LIMIT_PER_MINUTE ?? 20,
@@ -217,7 +234,7 @@ const validateProductionConfiguration = () => {
     if (getAuthMode() !== "jwt") {
       throw new Error("Production requires PALLETSCANNER_AUTH_MODE=jwt.");
     }
-    if (allowedOrigin === "*") {
+    if (!allowedOrigin || allowedOrigin === "*") {
       throw new Error(
         "Production requires a specific PALLETSCANNER_ALLOWED_ORIGIN.",
       );
