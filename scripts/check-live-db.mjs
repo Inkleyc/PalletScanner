@@ -242,13 +242,22 @@ async function api(path, { method = "GET", token = null, body = undefined, expec
 // returns exactly one row — reserve_inventory and
 // release_inventory_reservation RETURNS public.inventory_reservations,
 // receive_return_line and disposition_return_line RETURNS
-// public.return_lines, inspect_return_line RETURNS
+// public.return_lines, inspect_return_line_with_identity RETURNS
 // public.return_inspections, and create_manual_return RETURNS
-// public.returns (migrations 202610100008, 202610100032, 202610100033) —
+// public.returns (migrations 202610100008, 202610100032, 202610100033,
+// 202610100038) —
 // so destructuring an RPC result as an array throws TypeError on real
 // PostgREST. Normalize explicitly: accept the object itself, or (defensively)
 // a one-element array, and fail loudly on anything else. Table-endpoint
 // results keep their array destructuring below.
+//
+// Return inspection goes through inspect_return_line_with_identity, not
+// the earlier inspect_return_line: migration
+// 202610100038_return_identity_evidence.sql:105 revokes execute on
+// inspect_return_line from authenticated (it is retired) and grants the
+// 8-argument inspect_return_line_with_identity instead, which is what the
+// web app calls. The script probes the retired function's denial and
+// inspects through the replacement.
 const singleRow = (data, label) => {
   if (Array.isArray(data)) {
     assert(data.length === 1, `${label} must return exactly one row, got ${data.length}`);
@@ -438,6 +447,22 @@ try {
     expectError: "Order line was not found.",
   });
   pass("create_manual_return guard rejects an unknown order line");
+  // The retired inspect_return_line is revoked for the signed-in role
+  // (202610100038:105), so calling it must be denied before it executes —
+  // the permission error, not a validation error, is the expected proof.
+  await api("/rest/v1/rpc/inspect_return_line", {
+    method: "POST",
+    token: userToken,
+    body: {
+      target_return_line_id: randomUUID(),
+      received_condition: "Good",
+      received_completeness: "Complete",
+      inspection_notes: "Live-DB check guard probe",
+      disposition_recommendation: "restock",
+    },
+    expectError: "permission denied for function inspect_return_line",
+  });
+  pass("inspect_return_line is revoked for the signed-in role (permission denied)");
 
   // Return lifecycle, end to end: shipped order -> manual return -> receipt
   // into quarantine -> inspection -> restock disposition -> resolved.
@@ -500,8 +525,15 @@ try {
   assertEqual(current.on_hand, 4, "return receipt raised on_hand to 4");
   assertEqual(current.available, 3, "quarantine reservation held available at 3");
 
+  // inspect_return_line_with_identity (202610100038) is the current
+  // inspection RPC: the 5-argument inspect_return_line was revoked for
+  // authenticated. A 'match' result requires both serials to be present
+  // (the function raises otherwise), and no photo evidence is required
+  // for a match — evidence is only required before recording a mismatch.
+  // The matching serials below exercise the identity path the migration
+  // was built for, while keeping the restock recommendation.
   const inspection = singleRow(
-    await api("/rest/v1/rpc/inspect_return_line", {
+    await api("/rest/v1/rpc/inspect_return_line_with_identity", {
       method: "POST",
       token: userToken,
       body: {
@@ -510,12 +542,19 @@ try {
         received_completeness: "Complete",
         inspection_notes: "Live-DB check inspection",
         disposition_recommendation: "restock",
+        original_serial: "LIVE-CHECK-SN-001",
+        returned_serial: "LIVE-CHECK-SN-001",
+        inspected_identity_result: "match",
       },
     }),
-    "inspect_return_line",
+    "inspect_return_line_with_identity",
   );
-  assert(inspection.id, "inspect_return_line returned an inspection id");
-  pass("inspect_return_line recorded an inspection after quarantine");
+  assert(inspection.id, "inspect_return_line_with_identity returned an inspection id");
+  assertEqual(inspection.identity_result, "match", "inspection recorded a matching identity result");
+  assertEqual(inspection.original_serial_number, "LIVE-CHECK-SN-001", "inspection stored the original serial number");
+  assertEqual(inspection.returned_serial_number, "LIVE-CHECK-SN-001", "inspection stored the returned serial number");
+  assertEqual(inspection.recommended_disposition, "restock", "matching identity kept the restock recommendation");
+  pass("inspect_return_line_with_identity recorded an inspection after quarantine");
   const dispositioned = singleRow(
     await api("/rest/v1/rpc/disposition_return_line", {
       method: "POST",
