@@ -251,7 +251,7 @@ const userId = signup.user.id;
 const userToken = signup.access_token;
 console.log(`Disposable live-check user created (id ${userId}); no credentials printed.`);
 
-const created = { palletId: null, itemId: null, orderId: null, shipmentId: null, returnId: null };
+const created = { palletId: null, acquisitionId: null, itemId: null, orderId: null, shipmentId: null, returnId: null };
 
 async function getItem() {
   const rows = await api(`/rest/v1/inventory_items?id=eq.${created.itemId}&select=id,on_hand,reserved,available,shortage`, {
@@ -278,12 +278,29 @@ try {
     body: { owner_id: userId, business_id: businessId, client_id: `live-check-${suffix}`, name: "Live-DB check pallet" },
   });
   created.palletId = pallet.id;
+  // inventory_items.acquisition_id is NOT NULL with FK (acquisition_id,
+  // business_id) -> acquisitions(id, business_id). The migration backfill
+  // created one acquisition per pre-existing pallet, but a brand-new pallet
+  // has no acquisitions row, so the parent row must be created first —
+  // inserting the item without it fails with FK violation 23503.
+  const [acquisition] = await api("/rest/v1/acquisitions", {
+    method: "POST",
+    token: userToken,
+    body: {
+      owner_id: userId,
+      business_id: businessId,
+      type: "pallet",
+      name: "Live-DB check acquisition",
+    },
+  });
+  created.acquisitionId = acquisition.id;
   const [item] = await api("/rest/v1/inventory_items", {
     method: "POST",
     token: userToken,
     body: {
       owner_id: userId,
       business_id: businessId,
+      acquisition_id: acquisition.id,
       pallet_id: pallet.id,
       client_id: 900001,
       name: "Live-DB check item",
@@ -472,6 +489,7 @@ try {
       delete from public.inventory_reservations where inventory_item_id = '${created.itemId ?? "00000000-0000-0000-0000-000000000000"}';
       delete from public.inventory_movements where inventory_item_id = '${created.itemId ?? "00000000-0000-0000-0000-000000000000"}';
       delete from public.inventory_items where id = '${created.itemId ?? "00000000-0000-0000-0000-000000000000"}';
+      delete from public.acquisitions where id = '${created.acquisitionId ?? "00000000-0000-0000-0000-000000000000"}';
       delete from public.pallets where id = '${created.palletId ?? "00000000-0000-0000-0000-000000000000"}';
     `;
     try {
