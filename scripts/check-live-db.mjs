@@ -600,6 +600,24 @@ try {
   created.clientItemId = clientItem.id;
   assertEqual(clientItem.acquisition_id, clientPallet.id, "client-shaped item insert resolves acquisition_id from its pallet");
   assertEqual(clientItem.business_id, businessId, "client-shaped item insert resolves business_id from its owner");
+
+  // PF-SCOPE-012: the web cloud repository translates its local status
+  // vocabulary to the database vocabulary before saving. The web add-item,
+  // AI-analysis, and photo-save flows assign "needs_review", which the
+  // workflow_status CHECK rejects; the repository maps it to "captured".
+  // Pin both halves: the translation itself (imported from the web module)
+  // and a live insert using its output.
+  const { toCloudWorkflowStatus } = await import("../apps/web/src/supabase-inventory-repository.js");
+  assertEqual(toCloudWorkflowStatus("needs_review"), "captured", "web local status needs_review translates to captured");
+  assertEqual(toCloudWorkflowStatus("ready"), "ready", "database status passes through translation untouched");
+  assertEqual(toCloudWorkflowStatus(undefined), "captured", "missing status defaults to captured");
+  const [webItem] = await api("/rest/v1/inventory_items", {
+    method: "POST",
+    token: userToken,
+    body: { owner_id: userId, pallet_id: clientPallet.id, client_id: 900003, name: "Live-DB check web item", quantity: 0, workflow_status: toCloudWorkflowStatus("needs_review") },
+  });
+  created.webItemId = webItem.id;
+  assertEqual(webItem.workflow_status, "captured", "item saved with the translated status persists as captured");
 } finally {
   // Cleanup: delete what this run created, in FK-safe order, as postgres
   // (RLS has no delete policy for orders/order lines, so HTTP cleanup alone
@@ -620,6 +638,8 @@ try {
       delete from public.pallets where id = '${created.palletId ?? "00000000-0000-0000-0000-000000000000"}';
       delete from public.inventory_movements where inventory_item_id = '${created.clientItemId ?? "00000000-0000-0000-0000-000000000000"}';
       delete from public.inventory_items where id = '${created.clientItemId ?? "00000000-0000-0000-0000-000000000000"}';
+      delete from public.inventory_movements where inventory_item_id = '${created.webItemId ?? "00000000-0000-0000-0000-000000000000"}';
+      delete from public.inventory_items where id = '${created.webItemId ?? "00000000-0000-0000-0000-000000000000"}';
       delete from public.acquisitions where id = '${created.clientPalletId ?? "00000000-0000-0000-0000-000000000000"}';
       delete from public.pallets where id = '${created.clientPalletId ?? "00000000-0000-0000-0000-000000000000"}';
     `;
