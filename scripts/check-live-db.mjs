@@ -618,6 +618,41 @@ try {
   });
   created.webItemId = webItem.id;
   assertEqual(webItem.workflow_status, "captured", "item saved with the translated status persists as captured");
+
+  // PF-SCOPE-014: pallet removal is an archive, not a delete. Both apps set
+  // archived_at on the pallet's items and then on the pallet itself; the
+  // rows (and the stocked item's ledger movements) persist, and the pallet
+  // leaves the active view (archived_at is null) that both apps load. Before
+  // PF-SCOPE-014 the pallet delete cascaded to its items and failed on the
+  // movement foreign keys for any pallet that ever held stock.
+  const [archivePallet] = await api("/rest/v1/pallets", {
+    method: "POST",
+    token: userToken,
+    body: { owner_id: userId, client_id: `live-check-archive-${suffix}`, name: "Live-DB check archive pallet" },
+  });
+  created.archivePalletId = archivePallet.id;
+  await api("/rest/v1/acquisitions", {
+    method: "POST",
+    token: userToken,
+    body: { id: archivePallet.id, owner_id: userId, business_id: businessId, legacy_pallet_id: archivePallet.id, type: "pallet", name: "Live-DB check archive pallet", purchase_price: null },
+  });
+  const [archiveItem] = await api("/rest/v1/inventory_items", {
+    method: "POST",
+    token: userToken,
+    body: { owner_id: userId, pallet_id: archivePallet.id, client_id: 900004, name: "Live-DB check archive item", quantity: 2 },
+  });
+  created.archiveItemId = archiveItem.id;
+  const movementsBefore = await api(`/rest/v1/inventory_movements?inventory_item_id=eq.${archiveItem.id}&select=id`, { token: userToken });
+  assertEqual(movementsBefore.length, 1, "stocked archive-check item carries its opening movement");
+  const archiveStamp = new Date().toISOString();
+  await api(`/rest/v1/inventory_items?id=eq.${archiveItem.id}`, { method: "PATCH", token: userToken, body: { archived_at: archiveStamp } });
+  await api(`/rest/v1/pallets?id=eq.${archivePallet.id}`, { method: "PATCH", token: userToken, body: { archived_at: archiveStamp } });
+  const [archivedPalletRow] = await api(`/rest/v1/pallets?id=eq.${archivePallet.id}&select=archived_at`, { token: userToken });
+  assert(archivedPalletRow.archived_at !== null, "archived pallet row persists with archived_at set (no hard delete)");
+  const activeArchivePallets = await api(`/rest/v1/pallets?id=eq.${archivePallet.id}&archived_at=is.null&select=id`, { token: userToken });
+  assertEqual(activeArchivePallets.length, 0, "archived pallet leaves the active pallet view both apps load");
+  const movementsAfter = await api(`/rest/v1/inventory_movements?inventory_item_id=eq.${archiveItem.id}&select=id`, { token: userToken });
+  assertEqual(movementsAfter.length, movementsBefore.length, "archiving left the item's ledger movements intact");
 } finally {
   // Cleanup: delete what this run created, in FK-safe order, as postgres
   // (RLS has no delete policy for orders/order lines, so HTTP cleanup alone
@@ -640,6 +675,10 @@ try {
       delete from public.inventory_items where id = '${created.clientItemId ?? "00000000-0000-0000-0000-000000000000"}';
       delete from public.inventory_movements where inventory_item_id = '${created.webItemId ?? "00000000-0000-0000-0000-000000000000"}';
       delete from public.inventory_items where id = '${created.webItemId ?? "00000000-0000-0000-0000-000000000000"}';
+      delete from public.inventory_movements where inventory_item_id = '${created.archiveItemId ?? "00000000-0000-0000-0000-000000000000"}';
+      delete from public.inventory_items where id = '${created.archiveItemId ?? "00000000-0000-0000-0000-000000000000"}';
+      delete from public.acquisitions where id = '${created.archivePalletId ?? "00000000-0000-0000-0000-000000000000"}';
+      delete from public.pallets where id = '${created.archivePalletId ?? "00000000-0000-0000-0000-000000000000"}';
       delete from public.acquisitions where id = '${created.clientPalletId ?? "00000000-0000-0000-0000-000000000000"}';
       delete from public.pallets where id = '${created.clientPalletId ?? "00000000-0000-0000-0000-000000000000"}';
     `;
