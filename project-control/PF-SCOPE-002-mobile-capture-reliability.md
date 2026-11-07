@@ -70,4 +70,24 @@ Scope work happens only on the scope branch. If a change outside the Included li
 
 ## Completion report
 
-_To be completed when the terminal criteria pass and the device pass is recorded. Must record: final SHA, CI run ids/outcome, per-step device results, what changed per file and why, and the verified-vs-unverified claim split. Do not mark VERIFIED on terminal evidence alone._
+## Completion report
+
+Device pass: COMPLETE 2026-11-07 (owner, iPhone, EAS development build installed 2026-11-05, run at home over Metro from the scope branch). All 9 checklist steps passed:
+
+1. Restart bundle — PASS (fresh bundle via Metro restart).
+2. Create/select active pallet — PASS (item landed under Loose Items).
+3. Capture Item → Take Photos, camera opens directly — PASS.
+4. Upload Photos, photo library opens — PASS.
+5. Scan Barcode → Open Scanner, scan UPC/EAN, scanner closes — PASS (Pepsi can, UPC 012000018770).
+6. Draft appears even when the online lookup cannot identify the product — PASS. The lookup did NOT identify the can; the draft was the guaranteed generic fallback ("Barcode item 012000018770", default estimates, condition "Details need review"). This is the scope's core guarantee working as designed; product identification depends on the lookup service, which was not reachable from the dev setup.
+7. Cancel Scanner, screen stays responsive — PASS.
+8. Take Listing Photos, camera opens — PASS.
+9. Save & Next Item, next scan flow ready — PASS. Item confirmed present in Inventory after save. During save, the designed deferral alert fired ("eBay details can be finished later" — the eBay requirements check could not reach the server from the dev build); the item saved anyway and the next scan opened, exactly as designed.
+
+Blockers cleared on the way to the pass (recorded in MEMORY.md): hosted Supabase email template could not deliver the OTP code the login screen requires — fixed 2026-11-07 by configuring custom SMTP (Resend) and adding {{ .Token }} to the Magic Link template; delivery verified end to end on the device.
+
+In-pass fixes (owner-directed during the pass, "fix issues in the moment"):
+- Login keyboard fix (commit `b627dab`, remote head `08088c73`): the iOS number pad covered the "Verify and Sign In" button and the login screen had no keyboard-dismiss path. `login.tsx` now wraps its content in KeyboardAvoidingView with tap-to-dismiss. Verified on device by the owner (signed in successfully after the fix).
+- eBay-details reminder mute (this change): the deferral alert now offers "Don't show again" (persisted as `showEbayDetailsReminder` in `app-settings`, default on), routed through a shared `alertEbayDetailsDeferred` helper in `listing-posting.ts` used by `capture.tsx`, `scan-barcode.tsx`, and the analysis-requirements path; a Settings toggle ("eBay Details Reminder") re-enables it. Typecheck + lint clean locally; device verification = owner taps "Don't show again" on the next save and confirms the alert stays off (pending at time of writing).
+
+Verified vs unverified: terminal checks (typecheck/lint) verified locally for every commit; device behavior verified by the owner per-step above. Final branch SHA and CI run ids for the final head are recorded when CI completes on the pushed head; the scope is not marked VERIFIED until that CI is green.

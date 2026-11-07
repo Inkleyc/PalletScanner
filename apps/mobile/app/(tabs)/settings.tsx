@@ -19,6 +19,7 @@ import {
   getAppSettings,
   setFacebookSellerNote,
   setPromptToPostOnSave,
+  setShowEbayDetailsReminder,
   subscribeAppSettings,
 } from "@/lib/app-settings";
 import {
@@ -71,11 +72,12 @@ export default function SettingsScreen() {
   const [ebayStatusError, setEbayStatusError] = useState<string | null>(null);
   const [isRefreshingEbay, setIsRefreshingEbay] = useState(false);
   const [facebookSellerNoteDraft, setFacebookSellerNoteDraft] = useState("");
-  const { facebookSellerNote, promptToPostOnSave } = useSyncExternalStore(
-    subscribeAppSettings,
-    getAppSettings,
-    getAppSettings,
-  );
+  const { facebookSellerNote, promptToPostOnSave, showEbayDetailsReminder } =
+    useSyncExternalStore(
+      subscribeAppSettings,
+      getAppSettings,
+      getAppSettings,
+    );
   const supabaseAuth = useSyncExternalStore(
     subscribeSupabaseAuth,
     getSupabaseAuthSnapshot,
@@ -294,6 +296,22 @@ export default function SettingsScreen() {
               onValueChange={setPromptToPostOnSave}
               trackColor={{ false: AppPalette.borderStrong, true: "#a9c8df" }}
               thumbColor={promptToPostOnSave ? AppPalette.primaryStrong : "#f4f4f4"}
+            />
+          </View>
+        </View>
+
+        <View style={styles.card}>
+          <Text style={styles.settingTitle}>eBay Details Reminder</Text>
+          <View style={styles.settingRow}>
+            <Text style={styles.settingDescription}>
+              Remind me when the required eBay details cannot be checked while
+              saving an item. The item still saves either way.
+            </Text>
+            <Switch
+              value={showEbayDetailsReminder}
+              onValueChange={setShowEbayDetailsReminder}
+              trackColor={{ false: AppPalette.borderStrong, true: "#a9c8df" }}
+              thumbColor={showEbayDetailsReminder ? AppPalette.primaryStrong : "#f4f4f4"}
             />
           </View>
         </View>

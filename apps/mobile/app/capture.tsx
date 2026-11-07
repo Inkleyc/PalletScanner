@@ -52,6 +52,7 @@ import {
   type ListingDraftPlatform,
 } from "@/lib/listing-drafts";
 import {
+  alertEbayDetailsDeferred,
   completeEbayAnalysisRequirements,
   completeEbayListingRequirements,
   openListingDraft,
@@ -452,8 +453,7 @@ export default function CaptureScreen() {
         (await completeEbayListingRequirements(baseInventoryItem)) ??
         baseInventoryItem;
     } catch (requirementsError) {
-      Alert.alert(
-        "eBay details can be finished later",
+      alertEbayDetailsDeferred(
         requirementsError instanceof Error
           ? requirementsError.message
           : "PalletFlip could not check eBay requirements right now.",
