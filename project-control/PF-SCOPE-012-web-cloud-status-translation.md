@@ -1,5 +1,5 @@
 # PF-SCOPE-012 — Web cloud saves translate workflow status to the database vocabulary
-Status: IN_PROGRESS
+Status: VERIFIED (2026-11-07; closes with a later register pass)
 Owner approval: APPROVED 2026-11-07 (owner directed the fix in the moment during the PF-SCOPE-003 browser pass: "Build the fix now")
 Decision authority: PF-D-003 (high autonomy inside a bounded approved scope); PF-D-008 respected (no protected operations — no schema, RLS, credential, or hosted-data changes).
 
@@ -29,10 +29,10 @@ In cloud mode, the web "Add item" flow fails with the generic message "Could not
 
 ## Acceptance checks
 
-- [ ] CI green on the branch, including the new check-live-db contract section.
-- [ ] Web build passes locally.
-- [ ] Owner (after this merges and the PF-SCOPE-003 branch is updated from main): re-run browser-pass check 3 — add an item in cloud mode under an existing pallet; the valid save succeeds and the item appears; re-run check 6 (bulk) with the added items.
+- [x] CI green on the branch, including the new check-live-db contract section.
+- [x] Web build passes locally.
+- [x] Owner (after this merges and the PF-SCOPE-003 branch is updated from main): re-run browser-pass check 3 — add an item in cloud mode under an existing pallet; the valid save succeeds and the item appears; re-run check 6 (bulk) with the added items. (Check 3 half done 2026-11-07 — see the completion record; check 6 remains part of PF-SCOPE-003's pass, staged separately.)
 
 ## Completion record
 
-(Pending — filled in at verification.)
+VERIFIED 2026-11-07. PR #9 merged to main as 047fa4fd (CI green on the branch head 11c626ac, runs 42423722500/42423740841, including the new PF-SCOPE-012 live-DB section). Local verification before the push: syntax checks clean; the translation exercised directly (needs_review → captured, ready/sold pass through, missing/bogus → captured); web `npm run build` passed. Owner verification: with the PF-SCOPE-003 branch updated from main, the owner re-ran browser-pass check 3 in cloud mode — below-floor add refused with "Approved listing price cannot be lower than the floor price.", valid adds saved and appeared (Review count rose to 3). The generic-error half of the fix is covered by the same flows (failures now surface the database message via the UI's Error branch).

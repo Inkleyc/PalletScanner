@@ -19,3 +19,17 @@ Acceptance criteria:
 Verification: `npm run check` (includes web `node --test` + `check.mjs` + Vite build); `node --test apps/web/scripts/item-decision-model.test.mjs`; CI check runs on the PR (migration replay + live-DB round-trip); manual browser pass: sign-in/sign-out data-source labels, below-floor refusal in each price-setting path, bulk skip reporting, Review→detail→save→Inventory consistency. VERIFIED requires the CI green run AND the manual browser pass — terminal evidence alone does not close this scope.
 Branch: scope/PF-SCOPE-003-web-review-sync
 Deliverables: `apps/web/src/item-decision-model.js`, `apps/web/scripts/item-decision-model.test.mjs`, `App.jsx` wiring + labelling, `scripts/check-live-db.mjs` round-trip section, this scope document, register update, completion report with final SHA + CI evidence.
+
+## Browser pass record (2026-11-07, IN PROGRESS)
+
+Run by the owner (partly via Codex on the owner's machine) in cloud mode on this branch, after PF-SCOPE-010/011 made signed-in cloud mode usable and after this branch was updated from main (remote head 9919d742; PR CI green, run 42424208798, including the round-trip section alongside the PF-SCOPE-011/012 sections).
+
+- Check 1 (edit dialog, below-floor refused): **PASS** — refused with "Approved listing price cannot be lower than the floor price."
+- Check 2 (edit dialog, valid price saves): save completed (Codex); visual confirmation of the new price in the list was lost when the automation stopped — owner confirmation outstanding.
+- Check 3 (add item: below-floor refused, valid saves): **PASS** — but the first attempt exposed a real pre-existing bug: cloud saves failed generically because the web assigned the local status "needs_review", which the database CHECK rejects. Split out as PF-SCOPE-012, fixed and merged (PR #9); re-run on the updated branch: below-floor refused with the floor message, valid adds save and appear (Review count rose to 3).
+- Check 4 (AI photo-analysis save): **SKIPPED by design** — no AI key configured and the backend is not running locally; the AI path stays gated by PF-SCOPE-005.
+- Check 5 (price-preserving edit): **PASS** — name-only edit saved with no price complaint.
+- Check 6 (bulk action skips an invalid item with a reason): **NOT YET RUN** — staging finding: an invalid item cannot be created through any UI (web add/edit dialogs and the phone's save both refuse listing < floor, by design), so the check needs a staged invalid record (one-row test-data update in the hosted database, awaiting the owner's explicit go-ahead) or a legacy record.
+- Check 7 (Review → detail → save → Inventory round trip; labels): labels **PASS** ("Cloud data" / "Signed in" / "Cloud inventory" observed correct in cloud mode); the round-trip half is outstanding.
+
+Interim findings recorded during the pass: PF-SCOPE-012 (above); PF-SCOPE-013 (mobile item editor keyboard trap, found while staging check 6 on the phone — fix built, PR #10).
