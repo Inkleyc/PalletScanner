@@ -589,7 +589,7 @@ try {
   const [clientAcquisition] = await api("/rest/v1/acquisitions", {
     method: "POST",
     token: userToken,
-    body: { id: clientPallet.id, owner_id: userId, legacy_pallet_id: clientPallet.id, type: "pallet", name: "Live-DB check client pallet", purchase_price: null },
+    body: { id: clientPallet.id, owner_id: userId, business_id: businessId, legacy_pallet_id: clientPallet.id, type: "pallet", name: "Live-DB check client pallet", purchase_price: null },
   });
   assertEqual(clientAcquisition.id, clientPallet.id, "client acquisition uses the pallet id (backfill convention)");
   const [clientItem] = await api("/rest/v1/inventory_items", {

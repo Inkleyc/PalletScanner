@@ -248,9 +248,10 @@ const pushLocalSnapshot = async () => {
     );
     if (result.error) throw result.error;
   }
-  const palletResult = await supabase.from("pallets").select("id,client_id");
+  const palletResult = await supabase.from("pallets").select("id,client_id,business_id");
   if (palletResult.error) throw palletResult.error;
   const palletServerIdByClientId = new Map((palletResult.data ?? []).map((row) => [row.client_id, row.id]));
+  const palletBusinessIdByClientId = new Map((palletResult.data ?? []).map((row) => [row.client_id, row.business_id]));
   if (changedPallets.length > 0) {
     // Every non-system pallet needs its acquisition row (id = pallet id, the
     // backfill convention) before items are pushed: inventory_items requires
@@ -258,8 +259,8 @@ const pushLocalSnapshot = async () => {
     // System pallets (Loose Items) are skipped — theirs is database-managed.
     const acquisitionRows = changedPallets
       .filter((pallet) => pallet.isSystem !== true)
-      .map((pallet) => ({ id: palletServerIdByClientId.get(pallet.id), owner_id: auth.userId, legacy_pallet_id: palletServerIdByClientId.get(pallet.id), type: pallet.acquisitionType ?? "pallet", name: pallet.name?.trim() || "Pallet", purchase_price: pallet.palletCost }))
-      .filter((row) => row.id);
+      .map((pallet) => ({ id: palletServerIdByClientId.get(pallet.id), business_id: palletBusinessIdByClientId.get(pallet.id), owner_id: auth.userId, legacy_pallet_id: palletServerIdByClientId.get(pallet.id), type: pallet.acquisitionType ?? "pallet", name: pallet.name?.trim() || "Pallet", purchase_price: pallet.palletCost }))
+      .filter((row) => row.id && row.business_id);
     if (acquisitionRows.length > 0) {
       const result = await supabase.from("acquisitions").upsert(acquisitionRows, { onConflict: "id" });
       if (result.error) throw result.error;
