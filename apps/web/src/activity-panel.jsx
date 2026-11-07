@@ -6,6 +6,7 @@ const activityLabels = {
   "pallet.created": "Pallet created",
   "pallet.updated": "Pallet updated",
   "pallet.deleted": "Pallet deleted",
+  "pallet.archived": "Pallet archived",
   "item.created": "Item created",
   "item.updated": "Item updated",
   "item.deleted": "Item removed",

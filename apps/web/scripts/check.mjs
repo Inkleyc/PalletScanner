@@ -343,15 +343,19 @@ if (!snapshot.pallets.every((pallet) => "palletCost" in pallet)) {
   throw new Error("Local repository did not normalize pallet costs to the shared model.");
 }
 
-const startingPalletCount = pallets.length;
 const testPallet = await repository.createPallet("Repository contract test");
 await repository.updatePallet(testPallet.id, { palletCost: 125 });
 if (repository.getSnapshot().pallets.find((pallet) => pallet.id === testPallet.id)?.palletCost !== 125) {
   throw new Error("Local repository did not update a pallet.");
 }
 await repository.removePallet(testPallet.id);
-if (pallets.length !== startingPalletCount) {
-  throw new Error("Local repository did not remove its contract-test pallet.");
+// PF-SCOPE-014: removal archives. The pallet leaves the published (active)
+// snapshot but stays in the store, marked archived, so it can be restored.
+if (repository.getSnapshot().pallets.some((pallet) => pallet.id === testPallet.id)) {
+  throw new Error("Local repository did not remove its contract-test pallet from the active snapshot.");
+}
+if (!pallets.find((pallet) => pallet.id === testPallet.id)?.archivedAt) {
+  throw new Error("Local repository did not archive its contract-test pallet.");
 }
 
 const originalItem = structuredClone(items[0]);

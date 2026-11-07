@@ -154,7 +154,7 @@ const pullCloudSnapshot = async () => {
   if (!supabase || !auth.signedIn || !auth.userId) return;
   updateState({ enabled: true, syncing: true, error: null });
   const [palletResult, itemResult, photoResult, listingResult] = await Promise.all([
-    supabase.from("pallets").select("*").order("created_at"),
+    supabase.from("pallets").select("*").is("archived_at", null).order("created_at"),
     supabase.from("inventory_items").select("*").is("archived_at", null).order("captured_at"),
     supabase.from("item_photos").select("*").order("position"),
     supabase.from("marketplace_listings").select("*").order("updated_at", { ascending: false }),
@@ -322,7 +322,7 @@ const pushLocalSnapshot = async () => {
       if (removeRows.error) throw removeRows.error;
     }
   }
-  const remotePallets = await supabase.from("pallets").select("client_id");
+  const remotePallets = await supabase.from("pallets").select("client_id").is("archived_at", null);
   const remoteItems = await supabase.from("inventory_items").select("id,client_id").is("archived_at", null);
   if (remotePallets.error) throw remotePallets.error;
   if (remoteItems.error) throw remoteItems.error;
@@ -343,7 +343,10 @@ const pushLocalSnapshot = async () => {
   const localPalletIds = new Set(pallets.map((pallet) => pallet.id));
   const deletedPalletIds = deletedSinceBaseline(remotePallets.data ?? [], baselinePallets, localPalletIds, (row) => row.client_id).map((row) => row.client_id);
   if (deletedPalletIds.length) {
-    const result = await supabase.from("pallets").delete().in("client_id", deletedPalletIds);
+    // Pallets archive like items (PF-SCOPE-014): a local deletion propagates
+    // as an archive, never a hard delete — the stock ledger makes deleting a
+    // stocked pallet impossible, and the row stays restorable.
+    const result = await supabase.from("pallets").update({ archived_at: new Date().toISOString() }).in("client_id", deletedPalletIds);
     if (result.error) throw result.error;
   }
   await pullCloudSnapshot();

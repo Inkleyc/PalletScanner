@@ -34,6 +34,7 @@ const normalizePallet = (pallet) => ({
   ...pallet,
   palletCost: Number.isFinite(pallet.palletCost) ? pallet.palletCost : pallet.cost ?? null,
   cost: Number.isFinite(pallet.cost) ? pallet.cost : pallet.palletCost ?? 0,
+  archivedAt: pallet.archivedAt ?? null,
 });
 const ensureLooseItems = (pallets) => [
   normalizePallet(looseItemsPallet),
@@ -101,8 +102,15 @@ const persist = () => {
 };
 
 export const repository = {
-  getSnapshot: () => clone(state),
-  hydrate: async () => clone(state),
+  // Published snapshots carry only active pallets, mirroring the cloud
+  // repository's contract (PF-SCOPE-014); archived pallets stay in the
+  // persisted store so a future Archived view can restore them.
+  getSnapshot: () => {
+    const snapshot = clone(state);
+    snapshot.pallets = snapshot.pallets.filter((pallet) => !pallet.archivedAt);
+    return snapshot;
+  },
+  hydrate: async () => repository.getSnapshot(),
   subscribe(listener) {
     listeners.add(listener);
     return () => listeners.delete(listener);
@@ -159,19 +167,25 @@ export const repository = {
   },
   async removePallet(palletId) {
     if (palletId === looseItemsPallet.id) return false;
-    const index = pallets.findIndex((entry) => entry.id === palletId);
-    if (index < 0) return false;
-    const [removedPallet] = pallets.splice(index, 1);
-    for (let itemIndex = items.length - 1; itemIndex >= 0; itemIndex -= 1) {
-      if (items[itemIndex].palletId === palletId) items.splice(itemIndex, 1);
+    const pallet = pallets.find((entry) => entry.id === palletId);
+    if (!pallet || pallet.archivedAt) return false;
+    // Archive, never splice away (PF-SCOPE-014): the pallet and its items
+    // stay in the persisted store, restorable later, and simply leave the
+    // published (active) views — the same model as item removal.
+    const archivedAt = new Date().toISOString();
+    pallet.archivedAt = archivedAt;
+    for (const item of items) {
+      if (item.palletId === palletId && !item.archivedAt) item.archivedAt = archivedAt;
     }
-    if (state.activePalletId === palletId) state.activePalletId = pallets[0]?.id ?? null;
-    recordActivity("pallet.deleted", palletId, { name: removedPallet.name });
+    if (state.activePalletId === palletId) {
+      state.activePalletId = pallets.find((entry) => !entry.archivedAt)?.id ?? null;
+    }
+    recordActivity("pallet.archived", palletId, { name: pallet.name });
     persist();
     return true;
   },
   async setActivePallet(palletId) {
-    if (pallets.some((entry) => entry.id === palletId)) {
+    if (pallets.some((entry) => entry.id === palletId && !entry.archivedAt)) {
       state.activePalletId = palletId;
       persist();
     }

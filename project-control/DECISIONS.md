@@ -19,6 +19,11 @@ Direction confirmed; implementation of each item still requires a separately app
 - **PF-D-011:** AI integration is wanted and vendor-agnostic — best AI for the purpose, not necessarily Claude/Anthropic. AI drafts; the owner decides. Re-enabling AI requires a separately approved scope; the handoff "do not re-enable AI" control remains in force until then.
 - **PF-D-012:** Pallet/lot sourcing is deferred to a later version. Get the current operations scope built and running first; keep only a manual won-lot-to-pallet seam.
 
+## Confirmed by owner, 2026-11-07
+(PF-D-013 is reserved for the pending scope-governance amendment, still awaiting owner approval.)
+
+- **PF-D-014:** Items and pallets share one removal model: archive, never hard-delete from the apps. Archived rows stay in the database (the append-only stock ledger makes hard deletion of stocked records impossible anyway) and leave every active view. An Archived view with restore is the approved follow-up direction, as its own future scope. Implemented by PF-SCOPE-014.
+
 ## Established historical direction; verify against code and current docs
 - Mobile warehouse capture / web business management split.
 - eBay integration and assisted Facebook Marketplace posting (do not assume an official automated posting API).
