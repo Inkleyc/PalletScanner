@@ -6,6 +6,7 @@ import { readWebStorage, writeWebStorage } from "@/lib/web-storage";
 type AppSettings = {
   promptToPostOnSave: boolean;
   facebookSellerNote: string;
+  showEbayDetailsReminder: boolean;
 };
 
 type SettingsListener = () => void;
@@ -18,6 +19,7 @@ let settingsState: AppSettings = {
   promptToPostOnSave: false,
   facebookSellerNote:
     "Local pickup. Message with any questions or to arrange a time.",
+  showEbayDetailsReminder: true,
 };
 
 let hydratePromise: Promise<void> | null = null;
@@ -105,6 +107,15 @@ export const setFacebookSellerNote = (value: string) => {
   settingsState = {
     ...settingsState,
     facebookSellerNote: value.trim(),
+  };
+  notifySettingsListeners();
+  void persistSettings();
+};
+
+export const setShowEbayDetailsReminder = (value: boolean) => {
+  settingsState = {
+    ...settingsState,
+    showEbayDetailsReminder: value,
   };
   notifySettingsListeners();
   void persistSettings();

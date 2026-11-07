@@ -31,22 +31,46 @@ const AI_API_BASE_URL = (
 ).replace(/\/$/, "");
 export const isAnthropicConfigured = () => Boolean(AI_API_BASE_URL);
 
+// Image analysis through the backend can legitimately take tens of seconds,
+// so the budget is generous — its job is only to bound a hung request so the
+// capture flows fall through to their fallback-draft paths instead of
+// spinning forever. Callers already treat any throw here as a failed
+// analysis (see capture.tsx / scan-barcode.tsx / explore.tsx).
+const ANTHROPIC_REQUEST_TIMEOUT_MS = 45_000;
+
 export const requestAnthropicMessage = async (payload: unknown) => {
   if (!AI_API_BASE_URL) {
     throw new Error("The secure AI backend is not configured.");
   }
 
   const token = await getRuntimeBearerToken();
-  const response = await fetch(`${AI_API_BASE_URL}/ai/messages`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-    },
-    body: JSON.stringify(payload),
-  });
+  const controller = new AbortController();
+  const timeout = setTimeout(
+    () => controller.abort(),
+    ANTHROPIC_REQUEST_TIMEOUT_MS,
+  );
+  try {
+    const response = await fetch(`${AI_API_BASE_URL}/ai/messages`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      body: JSON.stringify(payload),
+      signal: controller.signal,
+    });
 
-  return readAnthropicMessageText(response);
+    return await readAnthropicMessageText(response);
+  } catch (error) {
+    if (controller.signal.aborted) {
+      throw new Error(
+        "Online analysis timed out. Check the connection and try again, or save a basic draft.",
+      );
+    }
+    throw error;
+  } finally {
+    clearTimeout(timeout);
+  }
 };
 
 const readTextBlock = (block: unknown) => {

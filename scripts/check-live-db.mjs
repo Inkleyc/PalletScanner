@@ -285,7 +285,7 @@ const userId = signup.user.id;
 const userToken = signup.access_token;
 console.log(`Disposable live-check user created (id ${userId}); no credentials printed.`);
 
-const created = { palletId: null, acquisitionId: null, itemId: null, orderId: null, shipmentId: null, returnId: null };
+const created = { palletId: null, acquisitionId: null, itemId: null, orderId: null, shipmentId: null, returnId: null, clientPalletId: null, clientItemId: null };
 
 async function getItem() {
   const rows = await api(`/rest/v1/inventory_items?id=eq.${created.itemId}&select=id,on_hand,reserved,available,shortage`, {
@@ -665,13 +665,57 @@ try {
   assertEqual(JSON.stringify(mobileRead.listed_platforms), JSON.stringify(["facebook"]), "mobile-shape read sees the web platform list");
   assertEqual(Number(mobileRead.on_hand), 4, "web decision edit did not move on_hand");
   assertEqual(Number(mobileRead.available), 4, "web decision edit did not move available");
+  // PF-SCOPE-011: the client acquisition contract. Both apps create a pallet,
+  // then create its acquisition with id = pallet id (the backfill convention),
+  // then save items in the client shape — no business_id or acquisition_id
+  // sent; the database fills business from the owner and defaults
+  // acquisition_id from the pallet. Before PF-SCOPE-011 neither app created
+  // the acquisition, and this exact sequence failed with FK violation 23503.
+  const [clientPallet] = await api("/rest/v1/pallets", {
+    method: "POST",
+    token: userToken,
+    body: { owner_id: userId, client_id: `live-check-client-${suffix}`, name: "Live-DB check client pallet" },
+  });
+  created.clientPalletId = clientPallet.id;
+  const [clientAcquisition] = await api("/rest/v1/acquisitions", {
+    method: "POST",
+    token: userToken,
+    body: { id: clientPallet.id, owner_id: userId, business_id: businessId, legacy_pallet_id: clientPallet.id, type: "pallet", name: "Live-DB check client pallet", purchase_price: null },
+  });
+  assertEqual(clientAcquisition.id, clientPallet.id, "client acquisition uses the pallet id (backfill convention)");
+  const [clientItem] = await api("/rest/v1/inventory_items", {
+    method: "POST",
+    token: userToken,
+    body: { owner_id: userId, pallet_id: clientPallet.id, client_id: 900002, name: "Live-DB check client item", quantity: 1 },
+  });
+  created.clientItemId = clientItem.id;
+  assertEqual(clientItem.acquisition_id, clientPallet.id, "client-shaped item insert resolves acquisition_id from its pallet");
+  assertEqual(clientItem.business_id, businessId, "client-shaped item insert resolves business_id from its owner");
+
+  // PF-SCOPE-012: the web cloud repository translates its local status
+  // vocabulary to the database vocabulary before saving. The web add-item,
+  // AI-analysis, and photo-save flows assign "needs_review", which the
+  // workflow_status CHECK rejects; the repository maps it to "captured".
+  // Pin both halves: the translation itself (imported from the web module)
+  // and a live insert using its output.
+  const { toCloudWorkflowStatus } = await import("../apps/web/src/supabase-inventory-repository.js");
+  assertEqual(toCloudWorkflowStatus("needs_review"), "captured", "web local status needs_review translates to captured");
+  assertEqual(toCloudWorkflowStatus("ready"), "ready", "database status passes through translation untouched");
+  assertEqual(toCloudWorkflowStatus(undefined), "captured", "missing status defaults to captured");
+  const [webItem] = await api("/rest/v1/inventory_items", {
+    method: "POST",
+    token: userToken,
+    body: { owner_id: userId, pallet_id: clientPallet.id, client_id: 900003, name: "Live-DB check web item", quantity: 0, workflow_status: toCloudWorkflowStatus("needs_review") },
+  });
+  created.webItemId = webItem.id;
+  assertEqual(webItem.workflow_status, "captured", "item saved with the translated status persists as captured");
 } finally {
   // Cleanup: delete what this run created, in FK-safe order, as postgres
   // (RLS has no delete policy for orders/order lines, so HTTP cleanup alone
   // cannot remove them). If psql cleanup is unavailable, the rows remain in
   // this disposable local database only; `supabase stop` / `supabase db reset`
   // discards them. Report, do not hide, any leftovers.
-  if (created.palletId || created.orderId) {
+  if (created.palletId || created.orderId || created.clientPalletId) {
     const cleanupSql = `
       delete from public.shipments where order_id = '${created.orderId ?? "00000000-0000-0000-0000-000000000000"}';
       delete from public.return_lines where return_id = '${created.returnId ?? "00000000-0000-0000-0000-000000000000"}';
@@ -683,6 +727,12 @@ try {
       delete from public.inventory_items where id = '${created.itemId ?? "00000000-0000-0000-0000-000000000000"}';
       delete from public.acquisitions where id = '${created.acquisitionId ?? "00000000-0000-0000-0000-000000000000"}';
       delete from public.pallets where id = '${created.palletId ?? "00000000-0000-0000-0000-000000000000"}';
+      delete from public.inventory_movements where inventory_item_id = '${created.clientItemId ?? "00000000-0000-0000-0000-000000000000"}';
+      delete from public.inventory_items where id = '${created.clientItemId ?? "00000000-0000-0000-0000-000000000000"}';
+      delete from public.inventory_movements where inventory_item_id = '${created.webItemId ?? "00000000-0000-0000-0000-000000000000"}';
+      delete from public.inventory_items where id = '${created.webItemId ?? "00000000-0000-0000-0000-000000000000"}';
+      delete from public.acquisitions where id = '${created.clientPalletId ?? "00000000-0000-0000-0000-000000000000"}';
+      delete from public.pallets where id = '${created.clientPalletId ?? "00000000-0000-0000-0000-000000000000"}';
     `;
     try {
       await execFileAsync("psql", ["-X", "-v", "ON_ERROR_STOP=1", "-t", "-A", SUPABASE_DB_URL, "-c", cleanupSql], {

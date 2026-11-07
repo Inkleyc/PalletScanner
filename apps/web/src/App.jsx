@@ -616,7 +616,11 @@ function SupabaseAccount() {
       setMessage("Testing pallet update…");
       await repository.updatePallet(pallet.id, { palletCost: 1 });
       setMessage("Testing inventory creation…");
-      await repository.saveItem({ id: itemId, photo: null, photos: [], name: "Temporary cloud self-test item", condition: "Test", quantity: 1, low: 1, high: 2, floor: 1, low_price: 1, high_price: 2, floor_price: 1, best_platform: "Review", platform: "Review", listing_title: "Temporary cloud self-test item", listing_description: "Temporary record used to verify authenticated cloud writes.", listedPlatforms: [], palletId: pallet.id, soldPrice: null, status: "ready" });
+      // Probe quantity is 0 on purpose: a stocked item receives an opening
+      // ledger movement, and items with movements are intentionally not
+      // hard-deletable — the cleanup below could never remove the pallet.
+      // CI's live-database check covers the stocked-item ledger path.
+      await repository.saveItem({ id: itemId, photo: null, photos: [], name: "Temporary cloud self-test item", condition: "Test", quantity: 0, low: 1, high: 2, floor: 1, low_price: 1, high_price: 2, floor_price: 1, best_platform: "Review", platform: "Review", listing_title: "Temporary cloud self-test item", listing_description: "Temporary record used to verify authenticated cloud writes.", listedPlatforms: [], palletId: pallet.id, soldPrice: null, status: "ready" });
       setMessage("Testing cloud cleanup…");
       await repository.removeItem(itemId);
       await repository.removePallet(pallet.id);
