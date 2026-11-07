@@ -1,5 +1,5 @@
 # PF-SCOPE-011 — Clients create the acquisition for each new pallet
-Status: IN_PROGRESS
+Status: VERIFIED (2026-11-07; owner review / merge pending)
 Owner approval: APPROVED 2026-11-07 (owner chose the app-side fix over a database bridge trigger on long-term grounds, after PF-SCOPE-010 Stage C exposed the gap)
 Branch: scope/PF-SCOPE-011-acquisition-creation
 Base: main 1747afb1 (PF-SCOPE-002 merged, CI green)
@@ -25,10 +25,15 @@ Items saved under a newly created pallet fail to reach the cloud: `inventory_ite
 
 ## Acceptance criteria
 
-- [ ] CI green on the branch, including the new check-live-db contract section.
-- [ ] Web (owner, on this branch): Settings → "Test cloud connection" passes end to end (create pallet → update → save item → cleanup).
-- [ ] Mobile (owner, on this branch): create a new pallet on the phone, save an item under it, and the item appears in the web cloud Inventory. (Also completes PF-SCOPE-010 Stage C check 2 together with the Loose Items sync check.)
+- [x] CI green on the branch, including the new check-live-db contract section.
+- [x] Web (owner, on this branch): Settings → "Test cloud connection" passes end to end (create pallet → update → save item → cleanup).
+- [x] Mobile (owner, on this branch): create a new pallet on the phone, save an item under it, and the item appears in the web cloud Inventory. (Also completes PF-SCOPE-010 Stage C check 2 together with the Loose Items sync check.)
 
 ## Completion record
 
-(Pending — filled in at verification.)
+VERIFIED 2026-11-07 (PR #8, branch head 6338b6ef).
+
+- CI: first run FAILED — the new contract section caught a second gap in this scope's own fix: `acquisitions` has no assign-business trigger, so `business_id` must be sent explicitly (web already did; mobile sync and the CI section were fixed to take it from the synced pallet rows, head a5a9eed1). Green thereafter: runs 42419935918/42419940866 (a5a9eed1) and 42421048166/42421052275 (final head 6338b6ef).
+- Web: owner ran "Test cloud connection" on this branch 2026-11-07 15:35 MST — "Cloud create, update, read, and delete checks passed. Temporary records were removed." Two intermediate failures were diagnosed from response bodies and fixed in scope: (1) item save 409 (the acquisition gap itself), (2) cleanup pallet-delete 23503 from `inventory_movements` on the stocked probe item (ledger protection by design; probe is now quantity 0 — see Included).
+- Mobile: owner created pallet "P06-11/2026" on the phone 2026-11-07 15:39 MST. Read-only hosted-DB verification confirmed the pallet present and the acquisitions count closing exactly (11 = 6 backfill + 3 failed-cleanup self-tests + 1 passed self-test + 1 phone pallet), proving the phone sync created the acquisition. The owner then saved an item under the pallet on the phone and confirmed it appeared in the web cloud Inventory (15:42 MST).
+- Follow-up finding (not in this scope): deleting a pallet that holds — or ever held — stocked items cannot succeed in either app (hard delete vs the append-only movements ledger). Needs an owner decision (guard with a message, or pallet archive semantics) as a future scope.
