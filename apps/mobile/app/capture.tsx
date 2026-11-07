@@ -52,10 +52,12 @@ import {
   type ListingDraftPlatform,
 } from "@/lib/listing-drafts";
 import {
+  alertEbayDetailsDeferred,
   completeEbayAnalysisRequirements,
   completeEbayListingRequirements,
   openListingDraft,
 } from "@/lib/listing-posting";
+import { createPhotoFallbackDraft } from "@/lib/offline-drafts";
 import { analyzeResalePhotos } from "@/lib/photo-analysis";
 import {
   type CaptureAnalysisResult,
@@ -308,10 +310,17 @@ export default function CaptureScreen() {
     setLoading(true);
     setCurrentItemId(null);
     if (!isAnthropicConfigured()) {
+      // Same deliberate-resilience fallback the barcode flow already uses:
+      // an unavailable analysis must still leave a saveable draft, never
+      // a dead end with photos and nothing to save.
+      applyAnalysisResult(createPhotoFallbackDraft());
+      setCameraActionStatus(
+        "Basic draft created. Review the prices, then save it.",
+      );
       setLoading(false);
       Alert.alert(
         "Online analysis not configured",
-        "The secure AI backend is not configured. Your photos are still here, but no draft was created.",
+        "The secure AI backend is not configured. A basic editable draft was created so you can still save this item.",
       );
       return;
     }
@@ -322,12 +331,29 @@ export default function CaptureScreen() {
       incrementScanCount();
       void triggerAnalysisCompleteFeedback();
     } catch (error) {
-      Alert.alert(
-        "Claude photo analysis unavailable",
-        error instanceof Error
-          ? `${error.message}\n\nYour photos are still here. Try again, or use barcode scan/manual entry for this item.`
-          : "Your photos are still here. Try again, or use barcode scan/manual entry for this item.",
-      );
+      if (!result) {
+        // No draft exists yet: the failed analysis would otherwise leave the
+        // user with photos and nothing saveable. Keep the photos and hand
+        // them the same editable fallback draft as the no-AI path.
+        applyAnalysisResult(createPhotoFallbackDraft());
+        setCameraActionStatus(
+          "Basic draft created. Review the prices, then save it.",
+        );
+        Alert.alert(
+          "Claude photo analysis unavailable",
+          error instanceof Error
+            ? `${error.message}\n\nA basic editable draft was created instead. Review the prices and save this item, or try again.`
+            : "A basic editable draft was created instead. Review the prices and save this item, or try again.",
+        );
+      } else {
+        // A draft already exists: a failed re-analysis must not discard it.
+        Alert.alert(
+          "Claude photo analysis unavailable",
+          error instanceof Error
+            ? `${error.message}\n\nYour photos are still here and the current draft is unchanged. Try again, or use barcode scan/manual entry for this item.`
+            : "Your photos are still here and the current draft is unchanged. Try again, or use barcode scan/manual entry for this item.",
+        );
+      }
     }
     setLoading(false);
   };
@@ -427,8 +453,7 @@ export default function CaptureScreen() {
         (await completeEbayListingRequirements(baseInventoryItem)) ??
         baseInventoryItem;
     } catch (requirementsError) {
-      Alert.alert(
-        "eBay details can be finished later",
+      alertEbayDetailsDeferred(
         requirementsError instanceof Error
           ? requirementsError.message
           : "PalletFlip could not check eBay requirements right now.",

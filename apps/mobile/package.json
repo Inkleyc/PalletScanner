@@ -10,7 +10,7 @@
     "ios": "expo start --ios",
     "lint": "eslint . --config eslint.config.js",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "sync:test": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --test ./scripts/cloud-sync-policy.test.mjs",
+    "sync:test": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --test ./scripts/cloud-sync-policy.test.mjs ./scripts/capture-reliability.test.mjs",
     "supabase:app-check": "node ./scripts/check-supabase-app-env.mjs",
     "emulator:check": "node ./scripts/check-android-emulator-env.mjs",
     "build:android-preview": "eas build --platform android --profile preview",

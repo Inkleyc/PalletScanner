@@ -3,11 +3,15 @@ import { useRouter } from "expo-router";
 import { useEffect, useState, useSyncExternalStore } from "react";
 import {
   ActivityIndicator,
+  Keyboard,
+  KeyboardAvoidingView,
+  Platform,
   SafeAreaView,
   StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
+  TouchableWithoutFeedback,
   View,
 } from "react-native";
 
@@ -100,7 +104,12 @@ export default function LoginScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <View style={styles.content}>
+      <KeyboardAvoidingView
+        style={styles.avoidingView}
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+      >
+        <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
+          <View style={styles.content}>
         <View style={styles.brandMark}>
           <MaterialIcons name="inventory-2" size={42} color={AppPalette.primaryOn} />
         </View>
@@ -200,13 +209,16 @@ export default function LoginScreen() {
             </Text>
           </>
         ) : null}
-      </View>
+          </View>
+        </TouchableWithoutFeedback>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: AppPalette.background },
+  avoidingView: { flex: 1 },
   loading: {
     flex: 1,
     alignItems: "center",

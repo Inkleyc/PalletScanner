@@ -4,7 +4,7 @@ import { Linking } from "react-native";
 import type { CaptureAnalysisResult } from "@palletscanner/core";
 
 import { AppAlert as Alert } from "@/lib/app-alert";
-import { getAppSettings } from "@/lib/app-settings";
+import { getAppSettings, setShowEbayDetailsReminder } from "@/lib/app-settings";
 import {
   createEbayListing,
   getEbayListingRequirements,
@@ -347,12 +347,26 @@ export const completeEbayAnalysisRequirements = async (
     }
     return { ...analysis, ebay_item_specifics: answers };
   } catch {
-    Alert.alert(
-      "eBay details can be finished later",
+    alertEbayDetailsDeferred(
       "The item analysis is complete, but PalletFlip could not check eBay's required details right now.",
     );
     return analysis;
   }
+};
+
+export const alertEbayDetailsDeferred = (message: string) => {
+  if (!getAppSettings().showEbayDetailsReminder) {
+    return;
+  }
+  Alert.alert("eBay details can be finished later", message, [
+    { text: "OK", style: "cancel" },
+    {
+      text: "Don't show again",
+      onPress: () => {
+        setShowEbayDetailsReminder(false);
+      },
+    },
+  ]);
 };
 
 export const openListingDraft = async (
