@@ -6,6 +6,8 @@ import { useRouter } from "expo-router";
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import {
   Image,
+  Keyboard,
+  KeyboardAvoidingView,
   Linking,
   Modal,
   Platform,
@@ -926,7 +928,7 @@ ${JSON.stringify(promptItems, null, 2)}`,
 
   return (
     <>
-      <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+      <ScrollView style={styles.container} contentContainerStyle={styles.content} keyboardDismissMode="on-drag" keyboardShouldPersistTaps="handled">
         <View style={[styles.innerContent, isLargeLayout && styles.innerContentWide]}>
         <Text style={styles.title}>Inventory</Text>
         <Text style={styles.subtitle}>
@@ -1842,7 +1844,8 @@ ${JSON.stringify(promptItems, null, 2)}`,
         onRequestClose={() => setSelectedItemId(null)}
       >
         <Pressable style={styles.itemDetailBackdrop} onPress={() => setSelectedItemId(null)}>
-          <Pressable style={styles.itemDetailCard} onPress={() => undefined}>
+          <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"}>
+            <Pressable style={styles.itemDetailCard} onPress={Keyboard.dismiss}>
             <View style={styles.itemDetailHeader}>
               <View style={styles.itemDetailHeading}>
                 <Text style={styles.itemDetailTitle}>{selectedItem?.name ?? "Item details"}</Text>
@@ -1852,7 +1855,7 @@ ${JSON.stringify(promptItems, null, 2)}`,
                 <Text style={styles.itemDetailCloseText}>Close</Text>
               </TouchableOpacity>
             </View>
-            <ScrollView contentContainerStyle={styles.itemDetailContent}>
+            <ScrollView contentContainerStyle={styles.itemDetailContent} keyboardDismissMode="on-drag" keyboardShouldPersistTaps="handled">
               {selectedItem?.photos?.length || selectedItem?.photo ? (
                 <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.itemDetailPhotos}>
                   {(selectedItem.photos?.length ? selectedItem.photos : selectedItem.photo ? [selectedItem.photo] : []).map((uri, index) => (
@@ -1885,7 +1888,8 @@ ${JSON.stringify(promptItems, null, 2)}`,
               ) : null}
               <TouchableOpacity style={styles.saveItemChangesButton} onPress={() => { void saveItemDetails(); }}><Text style={styles.saveListingPriceText}>Save changes</Text></TouchableOpacity>
             </ScrollView>
-          </Pressable>
+            </Pressable>
+          </KeyboardAvoidingView>
         </Pressable>
       </Modal>
       <Modal
