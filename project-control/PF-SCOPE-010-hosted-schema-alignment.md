@@ -1,5 +1,5 @@
 # PF-SCOPE-010 — Hosted Supabase schema alignment
-Status: VERIFIED (2026-11-07; closes on merge of PR #8, which carries this record)
+Status: CLOSED (VERIFIED 2026-11-07; record merged via PR #8 as fcc8e2d9)
 Owner approval: Stage A APPROVED 2026-11-07 13:41 MST; Stage B go-ahead (second, separate) 2026-11-07 13:46 MST. This scope is a protected operation under PF-D-008 (hosted database writes).
 Execution: Supabase dashboard SQL Editor against the hosted project (no repo branch — no repo changes were required; the repo migrations were applied as-is). Working artifacts (Stage A report, pre-apply backup, batch files) are in Lenard's audit workspace `scope010/`; the proposal is `scope-proposal-010-hosted-schema-alignment.md` in the same workspace.
 

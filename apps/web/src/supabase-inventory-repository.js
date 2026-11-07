@@ -7,8 +7,24 @@ const requireUser = async (client) => {
 };
 
 const throwIfError = ({ error }) => {
-  if (error) throw error;
+  // Throw a real Error carrying the database message. PostgREST errors are
+  // plain objects; throwing them raw made every UI catch fall back to a
+  // generic message and hid the actual reason (PF-SCOPE-012).
+  if (error) throw new Error(error.message ?? "Cloud request failed.");
 };
+
+// The database CHECK on inventory_items.workflow_status allows only these
+// values (migration 202609110001). The web app's local status vocabulary is
+// wider ("needs_review" for items awaiting the review queue, assigned by the
+// add-item, AI-analysis, and photo-save flows); mobile translates before
+// syncing, the web repository never did, so cloud saves of such items were
+// rejected with a CHECK violation (PF-SCOPE-012). Translate at this boundary
+// like mobile does: known database values pass through; anything else maps
+// to "captured", the database default for a new item awaiting processing.
+// Review eligibility is unaffected (Review lists every non-ready, non-sold
+// item), so the item still lands in Review as the local vocabulary intended.
+const CLOUD_WORKFLOW_STATUSES = new Set(["captured", "needs_photos", "needs_research", "ready", "sold"]);
+export const toCloudWorkflowStatus = (status) => (CLOUD_WORKFLOW_STATUSES.has(status) ? status : "captured");
 
 export const createSupabaseInventoryRepository = (client) => {
   let state = { items: [], pallets: [], activePalletId: localStorage.getItem("palletscanner.cloudActivePalletId") };
@@ -69,7 +85,7 @@ export const createSupabaseInventoryRepository = (client) => {
       const previousItem = state.items.find((entry) => entry.id === item.id);
       const pallet = state.pallets.find((entry) => entry.id === item.palletId);
       if (!pallet?.serverId) throw new Error("The selected cloud pallet was not found.");
-      const result = await client.from("inventory_items").upsert({ owner_id: user.id, pallet_id: pallet.serverId, client_id: item.id, name: item.name, product_barcode: item.barcode ?? null, seller_sku: item.sellerSku ?? null, storage_location: item.storageLocation?.trim() || null, item_weight_grams: item.itemWeightGrams ?? null, category: item.category?.trim() || "Uncategorized", condition: item.condition, quantity: item.quantity, last_quantity_reason: options.quantityReason?.trim() || null, archived_at: item.archivedAt ?? null, low_price: item.low_price, high_price: item.high_price, floor_price: item.floor_price, listing_price: item.listing_price ?? item.high_price, best_platform: item.best_platform, workflow_status: item.status ?? "captured", listing_title: item.listing_title, listing_description: item.listing_description, facebook_title: item.listing_title_facebook ?? null, facebook_description: item.listing_description_facebook ?? null, ebay_title: item.listing_title_ebay ?? null, ebay_description: item.listing_description_ebay ?? null, listed_platforms: item.listedPlatforms ?? [], sold_price: item.soldPrice }, { onConflict: "owner_id,client_id" }).select("id").single();
+      const result = await client.from("inventory_items").upsert({ owner_id: user.id, pallet_id: pallet.serverId, client_id: item.id, name: item.name, product_barcode: item.barcode ?? null, seller_sku: item.sellerSku ?? null, storage_location: item.storageLocation?.trim() || null, item_weight_grams: item.itemWeightGrams ?? null, category: item.category?.trim() || "Uncategorized", condition: item.condition, quantity: item.quantity, last_quantity_reason: options.quantityReason?.trim() || null, archived_at: item.archivedAt ?? null, low_price: item.low_price, high_price: item.high_price, floor_price: item.floor_price, listing_price: item.listing_price ?? item.high_price, best_platform: item.best_platform, workflow_status: toCloudWorkflowStatus(item.status), listing_title: item.listing_title, listing_description: item.listing_description, facebook_title: item.listing_title_facebook ?? null, facebook_description: item.listing_description_facebook ?? null, ebay_title: item.listing_title_ebay ?? null, ebay_description: item.listing_description_ebay ?? null, listed_platforms: item.listedPlatforms ?? [], sold_price: item.soldPrice }, { onConflict: "owner_id,client_id" }).select("id").single();
       throwIfError(result);
       const listingRows = [];
       if (item.ebayStatus || item.ebayListingId || item.listedPlatforms?.includes("ebay")) {

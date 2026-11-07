@@ -1,5 +1,5 @@
 # PF-SCOPE-011 — Clients create the acquisition for each new pallet
-Status: VERIFIED (2026-11-07; owner review / merge pending)
+Status: CLOSED (VERIFIED 2026-11-07; merged PR #8 as fcc8e2d9)
 Owner approval: APPROVED 2026-11-07 (owner chose the app-side fix over a database bridge trigger on long-term grounds, after PF-SCOPE-010 Stage C exposed the gap)
 Branch: scope/PF-SCOPE-011-acquisition-creation
 Base: main 1747afb1 (PF-SCOPE-002 merged, CI green)
