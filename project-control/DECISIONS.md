@@ -23,6 +23,7 @@ Direction confirmed; implementation of each item still requires a separately app
 (PF-D-013 is reserved for the pending scope-governance amendment, still awaiting owner approval.)
 
 - **PF-D-014:** Items and pallets share one removal model: archive, never hard-delete from the apps. Archived rows stay in the database (the append-only stock ledger makes hard deletion of stocked records impossible anyway) and leave every active view. An Archived view with restore is the approved follow-up direction, as its own future scope. Implemented by PF-SCOPE-014.
+- **PF-D-015:** Deployment-for-testing is part of approved-scope autonomy. Lenard may deploy web preview builds (per-branch preview hosting) and mobile test builds (TestFlight / EAS Update), and may run the web browser passes and prepare device passes himself, recording evidence in the scope docs. Preview/test deployments are not a public launch: any production/public release still needs its own explicit owner decision, merges to `main` stay owner-gated, and hosted-database writes stay gated one by one (PF-D-008 unchanged). The Expo token used by CI lives only as a GitHub repository secret set by the owner; Lenard never holds it. Lenard's test records in the hosted database are named as test data and archived after the pass. Implemented by PF-SCOPE-015 (web) and PF-SCOPE-016 (mobile).
 
 ## Established historical direction; verify against code and current docs
 - Mobile warehouse capture / web business management split.
