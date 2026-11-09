@@ -1,13 +1,16 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
 
-import { AppPalette } from "@/constants/app-palette";
+import { type AppPaletteShape } from "@/constants/app-palette";
+import { useAppPalette } from "@/lib/app-theme";
 
 type LoadingStatusProps = {
   messages: string[];
 };
 
 export function LoadingStatus({ messages }: LoadingStatusProps) {
+  const palette = useAppPalette();
+  const styles = useMemo(() => createStyles(palette), [palette]);
   const safeMessages = messages.length > 0 ? messages : ["Working..."];
   const [messageIndex, setMessageIndex] = useState(0);
 
@@ -22,18 +25,18 @@ export function LoadingStatus({ messages }: LoadingStatusProps) {
 
   return (
     <View style={styles.card}>
-      <ActivityIndicator size="large" color={AppPalette.primaryStrong} />
+      <ActivityIndicator size="large" color={palette.primaryStrong} />
       <Text style={styles.message}>{safeMessages[messageIndex]}</Text>
     </View>
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (palette: AppPaletteShape) => StyleSheet.create({
   card: {
     marginTop: 20,
-    backgroundColor: AppPalette.surface,
+    backgroundColor: palette.surface,
     borderWidth: 1,
-    borderColor: AppPalette.border,
+    borderColor: palette.border,
     borderRadius: 12,
     paddingVertical: 18,
     paddingHorizontal: 16,
@@ -43,6 +46,6 @@ const styles = StyleSheet.create({
   message: {
     fontSize: 14,
     fontWeight: "600",
-    color: AppPalette.textMuted,
+    color: palette.textMuted,
   },
 });

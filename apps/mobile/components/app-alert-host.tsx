@@ -1,4 +1,4 @@
-import { useEffect, useState, useSyncExternalStore } from "react";
+import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import {
   Modal,
   Pressable,
@@ -10,7 +10,8 @@ import {
   View,
 } from "react-native";
 
-import { AppPalette } from "@/constants/app-palette";
+import { type AppPaletteShape } from "@/constants/app-palette";
+import { useAppPalette } from "@/lib/app-theme";
 import {
   dismissAppAlert,
   getAppAlert,
@@ -18,6 +19,8 @@ import {
 } from "@/lib/app-alert";
 
 export function AppAlertHost() {
+  const palette = useAppPalette();
+  const styles = useMemo(() => createStyles(palette), [palette]);
   const alert = useSyncExternalStore(
     subscribeAppAlert,
     getAppAlert,
@@ -59,7 +62,7 @@ export function AppAlertHost() {
                 style={styles.input}
                 value={inputValue}
                 placeholder={options.length > 0 ? "Search available choices" : alert.input.placeholder}
-                placeholderTextColor={AppPalette.textSoft}
+                placeholderTextColor={palette.textSoft}
                 onChangeText={setInputValue}
               />
               {options.length > 0 && !hasSingleExactMatch ? (
@@ -115,7 +118,7 @@ export function AppAlertHost() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (palette: AppPaletteShape) => StyleSheet.create({
   backdrop: {
     flex: 1,
     backgroundColor: "rgba(10, 18, 28, 0.56)",
@@ -126,10 +129,10 @@ const styles = StyleSheet.create({
   dialog: {
     width: "100%",
     maxWidth: 440,
-    backgroundColor: AppPalette.surface,
+    backgroundColor: palette.surface,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: AppPalette.border,
+    borderColor: palette.border,
     padding: 22,
     shadowColor: "#000000",
     shadowOffset: { width: 0, height: 12 },
@@ -138,13 +141,13 @@ const styles = StyleSheet.create({
     elevation: 12,
   },
   title: {
-    color: AppPalette.text,
+    color: palette.text,
     fontSize: 20,
     fontWeight: "700",
     marginBottom: 10,
   },
   message: {
-    color: AppPalette.textMuted,
+    color: palette.textMuted,
     fontSize: 15,
     lineHeight: 22,
     marginBottom: 18,
@@ -153,60 +156,60 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   input: {
-    borderColor: AppPalette.border,
+    borderColor: palette.border,
     borderRadius: 8,
     borderWidth: 1,
-    color: AppPalette.text,
+    color: palette.text,
     fontSize: 16,
     marginBottom: 14,
     minHeight: 46,
     paddingHorizontal: 12,
   },
   optionList: {
-    borderColor: AppPalette.border,
+    borderColor: palette.border,
     borderRadius: 8,
     borderWidth: 1,
     marginBottom: 14,
     maxHeight: 220,
   },
   option: {
-    borderBottomColor: AppPalette.border,
+    borderBottomColor: palette.border,
     borderBottomWidth: 1,
     minHeight: 44,
     justifyContent: "center",
     paddingHorizontal: 12,
   },
-  selectedOption: { backgroundColor: AppPalette.infoSoft },
-  optionText: { color: AppPalette.text, fontSize: 15 },
-  noOptions: { color: AppPalette.textMuted, fontSize: 13, lineHeight: 18, padding: 12 },
+  selectedOption: { backgroundColor: palette.infoSoft },
+  optionText: { color: palette.text, fontSize: 15 },
+  noOptions: { color: palette.textMuted, fontSize: 13, lineHeight: 18, padding: 12 },
   disabledButton: { opacity: 0.45 },
   button: {
     minHeight: 44,
     borderRadius: 8,
-    backgroundColor: AppPalette.primaryStrong,
+    backgroundColor: palette.primaryStrong,
     alignItems: "center",
     justifyContent: "center",
     paddingHorizontal: 16,
   },
   cancelButton: {
-    backgroundColor: AppPalette.surfaceMuted,
+    backgroundColor: palette.surfaceMuted,
     borderWidth: 1,
-    borderColor: AppPalette.border,
+    borderColor: palette.border,
   },
   destructiveButton: {
-    backgroundColor: AppPalette.dangerSoft,
+    backgroundColor: palette.dangerSoft,
     borderWidth: 1,
-    borderColor: AppPalette.dangerStrong,
+    borderColor: palette.dangerStrong,
   },
   buttonText: {
-    color: AppPalette.primaryOn,
+    color: palette.primaryOn,
     fontSize: 14,
     fontWeight: "700",
   },
   cancelButtonText: {
-    color: AppPalette.text,
+    color: palette.text,
   },
   destructiveButtonText: {
-    color: AppPalette.dangerStrong,
+    color: palette.dangerStrong,
   },
 });

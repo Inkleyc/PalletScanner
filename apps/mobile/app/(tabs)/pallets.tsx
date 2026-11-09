@@ -1,4 +1,4 @@
-import { useState, useSyncExternalStore } from "react";
+import { useMemo, useState, useSyncExternalStore } from "react";
 import {
   Modal,
   Pressable,
@@ -23,12 +23,15 @@ import {
   subscribeInventory,
   updatePalletSessionCost,
 } from "@/lib/inventory-store";
-import { AppLayout, AppPalette } from "@/constants/app-palette";
+import { AppLayout, type AppPaletteShape } from "@/constants/app-palette";
+import { useAppPalette } from "@/lib/app-theme";
 import { AppAlert as Alert } from "@/lib/app-alert";
 
 type EditField = "name" | "cost";
 
 export default function PalletsScreen() {
+  const palette = useAppPalette();
+  const styles = useMemo(() => createStyles(palette), [palette]);
   const { width } = useWindowDimensions();
   const pallets = useSyncExternalStore(
     subscribeInventory,
@@ -141,7 +144,7 @@ export default function PalletsScreen() {
             value={newPalletName}
             onChangeText={setNewPalletName}
             placeholder="Leave blank for the default name"
-            placeholderTextColor={AppPalette.textSoft}
+            placeholderTextColor={palette.textSoft}
           />
           <TouchableOpacity style={styles.primaryBtn} onPress={handleCreatePallet}>
             <Text style={styles.primaryBtnText}>Create Pallet</Text>
@@ -221,7 +224,7 @@ export default function PalletsScreen() {
               value={editValue}
               onChangeText={setEditValue}
               placeholder={editing?.field === "cost" ? "Pallet cost" : "Pallet name"}
-              placeholderTextColor={AppPalette.textSoft}
+              placeholderTextColor={palette.textSoft}
               keyboardType={editing?.field === "cost" ? "decimal-pad" : "default"}
               autoFocus
             />
@@ -243,42 +246,42 @@ export default function PalletsScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: AppPalette.background },
+const createStyles = (palette: AppPaletteShape) => StyleSheet.create({
+  container: { flex: 1, backgroundColor: palette.background },
   content: { padding: 20, paddingTop: 56, paddingBottom: 28 },
   innerContent: { width: "100%", alignSelf: "center" },
   innerContentWide: { maxWidth: AppLayout.maxContentWidth },
-  title: { fontSize: 30, fontWeight: "700", color: AppPalette.text, marginBottom: 6 },
-  subtitle: { fontSize: 14, color: AppPalette.textMuted, marginBottom: 20, lineHeight: 20 },
+  title: { fontSize: 30, fontWeight: "700", color: palette.text, marginBottom: 6 },
+  subtitle: { fontSize: 14, color: palette.textMuted, marginBottom: 20, lineHeight: 20 },
   newCard: {
-    backgroundColor: AppPalette.surface,
+    backgroundColor: palette.surface,
     borderWidth: 1,
-    borderColor: AppPalette.border,
+    borderColor: palette.border,
     borderRadius: 10,
     padding: 16,
     marginBottom: 16,
-    shadowColor: AppPalette.shadow,
+    shadowColor: palette.shadow,
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 1,
     shadowRadius: 18,
     elevation: 2,
   },
   emptyCard: {
-    backgroundColor: AppPalette.surfaceTint,
+    backgroundColor: palette.surfaceTint,
     borderWidth: 1,
-    borderColor: AppPalette.border,
+    borderColor: palette.border,
     borderRadius: 10,
     padding: 16,
     marginBottom: 16,
   },
   palletCard: {
-    backgroundColor: AppPalette.surface,
+    backgroundColor: palette.surface,
     borderWidth: 1,
-    borderColor: AppPalette.border,
+    borderColor: palette.border,
     borderRadius: 10,
     padding: 14,
     marginBottom: 8,
-    shadowColor: AppPalette.shadow,
+    shadowColor: palette.shadow,
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 1,
     shadowRadius: 18,
@@ -291,11 +294,11 @@ const styles = StyleSheet.create({
     gap: 12,
     marginBottom: 12,
   },
-  cardTitle: { fontSize: 18, fontWeight: "700", color: AppPalette.text },
-  cardMeta: { fontSize: 13, color: AppPalette.textMuted, marginTop: 4 },
+  cardTitle: { fontSize: 18, fontWeight: "700", color: palette.text },
+  cardMeta: { fontSize: 13, color: palette.textMuted, marginTop: 4 },
   activeBadge: {
-    backgroundColor: AppPalette.primaryStrong,
-    color: AppPalette.primaryOn,
+    backgroundColor: palette.primaryStrong,
+    color: palette.primaryOn,
     paddingHorizontal: 10,
     paddingVertical: 6,
     borderRadius: 999,
@@ -306,7 +309,7 @@ const styles = StyleSheet.create({
   compactPalletMain: { alignItems: "center", flexDirection: "row", gap: 12 },
   compactPalletIdentity: { flex: 1, minWidth: 0 },
   compactPalletSummary: { alignItems: "flex-end", gap: 6 },
-  compactPalletCost: { color: AppPalette.text, fontSize: 14, fontWeight: "700" },
+  compactPalletCost: { color: palette.text, fontSize: 14, fontWeight: "700" },
   palletStatsRow: {
     flexDirection: "row",
     gap: 8,
@@ -314,82 +317,82 @@ const styles = StyleSheet.create({
   },
   palletStatBox: {
     flex: 1,
-    backgroundColor: AppPalette.surfaceMuted,
+    backgroundColor: palette.surfaceMuted,
     borderWidth: 1,
-    borderColor: AppPalette.border,
+    borderColor: palette.border,
     borderRadius: 8,
     padding: 10,
   },
   palletStatLabel: {
-    color: AppPalette.textMuted,
+    color: palette.textMuted,
     fontSize: 11,
     fontWeight: "700",
     marginBottom: 3,
   },
   palletStatValue: {
-    color: AppPalette.text,
+    color: palette.text,
     fontSize: 16,
     fontWeight: "700",
   },
   input: {
     borderWidth: 1,
-    borderColor: AppPalette.borderStrong,
+    borderColor: palette.borderStrong,
     borderRadius: 8,
     paddingHorizontal: 12,
     paddingVertical: 10,
     fontSize: 14,
-    color: AppPalette.text,
-    backgroundColor: AppPalette.surface,
+    color: palette.text,
+    backgroundColor: palette.surface,
     marginBottom: 10,
   },
   row: { flexDirection: "row", gap: 10, marginBottom: 8, flexWrap: "wrap" },
   primaryBtn: {
-    backgroundColor: AppPalette.primaryStrong,
+    backgroundColor: palette.primaryStrong,
     borderRadius: 8,
     paddingVertical: 12,
     alignItems: "center",
   },
-  primaryBtnText: { color: AppPalette.primaryOn, fontWeight: "700", fontSize: 14 },
+  primaryBtnText: { color: palette.primaryOn, fontWeight: "700", fontSize: 14 },
   secondaryBtn: {
-    backgroundColor: AppPalette.surfaceMuted,
+    backgroundColor: palette.surfaceMuted,
     borderWidth: 1,
-    borderColor: AppPalette.border,
+    borderColor: palette.border,
     borderRadius: 8,
     paddingHorizontal: 12,
     paddingVertical: 10,
     alignItems: "center",
   },
-  secondaryBtnText: { color: AppPalette.text, fontWeight: "600", fontSize: 13 },
+  secondaryBtnText: { color: palette.text, fontWeight: "600", fontSize: 13 },
   manageToggleBtn: {
     borderWidth: 1,
-    borderColor: AppPalette.border,
-    backgroundColor: AppPalette.surfaceMuted,
+    borderColor: palette.border,
+    backgroundColor: palette.surfaceMuted,
     borderRadius: 8,
     paddingVertical: 10,
     alignItems: "center",
     marginBottom: 10,
   },
   manageToggleBtnText: {
-    color: AppPalette.text,
+    color: palette.text,
     fontSize: 13,
     fontWeight: "700",
   },
   managementPanel: {
     borderTopWidth: 1,
-    borderTopColor: AppPalette.border,
+    borderTopColor: palette.border,
     paddingTop: 12,
     marginTop: 2,
   },
   valueLabel: {
-    color: AppPalette.textMuted,
+    color: palette.textMuted,
     fontSize: 12,
     fontWeight: "700",
     marginBottom: 6,
   },
   valueBox: {
     alignItems: "center",
-    backgroundColor: AppPalette.surfaceMuted,
-    borderColor: AppPalette.border,
+    backgroundColor: palette.surfaceMuted,
+    borderColor: palette.border,
     borderRadius: 8,
     borderWidth: 1,
     flexDirection: "row",
@@ -399,14 +402,14 @@ const styles = StyleSheet.create({
     paddingLeft: 12,
   },
   valueText: {
-    color: AppPalette.text,
+    color: palette.text,
     flex: 1,
     fontSize: 14,
   },
   editBtn: {
     alignItems: "center",
     alignSelf: "stretch",
-    borderLeftColor: AppPalette.border,
+    borderLeftColor: palette.border,
     borderLeftWidth: 1,
     justifyContent: "center",
     minWidth: 48,
@@ -416,44 +419,44 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   deleteBtn: {
-    backgroundColor: AppPalette.dangerSoft,
+    backgroundColor: palette.dangerSoft,
     borderWidth: 1,
-    borderColor: AppPalette.dangerBorder,
+    borderColor: palette.dangerBorder,
     borderRadius: 8,
     paddingHorizontal: 12,
     paddingVertical: 10,
     alignItems: "center",
   },
-  deleteBtnText: { color: AppPalette.dangerStrong, fontWeight: "600", fontSize: 13 },
+  deleteBtnText: { color: palette.dangerStrong, fontWeight: "600", fontSize: 13 },
   modalBackdrop: {
-    backgroundColor: AppPalette.modalBackdrop,
+    backgroundColor: palette.modalBackdrop,
     flex: 1,
     justifyContent: "center",
     padding: 20,
   },
   modalCard: {
-    backgroundColor: AppPalette.surface,
+    backgroundColor: palette.surface,
     borderRadius: 12,
     padding: 20,
   },
-  palletDetailCard: { backgroundColor: AppPalette.surface, borderRadius: 10, maxHeight: "88%", overflow: "hidden" },
-  palletDetailHeader: { alignItems: "center", borderBottomColor: AppPalette.border, borderBottomWidth: 1, flexDirection: "row", padding: 16 },
+  palletDetailCard: { backgroundColor: palette.surface, borderRadius: 10, maxHeight: "88%", overflow: "hidden" },
+  palletDetailHeader: { alignItems: "center", borderBottomColor: palette.border, borderBottomWidth: 1, flexDirection: "row", padding: 16 },
   palletDetailHeading: { flex: 1 },
   palletDetailContent: { gap: 4, padding: 16 },
   palletDetailActions: { alignItems: "center", flexDirection: "row", justifyContent: "space-between", gap: 10, marginBottom: 12 },
-  activeDetailNote: { backgroundColor: AppPalette.successSoft, borderRadius: 8, color: AppPalette.text, fontSize: 13, fontWeight: "700", overflow: "hidden", paddingHorizontal: 12, paddingVertical: 10 },
+  activeDetailNote: { backgroundColor: palette.successSoft, borderRadius: 8, color: palette.text, fontSize: 13, fontWeight: "700", overflow: "hidden", paddingHorizontal: 12, paddingVertical: 10 },
   modalTitle: {
-    color: AppPalette.text,
+    color: palette.text,
     fontSize: 20,
     fontWeight: "700",
     marginBottom: 16,
   },
   modalInput: {
-    backgroundColor: AppPalette.surface,
-    borderColor: AppPalette.borderStrong,
+    backgroundColor: palette.surface,
+    borderColor: palette.borderStrong,
     borderRadius: 8,
     borderWidth: 1,
-    color: AppPalette.text,
+    color: palette.text,
     fontSize: 15,
     marginBottom: 16,
     paddingHorizontal: 12,
@@ -465,25 +468,25 @@ const styles = StyleSheet.create({
     justifyContent: "flex-end",
   },
   modalCancelBtn: {
-    borderColor: AppPalette.borderStrong,
+    borderColor: palette.borderStrong,
     borderRadius: 8,
     borderWidth: 1,
     paddingHorizontal: 16,
     paddingVertical: 11,
   },
   modalCancelText: {
-    color: AppPalette.text,
+    color: palette.text,
     fontSize: 14,
     fontWeight: "600",
   },
   modalSaveBtn: {
-    backgroundColor: AppPalette.primaryStrong,
+    backgroundColor: palette.primaryStrong,
     borderRadius: 8,
     paddingHorizontal: 20,
     paddingVertical: 11,
   },
   modalSaveText: {
-    color: AppPalette.primaryOn,
+    color: palette.primaryOn,
     fontSize: 14,
     fontWeight: "700",
   },

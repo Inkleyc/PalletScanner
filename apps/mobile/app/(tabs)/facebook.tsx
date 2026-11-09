@@ -13,7 +13,8 @@ import {
   View,
 } from "react-native";
 
-import { AppLayout, AppPalette } from "@/constants/app-palette";
+import { AppLayout, type AppPaletteShape } from "@/constants/app-palette";
+import { useAppPalette } from "@/lib/app-theme";
 import { AppAlert as Alert } from "@/lib/app-alert";
 import {
   getInventory,
@@ -43,6 +44,8 @@ const facebookCopySteps = [
 ] as const;
 
 export default function FacebookQueueScreen() {
+  const palette = useAppPalette();
+  const styles = useMemo(() => createStyles(palette), [palette]);
   const { width } = useWindowDimensions();
   const router = useRouter();
   const items = useSyncExternalStore(
@@ -280,7 +283,7 @@ export default function FacebookQueueScreen() {
                   }))
                 }
                 placeholder="https://www.facebook.com/marketplace/item/..."
-                placeholderTextColor={AppPalette.textSoft}
+                placeholderTextColor={palette.textSoft}
                 autoCapitalize="none"
                 autoCorrect={false}
               />
@@ -323,20 +326,20 @@ export default function FacebookQueueScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: AppPalette.background },
+const createStyles = (palette: AppPaletteShape) => StyleSheet.create({
+  container: { flex: 1, backgroundColor: palette.background },
   content: { padding: 20, paddingTop: 52, paddingBottom: 24 },
   innerContent: { width: "100%", alignSelf: "center" },
   innerContentWide: { maxWidth: AppLayout.maxContentWidth },
   title: {
     fontSize: 30,
     fontWeight: "700",
-    color: AppPalette.text,
+    color: palette.text,
     marginBottom: 6,
   },
   subtitle: {
     fontSize: 14,
-    color: AppPalette.textMuted,
+    color: palette.textMuted,
     marginBottom: 16,
     lineHeight: 20,
   },
@@ -349,46 +352,46 @@ const styles = StyleSheet.create({
   metricBox: {
     flex: 1,
     minWidth: 120,
-    backgroundColor: AppPalette.surface,
+    backgroundColor: palette.surface,
     borderWidth: 1,
-    borderColor: AppPalette.border,
+    borderColor: palette.border,
     borderRadius: 10,
     padding: 12,
   },
   metricLabel: {
-    color: AppPalette.textMuted,
+    color: palette.textMuted,
     fontSize: 11,
     fontWeight: "700",
     marginBottom: 4,
   },
   metricValue: {
-    color: AppPalette.text,
+    color: palette.text,
     fontSize: 24,
     fontWeight: "800",
   },
   emptyCard: {
-    backgroundColor: AppPalette.surface,
+    backgroundColor: palette.surface,
     borderWidth: 1,
-    borderColor: AppPalette.border,
+    borderColor: palette.border,
     borderRadius: 12,
     padding: 18,
   },
   emptyTitle: {
-    color: AppPalette.text,
+    color: palette.text,
     fontSize: 18,
     fontWeight: "700",
     marginBottom: 8,
   },
   emptyText: {
-    color: AppPalette.textMuted,
+    color: palette.textMuted,
     fontSize: 14,
     lineHeight: 20,
     marginBottom: 14,
   },
   queueCard: {
-    backgroundColor: AppPalette.surface,
+    backgroundColor: palette.surface,
     borderWidth: 1,
-    borderColor: AppPalette.border,
+    borderColor: palette.border,
     borderRadius: 12,
     overflow: "hidden",
   },
@@ -399,14 +402,14 @@ const styles = StyleSheet.create({
     padding: 14,
   },
   queueEyebrow: {
-    color: AppPalette.textSoft,
+    color: palette.textSoft,
     fontSize: 11,
     fontWeight: "800",
     marginBottom: 4,
   },
   itemTitle: {
     flex: 1,
-    color: AppPalette.text,
+    color: palette.text,
     fontSize: 20,
     fontWeight: "800",
     lineHeight: 25,
@@ -415,7 +418,7 @@ const styles = StyleSheet.create({
     width: 78,
     height: 78,
     borderRadius: 8,
-    backgroundColor: AppPalette.surfaceMuted,
+    backgroundColor: palette.surfaceMuted,
   },
   badgeRow: {
     flexDirection: "row",
@@ -425,8 +428,8 @@ const styles = StyleSheet.create({
     paddingBottom: 12,
   },
   priceBadge: {
-    backgroundColor: AppPalette.successSoft,
-    color: AppPalette.success,
+    backgroundColor: palette.successSoft,
+    color: palette.success,
     fontSize: 12,
     fontWeight: "700",
     paddingHorizontal: 8,
@@ -434,8 +437,8 @@ const styles = StyleSheet.create({
     borderRadius: 6,
   },
   quantityBadge: {
-    backgroundColor: AppPalette.infoSoft,
-    color: AppPalette.info,
+    backgroundColor: palette.infoSoft,
+    color: palette.info,
     fontSize: 12,
     fontWeight: "700",
     paddingHorizontal: 8,
@@ -443,8 +446,8 @@ const styles = StyleSheet.create({
     borderRadius: 6,
   },
   conditionBadge: {
-    backgroundColor: AppPalette.warningSoft,
-    color: AppPalette.warning,
+    backgroundColor: palette.warningSoft,
+    color: palette.warning,
     fontSize: 12,
     fontWeight: "700",
     paddingHorizontal: 8,
@@ -452,8 +455,8 @@ const styles = StyleSheet.create({
     borderRadius: 6,
   },
   photoBadge: {
-    backgroundColor: AppPalette.primarySoft,
-    color: AppPalette.primary,
+    backgroundColor: palette.primarySoft,
+    color: palette.primary,
     fontSize: 12,
     fontWeight: "700",
     paddingHorizontal: 8,
@@ -463,50 +466,50 @@ const styles = StyleSheet.create({
   blockerBox: {
     marginHorizontal: 14,
     marginBottom: 12,
-    backgroundColor: AppPalette.dangerSoft,
+    backgroundColor: palette.dangerSoft,
     borderWidth: 1,
-    borderColor: AppPalette.dangerBorder,
+    borderColor: palette.dangerBorder,
     borderRadius: 10,
     padding: 12,
   },
   blockerTitle: {
-    color: AppPalette.dangerStrong,
+    color: palette.dangerStrong,
     fontSize: 13,
     fontWeight: "800",
     marginBottom: 6,
   },
   blockerText: {
-    color: AppPalette.dangerStrong,
+    color: palette.dangerStrong,
     fontSize: 12,
     lineHeight: 17,
   },
   readyBox: {
     marginHorizontal: 14,
     marginBottom: 12,
-    backgroundColor: AppPalette.successSoft,
+    backgroundColor: palette.successSoft,
     borderWidth: 1,
-    borderColor: AppPalette.successBorder,
+    borderColor: palette.successBorder,
     borderRadius: 10,
     padding: 12,
   },
   readyTitle: {
-    color: AppPalette.success,
+    color: palette.success,
     fontSize: 13,
     fontWeight: "800",
     marginBottom: 4,
   },
   readyText: {
-    color: AppPalette.textMuted,
+    color: palette.textMuted,
     fontSize: 12,
     lineHeight: 17,
   },
   stepSection: {
     borderTopWidth: 1,
-    borderTopColor: AppPalette.border,
+    borderTopColor: palette.border,
     padding: 14,
   },
   sectionTitle: {
-    color: AppPalette.text,
+    color: palette.text,
     fontSize: 14,
     fontWeight: "800",
     marginBottom: 8,
@@ -519,28 +522,28 @@ const styles = StyleSheet.create({
   copyBtn: {
     minWidth: 132,
     borderWidth: 1,
-    borderColor: AppPalette.border,
-    backgroundColor: AppPalette.surfaceMuted,
+    borderColor: palette.border,
+    backgroundColor: palette.surfaceMuted,
     borderRadius: 8,
     paddingHorizontal: 10,
     paddingVertical: 10,
     alignItems: "center",
   },
   copyBtnText: {
-    color: AppPalette.text,
+    color: palette.text,
     fontSize: 12,
     fontWeight: "800",
   },
   openMarketplaceBtn: {
     marginHorizontal: 14,
     marginBottom: 12,
-    backgroundColor: AppPalette.primaryStrong,
+    backgroundColor: palette.primaryStrong,
     borderRadius: 8,
     paddingVertical: 12,
     alignItems: "center",
   },
   openMarketplaceBtnText: {
-    color: AppPalette.primaryOn,
+    color: palette.primaryOn,
     fontSize: 14,
     fontWeight: "800",
   },
@@ -549,11 +552,11 @@ const styles = StyleSheet.create({
   },
   urlBox: {
     borderTopWidth: 1,
-    borderTopColor: AppPalette.border,
+    borderTopColor: palette.border,
     padding: 14,
   },
   urlHint: {
-    color: AppPalette.textMuted,
+    color: palette.textMuted,
     fontSize: 12,
     lineHeight: 17,
     marginBottom: 10,
@@ -567,22 +570,22 @@ const styles = StyleSheet.create({
   markListedBtn: {
     flex: 1,
     minWidth: 130,
-    backgroundColor: AppPalette.info,
+    backgroundColor: palette.info,
     borderRadius: 8,
     paddingVertical: 10,
     alignItems: "center",
   },
   markListedBtnText: {
-    color: AppPalette.primaryOn,
+    color: palette.primaryOn,
     fontSize: 13,
     fontWeight: "800",
   },
   urlInput: {
     borderWidth: 1,
-    borderColor: AppPalette.borderStrong,
+    borderColor: palette.borderStrong,
     borderRadius: 8,
-    backgroundColor: AppPalette.surface,
-    color: AppPalette.text,
+    backgroundColor: palette.surface,
+    color: palette.text,
     paddingHorizontal: 10,
     paddingVertical: 10,
     fontSize: 13,
@@ -595,33 +598,33 @@ const styles = StyleSheet.create({
   },
   queueNav: {
     borderTopWidth: 1,
-    borderTopColor: AppPalette.border,
+    borderTopColor: palette.border,
     padding: 14,
     flexDirection: "row",
     justifyContent: "space-between",
     gap: 8,
   },
   primaryBtn: {
-    backgroundColor: AppPalette.primaryStrong,
+    backgroundColor: palette.primaryStrong,
     borderRadius: 8,
     paddingVertical: 12,
     alignItems: "center",
   },
   primaryBtnText: {
-    color: AppPalette.primaryOn,
+    color: palette.primaryOn,
     fontSize: 14,
     fontWeight: "800",
   },
   primarySmallBtn: {
     flex: 1,
     minWidth: 130,
-    backgroundColor: AppPalette.primaryStrong,
+    backgroundColor: palette.primaryStrong,
     borderRadius: 8,
     paddingVertical: 10,
     alignItems: "center",
   },
   primarySmallBtnText: {
-    color: AppPalette.primaryOn,
+    color: palette.primaryOn,
     fontSize: 13,
     fontWeight: "800",
   },
@@ -629,15 +632,15 @@ const styles = StyleSheet.create({
     flex: 1,
     minWidth: 130,
     borderWidth: 1,
-    borderColor: AppPalette.borderStrong,
-    backgroundColor: AppPalette.surfaceMuted,
+    borderColor: palette.borderStrong,
+    backgroundColor: palette.surfaceMuted,
     borderRadius: 8,
     paddingVertical: 10,
     alignItems: "center",
     marginTop: 8,
   },
   secondaryBtnText: {
-    color: AppPalette.text,
+    color: palette.text,
     fontSize: 13,
     fontWeight: "800",
   },

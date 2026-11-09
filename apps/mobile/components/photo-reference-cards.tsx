@@ -1,7 +1,8 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Platform, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
-import { AppPalette } from "@/constants/app-palette";
+import { type AppPaletteShape } from "@/constants/app-palette";
+import { useAppPalette } from "@/lib/app-theme";
 import { WebPhotoCamera, type WebCapturedPhoto } from "@/components/web-photo-camera";
 
 type PhotoReferenceCardsProps = {
@@ -20,6 +21,8 @@ const fallbackShots = [
 ];
 
 export function PhotoReferenceCards({ shots, photoCount, onCapture, onUpload }: PhotoReferenceCardsProps) {
+  const palette = useAppPalette();
+  const styles = useMemo(() => createStyles(palette), [palette]);
   const checklist = (shots.length > 0 ? shots : fallbackShots).slice(0, 6);
   const [cameraShot, setCameraShot] = useState<string | null>(null);
 
@@ -71,18 +74,18 @@ export function PhotoReferenceCards({ shots, photoCount, onCapture, onUpload }: 
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (palette: AppPaletteShape) => StyleSheet.create({
   container: { marginTop: 12 },
-  heading: { color: AppPalette.text, fontSize: 13, fontWeight: "700", marginBottom: 4 },
-  subheading: { color: AppPalette.textMuted, fontSize: 12, lineHeight: 18, marginBottom: 10 },
-  list: { borderColor: AppPalette.border, borderRadius: 8, borderWidth: 1, overflow: "hidden" },
-  row: { alignItems: "center", backgroundColor: AppPalette.surface, borderBottomColor: AppPalette.border, borderBottomWidth: 1, flexDirection: "row", gap: 10, minHeight: 54, padding: 10 },
-  number: { alignItems: "center", backgroundColor: AppPalette.surfaceMuted, borderRadius: 8, height: 28, justifyContent: "center", width: 28 },
-  numberText: { color: AppPalette.textMuted, fontSize: 12, fontWeight: "700" },
-  shot: { color: AppPalette.text, flex: 1, fontSize: 13, lineHeight: 18 },
+  heading: { color: palette.text, fontSize: 13, fontWeight: "700", marginBottom: 4 },
+  subheading: { color: palette.textMuted, fontSize: 12, lineHeight: 18, marginBottom: 10 },
+  list: { borderColor: palette.border, borderRadius: 8, borderWidth: 1, overflow: "hidden" },
+  row: { alignItems: "center", backgroundColor: palette.surface, borderBottomColor: palette.border, borderBottomWidth: 1, flexDirection: "row", gap: 10, minHeight: 54, padding: 10 },
+  number: { alignItems: "center", backgroundColor: palette.surfaceMuted, borderRadius: 8, height: 28, justifyContent: "center", width: 28 },
+  numberText: { color: palette.textMuted, fontSize: 12, fontWeight: "700" },
+  shot: { color: palette.text, flex: 1, fontSize: 13, lineHeight: 18 },
   actions: { alignItems: "center", flexDirection: "row", gap: 6 },
-  action: { backgroundColor: AppPalette.infoSoft, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 8 },
-  actionText: { color: AppPalette.info, fontSize: 12, fontWeight: "700" },
-  secondaryAction: { borderColor: AppPalette.border, borderRadius: 8, borderWidth: 1, paddingHorizontal: 10, paddingVertical: 8 },
-  secondaryActionText: { color: AppPalette.text, fontSize: 12, fontWeight: "700" },
+  action: { backgroundColor: palette.infoSoft, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 8 },
+  actionText: { color: palette.info, fontSize: 12, fontWeight: "700" },
+  secondaryAction: { borderColor: palette.border, borderRadius: 8, borderWidth: 1, paddingHorizontal: 10, paddingVertical: 8 },
+  secondaryActionText: { color: palette.text, fontSize: 12, fontWeight: "700" },
 });

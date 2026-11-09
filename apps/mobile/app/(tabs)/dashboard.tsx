@@ -1,9 +1,10 @@
 import * as WebBrowser from "expo-web-browser";
 import { useFocusEffect } from "@react-navigation/native";
-import { useCallback, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
-import { AppPalette } from "@/constants/app-palette";
+import { AppTextStyles, type AppPaletteShape } from "@/constants/app-palette";
+import { useAppPalette } from "@/lib/app-theme";
 import { AppAlert as Alert } from "@/lib/app-alert";
 import { getSupabaseClient } from "@/lib/supabase-auth";
 
@@ -25,6 +26,8 @@ const emptyAttention: OperationalAttention = {
 };
 
 export default function DashboardScreen() {
+  const palette = useAppPalette();
+  const styles = useMemo(() => createStyles(palette), [palette]);
   const [attention, setAttention] = useState<OperationalAttention | null>(null);
   const [attentionError, setAttentionError] = useState("");
   const [refreshing, setRefreshing] = useState(false);
@@ -114,11 +117,11 @@ export default function DashboardScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (palette: AppPaletteShape) => StyleSheet.create({
   container: {
     flex: 1,
     justifyContent: "center",
-    backgroundColor: AppPalette.background,
+    backgroundColor: palette.background,
     padding: 24,
   },
   content: {
@@ -127,26 +130,28 @@ const styles = StyleSheet.create({
     alignSelf: "center",
   },
   title: {
-    color: AppPalette.text,
+    color: palette.text,
     fontSize: 28,
     fontWeight: "700",
     marginBottom: 8,
   },
   description: {
-    color: AppPalette.textMuted,
+    color: palette.textMuted,
     fontSize: 15,
     lineHeight: 22,
   },
   primaryButton: {
     alignItems: "center",
-    backgroundColor: AppPalette.primaryStrong,
+    justifyContent: "center",
+    backgroundColor: palette.primaryStrong,
     borderRadius: 8,
     marginTop: 24,
+    minHeight: 48,
     paddingHorizontal: 16,
     paddingVertical: 14,
   },
   primaryButtonText: {
-    color: AppPalette.primaryOn,
+    color: palette.primaryOn,
     fontSize: 15,
     fontWeight: "700",
   },
@@ -154,22 +159,22 @@ const styles = StyleSheet.create({
     opacity: 0.55,
   },
   configurationHint: {
-    color: AppPalette.textMuted,
+    color: palette.textMuted,
     fontSize: 13,
     lineHeight: 19,
     marginTop: 10,
   },
-  attentionCard: { backgroundColor: AppPalette.warningSoft, borderColor: AppPalette.warning, borderRadius: 10, borderWidth: 1, marginTop: 20, padding: 16 },
-  attentionCardClear: { backgroundColor: AppPalette.successSoft, borderColor: AppPalette.success },
+  attentionCard: { backgroundColor: palette.warningSoft, borderColor: palette.warning, borderRadius: 10, borderWidth: 1, marginTop: 20, padding: 16 },
+  attentionCardClear: { backgroundColor: palette.successSoft, borderColor: palette.success },
   attentionHeading: { alignItems: "center", flexDirection: "row", gap: 14 },
-  attentionValue: { color: AppPalette.text, fontSize: 28, fontWeight: "800" },
+  attentionValue: { color: palette.text, fontSize: 28, fontWeight: "800", ...AppTextStyles.num },
   attentionCopy: { flex: 1 },
-  attentionTitle: { color: AppPalette.text, fontSize: 15, fontWeight: "700" },
-  attentionDetail: { color: AppPalette.textMuted, fontSize: 13, lineHeight: 18, marginTop: 3 },
-  attentionRow: { alignItems: "center", borderTopColor: AppPalette.border, borderTopWidth: 1, flexDirection: "row", justifyContent: "space-between", marginTop: 8, minHeight: 44, paddingTop: 8 },
+  attentionTitle: { color: palette.text, fontSize: 15, fontWeight: "700" },
+  attentionDetail: { color: palette.textMuted, fontSize: 13, lineHeight: 18, marginTop: 3 },
+  attentionRow: { alignItems: "center", borderTopColor: palette.border, borderTopWidth: 1, flexDirection: "row", justifyContent: "space-between", marginTop: 8, minHeight: 44, paddingTop: 8 },
   disabledAction: { opacity: 0.55 },
-  attentionRowLabel: { color: AppPalette.text, fontSize: 14, fontWeight: "600" },
-  attentionRowCount: { color: AppPalette.primaryStrong, fontSize: 14, fontWeight: "800" },
+  attentionRowLabel: { color: palette.text, fontSize: 14, fontWeight: "600" },
+  attentionRowCount: { color: palette.primaryStrong, fontSize: 14, fontWeight: "800", ...AppTextStyles.num },
   refreshButton: { alignItems: "center", justifyContent: "center", marginTop: 12, minHeight: 44, paddingVertical: 10 },
-  refreshButtonText: { color: AppPalette.primary, fontSize: 14, fontWeight: "600" },
+  refreshButtonText: { color: palette.primary, fontSize: 14, fontWeight: "600" },
 });

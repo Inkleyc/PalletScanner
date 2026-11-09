@@ -15,7 +15,8 @@ import {
   subscribeInventory,
   updatePalletSessionCost,
 } from "@/lib/inventory-store";
-import { AppLayout, AppPalette } from "@/constants/app-palette";
+import { AppLayout, type AppPaletteShape } from "@/constants/app-palette";
+import { useAppPalette } from "@/lib/app-theme";
 import {
   calculateInventoryTotals,
   calculatePalletMetrics,
@@ -24,6 +25,8 @@ import {
 const currency = (value: number) => `$${value.toFixed(2)}`;
 
 export default function AnalyticsScreen() {
+  const palette = useAppPalette();
+  const styles = useMemo(() => createStyles(palette), [palette]);
   const { width } = useWindowDimensions();
   const items = useSyncExternalStore(
     subscribeInventory,
@@ -195,8 +198,8 @@ export default function AnalyticsScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: AppPalette.background },
+const createStyles = (palette: AppPaletteShape) => StyleSheet.create({
+  container: { flex: 1, backgroundColor: palette.background },
   content: { padding: 20, paddingTop: 52, paddingBottom: 24 },
   innerContent: {
     width: "100%",
@@ -205,23 +208,23 @@ const styles = StyleSheet.create({
   innerContentWide: {
     maxWidth: AppLayout.maxContentWidth,
   },
-  title: { fontSize: 30, fontWeight: "700", color: AppPalette.text, marginBottom: 6 },
-  subtitle: { fontSize: 14, color: AppPalette.textMuted, marginBottom: 16, lineHeight: 20 },
+  title: { fontSize: 30, fontWeight: "700", color: palette.text, marginBottom: 6 },
+  subtitle: { fontSize: 14, color: palette.textMuted, marginBottom: 16, lineHeight: 20 },
   summaryCard: {
-    backgroundColor: AppPalette.surface,
+    backgroundColor: palette.surface,
     borderRadius: 14,
     padding: 16,
     marginBottom: 16,
     borderWidth: 1,
-    borderColor: AppPalette.border,
+    borderColor: palette.border,
   },
   palletCard: {
-    backgroundColor: AppPalette.surface,
+    backgroundColor: palette.surface,
     borderRadius: 14,
     padding: 16,
     marginBottom: 12,
     borderWidth: 1,
-    borderColor: AppPalette.border,
+    borderColor: palette.border,
   },
   cardHeader: {
     flexDirection: "row",
@@ -230,8 +233,8 @@ const styles = StyleSheet.create({
     gap: 12,
     marginBottom: 12,
   },
-  cardTitle: { fontSize: 18, fontWeight: "700", color: AppPalette.text },
-  cardDate: { fontSize: 12, color: AppPalette.textMuted },
+  cardTitle: { fontSize: 18, fontWeight: "700", color: palette.text },
+  cardDate: { fontSize: 12, color: palette.textMuted },
   metricGrid: {
     flexDirection: "row",
     flexWrap: "wrap",
@@ -241,21 +244,21 @@ const styles = StyleSheet.create({
   metricBox: {
     minWidth: "47%",
     flexGrow: 1,
-    backgroundColor: AppPalette.surface,
+    backgroundColor: palette.surface,
     borderRadius: 12,
     padding: 12,
   },
-  metricLabel: { fontSize: 12, color: AppPalette.textMuted, marginBottom: 4 },
-  metricValue: { fontSize: 20, fontWeight: "700", color: AppPalette.text },
+  metricLabel: { fontSize: 12, color: palette.textMuted, marginBottom: 4 },
+  metricValue: { fontSize: 20, fontWeight: "700", color: palette.text },
   summaryMetricBox: {
-    backgroundColor: AppPalette.surfaceMuted,
+    backgroundColor: palette.surfaceMuted,
     borderWidth: 1,
-    borderColor: AppPalette.border,
+    borderColor: palette.border,
   },
-  summaryMetricLabel: { color: AppPalette.textSoft },
-  summaryMetricValue: { color: AppPalette.text },
-  summaryText: { fontSize: 13, color: AppPalette.textMuted },
-  detailText: { fontSize: 13, color: AppPalette.textMuted, marginTop: 6 },
+  summaryMetricLabel: { color: palette.textSoft },
+  summaryMetricValue: { color: palette.text },
+  summaryText: { fontSize: 13, color: palette.textMuted },
+  detailText: { fontSize: 13, color: palette.textMuted, marginTop: 6 },
   costRow: {
     flexDirection: "row",
     gap: 8,
@@ -265,19 +268,19 @@ const styles = StyleSheet.create({
   costInput: {
     flex: 1,
     borderWidth: 1,
-    borderColor: AppPalette.borderStrong,
+    borderColor: palette.borderStrong,
     borderRadius: 8,
     paddingHorizontal: 10,
     paddingVertical: 8,
     fontSize: 13,
-    color: AppPalette.text,
-    backgroundColor: AppPalette.surface,
+    color: palette.text,
+    backgroundColor: palette.surface,
   },
   costSaveBtn: {
-    backgroundColor: AppPalette.primary,
+    backgroundColor: palette.primary,
     paddingHorizontal: 12,
     paddingVertical: 9,
     borderRadius: 8,
   },
-  costSaveBtnText: { color: AppPalette.primaryOn, fontSize: 12, fontWeight: "600" },
+  costSaveBtnText: { color: palette.primaryOn, fontSize: 12, fontWeight: "600" },
 });

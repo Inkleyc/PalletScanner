@@ -21,7 +21,7 @@ import {
   setActivePalletSession,
   subscribeInventory,
 } from "@/lib/inventory-store";
-import { AppLayout, AppPalette } from "@/constants/app-palette";
+import { AppLayout, DeepPalette } from "@/constants/app-palette";
 import { IconSymbol } from "@/components/ui/icon-symbol";
 
 export default function HomeScreen() {
@@ -99,7 +99,7 @@ export default function HomeScreen() {
               <IconSymbol
                 name="chevron.right"
                 size={22}
-                color={AppPalette.primaryStrong}
+                color={DeepPalette.primaryStrong}
               />
             </TouchableOpacity>
           ) : (
@@ -165,7 +165,7 @@ export default function HomeScreen() {
               value={newPalletName}
               onChangeText={setNewPalletName}
               placeholder="Pallet name"
-              placeholderTextColor={AppPalette.textSoft}
+              placeholderTextColor={DeepPalette.textSoft}
               autoFocus
             />
             <View style={styles.modalActions}>
@@ -245,8 +245,10 @@ export default function HomeScreen() {
   );
 }
 
+// The Scan home is a capture surface: it always uses the Deep palette,
+// regardless of the active theme mode (see lib/app-theme.tsx).
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: AppPalette.background },
+  container: { flex: 1, backgroundColor: DeepPalette.background },
   content: { padding: 20, paddingTop: 56, paddingBottom: 28 },
   innerContent: {
     width: "100%",
@@ -255,14 +257,14 @@ const styles = StyleSheet.create({
   innerContentWide: {
     maxWidth: AppLayout.maxContentWidth,
   },
-  title: { fontSize: 30, fontWeight: "700", color: AppPalette.text, marginBottom: 6 },
-  subtitle: { fontSize: 14, color: AppPalette.textMuted, marginBottom: 20 },
+  title: { fontSize: 30, fontWeight: "700", color: DeepPalette.text, marginBottom: 6 },
+  subtitle: { fontSize: 14, color: DeepPalette.textMuted, marginBottom: 20 },
   primaryCard: {
-    backgroundColor: AppPalette.primaryStrong,
+    backgroundColor: DeepPalette.primaryStrong,
     borderRadius: 14,
     padding: 18,
     marginBottom: 16,
-    shadowColor: AppPalette.shadow,
+    shadowColor: DeepPalette.shadow,
     shadowOpacity: 1,
     shadowRadius: 18,
     shadowOffset: { width: 0, height: 8 },
@@ -271,27 +273,27 @@ const styles = StyleSheet.create({
   cardEyebrow: {
     fontSize: 11,
     fontWeight: "700",
-    color: "rgba(255,255,255,0.72)",
+    color: "rgba(28,42,68,0.72)",
     marginBottom: 8,
   },
-  cardTitle: { fontSize: 24, fontWeight: "700", color: AppPalette.primaryOn, marginBottom: 6 },
+  cardTitle: { fontSize: 24, fontWeight: "700", color: DeepPalette.primaryOn, marginBottom: 6 },
   cardCopy: {
     fontSize: 14,
-    color: "rgba(255,255,255,0.86)",
+    color: "rgba(28,42,68,0.86)",
     lineHeight: 20,
     marginBottom: 16,
   },
   cardAction: {
-    backgroundColor: AppPalette.primaryOn,
+    backgroundColor: DeepPalette.primaryOn,
     borderRadius: 10,
     paddingVertical: 12,
     alignItems: "center",
   },
-  cardActionText: { color: AppPalette.primaryStrong, fontWeight: "700", fontSize: 15 },
+  cardActionText: { color: DeepPalette.primaryStrong, fontWeight: "700", fontSize: 15 },
   palletSelector: {
     alignItems: "center",
-    backgroundColor: AppPalette.surface,
-    borderColor: AppPalette.border,
+    backgroundColor: DeepPalette.surface,
+    borderColor: DeepPalette.border,
     borderWidth: 1,
     borderRadius: 10,
     flexDirection: "row",
@@ -302,86 +304,86 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
   },
   palletSelectorLabel: {
-    color: AppPalette.textMuted,
+    color: DeepPalette.textMuted,
     fontSize: 10,
     fontWeight: "700",
     marginBottom: 3,
   },
   palletSelectorName: {
-    color: AppPalette.primaryStrong,
+    color: DeepPalette.primaryStrong,
     fontSize: 15,
     fontWeight: "700",
   },
   actionsCard: {
-    backgroundColor: AppPalette.surface,
+    backgroundColor: DeepPalette.surface,
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: AppPalette.border,
+    borderColor: DeepPalette.border,
     padding: 16,
     marginBottom: 16,
   },
   workflowAction: {
-    backgroundColor: AppPalette.surfaceMuted,
+    backgroundColor: DeepPalette.surfaceMuted,
     borderWidth: 1,
-    borderColor: AppPalette.border,
+    borderColor: DeepPalette.border,
     borderRadius: 12,
     padding: 14,
     marginTop: 10,
   },
   primaryWorkflowAction: {
-    backgroundColor: AppPalette.primaryStrong,
-    borderColor: AppPalette.primaryStrong,
+    backgroundColor: DeepPalette.primaryStrong,
+    borderColor: DeepPalette.primaryStrong,
   },
   workflowTitle: {
     fontSize: 15,
     fontWeight: "700",
-    color: AppPalette.text,
+    color: DeepPalette.text,
     marginBottom: 4,
   },
-  workflowCopy: { fontSize: 13, color: AppPalette.textMuted, lineHeight: 18 },
+  workflowCopy: { fontSize: 13, color: DeepPalette.textMuted, lineHeight: 18 },
   primaryWorkflowTitle: {
     fontSize: 17,
     fontWeight: "800",
-    color: AppPalette.primaryOn,
+    color: DeepPalette.primaryOn,
     marginBottom: 4,
   },
   primaryWorkflowCopy: {
     fontSize: 13,
-    color: "rgba(255,255,255,0.82)",
+    color: "rgba(28,42,68,0.82)",
     lineHeight: 18,
   },
   modalBackdrop: {
     flex: 1,
-    backgroundColor: AppPalette.modalBackdrop,
+    backgroundColor: DeepPalette.modalBackdrop,
     justifyContent: "center",
     padding: 20,
   },
   modalCard: {
-    backgroundColor: AppPalette.surface,
+    backgroundColor: DeepPalette.surface,
     borderRadius: 14,
     padding: 20,
   },
   modalTitle: {
     fontSize: 20,
     fontWeight: "700",
-    color: AppPalette.text,
+    color: DeepPalette.text,
     marginBottom: 6,
   },
   modalCopy: {
     fontSize: 14,
-    color: AppPalette.textMuted,
+    color: DeepPalette.textMuted,
     lineHeight: 20,
     marginBottom: 16,
   },
   modalInput: {
     borderWidth: 1,
-    borderColor: AppPalette.borderStrong,
+    borderColor: DeepPalette.borderStrong,
     borderRadius: 10,
     paddingHorizontal: 12,
     paddingVertical: 12,
     fontSize: 15,
-    color: AppPalette.text,
-    backgroundColor: AppPalette.surface,
+    color: DeepPalette.text,
+    backgroundColor: DeepPalette.surface,
     marginBottom: 16,
   },
   modalActions: {
@@ -391,25 +393,25 @@ const styles = StyleSheet.create({
   },
   modalSecondaryAction: {
     borderWidth: 1,
-    borderColor: AppPalette.borderStrong,
+    borderColor: DeepPalette.borderStrong,
     borderRadius: 10,
     paddingHorizontal: 16,
     paddingVertical: 12,
-    backgroundColor: AppPalette.surface,
+    backgroundColor: DeepPalette.surface,
   },
   modalSecondaryActionText: {
-    color: AppPalette.text,
+    color: DeepPalette.text,
     fontWeight: "600",
     fontSize: 14,
   },
   modalPrimaryAction: {
-    backgroundColor: AppPalette.primaryStrong,
+    backgroundColor: DeepPalette.primaryStrong,
     borderRadius: 10,
     paddingHorizontal: 16,
     paddingVertical: 12,
   },
   modalPrimaryActionText: {
-    color: AppPalette.primaryOn,
+    color: DeepPalette.primaryOn,
     fontWeight: "700",
     fontSize: 14,
   },
@@ -419,7 +421,7 @@ const styles = StyleSheet.create({
   },
   palletOption: {
     alignItems: "center",
-    borderBottomColor: AppPalette.border,
+    borderBottomColor: DeepPalette.border,
     borderBottomWidth: 1,
     flexDirection: "row",
     justifyContent: "space-between",
@@ -428,23 +430,23 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
   },
   palletOptionActive: {
-    backgroundColor: AppPalette.surfaceMuted,
+    backgroundColor: DeepPalette.surfaceMuted,
   },
   palletOptionText: {
     flex: 1,
   },
   palletOptionName: {
-    color: AppPalette.text,
+    color: DeepPalette.text,
     fontSize: 15,
     fontWeight: "700",
   },
   palletOptionMeta: {
-    color: AppPalette.textMuted,
+    color: DeepPalette.textMuted,
     fontSize: 12,
     marginTop: 3,
   },
   activePalletLabel: {
-    color: AppPalette.primaryStrong,
+    color: DeepPalette.primaryStrong,
     fontSize: 12,
     fontWeight: "700",
     marginLeft: 12,
