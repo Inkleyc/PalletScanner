@@ -4,20 +4,22 @@ import { ActivityIndicator, Platform, Text, View } from "react-native";
 
 import { HapticTab } from "@/components/haptic-tab";
 import { IconSymbol } from "@/components/ui/icon-symbol";
-import { AppPalette } from "@/constants/app-palette";
+import { AppLayout } from "@/constants/app-palette";
+import { useAppPalette } from "@/lib/app-theme";
 import {
   getSupabaseAuthSnapshot,
   subscribeSupabaseAuth,
 } from "@/lib/supabase-auth";
 
 export default function TabLayout() {
+  const palette = useAppPalette();
   const auth = useSyncExternalStore(
     subscribeSupabaseAuth,
     getSupabaseAuthSnapshot,
     getSupabaseAuthSnapshot,
   );
-  const activeTint = AppPalette.primaryStrong;
-  const inactiveTint = AppPalette.textMuted;
+  const activeTint = palette.primary;
+  const inactiveTint = palette.textMuted;
   const isTablet = Platform.OS === "ios" && Platform.isPad;
   const createTabIcon = (
     name: React.ComponentProps<typeof IconSymbol>["name"],
@@ -26,9 +28,9 @@ export default function TabLayout() {
     const TabIcon = ({ color, focused }: { color: string; focused: boolean }) => (
       <View
         style={{
-          minWidth: isTablet ? 48 : 44,
-          height: isTablet ? 36 : 34,
-          borderRadius: isTablet ? 18 : 17,
+          minWidth: isTablet ? 56 : 52,
+          height: isTablet ? 40 : 38,
+          borderRadius: isTablet ? 20 : 19,
           alignItems: "center",
           justifyContent: "center",
           backgroundColor: focused ? activeTint : "transparent",
@@ -37,7 +39,7 @@ export default function TabLayout() {
         <IconSymbol
           size={focused ? (isTablet ? 30 : 28) : isTablet ? 26 : 24}
           name={name}
-          color={focused ? "#ffffff" : color}
+          color={focused ? palette.primaryOn : color}
         />
       </View>
     );
@@ -71,10 +73,10 @@ export default function TabLayout() {
           flex: 1,
           alignItems: "center",
           justifyContent: "center",
-          backgroundColor: AppPalette.background,
+          backgroundColor: palette.background,
         }}
       >
-        <ActivityIndicator size="large" color={AppPalette.primaryStrong} />
+        <ActivityIndicator size="large" color={palette.primary} />
       </View>
     );
   }
@@ -93,19 +95,20 @@ export default function TabLayout() {
         tabBarHideOnKeyboard: true,
         tabBarLabelPosition: "below-icon",
         tabBarStyle: {
-          backgroundColor: AppPalette.surface,
-          borderTopColor: AppPalette.border,
+          backgroundColor: palette.surface,
+          borderTopColor: palette.border,
           borderTopWidth: 1,
-          height: isTablet ? 86 : 74,
-          paddingTop: isTablet ? 10 : 8,
-          paddingBottom: isTablet ? 10 : 8,
-          shadowColor: AppPalette.shadow,
+          height: isTablet ? 98 : 86,
+          paddingTop: isTablet ? 12 : 10,
+          paddingBottom: isTablet ? 14 : 12,
+          shadowColor: palette.shadow,
           shadowOpacity: 1,
           shadowRadius: 16,
           shadowOffset: { width: 0, height: -4 },
           elevation: 12,
         },
         tabBarItemStyle: {
+          minHeight: AppLayout.touchTargetMin,
           paddingVertical: isTablet ? 4 : 3,
         },
         tabBarActiveBackgroundColor: "transparent",

@@ -3,10 +3,13 @@ import { Platform } from "react-native";
 
 import { readWebStorage, writeWebStorage } from "@/lib/web-storage";
 
+export type AppThemeMode = "deep" | "day";
+
 type AppSettings = {
   promptToPostOnSave: boolean;
   facebookSellerNote: string;
   showEbayDetailsReminder: boolean;
+  themeMode: AppThemeMode;
 };
 
 type SettingsListener = () => void;
@@ -20,6 +23,7 @@ let settingsState: AppSettings = {
   facebookSellerNote:
     "Local pickup. Message with any questions or to arrange a time.",
   showEbayDetailsReminder: true,
+  themeMode: "deep",
 };
 
 let hydratePromise: Promise<void> | null = null;
@@ -116,6 +120,15 @@ export const setShowEbayDetailsReminder = (value: boolean) => {
   settingsState = {
     ...settingsState,
     showEbayDetailsReminder: value,
+  };
+  notifySettingsListeners();
+  void persistSettings();
+};
+
+export const setThemeMode = (value: AppThemeMode) => {
+  settingsState = {
+    ...settingsState,
+    themeMode: value,
   };
   notifySettingsListeners();
   void persistSettings();

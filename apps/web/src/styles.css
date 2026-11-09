@@ -1,20 +1,58 @@
 :root {
   color-scheme: light;
-  --app-background: #eef2f7;
-  --app-surface: #ffffff;
-  --app-surface-muted: #f7f9fc;
-  --app-border: #d7dee8;
-  --app-border-strong: #c4cfdd;
-  --app-text: #172033;
-  --app-text-muted: #667085;
-  --app-primary: #234a6b;
-  --app-primary-strong: #17324d;
-  --app-primary-soft: #e7f0f8;
+  --app-background: #e4eaf2;
+  --app-surface: #fbfcfe;
+  --app-surface-muted: #eef3f8;
+  --app-border: color-mix(in srgb, #fbfcfe 87%, #8fa2b9);
+  --app-border-strong: #8fa2b9;
+  --app-text: #1c2a44;
+  --app-text-muted: #5b6d84;
+  --app-primary: #c77400;
+  --app-primary-strong: #96590a;
+  --app-primary-soft: color-mix(in srgb, #c77400 13%, #fbfcfe);
+  --app-navy: #0e1626;
+  --app-success: #207a45;
+  --app-success-soft: color-mix(in srgb, #207a45 10%, #fbfcfe);
+  --app-danger: #9f2f25;
+  --app-danger-soft: color-mix(in srgb, #9f2f25 9%, #fbfcfe);
+  --font-num: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+  --row-pad-y: 10px;
+  --row-pad-x: 14px;
   font-family:
-    Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
-    sans-serif;
+    "Segoe UI", "Helvetica Neue", Arial, sans-serif;
   background: var(--app-background);
   color: var(--app-text);
+}
+
+:root[data-theme="deep"] {
+  color-scheme: dark;
+  --app-background: #0f1728;
+  --app-surface: #1d2a44;
+  --app-surface-muted: #28354f;
+  --app-border: color-mix(in srgb, #1d2a44 87%, #516584);
+  --app-border-strong: #516584;
+  --app-text: #eef2f8;
+  --app-text-muted: #a8b6c8;
+  --app-primary: #f0a832;
+  --app-primary-strong: #ffc65c;
+  --app-primary-soft: color-mix(in srgb, #f0a832 16%, #1d2a44);
+  --app-navy: #070d1a;
+  --app-success: #4cc38a;
+  --app-success-soft: color-mix(in srgb, #4cc38a 14%, #1d2a44);
+  --app-danger: #ff9d8a;
+  --app-danger-soft: color-mix(in srgb, #ff9d8a 12%, #1d2a44);
+}
+
+/* Bright amber (--app-primary-strong in Deep) needs dark text on filled buttons. */
+:root[data-theme="deep"] .primary-button,
+:root[data-theme="deep"] .saved-views button[aria-pressed="true"] {
+  color: #131c2e;
 }
 
 * {
@@ -45,8 +83,7 @@ body,
 .fatal-error-card {
   background: var(--app-surface);
   border: 1px solid var(--app-border);
-  border-radius: 12px;
-  box-shadow: 0 18px 50px rgba(23, 32, 51, 0.14);
+  border-radius: 10px;
   max-width: 560px;
   padding: 28px;
   width: 100%;
@@ -67,7 +104,7 @@ body,
 .fatal-error-card pre {
   background: var(--app-surface-muted);
   border: 1px solid var(--app-border);
-  border-radius: 8px;
+  border-radius: 7px;
   color: var(--app-text-muted);
   margin: 0 0 18px;
   overflow: auto;
@@ -106,12 +143,59 @@ button:disabled {
 }
 
 .sidebar {
-  background: var(--app-primary-strong);
+  background: var(--app-navy);
   color: #ffffff;
   padding: 28px;
   display: flex;
   flex-direction: column;
   gap: 34px;
+}
+
+.sidebar-heading {
+  align-items: flex-start;
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+}
+
+.theme-toggle {
+  align-items: center;
+  background: transparent;
+  border-color: transparent;
+  color: #dbe7f1;
+  display: inline-flex;
+  flex: 0 0 auto;
+  justify-content: center;
+  padding: 8px;
+}
+
+.theme-toggle:hover {
+  background: rgba(219, 231, 241, 0.12);
+  border-color: rgba(219, 231, 241, 0.18);
+}
+
+.icon {
+  flex: 0 0 auto;
+}
+
+button > .icon {
+  margin-right: 7px;
+  vertical-align: -3.5px;
+}
+
+.theme-toggle > .icon {
+  margin-right: 0;
+  vertical-align: middle;
+}
+
+.nav-label {
+  align-items: center;
+  display: inline-flex;
+  gap: 9px;
+}
+
+.nav-label > .icon {
+  margin-right: 0;
 }
 
 .sidebar h1,
@@ -143,7 +227,7 @@ nav button {
   background: transparent;
   color: #dbe7f1;
   border: 1px solid rgba(219, 231, 241, 0.18);
-  border-radius: 8px;
+  border-radius: 7px;
   padding: 11px 12px;
   font-weight: 700;
   text-align: left;
@@ -162,7 +246,7 @@ nav button {
 }
 
 nav button.active .nav-count {
-  background: var(--app-primary-strong);
+  background: var(--app-navy);
   color: #ffffff;
 }
 
@@ -187,7 +271,7 @@ nav button.active {
 
 .view-stack {
   display: grid;
-  gap: 18px;
+  gap: var(--space-4);
 }
 
 .topbar {
@@ -258,7 +342,7 @@ button {
   border: 1px solid var(--app-border-strong);
   background: var(--app-surface);
   color: var(--app-text);
-  border-radius: 8px;
+  border-radius: 7px;
   padding: 10px 14px;
   font-weight: 800;
   cursor: pointer;
@@ -269,7 +353,7 @@ input:focus-visible,
 select:focus-visible,
 textarea:focus-visible,
 a:focus-visible {
-  outline: 3px solid rgba(43, 108, 176, 0.35);
+  outline: 3px solid color-mix(in srgb, var(--app-primary) 40%, transparent);
   outline-offset: 2px;
 }
 
@@ -282,7 +366,7 @@ a:focus-visible {
 .metrics-grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(150px, 1fr));
-  gap: 12px;
+  gap: var(--space-3);
 }
 
 .overview-metrics {
@@ -330,18 +414,18 @@ a:focus-visible {
 }
 
 .status-dot.attention {
-  background: #c83d32;
+  background: var(--app-danger);
 }
 
 .status-dot.clear {
-  background: #2f8a50;
+  background: var(--app-success);
 }
 
 .pallet-scope-menu {
   background: var(--app-surface);
   border: 1px solid var(--app-border-strong);
-  border-radius: 8px;
-  box-shadow: 0 12px 32px rgba(23, 34, 27, 0.18);
+  border-radius: 10px;
+  box-shadow: 0 12px 32px rgba(7, 13, 26, 0.35);
   display: grid;
   min-width: 300px;
   padding: 6px;
@@ -377,7 +461,7 @@ a:focus-visible {
 .panel {
   background: var(--app-surface);
   border: 1px solid var(--app-border);
-  border-radius: 8px;
+  border-radius: 10px;
 }
 
 .metric {
@@ -412,22 +496,20 @@ a:focus-visible {
   font-size: 26px;
 }
 
-.metric.success strong,
-.badge.success {
-  color: #207a45;
+.metric.success strong {
+  color: var(--app-success);
 }
 
-.metric.warning strong,
-.badge.warning {
-  color: #986b14;
+.metric.warning strong {
+  color: var(--app-primary);
 }
 
 .metric.danger strong {
-  color: #b43b2f;
+  color: var(--app-danger);
 }
 
 .panel {
-  padding: 18px;
+  padding: var(--space-5);
 }
 
 .panel-heading,
@@ -437,6 +519,14 @@ a:focus-visible {
   justify-content: space-between;
   align-items: center;
   gap: 16px;
+}
+
+.panel-heading {
+  margin-bottom: var(--space-3);
+}
+
+.card-row {
+  padding: var(--row-pad-y) var(--row-pad-x);
 }
 
 .inventory-tools {
@@ -456,7 +546,7 @@ a:focus-visible {
 .saved-views {
   background: var(--app-surface-muted);
   border: 1px solid var(--app-border);
-  border-radius: 8px;
+  border-radius: 10px;
   display: grid;
   gap: 4px;
   grid-template-columns: repeat(6, minmax(0, 1fr));
@@ -467,7 +557,7 @@ a:focus-visible {
 .saved-views button {
   align-items: center;
   border: 0;
-  border-radius: 6px;
+  border-radius: 7px;
   display: flex;
   gap: 8px;
   justify-content: space-between;
@@ -511,7 +601,7 @@ a:focus-visible {
   align-items: center;
   background: var(--app-primary-soft);
   border: 1px solid var(--app-border-strong);
-  border-radius: 9px;
+  border-radius: 10px;
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
@@ -542,7 +632,7 @@ a:focus-visible {
 }
 
 .table-scroll thead {
-  background: #fff;
+  background: var(--app-surface);
   position: sticky;
   top: 0;
   z-index: 1;
@@ -708,10 +798,10 @@ a:focus-visible {
 }
 
 .toast {
-  background: var(--app-primary-strong);
-  border-radius: 9px;
+  background: var(--app-navy);
+  border-radius: 10px;
   bottom: 24px;
-  box-shadow: 0 10px 32px rgba(23, 34, 27, 0.22);
+  box-shadow: 0 10px 32px rgba(7, 13, 26, 0.35);
   color: #fff;
   font-weight: 750;
   padding: 12px 16px;
@@ -725,7 +815,7 @@ a:focus-visible {
 .analysis-note {
   background: var(--app-primary-soft);
   border: 1px solid var(--app-border);
-  border-radius: 9px;
+  border-radius: 10px;
   padding: 13px;
 }
 
@@ -796,7 +886,7 @@ a:focus-visible {
 .analysis-filter-grid input,
 .analysis-filter-grid select {
   border: 1px solid var(--app-border-strong);
-  border-radius: 8px;
+  border-radius: 7px;
   min-width: 0;
   padding: 9px 10px;
   width: 100%;
@@ -837,12 +927,12 @@ a:focus-visible {
 }
 
 .positive-value {
-  color: #207a45;
+  color: var(--app-success);
   font-weight: 800;
 }
 
 .negative-value {
-  color: #b43b2f;
+  color: var(--app-danger);
   font-weight: 800;
 }
 
@@ -906,7 +996,7 @@ a:focus-visible {
 .pallet-card {
   background: var(--app-surface-muted);
   border: 1px solid var(--app-border);
-  border-radius: 8px;
+  border-radius: 10px;
   padding: 14px;
 }
 
@@ -917,7 +1007,7 @@ a:focus-visible {
 .pallet-card[data-pallet-card-id]:hover,
 .pallet-card[data-pallet-card-id]:focus {
   border-color: var(--app-primary);
-  box-shadow: 0 0 0 2px rgba(35, 74, 107, 0.16);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--app-primary) 25%, transparent);
   outline: none;
 }
 
@@ -964,7 +1054,7 @@ a:focus-visible {
 
 .modal-backdrop {
   align-items: center;
-  background: rgba(23, 32, 51, 0.55);
+  background: rgba(7, 13, 26, 0.55);
   display: flex;
   inset: 0;
   justify-content: center;
@@ -976,8 +1066,8 @@ a:focus-visible {
 .edit-modal {
   background: var(--app-surface);
   border: 1px solid var(--app-border);
-  border-radius: 8px;
-  box-shadow: 0 18px 50px rgba(23, 34, 27, 0.24);
+  border-radius: 10px;
+  box-shadow: 0 18px 50px rgba(7, 13, 26, 0.35);
   display: grid;
   gap: 16px;
   max-width: 480px;
@@ -1073,8 +1163,8 @@ a:focus-visible {
 .inventory-detail-modal {
   background: var(--app-surface);
   border: 1px solid var(--app-border);
-  border-radius: 8px;
-  box-shadow: 0 18px 50px rgba(23, 34, 27, 0.24);
+  border-radius: 10px;
+  box-shadow: 0 18px 50px rgba(7, 13, 26, 0.35);
   max-height: min(760px, calc(100vh - 64px));
   max-width: 1080px;
   overflow-y: auto;
@@ -1186,8 +1276,8 @@ a:focus-visible {
 .admin-card {
   background: var(--app-surface-muted);
   border: 1px solid var(--app-border);
-  border-radius: 8px;
-  padding: 14px;
+  border-radius: 10px;
+  padding: var(--space-4);
   display: flex;
   flex-direction: column;
   gap: 10px;
@@ -1211,7 +1301,7 @@ a:focus-visible {
 .setup-empty {
   background: var(--app-surface);
   border: 1px solid var(--app-border);
-  border-radius: 8px;
+  border-radius: 10px;
   padding: 12px;
 }
 
@@ -1233,8 +1323,8 @@ a:focus-visible {
 }
 
 .setup-warning {
-  background: #fff8e8;
-  border-color: #e5d29d;
+  background: var(--app-primary-soft);
+  border-color: color-mix(in srgb, var(--app-primary) 35%, var(--app-surface));
 }
 
 .setup-warning span,
@@ -1277,9 +1367,9 @@ a:focus-visible {
 }
 
 .danger-chip {
-  background: #fff0ed;
-  border-color: #efc0b9;
-  color: #9f2f25;
+  background: var(--app-danger-soft);
+  border-color: color-mix(in srgb, var(--app-danger) 35%, var(--app-surface));
+  color: var(--app-danger);
 }
 
 .admin-card label {
@@ -1309,12 +1399,12 @@ a:focus-visible {
   align-items: center;
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: var(--space-2);
 }
 
 .check-list {
   border: 1px solid var(--app-border);
-  border-radius: 8px;
+  border-radius: 10px;
   display: grid;
   gap: 8px;
   padding: 10px;
@@ -1329,7 +1419,7 @@ a:focus-visible {
 }
 
 .check-dot {
-  background: #c55b4e;
+  background: var(--app-danger);
   border-radius: 999px;
   flex: 0 0 10px;
   height: 10px;
@@ -1337,7 +1427,7 @@ a:focus-visible {
 }
 
 .check-dot.ok {
-  background: #207a45;
+  background: var(--app-success);
 }
 
 .reconciliation-records {
@@ -1383,7 +1473,7 @@ a:focus-visible {
 .button-row {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: var(--space-2);
 }
 
 .button-row button {
@@ -1391,12 +1481,12 @@ a:focus-visible {
 }
 
 .danger-button {
-  border-color: #d88c80;
-  color: #9f2f25;
+  border-color: color-mix(in srgb, var(--app-danger) 45%, var(--app-surface));
+  color: var(--app-danger);
 }
 
 .error-text {
-  color: #9f2f25;
+  color: var(--app-danger);
 }
 
 .admin-kicker {
@@ -1407,8 +1497,8 @@ a:focus-visible {
 }
 
 .danger-zone {
-  border-color: #efc0b9;
-  background: #fff5f2;
+  border-color: color-mix(in srgb, var(--app-danger) 30%, var(--app-surface));
+  background: var(--app-danger-soft);
 }
 
 .card-row span,
@@ -1450,7 +1540,7 @@ dd {
 .listing-queue-item,
 .aging-queue-item {
   border: 1px solid var(--app-border);
-  border-radius: 8px;
+  border-radius: 10px;
   cursor: pointer;
   padding: 12px;
 }
@@ -1458,7 +1548,7 @@ dd {
 .empty-queue {
   background: var(--app-surface-muted);
   border: 1px dashed var(--app-border-strong);
-  border-radius: 8px;
+  border-radius: 10px;
   padding: 14px;
 }
 
@@ -1497,18 +1587,43 @@ dd {
   justify-content: space-between;
 }
 
+/* Badge language: color means something.
+   default / .neutral = routine information;
+   .decision (amber) = waiting on the owner;
+   .success (green) = complete or healthy;
+   .danger (red) = a problem. */
 .badge {
+  border: 1px solid var(--app-border);
   border-radius: 999px;
-  background: var(--app-primary-soft);
-  color: var(--app-text);
+  background: var(--app-surface-muted);
+  color: var(--app-text-muted);
   font-size: 12px;
   font-weight: 800;
   padding: 6px 10px;
   white-space: nowrap;
 }
 
-.badge.primary {
-  color: #326c9b;
+.badge.decision {
+  background: var(--app-primary-soft);
+  border-color: color-mix(in srgb, var(--app-primary) 40%, var(--app-surface));
+  color: var(--app-primary-strong);
+}
+
+.badge.success {
+  background: var(--app-success-soft);
+  border-color: color-mix(in srgb, var(--app-success) 35%, var(--app-surface));
+  color: var(--app-success);
+}
+
+.badge.danger {
+  background: var(--app-danger-soft);
+  border-color: color-mix(in srgb, var(--app-danger) 35%, var(--app-surface));
+  color: var(--app-danger);
+}
+
+.num {
+  font-family: var(--font-num);
+  font-variant-numeric: tabular-nums;
 }
 
 input,
@@ -1516,7 +1631,7 @@ select,
 textarea {
   min-width: 240px;
   border: 1px solid var(--app-border-strong);
-  border-radius: 8px;
+  border-radius: 7px;
   padding: 10px 12px;
   background: var(--app-surface);
   color: var(--app-text);
@@ -1632,7 +1747,7 @@ textarea {
 .photo-placeholder {
   aspect-ratio: 1;
   border: 1px solid var(--app-border);
-  border-radius: 8px;
+  border-radius: 10px;
   object-fit: cover;
   width: 100%;
 }
@@ -1679,7 +1794,7 @@ textarea {
 .marketplace-confirm {
   align-items: center;
   border: 1px solid var(--app-border);
-  border-radius: 8px;
+  border-radius: 10px;
   display: flex;
   gap: 16px;
   justify-content: space-between;
@@ -1707,7 +1822,7 @@ textarea {
 .button-link {
   background: var(--app-surface);
   border: 1px solid var(--app-border-strong);
-  border-radius: 8px;
+  border-radius: 7px;
   color: var(--app-text);
   font-size: 13px;
   font-weight: 700;
@@ -1761,7 +1876,7 @@ th,
 td {
   text-align: left;
   border-bottom: 1px solid var(--app-border);
-  padding: 12px 8px;
+  padding: var(--row-pad-y) var(--row-pad-x);
   font-size: 14px;
 }
 
@@ -1781,7 +1896,7 @@ tbody tr[data-inventory-row]:focus {
 .item-thumbnail {
   aspect-ratio: 1;
   border: 1px solid var(--app-border);
-  border-radius: 6px;
+  border-radius: 7px;
   display: block;
   height: 48px;
   object-fit: cover;
@@ -1815,7 +1930,7 @@ tbody tr[data-inventory-row]:focus {
   align-items: center;
   background: var(--app-primary-soft);
   border: 1px solid var(--app-border);
-  border-radius: 8px;
+  border-radius: 10px;
   display: flex;
   gap: 18px;
   justify-content: space-between;
@@ -1894,7 +2009,7 @@ th {
 .inventory-detail {
   background: var(--app-surface-muted);
   border: 1px solid var(--app-border);
-  border-radius: 8px;
+  border-radius: 10px;
   display: grid;
   gap: 14px;
   margin-top: 14px;
@@ -1933,7 +2048,7 @@ th {
 
 .detail-issue,
 .detail-ready {
-  border-radius: 8px;
+  border-radius: 7px;
   font-size: 13px;
   font-weight: 700;
   margin: 0;
@@ -1941,13 +2056,13 @@ th {
 }
 
 .detail-issue {
-  background: #fff7e6;
-  color: #986b14;
+  background: var(--app-primary-soft);
+  color: var(--app-primary-strong);
 }
 
 .detail-ready {
-  background: #eaf6ef;
-  color: #207a45;
+  background: var(--app-success-soft);
+  color: var(--app-success);
 }
 
 @media (max-width: 920px) {

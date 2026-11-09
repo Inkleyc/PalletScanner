@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState, useSyncExternalStore } from "react";
+import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import { useRouter } from "expo-router";
 import {
   AppState,
@@ -13,7 +13,8 @@ import {
   View,
 } from "react-native";
 
-import { AppLayout, AppPalette } from "@/constants/app-palette";
+import { AppLayout, type AppPaletteShape } from "@/constants/app-palette";
+import { useAppPalette, useAppTheme } from "@/lib/app-theme";
 import { AppAlert as Alert } from "@/lib/app-alert";
 import {
   getAppSettings,
@@ -63,6 +64,9 @@ const getResetBackupTimeLabel = (resetBackup: ResetBackupSummary | null) => {
 };
 
 export default function SettingsScreen() {
+  const palette = useAppPalette();
+  const styles = useMemo(() => createStyles(palette), [palette]);
+  const { mode, setMode } = useAppTheme();
   const router = useRouter();
   const { width } = useWindowDimensions();
   const isLargeLayout = width >= 900;
@@ -285,6 +289,22 @@ export default function SettingsScreen() {
         </Text>
 
         <View style={styles.card}>
+          <Text style={styles.settingTitle}>Theme</Text>
+          <View style={styles.settingRow}>
+            <Text style={styles.settingDescription}>
+              Deep is the dark slate theme, tuned for warehouses and low
+              light. Turn this off to use the light Day slate theme instead.
+            </Text>
+            <Switch
+              value={mode === "deep"}
+              onValueChange={(value) => setMode(value ? "deep" : "day")}
+              trackColor={{ false: palette.borderStrong, true: "#a9c8df" }}
+              thumbColor={mode === "deep" ? palette.primaryStrong : "#f4f4f4"}
+            />
+          </View>
+        </View>
+
+        <View style={styles.card}>
           <Text style={styles.settingTitle}>Posting After Save</Text>
           <View style={styles.settingRow}>
             <Text style={styles.settingDescription}>
@@ -294,8 +314,8 @@ export default function SettingsScreen() {
             <Switch
               value={promptToPostOnSave}
               onValueChange={setPromptToPostOnSave}
-              trackColor={{ false: AppPalette.borderStrong, true: "#a9c8df" }}
-              thumbColor={promptToPostOnSave ? AppPalette.primaryStrong : "#f4f4f4"}
+              trackColor={{ false: palette.borderStrong, true: "#a9c8df" }}
+              thumbColor={promptToPostOnSave ? palette.primaryStrong : "#f4f4f4"}
             />
           </View>
         </View>
@@ -310,8 +330,8 @@ export default function SettingsScreen() {
             <Switch
               value={showEbayDetailsReminder}
               onValueChange={setShowEbayDetailsReminder}
-              trackColor={{ false: AppPalette.borderStrong, true: "#a9c8df" }}
-              thumbColor={showEbayDetailsReminder ? AppPalette.primaryStrong : "#f4f4f4"}
+              trackColor={{ false: palette.borderStrong, true: "#a9c8df" }}
+              thumbColor={showEbayDetailsReminder ? palette.primaryStrong : "#f4f4f4"}
             />
           </View>
         </View>
@@ -439,7 +459,7 @@ export default function SettingsScreen() {
             value={facebookSellerNoteDraft}
             onChangeText={setFacebookSellerNoteDraft}
             placeholder="Local pickup. Message with questions."
-            placeholderTextColor={AppPalette.textSoft}
+            placeholderTextColor={palette.textSoft}
             multiline
           />
           <TouchableOpacity
@@ -508,38 +528,38 @@ export default function SettingsScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: AppPalette.background },
+const createStyles = (palette: AppPaletteShape) => StyleSheet.create({
+  container: { flex: 1, backgroundColor: palette.background },
   content: { padding: 24, paddingTop: 60, paddingBottom: 32 },
   innerContent: { width: "100%", alignSelf: "center" },
   innerContentWide: { maxWidth: AppLayout.maxContentWidth },
   title: {
     fontSize: 28,
     fontWeight: "700",
-    color: AppPalette.text,
+    color: palette.text,
     marginBottom: 4,
   },
   subtitle: {
     fontSize: 14,
-    color: AppPalette.textMuted,
+    color: palette.textMuted,
     marginBottom: 20,
     lineHeight: 20,
   },
   card: {
-    backgroundColor: AppPalette.surface,
+    backgroundColor: palette.surface,
     borderRadius: 12,
     padding: 16,
     marginBottom: 16,
     borderWidth: 1,
-    borderColor: AppPalette.border,
-    shadowColor: AppPalette.shadow,
+    borderColor: palette.border,
+    shadowColor: palette.shadow,
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 1,
     shadowRadius: 18,
     elevation: 2,
   },
   sectionHeader: {
-    color: AppPalette.text,
+    color: palette.text,
     fontSize: 18,
     fontWeight: "700",
     marginBottom: 10,
@@ -554,59 +574,59 @@ const styles = StyleSheet.create({
   settingTitle: {
     fontSize: 16,
     fontWeight: "700",
-    color: AppPalette.text,
+    color: palette.text,
     marginBottom: 6,
   },
   settingDescription: {
     flex: 1,
     fontSize: 13,
-    color: AppPalette.textMuted,
+    color: palette.textMuted,
     lineHeight: 19,
   },
   integrationStatus: {
     fontSize: 13,
-    color: AppPalette.text,
+    color: palette.text,
     fontWeight: "700",
     marginTop: 12,
   },
   integrationHint: {
     fontSize: 12,
-    color: AppPalette.textMuted,
+    color: palette.textMuted,
     lineHeight: 18,
     marginTop: 8,
   },
   integrationError: {
     fontSize: 12,
-    color: AppPalette.dangerStrong,
+    color: palette.dangerStrong,
     lineHeight: 18,
     marginTop: 8,
   },
   requirementsBox: {
-    backgroundColor: AppPalette.surfaceMuted,
-    borderColor: AppPalette.border,
+    backgroundColor: palette.surfaceMuted,
+    borderColor: palette.border,
     borderRadius: 8,
     borderWidth: 1,
     marginTop: 12,
     padding: 10,
   },
   requirementsTitle: {
-    color: AppPalette.text,
+    color: palette.text,
     fontSize: 12,
     fontWeight: "700",
     marginBottom: 6,
   },
   requirementItem: {
-    color: AppPalette.textMuted,
+    color: palette.textMuted,
     fontSize: 12,
     lineHeight: 18,
   },
   input: {
     marginTop: 12,
     borderWidth: 1,
-    borderColor: AppPalette.borderStrong,
+    borderColor: palette.borderStrong,
     borderRadius: 8,
-    backgroundColor: AppPalette.surface,
-    color: AppPalette.text,
+    backgroundColor: palette.surface,
+    color: palette.text,
     paddingHorizontal: 10,
     paddingVertical: 10,
     fontSize: 13,
@@ -624,7 +644,7 @@ const styles = StyleSheet.create({
   },
   primaryBtn: {
     flexGrow: 1,
-    backgroundColor: AppPalette.primaryStrong,
+    backgroundColor: palette.primaryStrong,
     borderRadius: 8,
     paddingVertical: 12,
     paddingHorizontal: 12,
@@ -632,7 +652,7 @@ const styles = StyleSheet.create({
     marginTop: 12,
   },
   primaryBtnText: {
-    color: AppPalette.primaryOn,
+    color: palette.primaryOn,
     fontSize: 13,
     fontWeight: "700",
   },
@@ -642,93 +662,93 @@ const styles = StyleSheet.create({
   secondaryBtn: {
     flexGrow: 1,
     borderWidth: 1,
-    borderColor: AppPalette.borderStrong,
+    borderColor: palette.borderStrong,
     borderRadius: 8,
     paddingVertical: 12,
     paddingHorizontal: 12,
     alignItems: "center",
-    backgroundColor: AppPalette.surfaceMuted,
+    backgroundColor: palette.surfaceMuted,
     marginTop: 12,
   },
   secondaryBtnText: {
-    color: AppPalette.text,
+    color: palette.text,
     fontSize: 13,
     fontWeight: "700",
   },
   dangerOutlineBtn: {
     borderWidth: 1,
-    borderColor: AppPalette.dangerStrong,
+    borderColor: palette.dangerStrong,
     borderRadius: 8,
     paddingVertical: 12,
     alignItems: "center",
     marginTop: 8,
   },
   dangerOutlineBtnText: {
-    color: AppPalette.dangerStrong,
+    color: palette.dangerStrong,
     fontSize: 13,
     fontWeight: "700",
   },
   resetCard: {
-    backgroundColor: AppPalette.dangerSoft,
-    borderColor: AppPalette.dangerBorder,
+    backgroundColor: palette.dangerSoft,
+    borderColor: palette.dangerBorder,
     borderRadius: 12,
     borderWidth: 1,
     marginBottom: 16,
     padding: 16,
   },
   resetHint: {
-    color: AppPalette.dangerStrong,
+    color: palette.dangerStrong,
     fontSize: 12,
     lineHeight: 18,
     marginTop: 10,
   },
   undoBox: {
-    backgroundColor: AppPalette.surface,
-    borderColor: AppPalette.border,
+    backgroundColor: palette.surface,
+    borderColor: palette.border,
     borderRadius: 10,
     borderWidth: 1,
     marginTop: 12,
     padding: 12,
   },
   undoTitle: {
-    color: AppPalette.text,
+    color: palette.text,
     fontSize: 14,
     fontWeight: "700",
     marginBottom: 4,
   },
   undoText: {
-    color: AppPalette.textMuted,
+    color: palette.textMuted,
     fontSize: 12,
     lineHeight: 18,
   },
   undoMeta: {
-    color: AppPalette.dangerStrong,
+    color: palette.dangerStrong,
     fontSize: 12,
     fontWeight: "700",
     marginTop: 8,
   },
   dangerBtn: {
     alignItems: "center",
-    backgroundColor: AppPalette.dangerStrong,
+    backgroundColor: palette.dangerStrong,
     borderRadius: 8,
     marginTop: 14,
     paddingVertical: 12,
   },
   dangerBtnText: {
-    color: AppPalette.primaryOn,
+    color: palette.primaryOn,
     fontSize: 13,
     fontWeight: "700",
   },
   signOutBtn: {
     alignItems: "center",
-    borderColor: AppPalette.dangerStrong,
+    borderColor: palette.dangerStrong,
     borderRadius: 8,
     borderWidth: 1,
     marginBottom: 16,
     paddingVertical: 13,
   },
   signOutBtnText: {
-    color: AppPalette.dangerStrong,
+    color: palette.dangerStrong,
     fontSize: 14,
     fontWeight: "700",
   },

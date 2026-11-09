@@ -24,6 +24,11 @@ Direction confirmed; implementation of each item still requires a separately app
 
 - **PF-D-014:** Items and pallets share one removal model: archive, never hard-delete from the apps. Archived rows stay in the database (the append-only stock ledger makes hard deletion of stocked records impossible anyway) and leave every active view. An Archived view with restore is the approved follow-up direction, as its own future scope. Implemented by PF-SCOPE-014.
 
+## Confirmed by owner, 2026-11-08
+(PF-D-015 is recorded on the PF-SCOPE-015 branch, PR #12, and lands here when that branch merges.)
+
+- **PF-D-016:** PalletFlip's design direction is the Slate system on both apps: Day slate + Deep slate with a toggle, warehouse-amber accent (#c77400 Day / #f0a832 Deep), flat surfaces with hairline borders, and mono data (monospace tabular numerals for prices, quantities, and metrics). Warm/brown neutral palettes are rejected for this app, as they were for Merit. Phone expression of the same system: Deep is the default, chunkier touch targets, camera/capture surfaces always dark. Built as an experiment by PF-SCOPE-017; shipping to main is a separate owner decision.
+
 ## Established historical direction; verify against code and current docs
 - Mobile warehouse capture / web business management split.
 - eBay integration and assisted Facebook Marketplace posting (do not assume an official automated posting API).
