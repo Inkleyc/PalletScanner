@@ -77,6 +77,12 @@
         "projectId": "36973777-f009-4dd0-ba11-8bd1f7b0c983"
       }
     },
-    "owner": "colton.inkley"
+    "owner": "colton.inkley",
+    "updates": {
+      "url": "https://u.expo.dev/36973777-f009-4dd0-ba11-8bd1f7b0c983"
+    },
+    "runtimeVersion": {
+      "policy": "appVersion"
+    }
   }
 }
