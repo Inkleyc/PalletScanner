@@ -8,6 +8,7 @@ Owner-approved scopes, approved 2026-11-03 by Colton, to be worked in order (001
 | PF-SCOPE-003 | Web Review/Inventory decisions + cross-surface sync proof | APPROVED (queued) | APPROVED 2026-11-03 | — |
 | PF-SCOPE-014 | Pallets archive like items (no more hard-delete dead end) | IN_PROGRESS | APPROVED 2026-11-07 | scope/PF-SCOPE-014-pallet-archiving |
 | PF-SCOPE-017 | Slate design port — web + mobile (experiment) | OWNER_REVIEW (PR opened 2026-11-08, awaiting merge decision) | APPROVED to build 2026-11-08; shipping approved 2026-11-08 ("Ship it — open the PR to main") | experiment/design-slate-port |
+| PF-SCOPE-013 | Mobile item editor: keyboard can be dismissed and no longer traps the form | IN_PROGRESS | APPROVED 2026-11-07 | scope/PF-SCOPE-013-mobile-editor-keyboard |
 | PF-SCOPE-012 | Web cloud saves translate workflow status to the database vocabulary | IN_PROGRESS | APPROVED 2026-11-07 | scope/PF-SCOPE-012-web-cloud-status-translation |
 | PF-SCOPE-011 | Clients create the acquisition for each new pallet | CLOSED | APPROVED 2026-11-07 | scope/PF-SCOPE-011-acquisition-creation |
 | PF-SCOPE-010 | Hosted Supabase schema alignment | CLOSED | APPROVED 2026-11-07 (Stage A; Stage B separate go-ahead) | — (dashboard-applied; record rides PF-SCOPE-011's branch) |
