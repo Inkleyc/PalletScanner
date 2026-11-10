@@ -1,5 +1,5 @@
 # PF-SCOPE-016 — Phone test builds via TestFlight + EAS Update
-Status: APPROVED (build sequenced after the owner's one-time setups below)
+Status: IN_PROGRESS (owner setups complete 2026-11-10: App Store Connect record "PalletFlip" created, "Internal" TestFlight group with the owner as tester, `EXPO_TOKEN` secret set in the repo. Repo build in this scope's PR; CI workflow prepared under `project-control/prepared/`, owner lands it via web editor; first build/submit still to run.)
 Owner approval: APPROVED 2026-11-07 (owner chose the bundle with PF-SCOPE-015; recorded as PF-D-015)
 Decision authority: PF-D-015 (test deployments inside approved-scope autonomy); the Expo token lives only as a GitHub repository secret set by the owner — Lenard never holds it.
 
