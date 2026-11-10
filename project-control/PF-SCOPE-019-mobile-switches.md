@@ -1,5 +1,5 @@
 # PF-SCOPE-019 — Mobile switches: one treatment, visible in both themes
-Status: IN_PROGRESS
+Status: CLOSED (VERIFIED 2026-11-09)
 Owner approval: APPROVED 2026-11-09 (owner finding during the PF-SCOPE-017 phone pass; after the PR #14/#15 pull he reported "Phone app toggles still disappear in light mode" — build go-ahead for this surveyed fix)
 Decision authority: PF-D-016 (slate design direction). Visual-only; no behavior changes. No protected operations.
 
@@ -24,9 +24,9 @@ One treatment for Theme, Posting After Save, and eBay Details Reminder:
 ## Acceptance checks
 
 - [x] Mobile typecheck clean; lint 0 errors (1 known pre-existing warning in untouched barcode-lookup.ts).
-- [ ] CI green on the PR.
-- [ ] Owner device check: Settings in Day — OFF switches clearly visible, ON switches amber with a white thumb; Deep unchanged-good.
+- [x] CI green on the PR (PR #16, both check runs success).
+- [x] Owner device check 2026-11-09: 'Phone updates look good' — Day OFF switches visible, ON amber, Deep unchanged.
 
 ## Completion record
 
-(Pending — filled in at verification.)
+Built and merged 2026-11-09 via PR #16 as 001caba3 (CI green; mobile typecheck clean, lint 0 errors). Owner device check passed the same night. Root cause recorded in the scope: iOS does not tint a Switch's OFF track, so the fix works through the thumb (slate in Day) plus the amber ON track.
