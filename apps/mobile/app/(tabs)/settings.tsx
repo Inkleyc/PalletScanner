@@ -298,8 +298,8 @@ export default function SettingsScreen() {
             <Switch
               value={mode === "deep"}
               onValueChange={(value) => setMode(value ? "deep" : "day")}
-              trackColor={{ false: palette.borderStrong, true: "#a9c8df" }}
-              thumbColor={mode === "deep" ? palette.primaryStrong : "#f4f4f4"}
+              trackColor={{ false: palette.borderStrong, true: palette.primary }}
+              thumbColor={mode === "deep" ? "#ffffff" : palette.textMuted}
             />
           </View>
         </View>
@@ -314,8 +314,8 @@ export default function SettingsScreen() {
             <Switch
               value={promptToPostOnSave}
               onValueChange={setPromptToPostOnSave}
-              trackColor={{ false: palette.borderStrong, true: "#a9c8df" }}
-              thumbColor={promptToPostOnSave ? palette.primaryStrong : "#f4f4f4"}
+              trackColor={{ false: palette.borderStrong, true: palette.primary }}
+              thumbColor={promptToPostOnSave ? "#ffffff" : mode === "day" ? palette.textMuted : "#f4f4f4"}
             />
           </View>
         </View>
@@ -330,8 +330,8 @@ export default function SettingsScreen() {
             <Switch
               value={showEbayDetailsReminder}
               onValueChange={setShowEbayDetailsReminder}
-              trackColor={{ false: palette.borderStrong, true: "#a9c8df" }}
-              thumbColor={showEbayDetailsReminder ? palette.primaryStrong : "#f4f4f4"}
+              trackColor={{ false: palette.borderStrong, true: palette.primary }}
+              thumbColor={showEbayDetailsReminder ? "#ffffff" : mode === "day" ? palette.textMuted : "#f4f4f4"}
             />
           </View>
         </View>
