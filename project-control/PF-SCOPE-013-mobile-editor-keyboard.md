@@ -1,5 +1,5 @@
 # PF-SCOPE-013 — Mobile item editor: keyboard can be dismissed and no longer traps the form
-Status: IN_PROGRESS
+Status: OWNER_REVIEW (merged to main 2026-11-09; owner device retest pending)
 Owner approval: APPROVED 2026-11-07 (owner, after hitting the trap for the second time in one day: "Fix the other issue")
 Decision authority: PF-D-003 (correct bugs and improve reliability within an approved scope); no protected operations.
 
@@ -21,9 +21,9 @@ Numeric pads on iOS have no return/dismiss key. The login screen trapped the own
 
 ## Acceptance checks
 
-- [ ] Mobile typecheck and lint clean; CI green on the branch.
+- [x] Mobile typecheck and lint clean; CI green (verified on the merged tree via local simulation + PR #14 CI, both green).
 - [ ] Owner, on device (branch checked out, Metro running): open an item in Inventory, tap a price field, then (a) drag the form — keyboard dismisses; (b) tap the card background/header — keyboard dismisses; (c) with the keyboard up, the listing-price field and Save changes are reachable (sheet lifts), and Save changes responds on the first tap.
 
 ## Completion record
 
-(Pending — filled in at verification.)
+Built 2026-11-07 on scope/PF-SCOPE-013-mobile-editor-keyboard (PR #10). After the PF-SCOPE-017 design port landed, PR #10's branch could no longer merge (scope-register conflict against its old base). On 2026-11-09 the owner approved "merge PR #10 now, then I'll retest on main"; the identical fix was re-based onto current main (verified by a local merge simulation: explore.tsx auto-merged with the 017 palette factories, typecheck clean, lint 0 errors), opened as PR #14, CI green, and MERGED as 345659bb. PR #10 was closed as superseded. Remaining: the owner's device retest on main (acceptance check 2), then this scope flips to VERIFIED/CLOSED.
