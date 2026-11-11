@@ -1,3 +1,4 @@
+import { getItemPhotos } from "@palletscanner/core";
 import { getQuantity } from "./dashboard-model.js";
 
 export const MAX_ITEM_PHOTOS = 5;
@@ -113,7 +114,7 @@ const itemPrice = (item, field) =>
   item[field] ?? item[`${field}_price`] ?? 0;
 
 const getEbayListingPayload = (item) => {
-  const photoUris = item.photos?.length ? item.photos : item.photo ? [item.photo] : [];
+  const photoUris = getItemPhotos(item);
   const photos = photoUris
     .filter((uri) => !uri.startsWith("mock://"))
     .map((uri, index) => {
