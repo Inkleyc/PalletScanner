@@ -6,6 +6,10 @@ Owner-approved scopes, approved 2026-11-03 by Colton, to be worked in order (001
 | PF-SCOPE-001 | Safe local verification harness + CI | CLOSED | APPROVED 2026-11-03 | scope/PF-SCOPE-001-verification-harness |
 | PF-SCOPE-002 | Mobile scan/photo → draft → save → next-item reliability | CLOSED (VERIFIED 2026-11-07: device pass 9/9; PR #4 merged; closed 2026-11-10 on the PF-SCOPE-003 successor merge, which carries its record) | APPROVED 2026-11-03 | scope/PF-SCOPE-002-mobile-capture-reliability |
 | PF-SCOPE-003 | Web Review/Inventory decisions + cross-surface sync proof | CLOSED (VERIFIED 2026-11-10: full 7-check pass — owner cloud run + local-mode pass + hosted-DB proof; PR #5 superseded by this successor after conflicts with main) | APPROVED 2026-11-03 | scope/PF-SCOPE-003-integration |
+| PF-SCOPE-004 | End-to-end eBay sandbox proof | IN_PROGRESS (prep 2026-11-11: token-store encryption verified, Render config verified 2026-11-10, runbook drafted; implementation waits on owner sandbox-credential confirmation + sandbox-call go-ahead) | APPROVED 2026-11-04 | scope/PF-SCOPE-004-ebay-sandbox-proof |
+| PF-SCOPE-005 | Vendor-agnostic AI (draft-only, evaluated) | APPROVED (waits on PF-SCOPE-004 + provider key + evaluation bar + separate AI-credential approval) | APPROVED 2026-11-04 | — |
+| PF-SCOPE-008 | Core alignment follow-up (Node-resolvable core entry + provably-identical helpers) | APPROVED (buildable; runs before the mobile Inventory split) | APPROVED 2026-11-04 | — |
+| PF-SCOPE-009 | Mobile Inventory split (explore.tsx, move-only) | PROPOSED (drafted 2026-11-04; approval pending; PF-D-013 governance amendment also pending) | — | — |
 | PF-SCOPE-006 | Web adopts the shared packages (partial, equivalence-proven sites) | CLOSED (VERIFIED 2026-11-11: getItemPhotos adopted at the 3 proven-identical sites + 49 equivalence tests; remaining families stay web-side deliberately per Findings, owner-accepted partial 2026-11-04; integrated onto current main; browser pass green) | APPROVED 2026-11-04 | scope/PF-SCOPE-006-integration |
 | PF-SCOPE-007 | Config hygiene: settle the audit-flagged defaults | CLOSED (VERIFIED 2026-11-10: three defaults implemented + tested; integrated onto current main — sole conflict was this register; Render dashboard read matches render.yaml, EBAY_ENVIRONMENT=sandbox, PALLETSCANNER_ALLOWED_ORIGIN unset) | APPROVED 2026-11-04 | scope/PF-SCOPE-007-config-hygiene |
 | PF-SCOPE-014 | Pallets archive like items (no more hard-delete dead end) | CLOSED (VERIFIED 2026-11-09: owner removed a stuck self-test pallet on main, end-to-end) | APPROVED 2026-11-07 | scope/PF-SCOPE-014-pallet-archiving |
@@ -19,7 +23,7 @@ Owner-approved scopes, approved 2026-11-03 by Colton, to be worked in order (001
 | PF-SCOPE-011 | Clients create the acquisition for each new pallet | CLOSED | APPROVED 2026-11-07 | scope/PF-SCOPE-011-acquisition-creation |
 | PF-SCOPE-010 | Hosted Supabase schema alignment | CLOSED | APPROVED 2026-11-07 (Stage A; Stage B separate go-ahead) | — (dashboard-applied; record rides PF-SCOPE-011's branch) |
 
-Scope document for PF-SCOPE-001: `project-control/PF-SCOPE-001-verification-harness.md`. Scope document for PF-SCOPE-007: `project-control/PF-SCOPE-007-config-hygiene.md`. Use `SCOPE_PROTOCOL.md` for the required proposal template and lifecycle. Add links to scope-specific documents and PRs as work progresses.
+Scope document for PF-SCOPE-001: `project-control/PF-SCOPE-001-verification-harness.md`. Scope document for PF-SCOPE-004: `project-control/PF-SCOPE-004-ebay-sandbox-proof.md`. Scope document for PF-SCOPE-007: `project-control/PF-SCOPE-007-config-hygiene.md`. Use `SCOPE_PROTOCOL.md` for the required proposal template and lifecycle. Add links to scope-specific documents and PRs as work progresses.
 
 ## Numbering note (do not remove)
 
