@@ -30,9 +30,12 @@ For the full plain-English setup map, including local development versus distrib
 
 You can use [server/ebay.env.example](c:/Users/colto/PalletScanner/server/ebay.env.example) as a paste-in checklist when the developer portal is available again.
 
+## Required environment variables (no defaults)
+
+- `EBAY_ENVIRONMENT=sandbox` or `EBAY_ENVIRONMENT=production` — required and explicit; there is no default. An unset value makes the server refuse to start instead of silently running production (PF-SCOPE-007).
+
 ## Optional environment variables
 
-- `EBAY_ENVIRONMENT=production`
 - `EBAY_SERVER_PORT=8787`
 - `EBAY_MARKETPLACE_ID=EBAY_US`
 - `EBAY_CURRENCY=USD`
@@ -42,9 +45,10 @@ You can use [server/ebay.env.example](c:/Users/colto/PalletScanner/server/ebay.e
 - `PALLETSCANNER_AUTH_MODE=local`
 - `PALLETSCANNER_JWT_SECRET=...`
 - `EBAY_TOKEN_ENCRYPTION_KEY=...`
-- `PALLETSCANNER_ALLOWED_ORIGIN=https://app.example.com`
+- `PALLETSCANNER_ALLOWED_ORIGIN=https://app.example.com` — defaults to `*` only for sandbox/local runs; production requires a specific origin and refuses to start with `*` or an unset value.
 - `PALLETSCANNER_LISTING_RATE_LIMIT_PER_MINUTE=20`
-- `ANTHROPIC_API_KEY=...`
+- `PALLETSCANNER_AI_ENABLED=false` — AI is deferred/off by default (PF-D-011). The AI key is required by the production readiness check only when this is `true`.
+- `ANTHROPIC_API_KEY=...` — only when AI is explicitly enabled under a separately approved scope.
 - `ANTHROPIC_MODEL=claude-sonnet-5`
 
 Keep `ANTHROPIC_API_KEY` on the backend only. Remove the retired

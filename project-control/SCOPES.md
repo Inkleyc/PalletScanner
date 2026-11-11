@@ -6,6 +6,7 @@ Owner-approved scopes, approved 2026-11-03 by Colton, to be worked in order (001
 | PF-SCOPE-001 | Safe local verification harness + CI | CLOSED | APPROVED 2026-11-03 | scope/PF-SCOPE-001-verification-harness |
 | PF-SCOPE-002 | Mobile scan/photo → draft → save → next-item reliability | CLOSED (VERIFIED 2026-11-07: device pass 9/9; PR #4 merged; closed 2026-11-10 on the PF-SCOPE-003 successor merge, which carries its record) | APPROVED 2026-11-03 | scope/PF-SCOPE-002-mobile-capture-reliability |
 | PF-SCOPE-003 | Web Review/Inventory decisions + cross-surface sync proof | CLOSED (VERIFIED 2026-11-10: full 7-check pass — owner cloud run + local-mode pass + hosted-DB proof; PR #5 superseded by this successor after conflicts with main) | APPROVED 2026-11-03 | scope/PF-SCOPE-003-integration |
+| PF-SCOPE-007 | Config hygiene: settle the audit-flagged defaults | CLOSED (VERIFIED 2026-11-10: three defaults implemented + tested; integrated onto current main — sole conflict was this register; Render dashboard read matches render.yaml, EBAY_ENVIRONMENT=sandbox, PALLETSCANNER_ALLOWED_ORIGIN unset) | APPROVED 2026-11-04 | scope/PF-SCOPE-007-config-hygiene |
 | PF-SCOPE-014 | Pallets archive like items (no more hard-delete dead end) | CLOSED (VERIFIED 2026-11-09: owner removed a stuck self-test pallet on main, end-to-end) | APPROVED 2026-11-07 | scope/PF-SCOPE-014-pallet-archiving |
 | PF-SCOPE-017 | Slate design port — web + mobile (experiment) | CLOSED (VERIFIED 2026-11-09: merged PR #13; owner's live pass on main; findings became PF-SCOPE-018/019) | APPROVED to build 2026-11-08; shipping approved 2026-11-08 ("Ship it — open the PR to main") | experiment/design-slate-port |
 | PF-SCOPE-013 | Mobile item editor: keyboard can be dismissed and no longer traps the form | CLOSED (merged 2026-11-09 via PR #14 as 345659bb, superseding unmergeable PR #10; owner device retest PASSED 2026-11-10 from the PF-SCOPE-016 preview build) | APPROVED 2026-11-07; merge approved 2026-11-09 ("merge it, retest on main") | scope/PF-SCOPE-013-keyboard-on-main |
@@ -17,7 +18,7 @@ Owner-approved scopes, approved 2026-11-03 by Colton, to be worked in order (001
 | PF-SCOPE-011 | Clients create the acquisition for each new pallet | CLOSED | APPROVED 2026-11-07 | scope/PF-SCOPE-011-acquisition-creation |
 | PF-SCOPE-010 | Hosted Supabase schema alignment | CLOSED | APPROVED 2026-11-07 (Stage A; Stage B separate go-ahead) | — (dashboard-applied; record rides PF-SCOPE-011's branch) |
 
-Scope document for PF-SCOPE-001: `project-control/PF-SCOPE-001-verification-harness.md`. Use `SCOPE_PROTOCOL.md` for the required proposal template and lifecycle. Add links to scope-specific documents and PRs as work progresses.
+Scope document for PF-SCOPE-001: `project-control/PF-SCOPE-001-verification-harness.md`. Scope document for PF-SCOPE-007: `project-control/PF-SCOPE-007-config-hygiene.md`. Use `SCOPE_PROTOCOL.md` for the required proposal template and lifecycle. Add links to scope-specific documents and PRs as work progresses.
 
 ## Numbering note (do not remove)
 
