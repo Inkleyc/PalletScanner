@@ -40,6 +40,7 @@ import {
   readPreference,
   resizePhoto,
 } from "./web-services.js";
+import { getItemPhotos } from "@palletscanner/core";
 
 const price = (item, field) => item[field] ?? item[`${field}_price`] ?? 0;
 const orderLineFulfillableQuantity = (line) => Math.max(Number(line.quantity || 0) - Number(line.cancelled_quantity || 0), 0);
@@ -89,7 +90,7 @@ const itemDraft = (item) => ({
 });
 
 function PhotoReview({ item, onSave }) {
-  const photos = item.photos?.length ? item.photos : item.photo ? [item.photo] : [];
+  const photos = getItemPhotos(item);
   const inputRef = useRef(null);
   const cameraInputRef = useRef(null);
   const [working, setWorking] = useState("");

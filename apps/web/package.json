@@ -7,9 +7,10 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "check": "node --test ./scripts/profitability-model.test.mjs ./scripts/pricing-recommendation-model.test.mjs ./scripts/item-decision-model.test.mjs && node ./scripts/check.mjs && vite build"
+    "check": "node --test ./scripts/profitability-model.test.mjs ./scripts/pricing-recommendation-model.test.mjs ./scripts/item-decision-model.test.mjs ./scripts/shared-packages-equivalence.test.mjs && node ./scripts/check.mjs && vite build"
   },
   "dependencies": {
+    "@palletscanner/core": "*",
     "@supabase/supabase-js": "^2.108.2",
     "react": "19.1.0",
     "react-dom": "19.1.0"
