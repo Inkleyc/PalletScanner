@@ -4,8 +4,8 @@ Owner-approved scopes, approved 2026-11-03 by Colton, to be worked in order (001
 | ID | Working title (approved description) | State | Owner approval | Branch |
 | --- | --- | --- | --- | --- |
 | PF-SCOPE-001 | Safe local verification harness + CI | CLOSED | APPROVED 2026-11-03 | scope/PF-SCOPE-001-verification-harness |
-| PF-SCOPE-002 | Mobile scan/photo → draft → save → next-item reliability | IN_PROGRESS | APPROVED 2026-11-03 | scope/PF-SCOPE-002-mobile-capture-reliability |
-| PF-SCOPE-003 | Web Review/Inventory decisions + cross-surface sync proof | APPROVED (queued) | APPROVED 2026-11-03 | — |
+| PF-SCOPE-002 | Mobile scan/photo → draft → save → next-item reliability | CLOSED (VERIFIED 2026-11-07: device pass 9/9; PR #4 merged; closed 2026-11-10 on the PF-SCOPE-003 successor merge, which carries its record) | APPROVED 2026-11-03 | scope/PF-SCOPE-002-mobile-capture-reliability |
+| PF-SCOPE-003 | Web Review/Inventory decisions + cross-surface sync proof | CLOSED (VERIFIED 2026-11-10: full 7-check pass — owner cloud run + local-mode pass + hosted-DB proof; PR #5 superseded by this successor after conflicts with main) | APPROVED 2026-11-03 | scope/PF-SCOPE-003-integration |
 | PF-SCOPE-014 | Pallets archive like items (no more hard-delete dead end) | CLOSED (VERIFIED 2026-11-09: owner removed a stuck self-test pallet on main, end-to-end) | APPROVED 2026-11-07 | scope/PF-SCOPE-014-pallet-archiving |
 | PF-SCOPE-017 | Slate design port — web + mobile (experiment) | CLOSED (VERIFIED 2026-11-09: merged PR #13; owner's live pass on main; findings became PF-SCOPE-018/019) | APPROVED to build 2026-11-08; shipping approved 2026-11-08 ("Ship it — open the PR to main") | experiment/design-slate-port |
 | PF-SCOPE-013 | Mobile item editor: keyboard can be dismissed and no longer traps the form | OWNER_REVIEW (merged 2026-11-09 via PR #14 as 345659bb, superseding unmergeable PR #10; owner device retest on main pending) | APPROVED 2026-11-07; merge approved 2026-11-09 ("merge it, retest on main") | scope/PF-SCOPE-013-keyboard-on-main |
@@ -13,7 +13,7 @@ Owner-approved scopes, approved 2026-11-03 by Colton, to be worked in order (001
 | PF-SCOPE-015 | Web preview hosting + Lenard-run browser passes | IN_PROGRESS | APPROVED 2026-11-07 | scope/PF-SCOPE-015-web-preview-testing |
 | PF-SCOPE-019 | Mobile switches: one treatment, visible in both themes | CLOSED (VERIFIED 2026-11-09: merged PR #16; owner device check — Day switches visible, amber on, Deep unchanged) | APPROVED 2026-11-09 (owner phone-pass finding) | scope/PF-SCOPE-019-mobile-switches |
 | PF-SCOPE-018 | Web live-pass fixes: Inventory cards, compact Orders toggle, Deep separation, dialog structure, Edit form facelift | IN_PROGRESS | APPROVED 2026-11-09 (owner live-pass findings; "build all 5") | scope/PF-SCOPE-018-live-pass-fixes |
-| PF-SCOPE-012 | Web cloud saves translate workflow status to the database vocabulary | IN_PROGRESS | APPROVED 2026-11-07 | scope/PF-SCOPE-012-web-cloud-status-translation |
+| PF-SCOPE-012 | Web cloud saves translate workflow status to the database vocabulary | CLOSED (VERIFIED 2026-11-07; PR #9 merged; register flip landed 2026-11-10 with the PF-SCOPE-003 successor) | APPROVED 2026-11-07 | scope/PF-SCOPE-012-web-cloud-status-translation |
 | PF-SCOPE-011 | Clients create the acquisition for each new pallet | CLOSED | APPROVED 2026-11-07 | scope/PF-SCOPE-011-acquisition-creation |
 | PF-SCOPE-010 | Hosted Supabase schema alignment | CLOSED | APPROVED 2026-11-07 (Stage A; Stage B separate go-ahead) | — (dashboard-applied; record rides PF-SCOPE-011's branch) |
 
