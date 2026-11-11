@@ -1,5 +1,5 @@
 # PF-SCOPE-002 — Mobile scan/photo → draft → save → next-item reliability
-Status: IN_PROGRESS
+Status: CLOSED (VERIFIED 2026-11-07; closed 2026-11-10 on merge of the PF-SCOPE-003 successor PR, which carries this record — PR #5 itself was closed as superseded after it conflicted with main)
 Owner approval: APPROVED 2026-11-03 (all three audit-proposed scopes approved in order; this scope is worked second, after PF-SCOPE-001 closed 2026-11-04)
 Branch: scope/PF-SCOPE-002-mobile-capture-reliability
 Base: main c6179b35 (PF-SCOPE-001 merged, CI green)
