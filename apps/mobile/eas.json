@@ -13,6 +13,12 @@
       "distribution": "internal",
       "environment": "preview",
       "channel": "preview",
+      "env": {
+        "EXPO_PUBLIC_SUPABASE_URL": "https://okwdjtjlafziykyjgjnz.supabase.co",
+        "EXPO_PUBLIC_SUPABASE_ANON_KEY": "sb_publishable_IW-NWeOu5i2hFhOwsoe8Rg_iggM8anq",
+        "EXPO_PUBLIC_AI_API_BASE_URL": "https://palletscanner-ebay-api.onrender.com",
+        "EXPO_PUBLIC_DASHBOARD_URL": "https://palletflip.pages.dev"
+      },
       "android": {
         "buildType": "apk"
       }
@@ -20,7 +26,13 @@
     "production": {
       "autoIncrement": true,
       "environment": "production",
-      "channel": "production"
+      "channel": "production",
+      "env": {
+        "EXPO_PUBLIC_SUPABASE_URL": "https://okwdjtjlafziykyjgjnz.supabase.co",
+        "EXPO_PUBLIC_SUPABASE_ANON_KEY": "sb_publishable_IW-NWeOu5i2hFhOwsoe8Rg_iggM8anq",
+        "EXPO_PUBLIC_AI_API_BASE_URL": "https://palletscanner-ebay-api.onrender.com",
+        "EXPO_PUBLIC_DASHBOARD_URL": "https://palletflip.pages.dev"
+      }
     }
   }
 }
