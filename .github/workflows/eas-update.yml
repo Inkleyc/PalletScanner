@@ -1,0 +1,52 @@
+name: EAS preview
+
+on:
+  push:
+    branches:
+      - "scope/**"
+  workflow_dispatch:
+    inputs:
+      task:
+        description: "What to run"
+        type: choice
+        options:
+          - update
+          - build
+        default: update
+
+jobs:
+  update:
+    if: github.event_name == 'push' || inputs.task == 'update'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - uses: expo/expo-github-action@v8
+        with:
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+      - run: npm ci
+      - name: Publish update to preview channel
+        working-directory: apps/mobile
+        run: eas update --channel preview --message "${{ github.sha }}" --non-interactive
+
+  build:
+    if: github.event_name == 'workflow_dispatch' && inputs.task == 'build'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - uses: expo/expo-github-action@v8
+        with:
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+      - run: npm ci
+      - name: Build preview profile (iOS)
+        working-directory: apps/mobile
+        run: eas build --profile preview --platform ios --non-interactive --no-wait
