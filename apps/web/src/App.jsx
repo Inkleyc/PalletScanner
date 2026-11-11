@@ -13,8 +13,9 @@ import {
   summarizePallet,
 } from "./dashboard-model.js";
 import { applyBulkDecision, describeDataSource, toDecisionCandidate, validateItemDecision, validateItemPrices } from "./item-decision-model.js";
-import { getRepositoryMode, repository, useCloudRepository, useLocalRepository } from "./repository-router.js";
+import { getRepositoryMode, repository, useCloudRepository } from "./repository-router.js";
 import { isSupabaseConfigured, supabase } from "./supabase.js";
+import { getAuthSessionState, sendMagicLink as requestMagicLink, signOut as requestSignOut, startAuthSession, subscribeAuthSession, syncRepositoryMode } from "./auth-session.js";
 import { buildAnalytics } from "./analytics-model.js";
 import { buildOperationalProfitability } from "./profitability-model.js";
 import { reconcileEbayPreview } from "./ebay-reconciliation.js";
@@ -564,61 +565,61 @@ function InventoryDetail({ item, palletName, pallets, onSave, onRemove, onSaleRe
   );
 }
 
-function SupabaseAccount() {
-  const [session, setSession] = useState(null);
+function AccountControl() {
+  const [auth, setAuth] = useState(() => getAuthSessionState());
+  const [open, setOpen] = useState(false);
   const [email, setEmail] = useState("");
   const [message, setMessage] = useState("");
-  const [loading, setLoading] = useState(true);
-  const [repositoryMode, setRepositoryMode] = useState(() => getRepositoryMode());
+  const [sending, setSending] = useState(false);
+  const rootRef = useRef(null);
+
+  useEffect(() => subscribeAuthSession(setAuth), []);
+  useEffect(() => {
+    if (!open) return undefined;
+    const onPointerDown = (event) => { if (rootRef.current && !rootRef.current.contains(event.target)) setOpen(false); };
+    const onKeyDown = (event) => { if (event.key === "Escape") setOpen(false); };
+    document.addEventListener("mousedown", onPointerDown);
+    document.addEventListener("keydown", onKeyDown);
+    return () => { document.removeEventListener("mousedown", onPointerDown); document.removeEventListener("keydown", onKeyDown); };
+  }, [open ]);
+
+  const session = auth.session;
+  if (session) {
+    return <div className="account-control"><span className="account-email" title={session.user.email}>{session.user.email}</span><button type="button" disabled={auth.loading} onClick={() => { void requestSignOut(); }}>Sign out</button></div>;
+  }
+
+  const submit = async (event) => {
+    event.preventDefault();
+    if (!email.trim() || sending) return;
+    setSending(true); setMessage("");
+    const error = await requestMagicLink(email.trim());
+    setSending(false);
+    setMessage(error ?? "Check your email for the PalletFlip sign-in link.");
+  };
+
+  return <div className="account-control" ref={rootRef}>
+    <button type="button" className="primary-button" aria-expanded={open} onClick={() => setOpen((current) => !current)}>Sign in</button>
+    {open && <div className="account-menu" role="dialog" aria-label="Sign in to PalletFlip">
+      <strong>Sign in to PalletFlip</strong>
+      <p>Signed-in sessions use shared cloud inventory. Local preview data is never uploaded automatically.</p>
+      <form onSubmit={submit}><label><span>Email</span><input type="email" required autoFocus value={email} onChange={(event) => setEmail(event.target.value)} placeholder="you@example.com" /></label><button className="primary-button" type="submit" disabled={sending || !isSupabaseConfigured}>{sending ? "Sending…" : "Email sign-in link"}</button></form>
+      {!isSupabaseConfigured && <p className="error-text">Add the public Supabase URL and publishable key to enable login.</p>}
+      {message && <p className={message.startsWith("Check") ? "" : "error-text"}>{message}</p>}
+      {auth.error && <p className="error-text">{auth.error}</p>}
+    </div>}
+  </div>;
+}
+
+function SupabaseAccount() {
+  const [auth, setAuth] = useState(() => getAuthSessionState());
+  const [message, setMessage] = useState("");
   const [testingCloud, setTestingCloud] = useState(false);
 
-  useEffect(() => {
-    if (!supabase) { setLoading(false); return undefined; }
-    let active = true;
-    const applySession = async (nextSession) => {
-      if (!active) return;
-      setSession(nextSession);
-      setLoading(true);
-      try {
-        if (nextSession) {
-          await useCloudRepository();
-          if (active) setRepositoryMode("cloud");
-        } else {
-          await useLocalRepository();
-          if (active) setRepositoryMode("local");
-        }
-        if (active) setMessage("");
-      } catch (error) {
-        if (active) setMessage(error instanceof Error ? error.message : "Could not load inventory.");
-      } finally {
-        if (active) setLoading(false);
-      }
-    };
-    supabase.auth.getSession().then(({ data }) => applySession(data.session));
-    const { data } = supabase.auth.onAuthStateChange((_event, nextSession) => {
-      window.setTimeout(() => { void applySession(nextSession); }, 0);
-    });
-    return () => { active = false; data.subscription.unsubscribe(); };
-  }, []);
+  useEffect(() => subscribeAuthSession(setAuth), []);
 
-  const sendMagicLink = async (event) => {
-    event.preventDefault();
-    if (!email.trim() || !supabase) return;
-    setLoading(true); setMessage("");
-    const { error } = await supabase.auth.signInWithOtp({
-      email: email.trim(),
-      options: { emailRedirectTo: window.location.origin },
-    });
-    setLoading(false);
-    setMessage(error ? error.message : "Check your email for the PalletFlip sign-in link.");
-  };
-
-  const signOut = async () => {
-    setLoading(true); setMessage("");
-    await supabase?.auth.signOut();
-    await useLocalRepository();
-    setRepositoryMode("local"); setLoading(false);
-  };
+  const session = auth.session;
+  const loading = auth.loading;
+  const repositoryMode = auth.repositoryMode;
 
   const testCloud = async () => {
     setTestingCloud(true); setMessage("Connecting to cloud inventory…");
@@ -626,7 +627,6 @@ function SupabaseAccount() {
     const itemId = Date.now();
     try {
       await useCloudRepository();
-      setRepositoryMode("cloud");
       setMessage("Testing pallet creation…");
       pallet = await repository.createPallet("Temporary cloud self-test");
       setMessage("Testing pallet update…");
@@ -646,11 +646,11 @@ function SupabaseAccount() {
         try { await repository.removeItem(itemId); await repository.removePallet(pallet.id); } catch { /* Preserve the original diagnostic error. */ }
       }
       setMessage(error instanceof Error ? error.message : "Cloud self-test failed.");
-    } finally { setTestingCloud(false); }
+    } finally { setTestingCloud(false); syncRepositoryMode(); }
   };
 
   const messageIsProgress = message.startsWith("Check") || message.includes("passed") || message.startsWith("Connecting") || message.startsWith("Testing");
-  return <article className="admin-card integration-card"><span className="admin-kicker">Shared Account</span><strong>Supabase login</strong><p>{isSupabaseConfigured ? "Signed-in sessions automatically use shared cloud inventory. Local preview data is never uploaded automatically." : "Add the public Supabase URL and publishable key to enable login."}</p>{session ? <><div className="status-line"><span className="badge success">Signed in</span><small>{session.user.email}</small><span className={`badge ${repositoryMode === "cloud" ? "success" : "decision"}`}>{loading ? "Loading cloud inventory…" : repositoryMode === "cloud" ? "Cloud inventory" : "Local fallback"}</span></div><div className="button-row"><button disabled={loading || testingCloud} onClick={testCloud}>{testingCloud ? "Testing…" : repositoryMode === "cloud" ? "Test cloud connection" : "Reconnect and test cloud"}</button><button disabled={loading || testingCloud} onClick={signOut}>Sign out</button></div></> : <form onSubmit={sendMagicLink}><label><span>Email</span><input type="email" required value={email} onChange={(event) => setEmail(event.target.value)} placeholder="you@example.com" /></label><button disabled={loading || !isSupabaseConfigured} type="submit">{loading ? "Checking…" : "Email sign-in link"}</button></form>}{message && <p className={messageIsProgress ? "" : "error-text"}>{message}</p>}</article>;
+  return <article className="admin-card integration-card"><span className="admin-kicker">Shared Account</span><strong>Supabase login</strong><p>{isSupabaseConfigured ? "Signed-in sessions automatically use shared cloud inventory. Local preview data is never uploaded automatically. Sign in or out any time from the account button at the top right of the page." : "Add the public Supabase URL and publishable key to enable login."}</p>{session ? <><div className="status-line"><span className="badge success">Signed in</span><small>{session.user.email}</small><span className={`badge ${repositoryMode === "cloud" ? "success" : "decision"}`}>{loading ? "Loading cloud inventory…" : repositoryMode === "cloud" ? "Cloud inventory" : "Local fallback"}</span></div><div className="button-row"><button disabled={loading || testingCloud} onClick={testCloud}>{testingCloud ? "Testing…" : repositoryMode === "cloud" ? "Test cloud connection" : "Reconnect and test cloud"}</button></div></> : <div className="status-line"><span className="badge">Signed out</span><small>Local preview data</small></div>}{auth.error && <p className="error-text">{auth.error}</p>}{message && <p className={messageIsProgress ? "" : "error-text"}>{message}</p>}</article>;
 }
 
 function SellingDefaults() {
@@ -1817,6 +1817,7 @@ export function App() {
   const toastTimer = useRef(null);
 
   useEffect(() => repository.subscribe(setSnapshot), []);
+  useEffect(() => { startAuthSession(); }, []);
   useEffect(() => {
     if (!dashboardViews.includes(view)) navigate("settings");
   }, [view]);
@@ -1943,7 +1944,7 @@ export function App() {
     <div className="shell">
       <aside className="sidebar"><div className="sidebar-heading"><div><p className="eyebrow">From pallet to profit</p><h1>PalletFlip</h1></div><button className="theme-toggle" type="button" aria-label={theme === "deep" ? "Switch to Day theme" : "Switch to Deep theme"} title={theme === "deep" ? "Switch to Day theme" : "Switch to Deep theme"} onClick={() => setTheme((current) => (current === "deep" ? "day" : "deep"))}><Icon name={theme === "deep" ? "sun" : "moon"} size={18} /></button></div><nav aria-label="Dashboard sections">{navItems.map(([id, label]) => { const count = id === "review" ? attention.length : id === "inventory" ? items.length : null; return <button className={view === id ? "active" : ""} key={id} onClick={() => navigate(id)}><span className="nav-label"><Icon name={navIcons[id]} size={17} />{label}</span>{count !== null && <span className="nav-count">{count}</span>}</button>; })}</nav></aside>
       <main className="main">
-        <header className="topbar"><div><div className="title-status"><p className="eyebrow">Business Dashboard</p><span className={`badge cloud-status ${getRepositoryMode() === "cloud" ? "success" : "decision"}`}>{getRepositoryMode() === "cloud" ? "Cloud data" : "Local preview data"}</span></div><h2>{(viewCopy[view] ?? viewCopy.settings)[0]}</h2><span>{(viewCopy[view] ?? viewCopy.settings)[1]}</span></div><div className="button-row">{view === "inventory" && <><button onClick={exportCsv}>Export inventory</button><button className="primary-button" disabled={pallets.length === 0} onClick={() => setAddingItem(true)}>Add item</button></>}</div></header>
+        <header className="topbar"><div><div className="title-status"><p className="eyebrow">Business Dashboard</p><span className={`badge cloud-status ${getRepositoryMode() === "cloud" ? "success" : "decision"}`}>{getRepositoryMode() === "cloud" ? "Cloud data" : "Local preview data"}</span></div><h2>{(viewCopy[view] ?? viewCopy.settings)[0]}</h2><span>{(viewCopy[view] ?? viewCopy.settings)[1]}</span></div><div className="topbar-actions"><div className="button-row">{view === "inventory" && <><button onClick={exportCsv}>Export inventory</button><button className="primary-button" disabled={pallets.length === 0} onClick={() => setAddingItem(true)}>Add item</button></>}</div><AccountControl /></div></header>
         {view === "overview" && <div className="view-stack"><div className="overview-scope"><span className="overview-scope-label">Viewing</span><div className="pallet-scope-select"><button className="pallet-scope-trigger" type="button" aria-haspopup="listbox" aria-expanded={overviewMenuOpen} onClick={() => setOverviewMenuOpen((open) => !open)}><span className={`status-dot ${overviewNeedsAttention ? "attention" : "clear"}`} /><span>{overviewPalletName}</span><span className="select-chevron" aria-hidden="true">▾</span></button>{overviewMenuOpen && <div className="pallet-scope-menu" role="listbox" aria-label="Overview pallet"><button type="button" role="option" aria-selected={overviewScope === "all"} onClick={() => { setOverviewPalletId("all"); setOverviewMenuOpen(false); }}><span className={`status-dot ${attention.length > 0 ? "attention" : "clear"}`} /><span>All pallets</span>{attention.length > 0 && <small>{attention.length} need attention</small>}</button>{pallets.map((pallet) => { const attentionCount = attention.filter((item) => item.palletId === pallet.id).length; return <button key={pallet.id} type="button" role="option" aria-selected={overviewScope === pallet.id} onClick={() => { setOverviewPalletId(pallet.id); setOverviewMenuOpen(false); }}><span className={`status-dot ${attentionCount > 0 ? "attention" : "clear"}`} /><span>{pallet.name}</span><small>{attentionCount > 0 ? `${attentionCount} need attention` : "Clear"}</small></button>; })}</div>}</div></div><section className="metrics-grid overview-metrics">
           <Metric label="Items" value={overviewTotals.totalItems} onClick={() => { setPalletFilter(overviewScope); navigate("inventory"); }} /><Metric label="Sold items" value={overviewTotals.soldCount} /><Metric label="Sell-through" value={`${overviewTotals.sellThrough.toFixed(0)}%`} tone="success" /><Metric label="Sold revenue" value={currency(overviewTotals.soldRevenue)} /><Metric label="Pallet cost" value={currency(overviewTotals.totalCost)} /><Metric label="Revenue less cost" value={currency(overviewTotals.grossProfit)} tone={overviewTotals.grossProfit >= 0 ? "success" : "danger"} />
         </section>
