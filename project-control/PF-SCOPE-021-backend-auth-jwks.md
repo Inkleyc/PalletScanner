@@ -76,3 +76,14 @@ until this scope's live pass succeeds.
 - Removing the manual-token field (kept for local/shared-key development).
 - Mobile eBay backend calls (the server half benefits any client that
   presents a session token; a mobile live check rides PF-SCOPE-004).
+
+## Follow-up (2026-11-11, found during the PF-SCOPE-004 run)
+
+The live pass proved the Settings card, but the item sheet's **Post to
+eBay** still answered 401 "Authentication required.": the shared
+`backendRequest` helper in `apps/web/src/web-services.js` — used by the
+publish flow, listing-requirements check, and AI analysis — attached
+only the manual sessionStorage token, the same defect this scope fixed
+in the card. Fixed by giving `backendRequest` the identical fallback:
+manual token wins, otherwise the signed-in Supabase session's access
+token. Root `npm run check` exit 0.
