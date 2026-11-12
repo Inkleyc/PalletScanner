@@ -1,6 +1,6 @@
 # PF-SCOPE-021 — Backend auth verifies Supabase session tokens (JWKS)
 
-Status: IN_PROGRESS (built 2026-11-11; live pass pending — see Verification)
+Status: CLOSED (VERIFIED 2026-11-11 — owner live pass: after SUPABASE_URL was added to Render, Check status on the live site returned the full readiness readout: eBay app credentials, merchant location, payment/return/fulfillment policies all green, only "Seller account authorization" outstanding; the eBay card is now sending the session token and the server is verifying it against the project JWKS. See Verification.)
 Owner approval: 2026-11-11 ("Approve PF-SCOPE-021 and build it"). The owner
 rejected a shared-key workaround the same evening and directed that the
 proper fix land as its own scope first (PF-D-018). PF-SCOPE-004 is paused
