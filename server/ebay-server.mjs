@@ -1034,19 +1034,37 @@ const getLegacyProductAspects = (payload, categoryId) => {
 };
 
 const uploadImageToEbay = async (accessToken, photo, index) => {
-  if (photo?.url && /^https:\/\//i.test(photo.url)) {
-    return photo.url;
+  // Every listing image is re-hosted on eBay, never passed through by
+  // URL (found in the PF-SCOPE-004 run): a cloud photo's signed URL is
+  // ~600 characters — over eBay's 500-character picture-URL limit — and
+  // it expires an hour after it is minted, while a listing's images
+  // must live as long as the listing. Download the bytes and let the
+  // media upload below produce a permanent eBay-hosted URL, the same
+  // path local (base64) photos already took.
+  let photoBytes = photo?.base64 ? Buffer.from(photo.base64, "base64") : null;
+  let photoMimeType = photo?.mimeType || "image/jpeg";
+  if (!photoBytes && photo?.url && /^https:\/\//i.test(photo.url)) {
+    const download = await fetch(photo.url, {
+      signal: AbortSignal.timeout(30_000),
+    });
+    if (!download.ok) {
+      throw new Error(
+        `Could not download a listing photo (status ${download.status}). Refresh the page so the app can mint a fresh photo link, then publish again.`,
+      );
+    }
+    photoBytes = Buffer.from(await download.arrayBuffer());
+    photoMimeType = download.headers.get("content-type") || photoMimeType;
   }
 
-  if (!photo?.base64) {
+  if (!photoBytes) {
     return null;
   }
 
-  const bytes = Buffer.from(photo.base64, "base64");
+  const bytes = photoBytes;
   const form = new FormData();
   form.append(
     "image",
-    new Blob([bytes], { type: photo.mimeType || "image/jpeg" }),
+    new Blob([bytes], { type: photoMimeType }),
     photo.filename || `pallet-image-${index + 1}.jpg`,
   );
 
