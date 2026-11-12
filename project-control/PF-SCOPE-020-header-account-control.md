@@ -1,6 +1,6 @@
 # PF-SCOPE-020 — Header account control (web)
 
-Status: IN_PROGRESS (built + locally verified 2026-11-11 — root `npm run check` exit 0 incl. a pristine `npm ci` reproduction on the PR head; local-mode browser pass green, details below. PR #25's first CI runs failed 2026-11-11 for a step not visible from the connector; re-run triggered the same day after PF-SCOPE-021's PR passed the identical workflow clean. Flip to VERIFIED/CLOSED at merge.)
+Status: CLOSED (VERIFIED 2026-11-11 — root `npm run check` exit 0 incl. a pristine `npm ci` reproduction on the PR head; local-mode browser pass green, details below. Merged via successor PR #27 as 3cc67fdf after PF-SCOPE-021 landed first; PR #25 closed as superseded. PR #25's first CI runs failed 2026-11-11 for a step not visible from the connector; a re-run of the identical tree the same day passed clean, so the morning failures were environmental, not the diff.)
 Owner approval: APPROVED 2026-11-11 (Colton, from live use: "We should put the login up in the upper right corner like other apps.")
 Branch: `scope/PF-SCOPE-020-header-account`
 
