@@ -33,6 +33,7 @@ import {
 import {
   MAX_ITEM_PHOTOS,
   analyzeItemPhotos,
+  configuredBackendBaseUrl,
   getEbayListingRequirements,
   postItemToEbay,
   preferredListingPrice,
@@ -847,7 +848,7 @@ function PackagePresetSettings() {
 }
 
 function EbaySettings({ mode = "all" }) {
-  const [baseUrl, setBaseUrl] = useState(() => readPreference("palletscanner.ebayApiBaseUrl", ""));
+  const [baseUrl, setBaseUrl] = useState(() => configuredBackendBaseUrl());
   const [token, setToken] = useState(() => sessionStorage.getItem("palletscanner.authToken") ?? "");
   const [configOpen, setConfigOpen] = useState(false);
   const [status, setStatus] = useState(null);
@@ -874,9 +875,17 @@ function EbaySettings({ mode = "all" }) {
 
   const request = async (path, options = {}) => {
     if (!baseUrl.trim()) throw new Error("Enter the eBay backend URL first.");
+    // A manually saved token wins (local/shared-key development); otherwise
+    // the signed-in Supabase session authenticates, like the rest of the
+    // app (PF-SCOPE-021).
+    let bearer = token.trim();
+    if (!bearer && isSupabaseConfigured) {
+      const { data } = await supabase.auth.getSession();
+      bearer = data.session?.access_token ?? "";
+    }
     const response = await fetch(`${baseUrl.trim().replace(/\/$/, "")}${path}`, {
       ...options,
-      headers: { ...(token.trim() ? { Authorization: `Bearer ${token.trim()}` } : {}), ...(options.headers ?? {}) },
+      headers: { ...(bearer ? { Authorization: `Bearer ${bearer}` } : {}), ...(options.headers ?? {}) },
     });
     const body = await response.json().catch(() => ({}));
     if (!response.ok) throw new Error(body.error ?? `Backend returned ${response.status}.`);
@@ -1072,7 +1081,7 @@ function EbaySettings({ mode = "all" }) {
     setConfigOpen(false);
   };
   const cancelConfig = () => {
-    setBaseUrl(readPreference("palletscanner.ebayApiBaseUrl", ""));
+    setBaseUrl(configuredBackendBaseUrl());
     setToken(sessionStorage.getItem("palletscanner.authToken") ?? "");
     setConfigOpen(false);
   };

@@ -113,10 +113,22 @@ test("production check rejects a wildcard origin and a client-visible AI key", a
   assert.match(exposed.stdout, /must be removed/);
 });
 
-test("production check still fails when a required non-AI value is missing", async () => {
+test("production check passes without the legacy JWT secret when SUPABASE_URL provides the JWKS path", async () => {
   const { PALLETSCANNER_JWT_SECRET: _dropped, ...env } =
     completeProductionEnv;
   const { stdout, code } = await runCheck(env);
+  assert.equal(code, 0);
+  assert.match(stdout, /Required production gates: PASS/);
+});
+
+test("production check still fails when a required non-AI value is missing", async () => {
+  const {
+    SUPABASE_URL: _droppedUrl,
+    PALLETSCANNER_JWT_SECRET: _droppedSecret,
+    ...env
+  } = completeProductionEnv;
+  const { stdout, code } = await runCheck(env);
   assert.equal(code, 1);
-  assert.match(stdout, /PALLETSCANNER_JWT_SECRET is required/);
+  assert.match(stdout, /SUPABASE_URL is required/);
+  assert.match(stdout, /JWT verification requires SUPABASE_URL/);
 });

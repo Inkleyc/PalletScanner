@@ -44,7 +44,6 @@ const requiredProductionValues = [
   "EBAY_PAYMENT_POLICY_ID",
   "EBAY_RETURN_POLICY_ID",
   "EBAY_FULFILLMENT_POLICY_ID",
-  "PALLETSCANNER_JWT_SECRET",
   "EBAY_TOKEN_ENCRYPTION_KEY",
   "PALLETSCANNER_ALLOWED_ORIGIN",
   "SUPABASE_URL",
@@ -77,6 +76,16 @@ if (aiEnabled && !hasValue("ANTHROPIC_API_KEY")) {
 
 if (readEnv("PALLETSCANNER_AUTH_MODE") !== "jwt") {
   failures.push("PALLETSCANNER_AUTH_MODE must be jwt.");
+}
+
+// JWT verification needs at least one path (PF-SCOPE-021): the Supabase
+// JWKS (via SUPABASE_URL, already required above) for current ES256
+// session tokens, or the legacy shared secret for HS256 tokens. With
+// neither, jwt mode silently rejects every request.
+if (!hasValue("SUPABASE_URL") && !hasValue("PALLETSCANNER_JWT_SECRET")) {
+  failures.push(
+    "JWT verification requires SUPABASE_URL (JWKS) or PALLETSCANNER_JWT_SECRET (legacy HS256).",
+  );
 }
 
 if (readEnv("PALLETSCANNER_ALLOWED_ORIGIN") === "*") {
