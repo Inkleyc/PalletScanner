@@ -26,6 +26,66 @@ const throwIfError = ({ error }) => {
 const CLOUD_WORKFLOW_STATUSES = new Set(["captured", "needs_photos", "needs_research", "ready", "sold"]);
 export const toCloudWorkflowStatus = (status) => (CLOUD_WORKFLOW_STATUSES.has(status) ? status : "captured");
 
+// Photo persistence for cloud items (PF-SCOPE-022). Photos live in the
+// "item-photos" storage bucket with one item_photos row per position —
+// the layout mobile's sync writes and this repository's hydrate reads.
+// The web save path never wrote them: an uploaded photo was resized,
+// handed to saveItem, and silently discarded before hydrate reloaded
+// the photo-less state. The sync mirrors mobile's planPhotoSync
+// (cloud-sync-policy.ts): entries that are not http(s) URLs are new
+// uploads, and everything is keyed by position. It then reconciles by
+// exact (position, path) pairs so removals from the middle of the
+// array land correctly too.
+const photoExtensionFor = (contentType) => (contentType === "image/png" ? "png" : contentType === "image/webp" ? "webp" : "jpg");
+
+// A stored photo comes back from hydrate as a signed URL; its storage
+// path is the segment after the bucket name.
+const storagePathFromSignedUrl = (uri) => {
+  const marker = "/item-photos/";
+  const start = uri.indexOf(marker);
+  if (start < 0) return null;
+  const path = uri.slice(start + marker.length).split("?")[0];
+  try { return decodeURIComponent(path); } catch { return path; }
+};
+
+export const syncItemPhotos = async (client, userId, serverItemId, item) => {
+  const photos = item.photos?.length ? item.photos : item.photo ? [item.photo] : [];
+  const existing = await client.from("item_photos").select("id,storage_path,position").eq("item_id", serverItemId);
+  throwIfError(existing);
+  const existingRows = existing.data ?? [];
+  // The final position -> storage_path map this save should leave behind.
+  const finalPaths = new Map();
+  for (const [position, uri] of photos.entries()) {
+    if (/^https?:\/\//i.test(uri)) {
+      const path = storagePathFromSignedUrl(uri);
+      if (path) finalPaths.set(position, path);
+      continue;
+    }
+    // New photo (a data: URL from the uploader): upload it under the
+    // same path convention mobile uses, then record it below.
+    const blob = await (await fetch(uri)).blob();
+    const storagePath = `${userId}/${serverItemId}/${item.id}-${position}.${photoExtensionFor(blob.type)}`;
+    throwIfError(await client.storage.from("item-photos").upload(storagePath, blob, { contentType: blob.type || "image/jpeg", upsert: true }));
+    finalPaths.set(position, storagePath);
+  }
+  // Rows that do not exactly match a final (position, path) pair go,
+  // and so do storage objects no final pair points at anymore.
+  const surviving = new Set([...finalPaths].map(([position, path]) => `${position}:${path}`));
+  const staleRows = existingRows.filter((row) => !surviving.has(`${row.position}:${row.storage_path}`));
+  if (staleRows.length) {
+    throwIfError(await client.from("item_photos").delete().in("id", staleRows.map((row) => row.id)));
+    const finalPathSet = new Set(finalPaths.values());
+    const stalePaths = [...new Set(staleRows.map((row) => row.storage_path))].filter((path) => !finalPathSet.has(path));
+    if (stalePaths.length) throwIfError(await client.storage.from("item-photos").remove(stalePaths));
+  }
+  for (const [position, storagePath] of finalPaths) {
+    const current = existingRows.find((row) => row.position === position && row.storage_path === storagePath);
+    if (!current) {
+      throwIfError(await client.from("item_photos").upsert({ owner_id: userId, item_id: serverItemId, storage_path: storagePath, position }, { onConflict: "item_id,position" }));
+    }
+  }
+};
+
 export const createSupabaseInventoryRepository = (client) => {
   let state = { items: [], pallets: [], activePalletId: localStorage.getItem("palletscanner.cloudActivePalletId") };
   const listeners = new Set();
@@ -96,6 +156,7 @@ export const createSupabaseInventoryRepository = (client) => {
         listingRows.push({ owner_id: user.id, item_id: result.data.id, platform: "facebook", status: facebookStatus ?? (item.listedPlatforms?.includes("facebook") ? "active" : "idle"), listing_url: item.facebookListingUrl ?? null, last_error: item.facebookLastError ?? null });
       }
       if (listingRows.length) throwIfError(await client.from("marketplace_listings").upsert(listingRows, { onConflict: "item_id,platform" }));
+      await syncItemPhotos(client, user.id, result.data.id, item);
       await recordActivitySafely(user.id, state.items.some((entry) => entry.id === item.id) ? "item.updated" : "item.created", item.id, { name: item.name });
       if (previousItem && JSON.stringify(previousItem.listedPlatforms ?? []) !== JSON.stringify(item.listedPlatforms ?? [])) {
         await recordActivitySafely(user.id, "listing.updated", item.id, { name: item.name, platforms: (item.listedPlatforms ?? []).join(", ") });
