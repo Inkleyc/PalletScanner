@@ -260,7 +260,7 @@ const getCorsOrigin = (req) => {
   return req.headers.origin === allowedOrigin ? allowedOrigin : "null";
 };
 
-const authenticateAiRequest = (req) => {
+const authenticateAiRequest = async (req) => {
   if (
     isSandbox &&
     rehearsalOrigin &&
@@ -268,7 +268,7 @@ const authenticateAiRequest = (req) => {
   ) {
     return { userId: "rehearsal-browser", claims: {} };
   }
-  return authenticateRequest(req);
+  return await authenticateRequest(req);
 };
 
 const sendJson = (req, res, statusCode, payload) => {
@@ -1372,7 +1372,7 @@ const server = createServer(async (req, res) => {
     }
 
     if (req.method === "GET" && url.pathname === "/ebay/status") {
-      const { userId } = authenticateRequest(req);
+      const { userId } = await authenticateRequest(req);
       const stored = await tokenStore.load(userId);
       const readiness = getEbayReadiness(stored);
       const defaults = getListingDefaults(stored);
@@ -1400,7 +1400,7 @@ const server = createServer(async (req, res) => {
     }
 
     if (req.method === "POST" && url.pathname === "/ai/messages") {
-      const { userId } = authenticateAiRequest(req);
+      const { userId } = await authenticateAiRequest(req);
       const rawBody = await readRequestBody(req);
       const payload = JSON.parse(rawBody);
       sendJson(req, res, 200, await createAiMessage(userId, payload));
@@ -1408,14 +1408,14 @@ const server = createServer(async (req, res) => {
     }
 
     if (req.method === "GET" && url.pathname === "/barcode/lookup") {
-      const { userId } = authenticateRequest(req);
+      const { userId } = await authenticateRequest(req);
       enforceBarcodeRateLimit(userId);
       sendJson(req, res, 200, await lookupBarcode(url.searchParams.get("barcode")));
       return;
     }
 
     if (req.method === "GET" && url.pathname === "/ebay/connect-url") {
-      const { userId } = authenticateRequest(req);
+      const { userId } = await authenticateRequest(req);
       sendJson(req, res, 200, {
         authorizationUrl: getAuthorizationUrl(userId),
       });
@@ -1423,13 +1423,13 @@ const server = createServer(async (req, res) => {
     }
 
     if (req.method === "GET" && url.pathname === "/ebay/setup") {
-      const { userId } = authenticateRequest(req);
+      const { userId } = await authenticateRequest(req);
       sendJson(req, res, 200, await getEbaySetup(userId));
       return;
     }
 
     if (req.method === "GET" && url.pathname === "/ebay/import-preview") {
-      const { userId } = authenticateRequest(req);
+      const { userId } = await authenticateRequest(req);
       sendJson(req, res, 200, await ebayReadService.getImportPreview(userId, {
         limit: url.searchParams.get("limit"),
         inventoryOffset: url.searchParams.get("inventoryOffset"),
@@ -1441,7 +1441,7 @@ const server = createServer(async (req, res) => {
     }
 
     if (req.method === "POST" && url.pathname === "/ebay/setup/defaults") {
-      const { userId } = authenticateRequest(req);
+      const { userId } = await authenticateRequest(req);
       const rawBody = await readRequestBody(req);
       const defaults = await saveEbayDefaults(userId, JSON.parse(rawBody));
       sendJson(req, res, 200, { defaults });
@@ -1449,7 +1449,7 @@ const server = createServer(async (req, res) => {
     }
 
     if (req.method === "POST" && url.pathname === "/ebay/setup/location") {
-      const { userId } = authenticateRequest(req);
+      const { userId } = await authenticateRequest(req);
       const rawBody = await readRequestBody(req);
       sendJson(req, res, 201, await createEbayLocation(userId, JSON.parse(rawBody)));
       return;
@@ -1534,7 +1534,7 @@ const server = createServer(async (req, res) => {
     }
 
     if (req.method === "POST" && url.pathname === "/ebay/listings") {
-      const { userId } = authenticateRequest(req);
+      const { userId } = await authenticateRequest(req);
       const rawBody = await readRequestBody(req);
       const payload = JSON.parse(rawBody);
       const result = await createListing(userId, payload);
@@ -1543,7 +1543,7 @@ const server = createServer(async (req, res) => {
     }
 
     if (req.method === "POST" && url.pathname === "/ebay/jobs/execute") {
-      const { userId } = authenticateRequest(req);
+      const { userId } = await authenticateRequest(req);
       const rawBody = await readRequestBody(req);
       const payload = JSON.parse(rawBody);
       const executor = createMarketplaceJobExecutor({
@@ -1556,7 +1556,7 @@ const server = createServer(async (req, res) => {
     }
 
     if (req.method === "POST" && url.pathname === "/ebay/listing-requirements") {
-      authenticateRequest(req);
+      await authenticateRequest(req);
       const rawBody = await readRequestBody(req);
       const payload = JSON.parse(rawBody);
       sendJson(req, res, 200, await getListingRequirements(payload));
@@ -1564,7 +1564,7 @@ const server = createServer(async (req, res) => {
     }
 
     if (req.method === "POST" && url.pathname === "/ebay/listings/end") {
-      const { userId } = authenticateRequest(req);
+      const { userId } = await authenticateRequest(req);
       const rawBody = await readRequestBody(req);
       const payload = JSON.parse(rawBody);
       const result = await endListing(userId, payload);
@@ -1573,7 +1573,7 @@ const server = createServer(async (req, res) => {
     }
 
     if (req.method === "POST" && url.pathname === "/ebay/disconnect") {
-      const { userId } = authenticateRequest(req);
+      const { userId } = await authenticateRequest(req);
       const stored = await tokenStore.load(userId);
       const listingDefaults = stored?.listingDefaults;
       await tokenStore.remove(userId);

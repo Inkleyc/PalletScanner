@@ -18,9 +18,17 @@ export const preferredMarketplace = (recommendation) => {
   return preference === "ai" ? recommendation : preference;
 };
 
-const getBackendBaseUrl = () => (
+// The backend address every part of the app resolves the same way
+// (PF-SCOPE-021): the build-time value wins, then the saved preference.
+// Unlike getBackendBaseUrl this never falls back to the page origin, so
+// callers can tell "not configured" apart from "configured".
+export const configuredBackendBaseUrl = () => (
   import.meta.env.VITE_AI_API_BASE_URL ||
-  readPreference("palletscanner.ebayApiBaseUrl", "") ||
+  readPreference("palletscanner.ebayApiBaseUrl", "")
+).trim().replace(/\/$/, "");
+
+const getBackendBaseUrl = () => (
+  configuredBackendBaseUrl() ||
   (typeof window !== "undefined" ? window.location.origin : "")
 ).trim().replace(/\/$/, "");
 

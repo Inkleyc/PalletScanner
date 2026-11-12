@@ -43,7 +43,7 @@ You can use [server/ebay.env.example](c:/Users/colto/PalletScanner/server/ebay.e
 - `EBAY_CATEGORY_ID=1234`
 - `EBAY_SCOPE=https://api.ebay.com/oauth/api_scope/sell.inventory https://api.ebay.com/oauth/api_scope/sell.account https://api.ebay.com/oauth/api_scope/sell.fulfillment.readonly`
 - `PALLETSCANNER_AUTH_MODE=local`
-- `PALLETSCANNER_JWT_SECRET=...`
+- `PALLETSCANNER_JWT_SECRET=...` — legacy HS256 tokens only; current Supabase session tokens (ES256) verify against the project JWKS via `SUPABASE_URL` (PF-SCOPE-021)
 - `EBAY_TOKEN_ENCRYPTION_KEY=...`
 - `PALLETSCANNER_ALLOWED_ORIGIN=https://app.example.com` — defaults to `*` only for sandbox/local runs; production requires a specific origin and refuses to start with `*` or an unset value.
 - `PALLETSCANNER_LISTING_RATE_LIMIT_PER_MINUTE=20`
