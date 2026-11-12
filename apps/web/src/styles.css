@@ -287,6 +287,76 @@ nav button.active {
   line-height: 1.12;
 }
 
+.topbar-actions {
+  align-items: center;
+  display: flex;
+  gap: 12px;
+}
+
+.account-control {
+  align-items: center;
+  display: flex;
+  gap: 10px;
+  position: relative;
+}
+
+.account-email {
+  color: var(--app-text-muted);
+  font-size: 13px;
+  font-weight: 600;
+  max-width: 220px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.account-menu {
+  background: var(--app-surface);
+  border: 1px solid var(--app-border);
+  border-radius: 10px;
+  box-shadow: 0 12px 32px rgba(7, 13, 26, 0.35);
+  display: grid;
+  gap: 10px;
+  padding: 14px;
+  position: absolute;
+  right: 0;
+  top: calc(100% + 8px);
+  width: 300px;
+  z-index: 10;
+}
+
+.account-menu strong {
+  font-size: 15px;
+}
+
+.account-menu p {
+  color: var(--app-text-muted);
+  font-size: 13px;
+  margin: 0;
+}
+
+.account-menu form {
+  display: grid;
+  gap: 10px;
+}
+
+.account-menu label {
+  display: grid;
+  gap: 6px;
+}
+
+.account-menu label span {
+  color: var(--app-text-muted);
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.account-menu input {
+  min-width: 0;
+  width: 100%;
+}
+
 .title-status {
   align-items: center;
   display: flex;
