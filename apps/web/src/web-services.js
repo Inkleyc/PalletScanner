@@ -1,5 +1,6 @@
 import { getItemPhotos } from "@palletscanner/core";
 import { getQuantity } from "./dashboard-model.js";
+import { isSupabaseConfigured, supabase } from "./supabase.js";
 
 export const MAX_ITEM_PHOTOS = 5;
 
@@ -62,7 +63,16 @@ const parseAiJson = (text) => {
 const backendRequest = async (path, init = {}) => {
   const baseUrl = getBackendBaseUrl();
   if (!baseUrl) throw new Error("Configure the PalletFlip backend in Settings first.");
-  const token = sessionStorage.getItem("palletscanner.authToken")?.trim();
+  // A manually saved token wins (local/shared-key development); otherwise
+  // the signed-in Supabase session authenticates, like the Settings card
+  // (PF-SCOPE-021). Found during the PF-SCOPE-004 run: publish and the
+  // other backendRequest flows sent no token at all for signed-in users
+  // and the backend answered 401 "Authentication required."
+  let token = sessionStorage.getItem("palletscanner.authToken")?.trim() ?? "";
+  if (!token && isSupabaseConfigured) {
+    const { data } = await supabase.auth.getSession();
+    token = data.session?.access_token ?? "";
+  }
   const response = await fetch(`${baseUrl}${path}`, {
     ...init,
     headers: {
