@@ -88,3 +88,25 @@ test("bounds concurrent shipping fulfillment lookups", async () => {
   assert.equal(preview.orders.length, 12);
   assert.equal(maximumActive, 5);
 });
+
+test("keeps orders and inventory usable when the eBay offers call fails", async () => {
+  const service = createEbayReadService({
+    getUserAccessToken: async () => "token",
+    ebayFetch: async (pathname) => {
+      if (pathname.includes("/offer")) throw new Error("This is an invalid value for a SKU. Only alphanumeric characters can be used for SKUs, and their length must not exceed 50 characters");
+      if (pathname.includes("post-order")) return { members: [] };
+      if (pathname.includes("inventory_item")) return { total: 1, inventoryItems: [{ sku: "pallet-1", availability: { shipToLocationAvailability: { quantity: 1 } } }] };
+      return { total: 1, orders: [{ orderId: "order-1", orderFulfillmentStatus: "NOT_STARTED", lineItems: [{ lineItemId: "line-1", sku: "pallet-1", quantity: 1 }] }] };
+    },
+  });
+  const preview = await service.getImportPreview("seller");
+  assert.deepEqual(preview.offers, []);
+  assert.match(preview.offersUnavailable, /invalid value for a SKU/);
+  assert.equal(preview.inventoryUnavailable, null);
+  assert.equal(preview.ordersUnavailable, null);
+  assert.equal(preview.inventoryItems.length, 1);
+  assert.equal(preview.orders.length, 1);
+  assert.equal(preview.orders[0].orderId, "order-1");
+  assert.equal(preview.pagination.offerTotal, 0);
+  assert.equal(preview.pagination.orderTotal, 1);
+});

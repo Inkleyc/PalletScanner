@@ -97,14 +97,18 @@ export const createEbayReadService = ({ ebayFetch, getUserAccessToken }) => ({
     const orderOffset = boundedInteger(query.orderOffset, 0, 100_000);
     const returnOffset = boundedInteger(query.returnOffset, 0, 100_000);
 
-    const [inventoryResult, offerResult, orderResult, returnOutcome] = await Promise.all([
-      ebayFetch(`/sell/inventory/v1/inventory_item?limit=${limit}&offset=${inventoryOffset}`, { headers }),
-      ebayFetch(`/sell/inventory/v1/offer?limit=${limit}&offset=${offerOffset}`, { headers }),
-      ebayFetch(`/sell/fulfillment/v1/order?limit=${limit}&offset=${orderOffset}`, { headers }),
-      ebayFetch(`/post-order/v2/return/search?role=SELLER&limit=${Math.min(limit, 200)}&offset=${returnOffset}`, {
+    const settle = (promise) => promise.then((value) => ({ value, error: null })).catch((error) => ({ value: null, error: error instanceof Error ? error.message : "eBay request failed." }));
+    const [inventoryOutcome, offerOutcome, orderOutcome, returnOutcome] = await Promise.all([
+      settle(ebayFetch(`/sell/inventory/v1/inventory_item?limit=${limit}&offset=${inventoryOffset}`, { headers })),
+      settle(ebayFetch(`/sell/inventory/v1/offer?limit=${limit}&offset=${offerOffset}`, { headers })),
+      settle(ebayFetch(`/sell/fulfillment/v1/order?limit=${limit}&offset=${orderOffset}`, { headers })),
+      settle(ebayFetch(`/post-order/v2/return/search?role=SELLER&limit=${Math.min(limit, 200)}&offset=${returnOffset}`, {
         headers: { ...headers, "Content-Type": "application/json" },
-      }).then((value) => ({ value, error: null })).catch((error) => ({ value: null, error: error instanceof Error ? error.message : "eBay returns are unavailable." })),
+      })),
     ]);
+    const inventoryResult = inventoryOutcome.value;
+    const offerResult = offerOutcome.value;
+    const orderResult = orderOutcome.value;
     const returnResult = returnOutcome.value;
     const orders = orderResult?.orders ?? [];
     const fulfillmentResults = [];
@@ -140,6 +144,9 @@ export const createEbayReadService = ({ ebayFetch, getUserAccessToken }) => ({
       offers: (offerResult?.offers ?? []).map(summarizeOffer),
       orders: orders.map((order, index) => ({ ...summarizeOrder(order), shippingFulfillments: fulfillmentResults[index] })),
       returns: (returnResult?.members ?? []).map(summarizeReturn),
+      inventoryUnavailable: inventoryOutcome.error,
+      offersUnavailable: offerOutcome.error,
+      ordersUnavailable: orderOutcome.error,
       returnsUnavailable: returnOutcome.error,
     };
   },
