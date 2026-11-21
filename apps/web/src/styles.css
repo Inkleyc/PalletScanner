@@ -2585,3 +2585,196 @@ th {
     min-width: 0;
   }
 }
+
+/* ===== PF design trial: Work Order x Machined theme =====
+   Experiment only (experiment/work-order-machined): a third theme gated
+   behind the theme toggle. Day and Deep are untouched — every rule below
+   is scoped to :root[data-theme="workorder"] and nothing above this
+   section is modified. Design language: paper, ink borders, form boxes,
+   hardware orange as the single signal, brushed steel, stamp badges,
+   gauge-style metrics, hard offset shadows, squared corners. */
+
+:root[data-theme="workorder"] {
+  color-scheme: light;
+  --app-background: #e8ebec;
+  --app-surface: #ffffff;
+  --app-surface-muted: #eef1f2;
+  --app-border: #9aa4ad;
+  --app-border-strong: #1a222b;
+  --app-text: #1a222b;
+  --app-text-muted: #4c5964;
+  --app-primary: #e85a08;
+  --app-primary-strong: #b23f02;
+  --app-primary-soft: color-mix(in srgb, #e85a08 12%, #ffffff);
+  --app-navy: #232d36;
+  --app-success: #1d6b45;
+  --app-success-soft: color-mix(in srgb, #1d6b45 10%, #ffffff);
+  --app-danger: #b3372a;
+  --app-danger-soft: color-mix(in srgb, #b3372a 9%, #ffffff);
+}
+
+/* Squared world: the machined theme has no rounded corners. */
+:root[data-theme="workorder"] * {
+  border-radius: 0 !important;
+}
+
+/* --- Brushed-steel sidebar: striations over a machined gradient --- */
+:root[data-theme="workorder"] .sidebar {
+  background:
+    repeating-linear-gradient(0deg, rgba(255, 255, 255, 0.16) 0 1px, rgba(0, 0, 0, 0.05) 1px 2px),
+    linear-gradient(180deg, #dde3e8, #bcc6cf 38%, #9fabb6 55%, #c3ccd3);
+  border-right: 2px solid #39434d;
+  color: #141a20;
+}
+
+/* Engraved wordmark */
+:root[data-theme="workorder"] .sidebar-heading h1 {
+  letter-spacing: 0.12em;
+  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.55), 0 -1px 1px rgba(0, 0, 0, 0.35);
+  text-transform: uppercase;
+}
+
+:root[data-theme="workorder"] .eyebrow {
+  font-family: var(--font-num);
+  letter-spacing: 0.18em;
+}
+
+:root[data-theme="workorder"] .sidebar .eyebrow {
+  color: #39434d;
+  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.4);
+}
+
+:root[data-theme="workorder"] nav button {
+  border-color: rgba(26, 34, 43, 0.35);
+  color: var(--app-text);
+}
+
+:root[data-theme="workorder"] nav button:hover {
+  background: rgba(255, 255, 255, 0.38);
+}
+
+:root[data-theme="workorder"] nav button.active {
+  background: #ffffff;
+  border: 1.8px solid #1a222b;
+  box-shadow: 3px 3px 0 rgba(26, 34, 43, 0.85);
+  color: var(--app-text);
+}
+
+:root[data-theme="workorder"] .nav-count {
+  background: rgba(26, 34, 43, 0.16);
+  color: var(--app-text);
+  font-family: var(--font-num);
+}
+
+:root[data-theme="workorder"] nav button.active .nav-count {
+  background: var(--app-navy);
+  color: #ffffff;
+}
+
+:root[data-theme="workorder"] .theme-toggle {
+  background: linear-gradient(180deg, #d3dae0, #aeb8c1);
+  border: 1.8px solid #39434d;
+  color: var(--app-text);
+}
+
+:root[data-theme="workorder"] .theme-toggle:hover {
+  background: linear-gradient(180deg, #e2e8ec, #bcc6cf);
+  border-color: #39434d;
+}
+
+/* --- Topbar: machinist's ruler strip along the bottom edge --- */
+:root[data-theme="workorder"] .topbar {
+  background-color: var(--app-background);
+  background-image:
+    repeating-linear-gradient(90deg, var(--app-text) 0 1.5px, transparent 1.5px 12px),
+    repeating-linear-gradient(90deg, var(--app-text) 0 1.5px, transparent 1.5px 60px);
+  background-position: left bottom, left bottom;
+  background-repeat: no-repeat;
+  background-size: 100% 6px, 100% 12px;
+  border-bottom: 2px solid var(--app-border-strong);
+  padding-bottom: 18px;
+}
+
+/* --- Gauge metric cards: ink frame, inner hairline, tick strip --- */
+:root[data-theme="workorder"] .metric {
+  background-color: #ffffff;
+  background-image:
+    repeating-linear-gradient(90deg, var(--app-text-muted) 0 1.5px, transparent 1.5px 10px),
+    repeating-linear-gradient(90deg, var(--app-text) 0 1.5px, transparent 1.5px 50px);
+  background-position: left bottom, left bottom;
+  background-repeat: no-repeat;
+  background-size: 100% 5px, 100% 7px;
+  border: 1.8px solid #1a222b;
+  box-shadow: inset 0 0 0 3px #ffffff, inset 0 0 0 4px var(--app-border);
+  padding-bottom: 24px;
+}
+
+:root[data-theme="workorder"] .metric span {
+  font-family: var(--font-num);
+  letter-spacing: 0.18em;
+}
+
+/* --- Form-box panels with a ruled heading band --- */
+:root[data-theme="workorder"] .panel {
+  border: 1.8px solid #1a222b;
+}
+
+:root[data-theme="workorder"] .panel-heading {
+  background: linear-gradient(180deg, #fdfefe, #eef1f3);
+  border-bottom: 1.8px solid #1a222b;
+  margin: calc(-1 * var(--space-5)) calc(-1 * var(--space-5)) var(--space-3);
+  padding: 12px var(--space-5);
+}
+
+:root[data-theme="workorder"] .panel-heading strong,
+:root[data-theme="workorder"] .panel-heading h3 {
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+/* --- Stamp badges: transparent ink stamps, variant colors preserved --- */
+:root[data-theme="workorder"] .badge {
+  background: transparent;
+  border: 2px solid currentColor;
+  border-radius: 3px !important;
+  font-family: var(--font-num);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  transform: rotate(-1.6deg);
+}
+
+:root[data-theme="workorder"] .badge.success {
+  transform: rotate(1.4deg);
+}
+
+/* --- Primary action: hardware orange, hard offset shadow --- */
+:root[data-theme="workorder"] .primary-button {
+  background: var(--app-primary);
+  border: 1.8px solid var(--app-primary-strong);
+  box-shadow: 3px 3px 0 rgba(26, 34, 43, 0.85);
+  color: #ffffff;
+  font-family: var(--font-num);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+/* --- Tables: mono form-register headers --- */
+:root[data-theme="workorder"] th {
+  background: #f4f6f7;
+  border-bottom: 1.5px solid #1a222b;
+  font-family: var(--font-num);
+  letter-spacing: 0.16em;
+}
+
+/* --- Form fields: machined steel edges --- */
+:root[data-theme="workorder"] input,
+:root[data-theme="workorder"] select,
+:root[data-theme="workorder"] textarea {
+  border: 1.5px solid #7c8894;
+}
+
+/* --- Cards carry the same ink frame as the form boxes --- */
+:root[data-theme="workorder"] .item-card,
+:root[data-theme="workorder"] .pallet-card {
+  border: 1.8px solid #1a222b;
+}
