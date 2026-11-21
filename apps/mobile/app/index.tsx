@@ -2,7 +2,7 @@ import { useRouter } from "expo-router";
 import { useEffect, useState, useSyncExternalStore } from "react";
 import { ActivityIndicator, StyleSheet, View } from "react-native";
 
-import { AppPalette } from "@/constants/app-palette";
+import { useAppPalette } from "@/lib/app-theme";
 import { getAppMeta, hydrateAppMeta, subscribeAppMeta } from "@/lib/app-meta";
 import {
   getSupabaseAuthSnapshot,
@@ -12,6 +12,7 @@ import {
 
 export default function AppEntryScreen() {
   const router = useRouter();
+  const palette = useAppPalette();
   const { hasSeenOnboarding } = useSyncExternalStore(
     subscribeAppMeta,
     getAppMeta,
@@ -44,8 +45,8 @@ export default function AppEntryScreen() {
   }, [auth.signedIn, auth.testMode, hasSeenOnboarding, ready, router]);
 
   return (
-    <View style={styles.container}>
-      <ActivityIndicator size="large" color={AppPalette.primaryStrong} />
+    <View style={[styles.container, { backgroundColor: palette.background }]}>
+      <ActivityIndicator size="large" color={palette.primaryStrong} />
     </View>
   );
 }
@@ -55,6 +56,5 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: AppPalette.background,
   },
 });

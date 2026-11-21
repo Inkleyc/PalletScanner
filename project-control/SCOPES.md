@@ -26,8 +26,9 @@ Owner-approved scopes, approved 2026-11-03 by Colton, to be worked in order (001
 | PF-SCOPE-011 | Clients create the acquisition for each new pallet | CLOSED | APPROVED 2026-11-07 | scope/PF-SCOPE-011-acquisition-creation |
 | PF-SCOPE-010 | Hosted Supabase schema alignment | CLOSED | APPROVED 2026-11-07 (Stage A; Stage B separate go-ahead) | — (dashboard-applied; record rides PF-SCOPE-011's branch) |
 | PF-SCOPE-026 | Barcode lookup fallback — mobile falls back to the direct sources when the backend fails or times out | IN_PROGRESS (built 2026-11-20; PR pending) | APPROVED 2026-11-20 | scope/PF-SCOPE-026-barcode-lookup-fallback |
+| PF-SCOPE-027 | Design graduation — the proven form design becomes the standing design on both apps (PF-D-019) | IN_PROGRESS (graduating 2026-11-21; device-verified on the experiment builds 2026-11-20/21; both merges pending) | APPROVED 2026-11-21 ("set that in concrete now") | experiment/work-order-mobile + experiment/work-order-machined (web, PR #33) |
 
-Scope document for PF-SCOPE-001: `project-control/PF-SCOPE-001-verification-harness.md`. Scope document for PF-SCOPE-004: `project-control/PF-SCOPE-004-ebay-sandbox-proof.md`. Scope document for PF-SCOPE-007: `project-control/PF-SCOPE-007-config-hygiene.md`. Scope document for PF-SCOPE-026: `project-control/PF-SCOPE-026-barcode-lookup-fallback.md`. Use `SCOPE_PROTOCOL.md` for the required proposal template and lifecycle. Add links to scope-specific documents and PRs as work progresses.
+Scope document for PF-SCOPE-001: `project-control/PF-SCOPE-001-verification-harness.md`. Scope document for PF-SCOPE-004: `project-control/PF-SCOPE-004-ebay-sandbox-proof.md`. Scope document for PF-SCOPE-007: `project-control/PF-SCOPE-007-config-hygiene.md`. Scope document for PF-SCOPE-026: `project-control/PF-SCOPE-026-barcode-lookup-fallback.md`. Scope document for PF-SCOPE-027: `project-control/PF-SCOPE-027-design-graduation.md`. Use `SCOPE_PROTOCOL.md` for the required proposal template and lifecycle. Add links to scope-specific documents and PRs as work progresses.
 
 ## Numbering note (do not remove)
 

@@ -51,7 +51,8 @@ import {
   AppTextStyles,
   type AppPaletteShape,
 } from "@/constants/app-palette";
-import { useAppPalette } from "@/lib/app-theme";
+import type { AppShape } from "@/constants/app-shape";
+import { useAppTheme } from "@/lib/app-theme";
 import {
   ANTHROPIC_MODEL,
   isAnthropicConfigured,
@@ -139,8 +140,8 @@ const displaySoldPrice = (value: unknown) =>
   typeof value === "number" && !Number.isNaN(value) ? value : null;
 
 export default function InventoryScreen() {
-  const palette = useAppPalette();
-  const styles = useMemo(() => createStyles(palette), [palette]);
+  const { palette, shape } = useAppTheme();
+  const styles = useMemo(() => createStyles(palette, shape), [palette, shape]);
   const { width } = useWindowDimensions();
   const router = useRouter();
   const items = useSyncExternalStore(
@@ -1938,7 +1939,7 @@ ${JSON.stringify(promptItems, null, 2)}`,
   );
 }
 
-const createStyles = (palette: AppPaletteShape) => StyleSheet.create({
+const createStyles = (palette: AppPaletteShape, shape: AppShape) => StyleSheet.create({
   container: { flex: 1, backgroundColor: palette.background },
   content: { padding: 20, paddingTop: 52, paddingBottom: 24 },
   innerContent: { width: "100%", alignSelf: "center" },
@@ -1947,11 +1948,11 @@ const createStyles = (palette: AppPaletteShape) => StyleSheet.create({
   subtitle: { fontSize: 14, color: palette.textMuted, marginBottom: 16, lineHeight: 20 },
   filterCard: {
     backgroundColor: palette.surface,
-    borderRadius: 10,
+    borderRadius: shape.isForm ? shape.cardRadius : 10,
     padding: 16,
     marginBottom: 16,
-    borderWidth: 1,
-    borderColor: palette.border,
+    borderWidth: shape.isForm ? shape.cardBorderWidth : 1,
+    borderColor: shape.isForm ? palette.borderStrong : palette.border,
     shadowColor: palette.shadow,
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 1,
@@ -1988,6 +1989,8 @@ const createStyles = (palette: AppPaletteShape) => StyleSheet.create({
     fontWeight: "600",
     color: palette.textSoft,
     marginBottom: 4,
+    fontFamily: shape.isForm ? AppTextStyles.num.fontFamily : undefined,
+    letterSpacing: shape.isForm ? 1 : undefined,
   },
   filterActiveText: { fontSize: 13, color: palette.textMuted },
   makeActiveBtn: {
@@ -2010,7 +2013,7 @@ const createStyles = (palette: AppPaletteShape) => StyleSheet.create({
   filterChip: {
     paddingHorizontal: 12,
     paddingVertical: 8,
-    borderRadius: 999,
+    borderRadius: shape.isForm ? shape.chipRadius : 999,
     backgroundColor: palette.surfaceMuted,
     borderWidth: 1,
     borderColor: palette.border,
@@ -2038,7 +2041,7 @@ const createStyles = (palette: AppPaletteShape) => StyleSheet.create({
   sortChip: {
     paddingHorizontal: 12,
     paddingVertical: 8,
-    borderRadius: 999,
+    borderRadius: shape.isForm ? shape.chipRadius : 999,
     borderWidth: 1,
     borderColor: palette.border,
     backgroundColor: palette.surfaceMuted,
@@ -2069,9 +2072,9 @@ const createStyles = (palette: AppPaletteShape) => StyleSheet.create({
   },
   filterModalCard: {
     backgroundColor: palette.surface,
-    borderColor: palette.border,
-    borderRadius: 12,
-    borderWidth: 1,
+    borderColor: shape.isForm ? palette.borderStrong : palette.border,
+    borderRadius: shape.isForm ? shape.cardRadius : 12,
+    borderWidth: shape.isForm ? shape.cardBorderWidth : 1,
     maxHeight: "86%",
     padding: 18,
   },
@@ -2107,14 +2110,16 @@ const createStyles = (palette: AppPaletteShape) => StyleSheet.create({
     fontWeight: "800",
     marginTop: 14,
     textTransform: "uppercase",
+    fontFamily: shape.isForm ? AppTextStyles.num.fontFamily : undefined,
+    letterSpacing: shape.isForm ? 1 : undefined,
   },
   totalCard: {
     backgroundColor: palette.surface,
-    borderRadius: 10,
+    borderRadius: shape.isForm ? shape.cardRadius : 10,
     padding: 16,
     marginBottom: 18,
-    borderWidth: 1,
-    borderColor: palette.border,
+    borderWidth: shape.isForm ? shape.cardBorderWidth : 1,
+    borderColor: shape.isForm ? palette.borderStrong : palette.border,
     shadowColor: palette.shadow,
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 1,
@@ -2276,9 +2281,9 @@ const createStyles = (palette: AppPaletteShape) => StyleSheet.create({
   },
   itemCard: {
     backgroundColor: palette.surface,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: palette.border,
+    borderRadius: shape.isForm ? shape.cardRadius : 12,
+    borderWidth: shape.isForm ? shape.cardBorderWidth : 1,
+    borderColor: shape.isForm ? palette.borderStrong : palette.border,
     marginBottom: 12,
     overflow: "hidden",
     shadowColor: palette.shadow,
@@ -2290,12 +2295,19 @@ const createStyles = (palette: AppPaletteShape) => StyleSheet.create({
   workflowStatusBar: {
     paddingHorizontal: 12,
     paddingVertical: 7,
+    // Form shape: the tinted status band becomes a form band — squared to
+    // the card's corners with a firm ink rule under it.
+    borderTopLeftRadius: shape.isForm ? shape.cardRadius : 0,
+    borderTopRightRadius: shape.isForm ? shape.cardRadius : 0,
+    borderBottomWidth: shape.isForm ? shape.cardBorderWidth : 0,
+    borderBottomColor: palette.borderStrong,
   },
   workflowStatusText: {
     color: palette.text,
     fontSize: 11,
     fontWeight: "800",
     textTransform: "uppercase",
+    fontFamily: shape.isForm ? AppTextStyles.num.fontFamily : undefined,
   },
   workflowStatus_captured: { backgroundColor: palette.surfaceMuted },
   workflowStatus_needs_photos: { backgroundColor: palette.warningSoft },
@@ -2334,14 +2346,15 @@ const createStyles = (palette: AppPaletteShape) => StyleSheet.create({
   listedBanner: {
     flexDirection: "row",
     alignItems: "center",
-    borderRadius: 999,
+    borderRadius: shape.isForm ? shape.chipRadius : 999,
+    borderWidth: shape.isForm ? 1 : 0,
     paddingLeft: 12,
     paddingRight: 8,
     paddingVertical: 6,
     gap: 8,
   },
-  listedFacebookBanner: { backgroundColor: palette.infoSoft },
-  listedEbayBanner: { backgroundColor: palette.primarySoft },
+  listedFacebookBanner: { backgroundColor: palette.infoSoft, borderColor: palette.infoBorder },
+  listedEbayBanner: { backgroundColor: palette.primarySoft, borderColor: palette.primaryBorder },
   listedBannerText: { fontSize: 12, fontWeight: "600", color: palette.text },
   facebookDraftBanner: {
     backgroundColor: palette.warningSoft,
@@ -2420,7 +2433,9 @@ const createStyles = (palette: AppPaletteShape) => StyleSheet.create({
     backgroundColor: palette.successSoft,
     paddingHorizontal: 8,
     paddingVertical: 4,
-    borderRadius: 999,
+    borderRadius: shape.isForm ? shape.chipRadius : 999,
+    borderWidth: shape.isForm ? 1 : 0,
+    borderColor: palette.successBorder,
     overflow: "hidden",
   },
   unsoldText: {
@@ -2435,7 +2450,9 @@ const createStyles = (palette: AppPaletteShape) => StyleSheet.create({
     fontWeight: "500", ...AppTextStyles.num,
     paddingHorizontal: 8,
     paddingVertical: 3,
-    borderRadius: 6,
+    borderRadius: shape.isForm ? shape.chipRadius : 6,
+    borderWidth: shape.isForm ? 1 : 0,
+    borderColor: palette.successBorder,
   },
   quantityBadge: {
     backgroundColor: palette.infoSoft,
@@ -2444,7 +2461,9 @@ const createStyles = (palette: AppPaletteShape) => StyleSheet.create({
     fontWeight: "500", ...AppTextStyles.num,
     paddingHorizontal: 8,
     paddingVertical: 3,
-    borderRadius: 6,
+    borderRadius: shape.isForm ? shape.chipRadius : 6,
+    borderWidth: shape.isForm ? 1 : 0,
+    borderColor: palette.infoBorder,
   },
   conditionBadge: {
     backgroundColor: palette.warningSoft,
@@ -2453,7 +2472,11 @@ const createStyles = (palette: AppPaletteShape) => StyleSheet.create({
     fontWeight: "500",
     paddingHorizontal: 8,
     paddingVertical: 3,
-    borderRadius: 6,
+    borderRadius: shape.isForm ? shape.chipRadius : 6,
+    borderWidth: shape.isForm ? 1 : 0,
+    borderColor: palette.warningBorder,
+    fontFamily: shape.isForm ? AppTextStyles.num.fontFamily : undefined,
+    textTransform: shape.isForm ? "uppercase" : undefined,
   },
   floorBadge: {
     backgroundColor: palette.surfaceTint,
@@ -2462,7 +2485,9 @@ const createStyles = (palette: AppPaletteShape) => StyleSheet.create({
     fontWeight: "500", ...AppTextStyles.num,
     paddingHorizontal: 8,
     paddingVertical: 3,
-    borderRadius: 6,
+    borderRadius: shape.isForm ? shape.chipRadius : 6,
+    borderWidth: shape.isForm ? 1 : 0,
+    borderColor: palette.primaryBorder,
   },
   platformText: { fontSize: 12, color: palette.textMuted, fontWeight: "600" },
   listingToolsToggle: {
@@ -2582,9 +2607,9 @@ const createStyles = (palette: AppPaletteShape) => StyleSheet.create({
     marginHorizontal: 12,
     marginBottom: 12,
     backgroundColor: palette.surfaceMuted,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: palette.border,
+    borderRadius: shape.isForm ? shape.cardRadius : 10,
+    borderWidth: shape.isForm ? shape.cardBorderWidth : 1,
+    borderColor: shape.isForm ? palette.borderStrong : palette.border,
     padding: 12,
   },
   facebookUrlInput: {
@@ -2669,9 +2694,9 @@ const createStyles = (palette: AppPaletteShape) => StyleSheet.create({
     marginBottom: 12,
     marginTop: 2,
     backgroundColor: palette.surfaceMuted,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: palette.border,
+    borderRadius: shape.isForm ? shape.cardRadius : 10,
+    borderWidth: shape.isForm ? shape.cardBorderWidth : 1,
+    borderColor: shape.isForm ? palette.borderStrong : palette.border,
     padding: 12,
   },
   soldEditorLabel: {
@@ -2682,7 +2707,9 @@ const createStyles = (palette: AppPaletteShape) => StyleSheet.create({
   },
   listingPriceBadge: {
     backgroundColor: palette.infoSoft,
-    borderRadius: 8,
+    borderRadius: shape.isForm ? shape.chipRadius : 8,
+    borderWidth: shape.isForm ? 1 : 0,
+    borderColor: palette.infoBorder,
     color: palette.info,
     fontSize: 12,
     fontWeight: "700", ...AppTextStyles.num,
@@ -2755,7 +2782,9 @@ const createStyles = (palette: AppPaletteShape) => StyleSheet.create({
   },
   bundleModalCard: {
     backgroundColor: palette.surface,
-    borderRadius: 14,
+    borderRadius: shape.isForm ? shape.cardRadius : 14,
+    borderWidth: shape.isForm ? shape.cardBorderWidth : 0,
+    borderColor: palette.borderStrong,
     padding: 20,
     maxHeight: "80%",
   },
@@ -2772,9 +2801,9 @@ const createStyles = (palette: AppPaletteShape) => StyleSheet.create({
   },
   bundleSuggestionCard: {
     backgroundColor: palette.surfaceMuted,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: palette.border,
+    borderRadius: shape.isForm ? shape.cardRadius : 10,
+    borderWidth: shape.isForm ? shape.cardBorderWidth : 1,
+    borderColor: shape.isForm ? palette.borderStrong : palette.border,
     padding: 12,
     marginBottom: 10,
   },

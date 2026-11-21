@@ -1,5 +1,5 @@
 import { useRouter } from "expo-router";
-import { useState, useSyncExternalStore } from "react";
+import { useMemo, useState, useSyncExternalStore } from "react";
 import {
   Modal,
   Pressable,
@@ -21,11 +21,16 @@ import {
   setActivePalletSession,
   subscribeInventory,
 } from "@/lib/inventory-store";
-import { AppLayout, DeepPalette } from "@/constants/app-palette";
+import { AppLayout, type AppPaletteShape } from "@/constants/app-palette";
+import type { AppShape } from "@/constants/app-shape";
+import { useAppPalette, useAppShape } from "@/lib/app-theme";
 import { IconSymbol } from "@/components/ui/icon-symbol";
 
 export default function HomeScreen() {
   const router = useRouter();
+  const palette = useAppPalette();
+  const shape = useAppShape();
+  const styles = useMemo(() => createStyles(palette, shape), [palette, shape]);
   const { width } = useWindowDimensions();
   const [createModalVisible, setCreateModalVisible] = useState(false);
   const [palletSelectorVisible, setPalletSelectorVisible] = useState(false);
@@ -99,7 +104,7 @@ export default function HomeScreen() {
               <IconSymbol
                 name="chevron.right"
                 size={22}
-                color={DeepPalette.primaryStrong}
+                color={palette.primaryStrong}
               />
             </TouchableOpacity>
           ) : (
@@ -165,7 +170,7 @@ export default function HomeScreen() {
               value={newPalletName}
               onChangeText={setNewPalletName}
               placeholder="Pallet name"
-              placeholderTextColor={DeepPalette.textSoft}
+              placeholderTextColor={palette.textSoft}
               autoFocus
             />
             <View style={styles.modalActions}>
@@ -245,10 +250,19 @@ export default function HomeScreen() {
   );
 }
 
-// The Scan home is a capture surface: it always uses the Deep palette,
-// regardless of the active theme mode (see lib/app-theme.tsx).
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: DeepPalette.background },
+/** rgba() tint of a hex color (the soft on-primary copy colors below). */
+const withAlpha = (hex: string, alpha: number): string => {
+  const value = parseInt(hex.replace("#", ""), 16);
+  const r = (value >> 16) & 0xff;
+  const g = (value >> 8) & 0xff;
+  const b = value & 0xff;
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+};
+
+// The Scan home follows the active theme palette and shape via
+// useAppPalette/useAppShape (see lib/app-theme.tsx).
+const createStyles = (palette: AppPaletteShape, shape: AppShape) => StyleSheet.create({
+  container: { flex: 1, backgroundColor: palette.background },
   content: { padding: 20, paddingTop: 56, paddingBottom: 28 },
   innerContent: {
     width: "100%",
@@ -257,14 +271,14 @@ const styles = StyleSheet.create({
   innerContentWide: {
     maxWidth: AppLayout.maxContentWidth,
   },
-  title: { fontSize: 30, fontWeight: "700", color: DeepPalette.text, marginBottom: 6 },
-  subtitle: { fontSize: 14, color: DeepPalette.textMuted, marginBottom: 20 },
+  title: { fontSize: 30, fontWeight: "700", color: palette.text, marginBottom: 6 },
+  subtitle: { fontSize: 14, color: palette.textMuted, marginBottom: 20 },
   primaryCard: {
-    backgroundColor: DeepPalette.primaryStrong,
-    borderRadius: 14,
+    backgroundColor: palette.primaryStrong,
+    borderRadius: shape.cardRadius,
     padding: 18,
     marginBottom: 16,
-    shadowColor: DeepPalette.shadow,
+    shadowColor: palette.shadow,
     shadowOpacity: 1,
     shadowRadius: 18,
     shadowOffset: { width: 0, height: 8 },
@@ -273,29 +287,29 @@ const styles = StyleSheet.create({
   cardEyebrow: {
     fontSize: 11,
     fontWeight: "700",
-    color: "rgba(28,42,68,0.72)",
+    color: withAlpha(palette.primaryOn, 0.72),
     marginBottom: 8,
   },
-  cardTitle: { fontSize: 24, fontWeight: "700", color: DeepPalette.primaryOn, marginBottom: 6 },
+  cardTitle: { fontSize: 24, fontWeight: "700", color: palette.primaryOn, marginBottom: 6 },
   cardCopy: {
     fontSize: 14,
-    color: "rgba(28,42,68,0.86)",
+    color: withAlpha(palette.primaryOn, 0.86),
     lineHeight: 20,
     marginBottom: 16,
   },
   cardAction: {
-    backgroundColor: DeepPalette.primaryOn,
-    borderRadius: 10,
+    backgroundColor: palette.primaryOn,
+    borderRadius: shape.cardRadius,
     paddingVertical: 12,
     alignItems: "center",
   },
-  cardActionText: { color: DeepPalette.primaryStrong, fontWeight: "700", fontSize: 15 },
+  cardActionText: { color: palette.primaryStrong, fontWeight: "700", fontSize: 15 },
   palletSelector: {
     alignItems: "center",
-    backgroundColor: DeepPalette.surface,
-    borderColor: DeepPalette.border,
-    borderWidth: 1,
-    borderRadius: 10,
+    backgroundColor: palette.surface,
+    borderColor: palette.borderStrong,
+    borderWidth: shape.cardBorderWidth,
+    borderRadius: shape.cardRadius,
     flexDirection: "row",
     justifyContent: "space-between",
     marginBottom: 12,
@@ -304,86 +318,88 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
   },
   palletSelectorLabel: {
-    color: DeepPalette.textMuted,
+    color: palette.textMuted,
     fontSize: 10,
     fontWeight: "700",
     marginBottom: 3,
   },
   palletSelectorName: {
-    color: DeepPalette.primaryStrong,
+    color: palette.primaryStrong,
     fontSize: 15,
     fontWeight: "700",
   },
   actionsCard: {
-    backgroundColor: DeepPalette.surface,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: DeepPalette.border,
+    backgroundColor: palette.surface,
+    borderRadius: shape.cardRadius,
+    borderWidth: shape.cardBorderWidth,
+    borderColor: palette.borderStrong,
     padding: 16,
     marginBottom: 16,
   },
   workflowAction: {
-    backgroundColor: DeepPalette.surfaceMuted,
-    borderWidth: 1,
-    borderColor: DeepPalette.border,
-    borderRadius: 12,
+    backgroundColor: palette.surfaceMuted,
+    borderWidth: shape.cardBorderWidth,
+    borderColor: palette.borderStrong,
+    borderRadius: shape.cardRadius,
     padding: 14,
     marginTop: 10,
   },
   primaryWorkflowAction: {
-    backgroundColor: DeepPalette.primaryStrong,
-    borderColor: DeepPalette.primaryStrong,
+    backgroundColor: palette.primaryStrong,
+    borderColor: palette.primaryStrong,
   },
   workflowTitle: {
     fontSize: 15,
     fontWeight: "700",
-    color: DeepPalette.text,
+    color: palette.text,
     marginBottom: 4,
   },
-  workflowCopy: { fontSize: 13, color: DeepPalette.textMuted, lineHeight: 18 },
+  workflowCopy: { fontSize: 13, color: palette.textMuted, lineHeight: 18 },
   primaryWorkflowTitle: {
     fontSize: 17,
     fontWeight: "800",
-    color: DeepPalette.primaryOn,
+    color: palette.primaryOn,
     marginBottom: 4,
   },
   primaryWorkflowCopy: {
     fontSize: 13,
-    color: "rgba(28,42,68,0.82)",
+    color: withAlpha(palette.primaryOn, 0.82),
     lineHeight: 18,
   },
   modalBackdrop: {
     flex: 1,
-    backgroundColor: DeepPalette.modalBackdrop,
+    backgroundColor: palette.modalBackdrop,
     justifyContent: "center",
     padding: 20,
   },
   modalCard: {
-    backgroundColor: DeepPalette.surface,
-    borderRadius: 14,
+    backgroundColor: palette.surface,
+    borderRadius: shape.cardRadius,
+    borderWidth: shape.cardBorderWidth,
+    borderColor: palette.borderStrong,
     padding: 20,
   },
   modalTitle: {
     fontSize: 20,
     fontWeight: "700",
-    color: DeepPalette.text,
+    color: palette.text,
     marginBottom: 6,
   },
   modalCopy: {
     fontSize: 14,
-    color: DeepPalette.textMuted,
+    color: palette.textMuted,
     lineHeight: 20,
     marginBottom: 16,
   },
   modalInput: {
     borderWidth: 1,
-    borderColor: DeepPalette.borderStrong,
+    borderColor: palette.borderStrong,
     borderRadius: 10,
     paddingHorizontal: 12,
     paddingVertical: 12,
     fontSize: 15,
-    color: DeepPalette.text,
-    backgroundColor: DeepPalette.surface,
+    color: palette.text,
+    backgroundColor: palette.surface,
     marginBottom: 16,
   },
   modalActions: {
@@ -393,25 +409,25 @@ const styles = StyleSheet.create({
   },
   modalSecondaryAction: {
     borderWidth: 1,
-    borderColor: DeepPalette.borderStrong,
-    borderRadius: 10,
+    borderColor: palette.borderStrong,
+    borderRadius: 8,
     paddingHorizontal: 16,
     paddingVertical: 12,
-    backgroundColor: DeepPalette.surface,
+    backgroundColor: palette.surface,
   },
   modalSecondaryActionText: {
-    color: DeepPalette.text,
+    color: palette.text,
     fontWeight: "600",
     fontSize: 14,
   },
   modalPrimaryAction: {
-    backgroundColor: DeepPalette.primaryStrong,
-    borderRadius: 10,
+    backgroundColor: palette.primaryStrong,
+    borderRadius: 8,
     paddingHorizontal: 16,
     paddingVertical: 12,
   },
   modalPrimaryActionText: {
-    color: DeepPalette.primaryOn,
+    color: palette.primaryOn,
     fontWeight: "700",
     fontSize: 14,
   },
@@ -421,7 +437,7 @@ const styles = StyleSheet.create({
   },
   palletOption: {
     alignItems: "center",
-    borderBottomColor: DeepPalette.border,
+    borderBottomColor: palette.border,
     borderBottomWidth: 1,
     flexDirection: "row",
     justifyContent: "space-between",
@@ -430,23 +446,23 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
   },
   palletOptionActive: {
-    backgroundColor: DeepPalette.surfaceMuted,
+    backgroundColor: palette.surfaceMuted,
   },
   palletOptionText: {
     flex: 1,
   },
   palletOptionName: {
-    color: DeepPalette.text,
+    color: palette.text,
     fontSize: 15,
     fontWeight: "700",
   },
   palletOptionMeta: {
-    color: DeepPalette.textMuted,
+    color: palette.textMuted,
     fontSize: 12,
     marginTop: 3,
   },
   activePalletLabel: {
-    color: DeepPalette.primaryStrong,
+    color: palette.primaryStrong,
     fontSize: 12,
     fontWeight: "700",
     marginLeft: 12,

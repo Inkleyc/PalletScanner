@@ -16,7 +16,8 @@ import {
   updatePalletSessionCost,
 } from "@/lib/inventory-store";
 import { AppLayout, type AppPaletteShape } from "@/constants/app-palette";
-import { useAppPalette } from "@/lib/app-theme";
+import type { AppShape } from "@/constants/app-shape";
+import { useAppTheme } from "@/lib/app-theme";
 import {
   calculateInventoryTotals,
   calculatePalletMetrics,
@@ -25,8 +26,8 @@ import {
 const currency = (value: number) => `$${value.toFixed(2)}`;
 
 export default function AnalyticsScreen() {
-  const palette = useAppPalette();
-  const styles = useMemo(() => createStyles(palette), [palette]);
+  const { palette, shape } = useAppTheme();
+  const styles = useMemo(() => createStyles(palette, shape), [palette, shape]);
   const { width } = useWindowDimensions();
   const items = useSyncExternalStore(
     subscribeInventory,
@@ -198,7 +199,7 @@ export default function AnalyticsScreen() {
   );
 }
 
-const createStyles = (palette: AppPaletteShape) => StyleSheet.create({
+const createStyles = (palette: AppPaletteShape, shape: AppShape) => StyleSheet.create({
   container: { flex: 1, backgroundColor: palette.background },
   content: { padding: 20, paddingTop: 52, paddingBottom: 24 },
   innerContent: {
@@ -212,19 +213,19 @@ const createStyles = (palette: AppPaletteShape) => StyleSheet.create({
   subtitle: { fontSize: 14, color: palette.textMuted, marginBottom: 16, lineHeight: 20 },
   summaryCard: {
     backgroundColor: palette.surface,
-    borderRadius: 14,
+    borderRadius: shape.isForm ? shape.cardRadius : 14,
     padding: 16,
     marginBottom: 16,
-    borderWidth: 1,
-    borderColor: palette.border,
+    borderWidth: shape.isForm ? shape.cardBorderWidth : 1,
+    borderColor: shape.isForm ? palette.borderStrong : palette.border,
   },
   palletCard: {
     backgroundColor: palette.surface,
-    borderRadius: 14,
+    borderRadius: shape.isForm ? shape.cardRadius : 14,
     padding: 16,
     marginBottom: 12,
-    borderWidth: 1,
-    borderColor: palette.border,
+    borderWidth: shape.isForm ? shape.cardBorderWidth : 1,
+    borderColor: shape.isForm ? palette.borderStrong : palette.border,
   },
   cardHeader: {
     flexDirection: "row",

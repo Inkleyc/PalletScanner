@@ -13,8 +13,9 @@ import {
   View,
 } from "react-native";
 
-import { AppLayout, type AppPaletteShape } from "@/constants/app-palette";
-import { useAppPalette } from "@/lib/app-theme";
+import { AppLayout, AppTextStyles, type AppPaletteShape } from "@/constants/app-palette";
+import type { AppShape } from "@/constants/app-shape";
+import { useAppTheme } from "@/lib/app-theme";
 import { AppAlert as Alert } from "@/lib/app-alert";
 import {
   getInventory,
@@ -44,8 +45,8 @@ const facebookCopySteps = [
 ] as const;
 
 export default function FacebookQueueScreen() {
-  const palette = useAppPalette();
-  const styles = useMemo(() => createStyles(palette), [palette]);
+  const { palette, shape } = useAppTheme();
+  const styles = useMemo(() => createStyles(palette, shape), [palette, shape]);
   const { width } = useWindowDimensions();
   const router = useRouter();
   const items = useSyncExternalStore(
@@ -326,7 +327,7 @@ export default function FacebookQueueScreen() {
   );
 }
 
-const createStyles = (palette: AppPaletteShape) => StyleSheet.create({
+const createStyles = (palette: AppPaletteShape, shape: AppShape) => StyleSheet.create({
   container: { flex: 1, backgroundColor: palette.background },
   content: { padding: 20, paddingTop: 52, paddingBottom: 24 },
   innerContent: { width: "100%", alignSelf: "center" },
@@ -353,9 +354,9 @@ const createStyles = (palette: AppPaletteShape) => StyleSheet.create({
     flex: 1,
     minWidth: 120,
     backgroundColor: palette.surface,
-    borderWidth: 1,
-    borderColor: palette.border,
-    borderRadius: 10,
+    borderWidth: shape.isForm ? shape.cardBorderWidth : 1,
+    borderColor: shape.isForm ? palette.borderStrong : palette.border,
+    borderRadius: shape.isForm ? shape.cardRadius : 10,
     padding: 12,
   },
   metricLabel: {
@@ -371,9 +372,9 @@ const createStyles = (palette: AppPaletteShape) => StyleSheet.create({
   },
   emptyCard: {
     backgroundColor: palette.surface,
-    borderWidth: 1,
-    borderColor: palette.border,
-    borderRadius: 12,
+    borderWidth: shape.isForm ? shape.cardBorderWidth : 1,
+    borderColor: shape.isForm ? palette.borderStrong : palette.border,
+    borderRadius: shape.isForm ? shape.cardRadius : 12,
     padding: 18,
   },
   emptyTitle: {
@@ -390,9 +391,9 @@ const createStyles = (palette: AppPaletteShape) => StyleSheet.create({
   },
   queueCard: {
     backgroundColor: palette.surface,
-    borderWidth: 1,
-    borderColor: palette.border,
-    borderRadius: 12,
+    borderWidth: shape.isForm ? shape.cardBorderWidth : 1,
+    borderColor: shape.isForm ? palette.borderStrong : palette.border,
+    borderRadius: shape.isForm ? shape.cardRadius : 12,
     overflow: "hidden",
   },
   queueHeader: {
@@ -406,6 +407,8 @@ const createStyles = (palette: AppPaletteShape) => StyleSheet.create({
     fontSize: 11,
     fontWeight: "800",
     marginBottom: 4,
+    fontFamily: shape.isForm ? AppTextStyles.num.fontFamily : undefined,
+    letterSpacing: shape.isForm ? 1 : undefined,
   },
   itemTitle: {
     flex: 1,
@@ -434,7 +437,9 @@ const createStyles = (palette: AppPaletteShape) => StyleSheet.create({
     fontWeight: "700",
     paddingHorizontal: 8,
     paddingVertical: 4,
-    borderRadius: 6,
+    borderRadius: shape.isForm ? shape.chipRadius : 6,
+    borderWidth: shape.isForm ? 1 : 0,
+    borderColor: palette.successBorder,
   },
   quantityBadge: {
     backgroundColor: palette.infoSoft,
@@ -443,7 +448,9 @@ const createStyles = (palette: AppPaletteShape) => StyleSheet.create({
     fontWeight: "700",
     paddingHorizontal: 8,
     paddingVertical: 4,
-    borderRadius: 6,
+    borderRadius: shape.isForm ? shape.chipRadius : 6,
+    borderWidth: shape.isForm ? 1 : 0,
+    borderColor: palette.infoBorder,
   },
   conditionBadge: {
     backgroundColor: palette.warningSoft,
@@ -452,7 +459,11 @@ const createStyles = (palette: AppPaletteShape) => StyleSheet.create({
     fontWeight: "700",
     paddingHorizontal: 8,
     paddingVertical: 4,
-    borderRadius: 6,
+    borderRadius: shape.isForm ? shape.chipRadius : 6,
+    borderWidth: shape.isForm ? 1 : 0,
+    borderColor: palette.warningBorder,
+    fontFamily: shape.isForm ? AppTextStyles.num.fontFamily : undefined,
+    textTransform: shape.isForm ? "uppercase" : undefined,
   },
   photoBadge: {
     backgroundColor: palette.primarySoft,
@@ -461,7 +472,9 @@ const createStyles = (palette: AppPaletteShape) => StyleSheet.create({
     fontWeight: "700",
     paddingHorizontal: 8,
     paddingVertical: 4,
-    borderRadius: 6,
+    borderRadius: shape.isForm ? shape.chipRadius : 6,
+    borderWidth: shape.isForm ? 1 : 0,
+    borderColor: palette.primaryBorder,
   },
   blockerBox: {
     marginHorizontal: 14,

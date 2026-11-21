@@ -5,7 +5,7 @@ import { ActivityIndicator, Platform, Text, View } from "react-native";
 import { HapticTab } from "@/components/haptic-tab";
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { AppLayout } from "@/constants/app-palette";
-import { useAppPalette } from "@/lib/app-theme";
+import { useAppPalette, useAppTheme } from "@/lib/app-theme";
 import {
   getSupabaseAuthSnapshot,
   subscribeSupabaseAuth,
@@ -13,6 +13,7 @@ import {
 
 export default function TabLayout() {
   const palette = useAppPalette();
+  const { shape } = useAppTheme();
   const auth = useSyncExternalStore(
     subscribeSupabaseAuth,
     getSupabaseAuthSnapshot,
@@ -30,7 +31,12 @@ export default function TabLayout() {
         style={{
           minWidth: isTablet ? 56 : 52,
           height: isTablet ? 40 : 38,
-          borderRadius: isTablet ? 20 : 19,
+          // Form shape: the active-tab pill becomes a squared form block.
+          borderRadius: shape.isForm
+            ? shape.tabActiveRadius
+            : isTablet
+              ? 20
+              : 19,
           alignItems: "center",
           justifyContent: "center",
           backgroundColor: focused ? activeTint : "transparent",
@@ -96,8 +102,9 @@ export default function TabLayout() {
         tabBarLabelPosition: "below-icon",
         tabBarStyle: {
           backgroundColor: palette.surface,
-          borderTopColor: palette.border,
-          borderTopWidth: 1,
+          // Form signature: a heavier ink rule above the tab bar.
+          borderTopColor: shape.isForm ? palette.borderStrong : palette.border,
+          borderTopWidth: shape.isForm ? 1.5 : 1,
           height: isTablet ? 98 : 86,
           paddingTop: isTablet ? 12 : 10,
           paddingBottom: isTablet ? 14 : 12,

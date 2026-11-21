@@ -23,15 +23,16 @@ import {
   subscribeInventory,
   updatePalletSessionCost,
 } from "@/lib/inventory-store";
-import { AppLayout, type AppPaletteShape } from "@/constants/app-palette";
-import { useAppPalette } from "@/lib/app-theme";
+import { AppLayout, AppTextStyles, type AppPaletteShape } from "@/constants/app-palette";
+import type { AppShape } from "@/constants/app-shape";
+import { useAppTheme } from "@/lib/app-theme";
 import { AppAlert as Alert } from "@/lib/app-alert";
 
 type EditField = "name" | "cost";
 
 export default function PalletsScreen() {
-  const palette = useAppPalette();
-  const styles = useMemo(() => createStyles(palette), [palette]);
+  const { palette, shape } = useAppTheme();
+  const styles = useMemo(() => createStyles(palette, shape), [palette, shape]);
   const { width } = useWindowDimensions();
   const pallets = useSyncExternalStore(
     subscribeInventory,
@@ -246,7 +247,7 @@ export default function PalletsScreen() {
   );
 }
 
-const createStyles = (palette: AppPaletteShape) => StyleSheet.create({
+const createStyles = (palette: AppPaletteShape, shape: AppShape) => StyleSheet.create({
   container: { flex: 1, backgroundColor: palette.background },
   content: { padding: 20, paddingTop: 56, paddingBottom: 28 },
   innerContent: { width: "100%", alignSelf: "center" },
@@ -255,9 +256,9 @@ const createStyles = (palette: AppPaletteShape) => StyleSheet.create({
   subtitle: { fontSize: 14, color: palette.textMuted, marginBottom: 20, lineHeight: 20 },
   newCard: {
     backgroundColor: palette.surface,
-    borderWidth: 1,
-    borderColor: palette.border,
-    borderRadius: 10,
+    borderWidth: shape.isForm ? shape.cardBorderWidth : 1,
+    borderColor: shape.isForm ? palette.borderStrong : palette.border,
+    borderRadius: shape.isForm ? shape.cardRadius : 10,
     padding: 16,
     marginBottom: 16,
     shadowColor: palette.shadow,
@@ -268,17 +269,17 @@ const createStyles = (palette: AppPaletteShape) => StyleSheet.create({
   },
   emptyCard: {
     backgroundColor: palette.surfaceTint,
-    borderWidth: 1,
-    borderColor: palette.border,
-    borderRadius: 10,
+    borderWidth: shape.isForm ? shape.cardBorderWidth : 1,
+    borderColor: shape.isForm ? palette.borderStrong : palette.border,
+    borderRadius: shape.isForm ? shape.cardRadius : 10,
     padding: 16,
     marginBottom: 16,
   },
   palletCard: {
     backgroundColor: palette.surface,
-    borderWidth: 1,
-    borderColor: palette.border,
-    borderRadius: 10,
+    borderWidth: shape.isForm ? shape.cardBorderWidth : 1,
+    borderColor: shape.isForm ? palette.borderStrong : palette.border,
+    borderRadius: shape.isForm ? shape.cardRadius : 10,
     padding: 14,
     marginBottom: 8,
     shadowColor: palette.shadow,
@@ -301,10 +302,12 @@ const createStyles = (palette: AppPaletteShape) => StyleSheet.create({
     color: palette.primaryOn,
     paddingHorizontal: 10,
     paddingVertical: 6,
-    borderRadius: 999,
+    borderRadius: shape.isForm ? shape.chipRadius : 999,
     overflow: "hidden",
     fontSize: 12,
     fontWeight: "700",
+    fontFamily: shape.isForm ? AppTextStyles.num.fontFamily : undefined,
+    textTransform: shape.isForm ? "uppercase" : undefined,
   },
   compactPalletMain: { alignItems: "center", flexDirection: "row", gap: 12 },
   compactPalletIdentity: { flex: 1, minWidth: 0 },
@@ -436,10 +439,12 @@ const createStyles = (palette: AppPaletteShape) => StyleSheet.create({
   },
   modalCard: {
     backgroundColor: palette.surface,
-    borderRadius: 12,
+    borderRadius: shape.isForm ? shape.cardRadius : 12,
+    borderWidth: shape.isForm ? shape.cardBorderWidth : 0,
+    borderColor: palette.borderStrong,
     padding: 20,
   },
-  palletDetailCard: { backgroundColor: palette.surface, borderRadius: 10, maxHeight: "88%", overflow: "hidden" },
+  palletDetailCard: { backgroundColor: palette.surface, borderRadius: shape.isForm ? shape.cardRadius : 10, borderWidth: shape.isForm ? shape.cardBorderWidth : 0, borderColor: palette.borderStrong, maxHeight: "88%", overflow: "hidden" },
   palletDetailHeader: { alignItems: "center", borderBottomColor: palette.border, borderBottomWidth: 1, flexDirection: "row", padding: 16 },
   palletDetailHeading: { flex: 1 },
   palletDetailContent: { gap: 4, padding: 16 },

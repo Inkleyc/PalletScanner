@@ -74,13 +74,6 @@ export const DeepPalette = {
 
 export type AppPaletteShape = { [K in keyof typeof DayPalette]: string };
 
-/**
- * Backwards-compatible alias for screens that are not part of the themed tab
- * set yet (login, onboarding, capture, scan-barcode and the entry screen).
- * Those still render with the Day palette.
- */
-export const AppPalette = DayPalette;
-
 export const AppLayout = {
   maxContentWidth: 980,
   radiusCard: 10,

@@ -3,8 +3,9 @@ import { useRouter } from "expo-router";
 import { useMemo, useState } from "react";
 import { SafeAreaView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
-import { AppPalette } from "@/constants/app-palette";
+import { type AppPaletteShape } from "@/constants/app-palette";
 import { markOnboardingSeen } from "@/lib/app-meta";
+import { useAppPalette } from "@/lib/app-theme";
 
 const slides = [
   {
@@ -26,6 +27,8 @@ const slides = [
 
 export default function OnboardingScreen() {
   const router = useRouter();
+  const palette = useAppPalette();
+  const styles = useMemo(() => createStyles(palette), [palette]);
   const [slideIndex, setSlideIndex] = useState(0);
   const slide = useMemo(() => slides[slideIndex], [slideIndex]);
   const isLastSlide = slideIndex === slides.length - 1;
@@ -43,7 +46,7 @@ export default function OnboardingScreen() {
             <MaterialIcons
               name={slide.icon}
               size={48}
-              color={AppPalette.primaryOn}
+              color={palette.primaryOn}
             />
           </View>
           <Text style={styles.title}>{slide.title}</Text>
@@ -81,10 +84,11 @@ export default function OnboardingScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (palette: AppPaletteShape) =>
+  StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: AppPalette.background,
+    backgroundColor: palette.background,
   },
   content: {
     flex: 1,
@@ -105,7 +109,7 @@ const styles = StyleSheet.create({
     width: 96,
     height: 96,
     borderRadius: 48,
-    backgroundColor: AppPalette.primaryStrong,
+    backgroundColor: palette.primaryStrong,
     alignItems: "center",
     justifyContent: "center",
     marginBottom: 28,
@@ -116,14 +120,14 @@ const styles = StyleSheet.create({
     flexShrink: 1,
     fontSize: 28,
     fontWeight: "700",
-    color: AppPalette.text,
+    color: palette.text,
     textAlign: "center",
     marginBottom: 14,
   },
   copy: {
     fontSize: 16,
     lineHeight: 24,
-    color: AppPalette.textMuted,
+    color: palette.textMuted,
     textAlign: "center",
     maxWidth: 340,
   },
@@ -137,11 +141,11 @@ const styles = StyleSheet.create({
     width: 10,
     height: 10,
     borderRadius: 5,
-    backgroundColor: AppPalette.borderStrong,
+    backgroundColor: palette.borderStrong,
   },
   dotActive: {
     width: 28,
-    backgroundColor: AppPalette.primaryStrong,
+    backgroundColor: palette.primaryStrong,
   },
   actions: {
     maxWidth: 480,
@@ -149,13 +153,13 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   primaryButton: {
-    backgroundColor: AppPalette.primaryStrong,
+    backgroundColor: palette.primaryStrong,
     borderRadius: 12,
     paddingVertical: 15,
     alignItems: "center",
   },
   primaryButtonText: {
-    color: AppPalette.primaryOn,
+    color: palette.primaryOn,
     fontSize: 16,
     fontWeight: "700",
   },
