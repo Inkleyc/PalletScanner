@@ -25,8 +25,9 @@ Owner-approved scopes, approved 2026-11-03 by Colton, to be worked in order (001
 | PF-SCOPE-012 | Web cloud saves translate workflow status to the database vocabulary | CLOSED (VERIFIED 2026-11-07; PR #9 merged; register flip landed 2026-11-10 with the PF-SCOPE-003 successor) | APPROVED 2026-11-07 | scope/PF-SCOPE-012-web-cloud-status-translation |
 | PF-SCOPE-011 | Clients create the acquisition for each new pallet | CLOSED | APPROVED 2026-11-07 | scope/PF-SCOPE-011-acquisition-creation |
 | PF-SCOPE-010 | Hosted Supabase schema alignment | CLOSED | APPROVED 2026-11-07 (Stage A; Stage B separate go-ahead) | — (dashboard-applied; record rides PF-SCOPE-011's branch) |
+| PF-SCOPE-026 | Barcode lookup fallback — mobile falls back to the direct sources when the backend fails or times out | IN_PROGRESS (built 2026-11-20; PR pending) | APPROVED 2026-11-20 | scope/PF-SCOPE-026-barcode-lookup-fallback |
 
-Scope document for PF-SCOPE-001: `project-control/PF-SCOPE-001-verification-harness.md`. Scope document for PF-SCOPE-004: `project-control/PF-SCOPE-004-ebay-sandbox-proof.md`. Scope document for PF-SCOPE-007: `project-control/PF-SCOPE-007-config-hygiene.md`. Use `SCOPE_PROTOCOL.md` for the required proposal template and lifecycle. Add links to scope-specific documents and PRs as work progresses.
+Scope document for PF-SCOPE-001: `project-control/PF-SCOPE-001-verification-harness.md`. Scope document for PF-SCOPE-004: `project-control/PF-SCOPE-004-ebay-sandbox-proof.md`. Scope document for PF-SCOPE-007: `project-control/PF-SCOPE-007-config-hygiene.md`. Scope document for PF-SCOPE-026: `project-control/PF-SCOPE-026-barcode-lookup-fallback.md`. Use `SCOPE_PROTOCOL.md` for the required proposal template and lifecycle. Add links to scope-specific documents and PRs as work progresses.
 
 ## Numbering note (do not remove)
 
