@@ -13,7 +13,7 @@ import {
 
 export default function TabLayout() {
   const palette = useAppPalette();
-  const { mode, shape } = useAppTheme();
+  const { shape } = useAppTheme();
   const auth = useSyncExternalStore(
     subscribeSupabaseAuth,
     getSupabaseAuthSnapshot,
@@ -102,10 +102,9 @@ export default function TabLayout() {
         tabBarLabelPosition: "below-icon",
         tabBarStyle: {
           backgroundColor: palette.surface,
-          // Work Order signature: a heavier ink rule above the tab bar.
-          borderTopColor:
-            mode === "workorder" ? palette.borderStrong : palette.border,
-          borderTopWidth: mode === "workorder" ? 1.5 : 1,
+          // Form signature: a heavier ink rule above the tab bar.
+          borderTopColor: shape.isForm ? palette.borderStrong : palette.border,
+          borderTopWidth: shape.isForm ? 1.5 : 1,
           height: isTablet ? 98 : 86,
           paddingTop: isTablet ? 12 : 10,
           paddingBottom: isTablet ? 14 : 12,
