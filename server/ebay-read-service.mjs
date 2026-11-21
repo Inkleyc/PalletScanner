@@ -88,8 +88,8 @@ const summarizeReturn = (entry) => ({
 });
 
 export const createEbayReadService = ({ ebayFetch, getUserAccessToken }) => ({
-  async getImportPreview(userId, query = {}) {
-    const accessToken = await getUserAccessToken(userId);
+  async getImportPreview(userId, query = {}, authorization) {
+    const accessToken = await getUserAccessToken(userId, authorization);
     const headers = { Authorization: `Bearer ${accessToken}` };
     const limit = boundedInteger(query.limit, 50, 100) || 50;
     const inventoryOffset = boundedInteger(query.inventoryOffset, 0, 100_000);
