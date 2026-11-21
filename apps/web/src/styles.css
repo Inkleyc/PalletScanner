@@ -2585,3 +2585,284 @@ th {
     min-width: 0;
   }
 }
+
+/* ===== PF design trial: Work Order x Machined theme =====
+   Experiment only (experiment/work-order-machined): a third theme gated
+   behind the theme toggle. Day and Deep are untouched — every rule below
+   is scoped to :root[data-theme="workorder"] and nothing above this
+   section is modified. Design language: paper, ink borders, form boxes,
+   hardware orange reserved for actions and attention, a light steel rail,
+   stamp-ancestry badges, gauge-style metrics. Workshop pass 2026-11-20:
+   professional refinement — softer structure and shadows, small-control
+   rounding restored, legible filled badges, no plate/hardware pieces. */
+
+:root[data-theme="workorder"] {
+  color-scheme: light;
+  --app-background: #e8ebec;
+  --app-surface: #ffffff;
+  --app-surface-muted: #eef1f2;
+  --app-border: #9aa4ad;
+  --app-border-strong: #1a222b;
+  --app-text: #1a222b;
+  --app-text-muted: #4c5964;
+  --app-primary: #e85a08;
+  --app-primary-strong: #b23f02;
+  --app-primary-soft: color-mix(in srgb, #e85a08 12%, #ffffff);
+  --app-navy: #232d36;
+  --app-success: #1d6b45;
+  --app-success-soft: color-mix(in srgb, #1d6b45 10%, #ffffff);
+  --app-danger: #b3372a;
+  --app-danger-soft: color-mix(in srgb, #b3372a 9%, #ffffff);
+}
+
+/* Rounding: structure stays nearly square (2px); small controls keep
+   comfortable radii; native controls (checkboxes, status dots) untouched. */
+:root[data-theme="workorder"] .panel,
+:root[data-theme="workorder"] .metric,
+:root[data-theme="workorder"] .item-card,
+:root[data-theme="workorder"] .pallet-card,
+:root[data-theme="workorder"] nav button,
+:root[data-theme="workorder"] .table-scroll,
+:root[data-theme="workorder"] .table-panel {
+  border-radius: 2px;
+}
+
+:root[data-theme="workorder"] button {
+  border-radius: 6px;
+}
+
+/* --- Light steel rail: faint striations over a pale gradient --- */
+:root[data-theme="workorder"] .sidebar {
+  background:
+    repeating-linear-gradient(0deg, rgba(255, 255, 255, 0.06) 0 1px, rgba(0, 0, 0, 0.04) 1px 2px),
+    linear-gradient(180deg, #eef1f3, #dde3e7);
+  border-right: 1.5px solid #39434d;
+  color: #141a20;
+}
+
+/* Wordmark: softened etched effect */
+:root[data-theme="workorder"] .sidebar-heading h1 {
+  letter-spacing: 0.1em;
+  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.6);
+  text-transform: uppercase;
+}
+
+:root[data-theme="workorder"] .eyebrow {
+  font-family: var(--font-num);
+  letter-spacing: 0.18em;
+}
+
+:root[data-theme="workorder"] .sidebar .eyebrow {
+  color: #39434d;
+  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.4);
+}
+
+:root[data-theme="workorder"] nav button {
+  border-color: rgba(26, 34, 43, 0.35);
+  color: var(--app-text);
+}
+
+:root[data-theme="workorder"] nav button:hover {
+  background: rgba(255, 255, 255, 0.38);
+}
+
+:root[data-theme="workorder"] nav button.active {
+  background: #ffffff;
+  border: 1.5px solid #2a343e;
+  box-shadow: 0 1px 2px rgba(26, 34, 43, 0.18), 0 4px 14px rgba(26, 34, 43, 0.08);
+  color: var(--app-text);
+}
+
+:root[data-theme="workorder"] .nav-count {
+  background: rgba(26, 34, 43, 0.16);
+  border-radius: 4px;
+  color: var(--app-text);
+  font-family: var(--font-num);
+}
+
+:root[data-theme="workorder"] nav button.active .nav-count {
+  background: var(--app-text);
+  color: #ffffff;
+}
+
+:root[data-theme="workorder"] .theme-toggle {
+  background: linear-gradient(180deg, #f4f6f8, #e2e7ea);
+  border: 1.5px solid #39434d;
+  border-radius: 6px;
+  color: var(--app-text);
+}
+
+:root[data-theme="workorder"] .theme-toggle:hover {
+  background: linear-gradient(180deg, #ffffff, #e8edef);
+  border-color: #39434d;
+}
+
+/* --- Topbar: machinist's ruler strip along the bottom edge --- */
+:root[data-theme="workorder"] .topbar {
+  background-color: var(--app-background);
+  background-image:
+    repeating-linear-gradient(90deg, var(--app-text-muted) 0 1.5px, transparent 1.5px 12px),
+    repeating-linear-gradient(90deg, var(--app-text-muted) 0 1.5px, transparent 1.5px 60px);
+  background-position: left bottom, left bottom;
+  background-repeat: no-repeat;
+  background-size: 100% 6px, 100% 12px;
+  border-bottom: 1.5px solid var(--app-border-strong);
+  padding-bottom: 18px;
+}
+
+/* --- Gauge metric cards: ink frame, inner hairline, tick strip --- */
+:root[data-theme="workorder"] .metric {
+  background-color: #ffffff;
+  background-image:
+    repeating-linear-gradient(90deg, var(--app-border) 0 1.5px, transparent 1.5px 10px),
+    repeating-linear-gradient(90deg, var(--app-border) 0 1.5px, transparent 1.5px 50px);
+  background-position: left bottom, left bottom;
+  background-repeat: no-repeat;
+  background-size: 100% 5px, 100% 7px;
+  border: 1.5px solid #2a343e;
+  box-shadow: inset 0 0 0 3px #ffffff, inset 0 0 0 4px var(--app-border);
+  padding-bottom: 24px;
+}
+
+:root[data-theme="workorder"] .metric span {
+  font-family: var(--font-num);
+  letter-spacing: 0.18em;
+}
+
+/* --- Form-box panels with a ruled heading band --- */
+:root[data-theme="workorder"] .panel {
+  border: 1.5px solid #2a343e;
+}
+
+:root[data-theme="workorder"] .panel-heading {
+  background: linear-gradient(180deg, #fdfefe, #eef1f3);
+  border-bottom: 1.5px solid #2a343e;
+  margin: calc(-1 * var(--space-5)) calc(-1 * var(--space-5)) var(--space-3);
+  padding: 12px var(--space-5);
+}
+
+:root[data-theme="workorder"] .panel-heading strong,
+:root[data-theme="workorder"] .panel-heading h3 {
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+/* --- Badges: filled professional tags with stamp ancestry (mono,
+   uppercase, inked border, soft variant tints) — no rotation, so they
+   stay scannable at table size. Variant colors preserved. --- */
+:root[data-theme="workorder"] .badge {
+  background: var(--app-surface-muted);
+  border: 1.5px solid currentColor;
+  border-radius: 4px;
+  font-family: var(--font-num);
+  letter-spacing: 0.12em;
+  padding: 3px 9px;
+  text-transform: uppercase;
+  transform: none;
+}
+
+:root[data-theme="workorder"] .badge.decision {
+  background: var(--app-primary-soft);
+}
+
+:root[data-theme="workorder"] .badge.success {
+  background: var(--app-success-soft);
+  transform: none;
+}
+
+:root[data-theme="workorder"] .badge.danger {
+  background: var(--app-danger-soft);
+}
+
+/* --- Primary action: hardware orange, soft professional shadow --- */
+:root[data-theme="workorder"] .primary-button {
+  background: var(--app-primary);
+  border: 1.8px solid var(--app-primary-strong);
+  border-radius: 6px;
+  box-shadow: 0 1px 2px rgba(26, 34, 43, 0.25);
+  color: #ffffff;
+  font-family: var(--font-num);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+/* --- Tables: mono form-register headers --- */
+:root[data-theme="workorder"] th {
+  background: #f4f6f7;
+  border-bottom: 1.5px solid #1a222b;
+  font-family: var(--font-num);
+  letter-spacing: 0.16em;
+}
+
+/* --- Form fields: steel edges, comfortable rounding --- */
+:root[data-theme="workorder"] input,
+:root[data-theme="workorder"] select,
+:root[data-theme="workorder"] textarea {
+  border: 1.5px solid #7c8894;
+  border-radius: 6px;
+}
+
+/* --- Cards carry the same ink frame as the form boxes --- */
+:root[data-theme="workorder"] .item-card,
+:root[data-theme="workorder"] .pallet-card {
+  border: 1.5px solid #2a343e;
+}
+
+/* --- Spacing pass: stacks hug the top; fill panels keep their height ---
+   .view-stack is a grid with default align-content, so inside .main's
+   1fr row its implicit rows stretch: spare height is distributed between
+   rows (voids under the header and between the scope row and the metric
+   cards) and into the rows' contents (metric cards and table panels
+   stretched tall with blank space inside). Pack stack rows at the top
+   instead. The stack's own overflow:auto (base .main > .view-stack rule)
+   still scrolls the whole view when content exceeds the row. This also
+   covers the Orders section's nested stacks (switch stack -> content
+   stack) and the Settings stack inside .settings-mount. */
+:root[data-theme="workorder"] .view-stack {
+  align-content: start;
+}
+
+/* Inside a hugged stack, a table panel sizes to its content like any
+   other form box, so its scroll region must not demand the panel's full
+   height: let it size naturally and let the stack scroll as a whole.
+   (The Inventory fill panel below is a direct child of .main, not of a
+   stack, so it is not affected by this rule.) */
+:root[data-theme="workorder"] .view-stack .table-panel .table-scroll {
+  height: auto;
+}
+
+/* Inventory and Review are not stacks: their panels are the sole content
+   of .main's minmax(0, 1fr) row (App.jsx renders them as direct children
+   of .main), and they fill that row exactly by grid stretch — that fill
+   is what drives .table-scroll / .review-list internal scrolling. Pin
+   the stretch explicitly so this pass can never top-hug them. No derived
+   pixel height is needed: stretch already equals the row height exactly,
+   while a calc() based on an estimated topbar height could undershoot
+   and open a gap under the panel. */
+:root[data-theme="workorder"] .main > .table-panel,
+:root[data-theme="workorder"] .main > .review-panel {
+  align-self: stretch;
+}
+
+/* Pallets is a single panel in .main's row (PalletManager), not a stack:
+   top-hug the panel itself so spare height falls below it, not inside. */
+:root[data-theme="workorder"] .main > .panel#pallets {
+  align-self: start;
+}
+
+/* Metric cards hug their content instead of stretching to the row.
+   This also fixes the Overview ITEMS card: it is the only Overview
+   metric rendered as a <button> (it has an onClick; its siblings are
+   <section>s), and when the grid stretched every card tall, the button's
+   content vertically centered while the sections top-aligned, so its
+   label started lower. Unstretched, all labels align; the flex rule
+   below normalises the button card's internal layout at any height. */
+:root[data-theme="workorder"] .metrics-grid {
+  align-items: start;
+}
+
+:root[data-theme="workorder"] button.metric {
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+}
