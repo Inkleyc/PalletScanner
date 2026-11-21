@@ -2,7 +2,8 @@ import { useEffect, useMemo, useState } from "react";
 import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
 
 import { type AppPaletteShape } from "@/constants/app-palette";
-import { useAppPalette } from "@/lib/app-theme";
+import { type AppShape } from "@/constants/app-shape";
+import { useAppPalette, useAppShape } from "@/lib/app-theme";
 
 type LoadingStatusProps = {
   messages: string[];
@@ -10,7 +11,8 @@ type LoadingStatusProps = {
 
 export function LoadingStatus({ messages }: LoadingStatusProps) {
   const palette = useAppPalette();
-  const styles = useMemo(() => createStyles(palette), [palette]);
+  const shape = useAppShape();
+  const styles = useMemo(() => createStyles(palette, shape), [palette, shape]);
   const safeMessages = messages.length > 0 ? messages : ["Working..."];
   const [messageIndex, setMessageIndex] = useState(0);
 
@@ -31,13 +33,13 @@ export function LoadingStatus({ messages }: LoadingStatusProps) {
   );
 }
 
-const createStyles = (palette: AppPaletteShape) => StyleSheet.create({
+const createStyles = (palette: AppPaletteShape, shape: AppShape) => StyleSheet.create({
   card: {
     marginTop: 20,
     backgroundColor: palette.surface,
-    borderWidth: 1,
-    borderColor: palette.border,
-    borderRadius: 12,
+    borderWidth: shape.cardBorderWidth,
+    borderColor: palette.borderStrong,
+    borderRadius: shape.cardRadius,
     paddingVertical: 18,
     paddingHorizontal: 16,
     alignItems: "center",

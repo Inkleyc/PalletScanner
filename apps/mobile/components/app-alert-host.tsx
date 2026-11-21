@@ -11,7 +11,8 @@ import {
 } from "react-native";
 
 import { type AppPaletteShape } from "@/constants/app-palette";
-import { useAppPalette } from "@/lib/app-theme";
+import { type AppShape } from "@/constants/app-shape";
+import { useAppPalette, useAppShape } from "@/lib/app-theme";
 import {
   dismissAppAlert,
   getAppAlert,
@@ -20,7 +21,8 @@ import {
 
 export function AppAlertHost() {
   const palette = useAppPalette();
-  const styles = useMemo(() => createStyles(palette), [palette]);
+  const shape = useAppShape();
+  const styles = useMemo(() => createStyles(palette, shape), [palette, shape]);
   const alert = useSyncExternalStore(
     subscribeAppAlert,
     getAppAlert,
@@ -118,7 +120,7 @@ export function AppAlertHost() {
   );
 }
 
-const createStyles = (palette: AppPaletteShape) => StyleSheet.create({
+const createStyles = (palette: AppPaletteShape, shape: AppShape) => StyleSheet.create({
   backdrop: {
     flex: 1,
     backgroundColor: "rgba(10, 18, 28, 0.56)",
@@ -130,9 +132,9 @@ const createStyles = (palette: AppPaletteShape) => StyleSheet.create({
     width: "100%",
     maxWidth: 440,
     backgroundColor: palette.surface,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: palette.border,
+    borderRadius: shape.cardRadius,
+    borderWidth: shape.cardBorderWidth,
+    borderColor: palette.borderStrong,
     padding: 22,
     shadowColor: "#000000",
     shadowOffset: { width: 0, height: 12 },
@@ -157,7 +159,7 @@ const createStyles = (palette: AppPaletteShape) => StyleSheet.create({
   },
   input: {
     borderColor: palette.border,
-    borderRadius: 8,
+    borderRadius: shape.cardRadius,
     borderWidth: 1,
     color: palette.text,
     fontSize: 16,
@@ -167,7 +169,7 @@ const createStyles = (palette: AppPaletteShape) => StyleSheet.create({
   },
   optionList: {
     borderColor: palette.border,
-    borderRadius: 8,
+    borderRadius: shape.cardRadius,
     borderWidth: 1,
     marginBottom: 14,
     maxHeight: 220,
@@ -185,7 +187,7 @@ const createStyles = (palette: AppPaletteShape) => StyleSheet.create({
   disabledButton: { opacity: 0.45 },
   button: {
     minHeight: 44,
-    borderRadius: 8,
+    borderRadius: shape.cardRadius,
     backgroundColor: palette.primaryStrong,
     alignItems: "center",
     justifyContent: "center",

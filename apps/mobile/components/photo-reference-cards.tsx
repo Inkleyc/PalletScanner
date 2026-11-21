@@ -2,7 +2,8 @@ import { useMemo, useState } from "react";
 import { Platform, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
 import { type AppPaletteShape } from "@/constants/app-palette";
-import { useAppPalette } from "@/lib/app-theme";
+import { type AppShape } from "@/constants/app-shape";
+import { useAppPalette, useAppShape } from "@/lib/app-theme";
 import { WebPhotoCamera, type WebCapturedPhoto } from "@/components/web-photo-camera";
 
 type PhotoReferenceCardsProps = {
@@ -22,7 +23,8 @@ const fallbackShots = [
 
 export function PhotoReferenceCards({ shots, photoCount, onCapture, onUpload }: PhotoReferenceCardsProps) {
   const palette = useAppPalette();
-  const styles = useMemo(() => createStyles(palette), [palette]);
+  const shape = useAppShape();
+  const styles = useMemo(() => createStyles(palette, shape), [palette, shape]);
   const checklist = (shots.length > 0 ? shots : fallbackShots).slice(0, 6);
   const [cameraShot, setCameraShot] = useState<string | null>(null);
 
@@ -74,11 +76,11 @@ export function PhotoReferenceCards({ shots, photoCount, onCapture, onUpload }: 
   );
 }
 
-const createStyles = (palette: AppPaletteShape) => StyleSheet.create({
+const createStyles = (palette: AppPaletteShape, shape: AppShape) => StyleSheet.create({
   container: { marginTop: 12 },
   heading: { color: palette.text, fontSize: 13, fontWeight: "700", marginBottom: 4 },
   subheading: { color: palette.textMuted, fontSize: 12, lineHeight: 18, marginBottom: 10 },
-  list: { borderColor: palette.border, borderRadius: 8, borderWidth: 1, overflow: "hidden" },
+  list: { borderColor: palette.borderStrong, borderRadius: shape.cardRadius, borderWidth: shape.cardBorderWidth, overflow: "hidden" },
   row: { alignItems: "center", backgroundColor: palette.surface, borderBottomColor: palette.border, borderBottomWidth: 1, flexDirection: "row", gap: 10, minHeight: 54, padding: 10 },
   number: { alignItems: "center", backgroundColor: palette.surfaceMuted, borderRadius: 8, height: 28, justifyContent: "center", width: 28 },
   numberText: { color: palette.textMuted, fontSize: 12, fontWeight: "700" },
