@@ -2591,8 +2591,10 @@ th {
    behind the theme toggle. Day and Deep are untouched — every rule below
    is scoped to :root[data-theme="workorder"] and nothing above this
    section is modified. Design language: paper, ink borders, form boxes,
-   hardware orange as the single signal, brushed steel, stamp badges,
-   gauge-style metrics, hard offset shadows, squared corners. */
+   hardware orange reserved for actions and attention, a light steel rail,
+   stamp-ancestry badges, gauge-style metrics. Workshop pass 2026-11-20:
+   professional refinement — softer structure and shadows, small-control
+   rounding restored, legible filled badges, no plate/hardware pieces. */
 
 :root[data-theme="workorder"] {
   color-scheme: light;
@@ -2613,24 +2615,35 @@ th {
   --app-danger-soft: color-mix(in srgb, #b3372a 9%, #ffffff);
 }
 
-/* Squared world: the machined theme has no rounded corners. */
-:root[data-theme="workorder"] * {
-  border-radius: 0 !important;
+/* Rounding: structure stays nearly square (2px); small controls keep
+   comfortable radii; native controls (checkboxes, status dots) untouched. */
+:root[data-theme="workorder"] .panel,
+:root[data-theme="workorder"] .metric,
+:root[data-theme="workorder"] .item-card,
+:root[data-theme="workorder"] .pallet-card,
+:root[data-theme="workorder"] nav button,
+:root[data-theme="workorder"] .table-scroll,
+:root[data-theme="workorder"] .table-panel {
+  border-radius: 2px;
 }
 
-/* --- Brushed-steel sidebar: striations over a machined gradient --- */
+:root[data-theme="workorder"] button {
+  border-radius: 6px;
+}
+
+/* --- Light steel rail: faint striations over a pale gradient --- */
 :root[data-theme="workorder"] .sidebar {
   background:
-    repeating-linear-gradient(0deg, rgba(255, 255, 255, 0.16) 0 1px, rgba(0, 0, 0, 0.05) 1px 2px),
-    linear-gradient(180deg, #dde3e8, #bcc6cf 38%, #9fabb6 55%, #c3ccd3);
-  border-right: 2px solid #39434d;
+    repeating-linear-gradient(0deg, rgba(255, 255, 255, 0.06) 0 1px, rgba(0, 0, 0, 0.04) 1px 2px),
+    linear-gradient(180deg, #eef1f3, #dde3e7);
+  border-right: 1.5px solid #39434d;
   color: #141a20;
 }
 
-/* Engraved wordmark */
+/* Wordmark: softened etched effect */
 :root[data-theme="workorder"] .sidebar-heading h1 {
-  letter-spacing: 0.12em;
-  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.55), 0 -1px 1px rgba(0, 0, 0, 0.35);
+  letter-spacing: 0.1em;
+  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.6);
   text-transform: uppercase;
 }
 
@@ -2655,30 +2668,32 @@ th {
 
 :root[data-theme="workorder"] nav button.active {
   background: #ffffff;
-  border: 1.8px solid #1a222b;
-  box-shadow: 3px 3px 0 rgba(26, 34, 43, 0.85);
+  border: 1.5px solid #2a343e;
+  box-shadow: 0 1px 2px rgba(26, 34, 43, 0.18), 0 4px 14px rgba(26, 34, 43, 0.08);
   color: var(--app-text);
 }
 
 :root[data-theme="workorder"] .nav-count {
   background: rgba(26, 34, 43, 0.16);
+  border-radius: 4px;
   color: var(--app-text);
   font-family: var(--font-num);
 }
 
 :root[data-theme="workorder"] nav button.active .nav-count {
-  background: var(--app-navy);
+  background: var(--app-text);
   color: #ffffff;
 }
 
 :root[data-theme="workorder"] .theme-toggle {
-  background: linear-gradient(180deg, #d3dae0, #aeb8c1);
-  border: 1.8px solid #39434d;
+  background: linear-gradient(180deg, #f4f6f8, #e2e7ea);
+  border: 1.5px solid #39434d;
+  border-radius: 6px;
   color: var(--app-text);
 }
 
 :root[data-theme="workorder"] .theme-toggle:hover {
-  background: linear-gradient(180deg, #e2e8ec, #bcc6cf);
+  background: linear-gradient(180deg, #ffffff, #e8edef);
   border-color: #39434d;
 }
 
@@ -2686,12 +2701,12 @@ th {
 :root[data-theme="workorder"] .topbar {
   background-color: var(--app-background);
   background-image:
-    repeating-linear-gradient(90deg, var(--app-text) 0 1.5px, transparent 1.5px 12px),
-    repeating-linear-gradient(90deg, var(--app-text) 0 1.5px, transparent 1.5px 60px);
+    repeating-linear-gradient(90deg, var(--app-text-muted) 0 1.5px, transparent 1.5px 12px),
+    repeating-linear-gradient(90deg, var(--app-text-muted) 0 1.5px, transparent 1.5px 60px);
   background-position: left bottom, left bottom;
   background-repeat: no-repeat;
   background-size: 100% 6px, 100% 12px;
-  border-bottom: 2px solid var(--app-border-strong);
+  border-bottom: 1.5px solid var(--app-border-strong);
   padding-bottom: 18px;
 }
 
@@ -2699,12 +2714,12 @@ th {
 :root[data-theme="workorder"] .metric {
   background-color: #ffffff;
   background-image:
-    repeating-linear-gradient(90deg, var(--app-text-muted) 0 1.5px, transparent 1.5px 10px),
-    repeating-linear-gradient(90deg, var(--app-text) 0 1.5px, transparent 1.5px 50px);
+    repeating-linear-gradient(90deg, var(--app-border) 0 1.5px, transparent 1.5px 10px),
+    repeating-linear-gradient(90deg, var(--app-border) 0 1.5px, transparent 1.5px 50px);
   background-position: left bottom, left bottom;
   background-repeat: no-repeat;
   background-size: 100% 5px, 100% 7px;
-  border: 1.8px solid #1a222b;
+  border: 1.5px solid #2a343e;
   box-shadow: inset 0 0 0 3px #ffffff, inset 0 0 0 4px var(--app-border);
   padding-bottom: 24px;
 }
@@ -2716,12 +2731,12 @@ th {
 
 /* --- Form-box panels with a ruled heading band --- */
 :root[data-theme="workorder"] .panel {
-  border: 1.8px solid #1a222b;
+  border: 1.5px solid #2a343e;
 }
 
 :root[data-theme="workorder"] .panel-heading {
   background: linear-gradient(180deg, #fdfefe, #eef1f3);
-  border-bottom: 1.8px solid #1a222b;
+  border-bottom: 1.5px solid #2a343e;
   margin: calc(-1 * var(--space-5)) calc(-1 * var(--space-5)) var(--space-3);
   padding: 12px var(--space-5);
 }
@@ -2732,26 +2747,39 @@ th {
   text-transform: uppercase;
 }
 
-/* --- Stamp badges: transparent ink stamps, variant colors preserved --- */
+/* --- Badges: filled professional tags with stamp ancestry (mono,
+   uppercase, inked border, soft variant tints) — no rotation, so they
+   stay scannable at table size. Variant colors preserved. --- */
 :root[data-theme="workorder"] .badge {
-  background: transparent;
-  border: 2px solid currentColor;
-  border-radius: 3px !important;
+  background: var(--app-surface-muted);
+  border: 1.5px solid currentColor;
+  border-radius: 4px;
   font-family: var(--font-num);
   letter-spacing: 0.12em;
+  padding: 3px 9px;
   text-transform: uppercase;
-  transform: rotate(-1.6deg);
+  transform: none;
+}
+
+:root[data-theme="workorder"] .badge.decision {
+  background: var(--app-primary-soft);
 }
 
 :root[data-theme="workorder"] .badge.success {
-  transform: rotate(1.4deg);
+  background: var(--app-success-soft);
+  transform: none;
 }
 
-/* --- Primary action: hardware orange, hard offset shadow --- */
+:root[data-theme="workorder"] .badge.danger {
+  background: var(--app-danger-soft);
+}
+
+/* --- Primary action: hardware orange, soft professional shadow --- */
 :root[data-theme="workorder"] .primary-button {
   background: var(--app-primary);
   border: 1.8px solid var(--app-primary-strong);
-  box-shadow: 3px 3px 0 rgba(26, 34, 43, 0.85);
+  border-radius: 6px;
+  box-shadow: 0 1px 2px rgba(26, 34, 43, 0.25);
   color: #ffffff;
   font-family: var(--font-num);
   letter-spacing: 0.1em;
@@ -2766,15 +2794,16 @@ th {
   letter-spacing: 0.16em;
 }
 
-/* --- Form fields: machined steel edges --- */
+/* --- Form fields: steel edges, comfortable rounding --- */
 :root[data-theme="workorder"] input,
 :root[data-theme="workorder"] select,
 :root[data-theme="workorder"] textarea {
   border: 1.5px solid #7c8894;
+  border-radius: 6px;
 }
 
 /* --- Cards carry the same ink frame as the form boxes --- */
 :root[data-theme="workorder"] .item-card,
 :root[data-theme="workorder"] .pallet-card {
-  border: 1.8px solid #1a222b;
+  border: 1.5px solid #2a343e;
 }
