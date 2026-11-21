@@ -2807,3 +2807,62 @@ th {
 :root[data-theme="workorder"] .pallet-card {
   border: 1.5px solid #2a343e;
 }
+
+/* --- Spacing pass: stacks hug the top; fill panels keep their height ---
+   .view-stack is a grid with default align-content, so inside .main's
+   1fr row its implicit rows stretch: spare height is distributed between
+   rows (voids under the header and between the scope row and the metric
+   cards) and into the rows' contents (metric cards and table panels
+   stretched tall with blank space inside). Pack stack rows at the top
+   instead. The stack's own overflow:auto (base .main > .view-stack rule)
+   still scrolls the whole view when content exceeds the row. This also
+   covers the Orders section's nested stacks (switch stack -> content
+   stack) and the Settings stack inside .settings-mount. */
+:root[data-theme="workorder"] .view-stack {
+  align-content: start;
+}
+
+/* Inside a hugged stack, a table panel sizes to its content like any
+   other form box, so its scroll region must not demand the panel's full
+   height: let it size naturally and let the stack scroll as a whole.
+   (The Inventory fill panel below is a direct child of .main, not of a
+   stack, so it is not affected by this rule.) */
+:root[data-theme="workorder"] .view-stack .table-panel .table-scroll {
+  height: auto;
+}
+
+/* Inventory and Review are not stacks: their panels are the sole content
+   of .main's minmax(0, 1fr) row (App.jsx renders them as direct children
+   of .main), and they fill that row exactly by grid stretch — that fill
+   is what drives .table-scroll / .review-list internal scrolling. Pin
+   the stretch explicitly so this pass can never top-hug them. No derived
+   pixel height is needed: stretch already equals the row height exactly,
+   while a calc() based on an estimated topbar height could undershoot
+   and open a gap under the panel. */
+:root[data-theme="workorder"] .main > .table-panel,
+:root[data-theme="workorder"] .main > .review-panel {
+  align-self: stretch;
+}
+
+/* Pallets is a single panel in .main's row (PalletManager), not a stack:
+   top-hug the panel itself so spare height falls below it, not inside. */
+:root[data-theme="workorder"] .main > .panel#pallets {
+  align-self: start;
+}
+
+/* Metric cards hug their content instead of stretching to the row.
+   This also fixes the Overview ITEMS card: it is the only Overview
+   metric rendered as a <button> (it has an onClick; its siblings are
+   <section>s), and when the grid stretched every card tall, the button's
+   content vertically centered while the sections top-aligned, so its
+   label started lower. Unstretched, all labels align; the flex rule
+   below normalises the button card's internal layout at any height. */
+:root[data-theme="workorder"] .metrics-grid {
+  align-items: start;
+}
+
+:root[data-theme="workorder"] button.metric {
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+}
