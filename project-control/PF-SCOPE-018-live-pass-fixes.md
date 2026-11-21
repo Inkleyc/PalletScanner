@@ -1,5 +1,5 @@
 # PF-SCOPE-018 — Web live-pass fixes: Inventory cards, compact Orders toggle, Deep separation, dialog structure, Edit form facelift
-Status: IN_PROGRESS
+Status: CLOSED (VERIFIED 2026-11-09; register flip landed with the PF-SCOPE-004 closeout)
 Owner approval: APPROVED 2026-11-09 (owner, from his live pass on main after the PF-SCOPE-017 merge: five findings, "build all 5")
 Decision authority: PF-D-016 (slate design direction); layout/visual changes only, no behavior or data changes. No protected operations.
 

@@ -1,6 +1,6 @@
 # PF-SCOPE-022 — Web cloud photo persistence
 
-Status: IN_PROGRESS (built 2026-11-11; owner live pass pending — see Verification)
+Status: CLOSED (VERIFIED 2026-11-12 — owner live pass passed; see Verification. Closeout record landed with the PF-SCOPE-004 closeout.)
 Owner approval: 2026-11-11 ("Build PF-SCOPE-022 now, then continue 004"), after the gap was found live during the PF-SCOPE-004 run.
 
 ## Problem
@@ -52,6 +52,9 @@ because mobile writes photos, but the web write side was never built.
 
 - New unit suite: 5/5 pass.
 - Root `npm run check` exit 0 (run at build time; see PR).
-- Owner live pass (pending at build): on the live site, upload a photo
-  to the PF-SCOPE-004 proof item — it must still be attached after the
-  sheet reloads, and the item must then publish to the sandbox.
+- Owner live pass (PASSED 2026-11-12): a photo uploaded on the web to
+  the PF-SCOPE-004 proof item "Barcode item 048500207000" stayed
+  attached after the sheet reloaded ("1 photo available"); the item
+  then published to the sandbox on the fixed code, and listing
+  110591567038 was verified live with the photo present on the listing
+  itself (via the PR #31 eBay media re-hosting).
