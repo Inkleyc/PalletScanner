@@ -1,6 +1,7 @@
 import { useState } from "react";
 
 import { currency } from "./dashboard-model.js";
+import { confirmDialog } from "./dialog-service.jsx";
 import { repository } from "./repository-router.js";
 
 export function PalletManager({ pallets, summaries, selectedPalletId, onFilter }) {
@@ -65,7 +66,7 @@ export function PalletManager({ pallets, summaries, selectedPalletId, onFilter }
     const detail = summary?.itemCount
       ? ` This will also remove ${summary.itemCount} item${summary.itemCount === 1 ? "" : "s"} from local preview data.`
       : "";
-    if (!window.confirm(`Delete ${pallet.name}?${detail}`)) return;
+    if (!await confirmDialog(`Delete ${pallet.name}?${detail}`, { danger: true, submitLabel: "Delete pallet" })) return;
     await repository.removePallet(pallet.id);
     if (selectedPalletId === pallet.id) onFilter("all");
     if (editingId === pallet.id) cancel();

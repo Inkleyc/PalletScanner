@@ -23,6 +23,7 @@ import { applyPricingRecommendation, archivePackagePreset, closeReturnCase, conf
 import { buildPricingRecommendations } from "./pricing-recommendation-model.js";
 import { cancelManualSaleOrder, completeAssistedChannelTask, createManualSaleOrder } from "./marketplace-observation-repository.js";
 import { ActivityPanel } from "./activity-panel.jsx";
+import { DialogHost, confirmDialog, formDialog, promptDialog } from "./dialog-service.jsx";
 import { PalletManager } from "./pallet-manager.jsx";
 import { Icon } from "./icons.jsx";
 import {
@@ -275,7 +276,7 @@ function ListingReview({ item, onSave }) {
     await onSave({ ...candidate, ebayStatus: "active", ebayOfferId: result.offerId, ebayListingId: result.listingId, ebayListingUrl: result.listingUrl, ebayLastError: null, ebayUpdatedAt: Date.now(), listedPlatforms: [...new Set([...(candidate.listedPlatforms ?? []), "ebay"])] });
   };
   const publishEbay = async () => {
-    if (!window.confirm(`Publish ${item.name} to eBay for ${currency(item.listing_price ?? price(item, "high"))}?`)) return;
+    if (!await confirmDialog(`Publish ${item.name} to eBay for ${currency(item.listing_price ?? price(item, "high"))}?`)) return;
     setSavingPlatform("ebay-post"); setError("");
     try {
       await onSave({ ...item, ebayStatus: "posting", ebayLastError: null, ebayUpdatedAt: Date.now() });
@@ -395,12 +396,19 @@ function InventoryHistory({ item }) {
   }, [item.id, item.serverId, item.available, item.quantity, item.listing_price, refreshKey]);
 
   const placeHold = async () => {
-    const quantityAnswer = window.prompt("How many units should be held?", "1");
-    if (quantityAnswer === null) return;
-    const quantity = Number(quantityAnswer);
+    const answers = await formDialog({
+      title: "Place inventory hold",
+      submitLabel: "Place hold",
+      fields: [
+        { name: "quantity", label: "How many units should be held?", defaultValue: "1" },
+        { name: "reason", label: "Why are these units being held?", defaultValue: "Manual inventory hold" },
+      ],
+    });
+    if (answers === null) return;
+    const quantity = Number(answers.quantity);
     if (!Number.isInteger(quantity) || quantity < 1) return setError("Hold quantity must be a whole number of at least 1.");
-    const reason = window.prompt("Why are these units being held?", "Manual inventory hold");
-    if (reason === null || !reason.trim()) return setError("A hold reason is required.");
+    const reason = answers.reason;
+    if (!reason.trim()) return setError("A hold reason is required.");
     setWorking(true); setError("");
     try { await repository.reserveItem(item.id, quantity, reason); setRefreshKey((current) => current + 1); }
     catch (holdError) { setError(holdError instanceof Error ? holdError.message : "Could not place the inventory hold."); }
@@ -490,19 +498,26 @@ function InventoryDetail({ item, palletName, pallets, onSave, onRemove, onSaleRe
     catch (workflowError) { setError(workflowError instanceof Error ? workflowError.message : "Could not update status."); }
   };
   const remove = async () => {
-    if (!window.confirm(`Archive ${item.name}? It will leave active inventory but keep its history.`)) return;
+    if (!await confirmDialog(`Archive ${item.name}? It will leave active inventory but keep its history.`)) return;
     await onRemove(item.id);
   };
   const restore = async () => {
     await onSave({ ...item, archivedAt: null });
   };
   const verifyImported = async () => {
-    const countAnswer = window.prompt("How many units did you physically count?", "1");
-    if (countAnswer === null) return;
-    const countedQuantity = Number(countAnswer);
+    const answers = await formDialog({
+      title: "Verify physical inventory",
+      submitLabel: "Verify inventory",
+      fields: [
+        { name: "count", label: "How many units did you physically count?", defaultValue: "1" },
+        { name: "reason", label: "Verification note", defaultValue: "Physical count confirmed" },
+      ],
+    });
+    if (answers === null) return;
+    const countedQuantity = Number(answers.count);
     if (!Number.isInteger(countedQuantity) || countedQuantity < 0) return setError("Physical count must be a whole number of zero or more.");
-    const reason = window.prompt("Verification note", "Physical count confirmed");
-    if (reason === null || !reason.trim()) return setError("A verification note is required.");
+    const reason = answers.reason;
+    if (!reason.trim()) return setError("A verification note is required.");
     setSaving(true); setError("");
     try { await repository.verifyImportedItem(item.id, countedQuantity, reason.trim()); }
     catch (verificationError) { setError(verificationError instanceof Error ? verificationError.message : "Could not verify imported inventory."); }
@@ -693,7 +708,7 @@ function QuantitySyncQueue() {
   const changePause = async () => {
     if (!account) return;
     const paused = !account.outbound_paused;
-    if (!paused && !window.confirm("Allow reviewed outbound marketplace actions? Queued quantity changes will still require review until active synchronization is separately enabled.")) return;
+    if (!paused && !await confirmDialog("Allow reviewed outbound marketplace actions? Queued quantity changes will still require review until active synchronization is separately enabled.")) return;
     setSaving(true); setError("");
     try { setAccount(await setEbayOutboundPause({ accountId: account.id, paused })); setRows(await listMarketplaceQuantityQueue()); }
     catch (saveError) { setError(saveError instanceof Error ? saveError.message : "Could not update the outbound pause."); }
@@ -704,7 +719,7 @@ function QuantitySyncQueue() {
     const prompt = finalUnit
       ? "Withdraw this eBay listing because its last available unit is gone? PalletFlip will queue durable work before contacting eBay. The listing can be reviewed and relisted later if inventory returns."
       : `Send the reviewed eBay quantity update from ${row.advertised_quantity} to ${row.desired_quantity}? PalletFlip will queue durable work before contacting eBay.`;
-    if (!window.confirm(prompt)) return;
+    if (!await confirmDialog(prompt)) return;
     setQueueingId(row.id); setError("");
     try {
       const job = await queueEbayQuantitySync(row.id);
@@ -715,7 +730,7 @@ function QuantitySyncQueue() {
     finally { try { const [nextRows, nextJobs] = await Promise.all([listMarketplaceQuantityQueue(), listMarketplaceActionJobs()]); setRows(nextRows); setJobs(nextJobs); } catch { /* Keep the original action result visible. */ } setQueueingId(null); }
   };
   const retryJob = async (job) => {
-    if (!window.confirm("Retry this failed marketplace action now? PalletFlip will reset its bounded attempt counter and preserve the prior error in audit history.")) return;
+    if (!await confirmDialog("Retry this failed marketplace action now? PalletFlip will reset its bounded attempt counter and preserve the prior error in audit history.")) return;
     setQueueingId(job.id); setError("");
     try { const resetJob = await retryFailedMarketplaceActionJob(job.id); await executeJob(resetJob.id); }
     catch (retryError) { setError(retryError instanceof Error ? retryError.message : "Could not retry the marketplace action."); }
@@ -729,21 +744,21 @@ function QuantitySyncQueue() {
   };
   const resolvePrice = async (row, resolution) => {
     const adopting = resolution === "adopt_external";
-    if (!window.confirm(adopting ? "Adopt the currently observed eBay price as PalletFlip's approved price? This does not change eBay." : "Keep the PalletFlip approved price and dismiss this observed difference? This does not change eBay.")) return;
+    if (!await confirmDialog(adopting ? "Adopt the currently observed eBay price as PalletFlip's approved price? This does not change eBay." : "Keep the PalletFlip approved price and dismiss this observed difference? This does not change eBay.")) return;
     setQueueingId(row.id); setError("");
     try { await resolveMarketplacePriceReview({ listingId: row.id, resolution }); if (adopting) await repository.hydrate(); setRows(await listMarketplaceQuantityQueue()); }
     catch (priceError) { setError(priceError instanceof Error ? priceError.message : "Could not record the price decision."); }
     finally { setQueueingId(null); }
   };
   const applyRecommendation = async (entry) => {
-    if (!window.confirm(`Approve ${currency(entry.suggestedPrice)} as the new PalletFlip listing price for ${entry.name}? This does not change eBay.`)) return;
+    if (!await confirmDialog(`Approve ${currency(entry.suggestedPrice)} as the new PalletFlip listing price for ${entry.name}? This does not change eBay.`)) return;
     setQueueingId(entry.listingId); setError("");
     try { await applyPricingRecommendation({ listingId: entry.listingId, proposedPrice: entry.suggestedPrice }); await repository.hydrate(); setRows(await listMarketplaceQuantityQueue()); }
     catch (priceError) { setError(priceError instanceof Error ? priceError.message : "Could not apply the pricing recommendation."); }
     finally { setQueueingId(null); }
   };
   const dismissRecommendation = async (entry) => {
-    if (!window.confirm(`Dismiss this recommendation until the next ${pricingSettings.pricing_review_after_days}-day review? A price change will reopen it sooner.`)) return;
+    if (!await confirmDialog(`Dismiss this recommendation until the next ${pricingSettings.pricing_review_after_days}-day review? A price change will reopen it sooner.`)) return;
     setQueueingId(entry.listingId); setError("");
     try { await dismissPricingRecommendation({ listingId: entry.listingId, proposedPrice: entry.suggestedPrice }); setRows(await listMarketplaceQuantityQueue()); }
     catch (priceError) { setError(priceError instanceof Error ? priceError.message : "Could not dismiss the pricing recommendation."); }
@@ -838,7 +853,7 @@ function PackagePresetSettings() {
     finally { setSaving(false); }
   };
   const archive = async (preset) => {
-    if (!window.confirm(`Archive package preset ${preset.name}? Existing shipments will retain it.`)) return;
+    if (!await confirmDialog(`Archive package preset ${preset.name}? Existing shipments will retain it.`)) return;
     setSaving(true); setError("");
     try { await archivePackagePreset(preset.id); await load(); }
     catch (archiveError) { setError(archiveError instanceof Error ? archiveError.message : "Could not archive the package preset."); }
@@ -976,7 +991,7 @@ function EbaySettings({ mode = "all" }) {
   };
 
   const syncInboundEbay = async () => {
-    if (!window.confirm("Read the latest eBay data, save an audit snapshot, and import observed orders and available returns? This will not reserve, restock, or change inventory.")) return;
+    if (!await confirmDialog("Read the latest eBay data, save an audit snapshot, and import observed orders and available returns? This will not reserve, restock, or change inventory.")) return;
     setInboundSyncing(true); setMessage("");
     try {
       const parameters = new URLSearchParams({ limit: "50", inventoryOffset: "0", offerOffset: "0", orderOffset: "0", returnOffset: "0" });
@@ -1101,7 +1116,7 @@ function EbaySettings({ mode = "all" }) {
     try {
       const backup = JSON.parse(await file.text());
       if (backup.version !== 1) throw new Error("This backup version is not supported.");
-      if (!window.confirm(`Replace local dashboard data with ${backup.items?.length ?? 0} items and ${backup.pallets?.length ?? 0} pallets from this backup?`)) return;
+      if (!await confirmDialog(`Replace local dashboard data with ${backup.items?.length ?? 0} items and ${backup.pallets?.length ?? 0} pallets from this backup?`)) return;
       await repository.replaceSnapshot(backup);
       setMessage("Local data restored from backup.");
     } catch (restoreError) {
@@ -1204,7 +1219,7 @@ function AnalysisPanel({ snapshot }) {
   const updateFilter = (field) => (event) => setFilters((current) => ({ ...current, [field]: event.target.value }));
   const resetFilters = () => setFilters({ pallet: "all", category: "all", condition: "all", marketplace: "all", from: "", to: "" });
   const confirmPendingFees = async (sale) => {
-    const entered = window.prompt(`Enter the total marketplace fees for this ${currency(sale.gross)} sale.`, sale.fees ? String(sale.fees) : "");
+    const entered = await promptDialog(`Enter the total marketplace fees for this ${currency(sale.gross)} sale.`, sale.fees ? String(sale.fees) : "");
     if (entered === null) return;
     const fees = Number(entered);
     if (!Number.isFinite(fees) || fees < 0) { setProfitabilityError("Marketplace fees must be zero or greater."); return; }
@@ -1216,7 +1231,7 @@ function AnalysisPanel({ snapshot }) {
     finally { setFeeSavingId(null); }
   };
   const repairShippedSales = async (shipment) => {
-    if (!window.confirm(`Create missing financial records for ${shipment.missingLines.length} shipped order line${shipment.missingLines.length === 1 ? "" : "s"}? Inventory will not change.`)) return;
+    if (!await confirmDialog(`Create missing financial records for ${shipment.missingLines.length} shipped order line${shipment.missingLines.length === 1 ? "" : "s"}? Inventory will not change.`)) return;
     setSaleRecoveryId(shipment.id); setProfitabilityError("");
     try {
       await reconcileShippedFulfillmentSales(shipment.id);
@@ -1301,12 +1316,19 @@ function OrdersContent({ onShowReturns }) {
     finally { setReservingOrder(false); }
   };
   const startFulfillment = async (order) => {
-    if (!window.confirm("Start fulfillment for this reserved order? PalletFlip will create its pick and pack record. Missing package measurements will remain incomplete until confirmed.")) return;
+    if (!await confirmDialog("Start fulfillment for this reserved order? PalletFlip will create its pick and pack record. Missing package measurements will remain incomplete until confirmed.")) return;
     let packagePresetId = null;
     if (packagePresets.length > 0) {
-      const choices = packagePresets.map((preset, index) => `${index + 1}. ${preset.name}`).join("\n");
-      const selection = window.prompt(`Choose a package preset by number, or leave blank to measure during packing:\n\n${choices}`, "");
-      if (selection === null) return;
+      const answers = await formDialog({
+        title: "Start fulfillment",
+        submitLabel: "Continue",
+        message: "Choose a package preset by number, or leave blank to measure during packing:",
+        fields: [
+          { name: "selection", label: "Package preset", type: "select", defaultValue: "", options: [{ value: "", label: "Measure during packing" }, ...packagePresets.map((preset, index) => ({ value: String(index + 1), label: preset.name }))] },
+        ],
+      });
+      if (answers === null) return;
+      const selection = answers.selection;
       if (selection.trim()) {
         const selectedIndex = Number(selection) - 1;
         if (!Number.isInteger(selectedIndex) || !packagePresets[selectedIndex]) return setError("Choose a listed package preset number or leave the selection blank.");
@@ -1358,16 +1380,25 @@ function OrdersContent({ onShowReturns }) {
     finally { setReservingOrder(false); }
   };
   const markShipped = async (shipment) => {
-    if (!window.confirm("Confirm that this package has been handed to the carrier? This will consume the reserved inventory and cannot be treated as merely printing a label.")) return;
+    if (!await confirmDialog("Confirm that this package has been handed to the carrier? This will consume the reserved inventory and cannot be treated as merely printing a label.")) return;
     setReservingOrder(true); setError("");
     try { await confirmShipmentShipped(shipment.id); await loadOrders(); }
     catch (shipmentError) { setError(shipmentError instanceof Error ? shipmentError.message : "Could not confirm carrier handoff."); }
     finally { setReservingOrder(false); }
   };
   const adoptObservedEbayFulfillment = async (shipment, fulfillment) => {
-    const service = window.prompt("eBay shipping service", selectedOrder?.raw_payload?.observedSelectedShippingService?.service || "Imported from eBay"); if (!service?.trim()) return;
-    const cost = Number(window.prompt("Final eBay label cost", "0.00")); if (!Number.isFinite(cost) || cost < 0) return setError("Enter a non-negative final label cost.");
-    if (!window.confirm(`Use ${fulfillment.shippingCarrierCode} tracking ${fulfillment.trackingNumber} and confirm eBay's ${new Date(fulfillment.shippedDate).toLocaleString()} carrier handoff? This consumes the reserved inventory.`)) return;
+    const answers = await formDialog({
+      title: "Use observed eBay shipment",
+      submitLabel: "Continue",
+      fields: [
+        { name: "service", label: "eBay shipping service", defaultValue: selectedOrder?.raw_payload?.observedSelectedShippingService?.service || "Imported from eBay" },
+        { name: "cost", label: "Final eBay label cost", defaultValue: "0.00" },
+      ],
+    });
+    if (answers === null) return;
+    const service = answers.service; if (!service?.trim()) return;
+    const cost = Number(answers.cost); if (!Number.isFinite(cost) || cost < 0) return setError("Enter a non-negative final label cost.");
+    if (!await confirmDialog(`Use ${fulfillment.shippingCarrierCode} tracking ${fulfillment.trackingNumber} and confirm eBay's ${new Date(fulfillment.shippedDate).toLocaleString()} carrier handoff? This consumes the reserved inventory.`)) return;
     setReservingOrder(true); setError("");
     try {
       await recordShipmentLabel({ shipmentId: shipment.id, source: "ebay", carrier: fulfillment.shippingCarrierCode, service: service.trim(), trackingNumber: fulfillment.trackingNumber, cost });
@@ -1377,23 +1408,23 @@ function OrdersContent({ onShowReturns }) {
     finally { setReservingOrder(false); }
   };
   const confirmPickup = async (shipment) => {
-    if (!window.confirm("Confirm that the buyer has physically received this order? This consumes the reserved inventory and records the sale.")) return;
+    if (!await confirmDialog("Confirm that the buyer has physically received this order? This consumes the reserved inventory and records the sale.")) return;
     setReservingOrder(true); setError("");
     try { await confirmLocalPickupHandoff(shipment.id); await loadOrders(); }
     catch (pickupError) { setError(pickupError instanceof Error ? pickupError.message : "Could not confirm local pickup handoff."); }
     finally { setReservingOrder(false); }
   };
   const cancelManualOrder = async (order) => {
-    const reason = window.prompt("Why was this manual sale cancelled?", "Buyer backed out");
+    const reason = await promptDialog("Why was this manual sale cancelled?", "Buyer backed out");
     if (!reason?.trim()) return;
-    if (!window.confirm("Cancel this sale order and release its reserved inventory?")) return;
+    if (!await confirmDialog("Cancel this sale order and release its reserved inventory?")) return;
     setReservingOrder(true); setError("");
     try { await cancelManualSaleOrder({ orderId: order.id, reason: reason.trim() }); await loadOrders(); }
     catch (cancelError) { setError(cancelError instanceof Error ? cancelError.message : "Could not cancel the manual sale order."); }
     finally { setReservingOrder(false); }
   };
   const completeAssistedTask = async (task) => {
-    if (!window.confirm("Confirm that you removed or adjusted the Facebook listing to match the remaining PalletFlip quantity?")) return;
+    if (!await confirmDialog("Confirm that you removed or adjusted the Facebook listing to match the remaining PalletFlip quantity?")) return;
     setReservingOrder(true); setError("");
     try { await completeAssistedChannelTask(task.id); await loadOrders(); }
     catch (taskError) { setError(taskError instanceof Error ? taskError.message : "Could not complete the marketplace action."); }
@@ -1541,35 +1572,61 @@ function ReturnsContent() {
   const createReturn = async () => {
     const eligible = orders.filter((order) => ["shipped", "delivered", "exception"].includes(order.shipment?.state)).flatMap((order) => order.lines.map((line) => ({ order, line })));
     if (eligible.length === 0) return setError("No shipped order lines are available for a return.");
-    const choices = eligible.map(({ order, line }, index) => `${index + 1}. Order ${order.external_order_id} · ${line.seller_sku || line.title || "item"} · sold ${line.quantity}`).join("\n");
-    const answer = window.prompt(`Choose the returned order line by number:\n\n${choices}`, "1");
-    if (answer === null) return;
-    const selected = eligible[Number(answer) - 1];
+    const answers = await formDialog({
+      title: "Open manual return",
+      submitLabel: "Open return",
+      fields: [
+        { name: "line", label: "Returned order line", type: "select", defaultValue: "1", options: eligible.map(({ order, line }, index) => ({ value: String(index + 1), label: `Order ${order.external_order_id} · ${line.seller_sku || line.title || "item"} · sold ${line.quantity}` })) },
+        { name: "quantity", label: "Return quantity", defaultValue: "1" },
+        { name: "reason", label: "Why is the item being returned?", defaultValue: "Buyer return" },
+      ],
+    });
+    if (answers === null) return;
+    const selected = eligible[Number(answers.line) - 1];
     if (!selected) return setError("Choose a listed order line number.");
-    const quantityAnswer = window.prompt("Return quantity", "1");
-    if (quantityAnswer === null) return;
-    const quantity = Number(quantityAnswer);
-    const reason = window.prompt("Why is the item being returned?", "Buyer return");
-    if (!Number.isInteger(quantity) || quantity < 1 || !reason?.trim()) return setError("Enter a whole-number quantity and return reason.");
-    await run(() => createManualReturn({ orderLineId: selected.line.id, quantity, reason: reason.trim(), requestKey: crypto.randomUUID() }));
+    const quantity = Number(answers.quantity);
+    if (!Number.isInteger(quantity) || quantity < 1 || !answers.reason?.trim()) return setError("Enter a whole-number quantity and return reason.");
+    await run(() => createManualReturn({ orderLineId: selected.line.id, quantity, reason: answers.reason.trim(), requestKey: crypto.randomUUID() }));
   };
-  const receive = (line) => { const note = window.prompt("Receipt note", "Returned item physically received"); if (note?.trim()) run(() => receiveReturnLine({ returnLineId: line.id, note: note.trim() })); };
-  const inspect = (line) => {
-    const condition = window.prompt("Condition received", "Used - returned"); if (!condition?.trim()) return;
-    const completeness = window.prompt("Completeness / included parts", "Complete"); if (completeness === null) return;
-    const identityResult = window.prompt("Identity check: not_applicable, not_checked, match, or mismatch", "not_applicable"); if (!identityResult?.trim()) return;
+  const receive = async (line) => { const note = await promptDialog("Receipt note", "Returned item physically received"); if (note?.trim()) run(() => receiveReturnLine({ returnLineId: line.id, note: note.trim() })); };
+  const inspect = async (line) => {
+    const serialFieldsVisible = (values) => ["match", "mismatch"].includes((values.identityResult ?? "").trim().toLowerCase());
+    const answers = await formDialog({
+      title: "Inspect returned item",
+      submitLabel: "Save inspection",
+      fields: [
+        { name: "condition", label: "Condition received", defaultValue: "Used - returned" },
+        { name: "completeness", label: "Completeness / included parts", defaultValue: "Complete" },
+        { name: "identityResult", label: "Identity check", type: "select", defaultValue: "not_applicable", options: ["not_applicable", "not_checked", "match", "mismatch"] },
+        { name: "originalSerial", label: "Original sold-item serial number", defaultValue: "", visibleWhen: serialFieldsVisible },
+        { name: "returnedSerial", label: "Returned-item serial number", defaultValue: "", visibleWhen: serialFieldsVisible },
+        { name: "recommendation", label: "Recommended disposition", type: "select", defaultValue: "restock", options: ["restock", "revise", "repair", "parts", "quarantine", "supplier_return", "discard", "loss"] },
+        { name: "notes", label: "Inspection notes", defaultValue: "Inspection completed" },
+      ],
+    });
+    if (answers === null) return;
+    const { condition, completeness, identityResult, recommendation, notes } = answers;
+    if (!condition?.trim()) return;
+    if (!identityResult?.trim()) return;
     let originalSerial = ""; let returnedSerial = "";
     if (["match", "mismatch"].includes(identityResult.trim().toLowerCase())) {
-      originalSerial = window.prompt("Original sold-item serial number", "") || "";
-      returnedSerial = window.prompt("Returned-item serial number", "") || "";
+      originalSerial = answers.originalSerial || "";
+      returnedSerial = answers.returnedSerial || "";
       if (!originalSerial.trim() || !returnedSerial.trim()) return setError("Both serial numbers are required for identity comparison.");
     }
-    const recommendation = window.prompt("Recommended disposition: restock, revise, repair, parts, quarantine, supplier_return, discard, or loss", "restock"); if (!recommendation?.trim()) return;
-    const notes = window.prompt("Inspection notes", "Inspection completed"); if (notes === null) return;
+    if (!recommendation?.trim()) return;
     run(() => inspectReturnLine({ returnLineId: line.id, condition: condition.trim(), completeness: completeness.trim(), notes: notes.trim(), recommendation: recommendation.trim().toLowerCase(), originalSerial: originalSerial.trim(), returnedSerial: returnedSerial.trim(), identityResult: identityResult.trim().toLowerCase() }));
   };
-  const chooseEvidence = (returnEntry, line) => {
-    const evidenceType = window.prompt("Evidence type: package, item, serial, damage, missing_parts, or other", "item");
+  const chooseEvidence = async (returnEntry, line) => {
+    const answers = await formDialog({
+      title: "Add evidence",
+      submitLabel: "Choose file",
+      fields: [
+        { name: "evidenceType", label: "Evidence type", type: "select", defaultValue: "item", options: ["package", "item", "serial", "damage", "missing_parts", "other"] },
+      ],
+    });
+    if (answers === null) return;
+    const evidenceType = answers.evidenceType;
     if (!evidenceType?.trim()) return;
     setEvidenceTarget({ returnId: returnEntry.id, returnLineId: line.id, evidenceType: evidenceType.trim().toLowerCase() });
     evidenceInput.current?.click();
@@ -1580,107 +1637,212 @@ function ReturnsContent() {
     await run(() => uploadReturnEvidence({ ...evidenceTarget, file }));
     setEvidenceTarget(null);
   };
-  const disposition = (line) => {
+  const disposition = async (line) => {
     const latest = [...(line.return_inspections ?? [])].sort((left, right) => Date.parse(right.inspected_at) - Date.parse(left.inspected_at))[0];
-    const answer = window.prompt("Final disposition: restock, revise, repair, parts, quarantine, supplier_return, discard, or loss", latest?.recommended_disposition || "restock"); if (!answer?.trim()) return;
-    const note = window.prompt("Disposition note", "Disposition approved after inspection"); if (!note?.trim()) return;
-    run(() => dispositionReturnLine({ returnLineId: line.id, disposition: answer.trim().toLowerCase(), note: note.trim() }));
+    const answers = await formDialog({
+      title: "Choose disposition",
+      submitLabel: "Save disposition",
+      fields: [
+        { name: "disposition", label: "Final disposition", type: "select", defaultValue: latest?.recommended_disposition || "restock", options: ["restock", "revise", "repair", "parts", "quarantine", "supplier_return", "discard", "loss"] },
+        { name: "note", label: "Disposition note", defaultValue: "Disposition approved after inspection" },
+      ],
+    });
+    if (answers === null) return;
+    if (!answers.disposition?.trim()) return;
+    if (!answers.note?.trim()) return;
+    run(() => dispositionReturnLine({ returnLineId: line.id, disposition: answers.disposition.trim().toLowerCase(), note: answers.note.trim() }));
   };
-  const resolveIdentity = (line) => {
-    const resolutionType = window.prompt("Identity resolution: identity_verified or wrong_item_nonstock", "identity_verified"); if (!resolutionType?.trim()) return;
-    const notes = window.prompt("Explain how the identity discrepancy was resolved", ""); if (!notes?.trim()) return;
-    const warning = resolutionType.trim().toLowerCase() === "identity_verified" ? "This will permit a later sellable-stock disposition. Confirm the returned unit's identity was verified." : "This will permanently block restock, revise, and repair outcomes for this unit.";
-    if (!window.confirm(warning)) return;
-    run(() => resolveReturnIdentityDiscrepancy({ returnLineId: line.id, resolutionType: resolutionType.trim().toLowerCase(), notes: notes.trim() }));
+  const resolveIdentity = async (line) => {
+    const answers = await formDialog({
+      title: "Resolve identity discrepancy",
+      submitLabel: "Continue",
+      fields: [
+        { name: "resolutionType", label: "Identity resolution", type: "select", defaultValue: "identity_verified", options: ["identity_verified", "wrong_item_nonstock"] },
+        { name: "notes", label: "Explain how the identity discrepancy was resolved", defaultValue: "" },
+      ],
+    });
+    if (answers === null) return;
+    if (!answers.resolutionType?.trim()) return;
+    if (!answers.notes?.trim()) return;
+    const warning = answers.resolutionType.trim().toLowerCase() === "identity_verified" ? "This will permit a later sellable-stock disposition. Confirm the returned unit's identity was verified." : "This will permanently block restock, revise, and repair outcomes for this unit.";
+    if (!await confirmDialog(warning)) return;
+    run(() => resolveReturnIdentityDiscrepancy({ returnLineId: line.id, resolutionType: answers.resolutionType.trim().toLowerCase(), notes: answers.notes.trim() }));
   };
-  const recordMoney = (returnEntry) => {
-    const type = window.prompt("Type: refund, partial_refund, fee_credit, return_shipping, replacement_shipping, or other", "refund"); if (!type?.trim()) return;
-    const normalizedType = type.trim().toLowerCase();
+  const recordMoney = async (returnEntry) => {
+    const typeAnswers = await formDialog({
+      title: "Record refund or return cost",
+      submitLabel: "Continue",
+      fields: [
+        { name: "type", label: "Type", type: "select", defaultValue: "refund", options: ["refund", "partial_refund", "fee_credit", "return_shipping", "replacement_shipping", "other"] },
+      ],
+    });
+    if (typeAnswers === null) return;
+    if (!typeAnswers.type?.trim()) return;
+    const normalizedType = typeAnswers.type.trim().toLowerCase();
     if (["refund", "partial_refund"].includes(normalizedType)) {
       const eligibleLines = returnEntry.return_lines.filter((line) => Number(line.order_lines?.fulfilled_quantity || 0) > Number(line.order_lines?.refunded_quantity || 0));
       if (eligibleLines.length === 0) return setError("No fulfilled, unrefunded units are available on this return.");
-      const choices = eligibleLines.map((line, index) => `${index + 1}. ${line.order_lines?.seller_sku || line.order_lines?.title || "Returned item"} · ${Number(line.order_lines.fulfilled_quantity) - Number(line.order_lines.refunded_quantity || 0)} refundable`).join("\n");
-      const selection = window.prompt(`Choose the refunded line by number:\n\n${choices}`, "1"); if (selection === null) return;
-      const line = eligibleLines[Number(selection) - 1]; if (!line) return setError("Choose a listed return line number.");
+      const lineAnswers = await formDialog({
+        title: "Record refund or return cost",
+        submitLabel: "Continue",
+        fields: [
+          { name: "line", label: "Refunded line", type: "select", defaultValue: "1", options: eligibleLines.map((line, index) => ({ value: String(index + 1), label: `${line.order_lines?.seller_sku || line.order_lines?.title || "Returned item"} · ${Number(line.order_lines.fulfilled_quantity) - Number(line.order_lines.refunded_quantity || 0)} refundable` })) },
+        ],
+      });
+      if (lineAnswers === null) return;
+      const line = eligibleLines[Number(lineAnswers.line) - 1]; if (!line) return setError("Choose a listed return line number.");
       const maximum = Math.min(Number(line.quantity), Number(line.order_lines.fulfilled_quantity) - Number(line.order_lines.refunded_quantity || 0));
-      const quantity = Number(window.prompt("Refunded quantity", String(maximum))); if (!Number.isInteger(quantity) || quantity < 1 || quantity > maximum) return setError(`Enter a whole-number refund quantity from 1 to ${maximum}.`);
-      const amount = Number(window.prompt("Refund amount", "0.00")); if (!Number.isFinite(amount) || amount < 0) return setError("Enter a non-negative refund amount.");
-      const note = window.prompt("Refund note", "Confirmed from marketplace or payment record"); if (note === null) return;
-      return run(() => recordReturnLineRefund({ returnLineId: line.id, quantity, amount, eventKey: `manual:${crypto.randomUUID()}`, note: note.trim() }));
+      const refundAnswers = await formDialog({
+        title: "Record refund or return cost",
+        submitLabel: "Record refund",
+        fields: [
+          { name: "quantity", label: "Refunded quantity", defaultValue: String(maximum) },
+          { name: "amount", label: "Refund amount", defaultValue: "0.00" },
+          { name: "note", label: "Refund note", defaultValue: "Confirmed from marketplace or payment record" },
+        ],
+      });
+      if (refundAnswers === null) return;
+      const quantity = Number(refundAnswers.quantity); if (!Number.isInteger(quantity) || quantity < 1 || quantity > maximum) return setError(`Enter a whole-number refund quantity from 1 to ${maximum}.`);
+      const amount = Number(refundAnswers.amount); if (!Number.isFinite(amount) || amount < 0) return setError("Enter a non-negative refund amount.");
+      return run(() => recordReturnLineRefund({ returnLineId: line.id, quantity, amount, eventKey: `manual:${crypto.randomUUID()}`, note: refundAnswers.note.trim() }));
     }
-    const amountAnswer = window.prompt("Amount", "0.00"); if (amountAnswer === null) return;
-    const amount = Number(amountAnswer); if (!Number.isFinite(amount) || amount < 0) return setError("Enter a non-negative financial amount.");
-    const note = window.prompt("Financial note", "Recorded from marketplace or payment record"); if (note === null) return;
-    run(() => recordReturnFinancialEvent({ returnId: returnEntry.id, type: normalizedType, amount, eventKey: `manual:${crypto.randomUUID()}`, note: note.trim() }));
+    const answers = await formDialog({
+      title: "Record refund or return cost",
+      submitLabel: "Record",
+      fields: [
+        { name: "amount", label: "Amount", defaultValue: "0.00" },
+        { name: "note", label: "Financial note", defaultValue: "Recorded from marketplace or payment record" },
+      ],
+    });
+    if (answers === null) return;
+    const amount = Number(answers.amount); if (!Number.isFinite(amount) || amount < 0) return setError("Enter a non-negative financial amount.");
+    run(() => recordReturnFinancialEvent({ returnId: returnEntry.id, type: normalizedType, amount, eventKey: `manual:${crypto.randomUUID()}`, note: answers.note.trim() }));
   };
-  const closeCase = (returnEntry) => {
+  const closeCase = async (returnEntry) => {
     if (returnEntry.return_lines.some((line) => line.inventory_state === "quarantined")) return setError("Received return inventory must be inspected and dispositioned before closure.");
     const hasUnreceivedLines = returnEntry.return_lines.some((line) => line.inventory_state === "unavailable");
-    const inventoryNotApplicable = hasUnreceivedLines && window.confirm("No physical inventory will return for this case. Mark the inventory outcome not applicable?");
+    const inventoryNotApplicable = hasUnreceivedLines && await confirmDialog("No physical inventory will return for this case. Mark the inventory outcome not applicable?");
     if (hasUnreceivedLines && !inventoryNotApplicable) return;
     const hasFinancialEvents = returnEntry.return_financial_events.length > 0;
-    const financialNotApplicable = !hasFinancialEvents && window.confirm("No refund, credit, or return cost applies to this case. Mark the financial outcome not applicable?");
+    const financialNotApplicable = !hasFinancialEvents && await confirmDialog("No refund, credit, or return cost applies to this case. Mark the financial outcome not applicable?");
     if (!hasFinancialEvents && !financialNotApplicable) return;
-    const notes = window.prompt("Closure notes", "Return outcomes reviewed and complete"); if (!notes?.trim()) return;
-    if (!window.confirm("Close this return? Its inventory and financial outcomes will remain in audit history.")) return;
+    const notes = await promptDialog("Closure notes", "Return outcomes reviewed and complete"); if (!notes?.trim()) return;
+    if (!await confirmDialog("Close this return? Its inventory and financial outcomes will remain in audit history.")) return;
     run(() => closeReturnCase({ returnId: returnEntry.id, inventoryNotApplicable, financialNotApplicable, notes: notes.trim() }));
   };
-  const startReplacement = (returnEntry, line) => {
+  const startReplacement = async (returnEntry, line) => {
     const candidates = repository.getSnapshot().items.filter((item) => !item.archivedAt && item.serverId && item.verificationState !== "unverified_import" && Number(item.available ?? item.quantity ?? 0) > 0);
     if (candidates.length === 0) return setError("No verified available inventory can be used for a replacement.");
-    const choices = candidates.map((item, index) => `${index + 1}. ${item.sellerSku || `PF-${item.id}`} · ${item.name} · ${item.available ?? item.quantity} available`).join("\n");
-    const answer = window.prompt(`Choose replacement inventory by number:\n\n${choices}`, "1"); if (answer === null) return;
-    const item = candidates[Number(answer) - 1]; if (!item) return setError("Choose a listed replacement item number.");
-    const quantityAnswer = window.prompt("Replacement quantity", String(Math.min(Number(line.quantity), Number(item.available ?? item.quantity)))); if (quantityAnswer === null) return;
-    const quantity = Number(quantityAnswer); if (!Number.isInteger(quantity) || quantity < 1) return setError("Enter a whole-number replacement quantity.");
-    if (!window.confirm("Start replacement fulfillment? This creates a new reservation separate from the original sale.")) return;
+    const answers = await formDialog({
+      title: "Start replacement fulfillment",
+      submitLabel: "Continue",
+      fields: [
+        { name: "item", label: "Replacement inventory", type: "select", defaultValue: "1", options: candidates.map((item, index) => ({ value: String(index + 1), label: `${item.sellerSku || `PF-${item.id}`} · ${item.name} · ${item.available ?? item.quantity} available` })) },
+        { name: "quantity", label: "Replacement quantity", defaultValue: String(Math.min(Number(line.quantity), Number(candidates[0].available ?? candidates[0].quantity))) },
+      ],
+    });
+    if (answers === null) return;
+    const item = candidates[Number(answers.item) - 1]; if (!item) return setError("Choose a listed replacement item number.");
+    const quantity = Number(answers.quantity); if (!Number.isInteger(quantity) || quantity < 1) return setError("Enter a whole-number replacement quantity.");
+    if (!await confirmDialog("Start replacement fulfillment? This creates a new reservation separate from the original sale.")) return;
     run(() => startReturnReplacement({ returnLineId: line.id, inventoryItemId: item.serverId, quantity }));
   };
-  const advanceReplacement = (shipment) => {
+  const advanceReplacement = async (shipment) => {
     if (shipment.state === "ready_to_pick") return run(() => confirmShipmentPicked(shipment.id));
     if (shipment.state === "ready_to_pack") {
       const packageRow = shipment.shipment_packages?.[0]; if (!packageRow) return setError("Replacement package record is missing.");
-      const weightOz = Number(window.prompt("Final packaged weight in ounces", "") || 0);
-      const lengthIn = Number(window.prompt("Package length in inches", "") || 0);
-      const widthIn = Number(window.prompt("Package width in inches", "") || 0);
-      const heightIn = Number(window.prompt("Package height in inches", "") || 0);
-      const supplyCost = Number(window.prompt("Packaging supply cost", String(Number(packageRow.supply_cost || 0).toFixed(2))));
+      const answers = await formDialog({
+        title: "Pack replacement",
+        submitLabel: "Confirm package",
+        fields: [
+          { name: "weightOz", label: "Final packaged weight in ounces", defaultValue: "" },
+          { name: "lengthIn", label: "Package length in inches", defaultValue: "" },
+          { name: "widthIn", label: "Package width in inches", defaultValue: "" },
+          { name: "heightIn", label: "Package height in inches", defaultValue: "" },
+          { name: "supplyCost", label: "Packaging supply cost", defaultValue: String(Number(packageRow.supply_cost || 0).toFixed(2)) },
+        ],
+      });
+      if (answers === null) return;
+      const weightOz = Number(answers.weightOz || 0);
+      const lengthIn = Number(answers.lengthIn || 0);
+      const widthIn = Number(answers.widthIn || 0);
+      const heightIn = Number(answers.heightIn || 0);
+      const supplyCost = Number(answers.supplyCost);
       if ([weightOz, lengthIn, widthIn, heightIn].some((value) => !Number.isFinite(value) || value <= 0)) return setError("Enter a positive weight and all three package dimensions.");
       if (!Number.isFinite(supplyCost) || supplyCost < 0) return setError("Enter a non-negative packaging supply cost.");
       return run(() => confirmShipmentPackage({ packageId: packageRow.id, weightGrams: Math.round(weightOz * 28.349523125), lengthMm: Math.round(lengthIn * 25.4), widthMm: Math.round(widthIn * 25.4), heightMm: Math.round(heightIn * 25.4), supplyCost }));
     }
     if (shipment.state === "ready_for_label") {
-      const carrier = window.prompt("Carrier", "USPS"); if (!carrier?.trim()) return;
-      const service = window.prompt("Service", "Ground Advantage"); if (!service?.trim()) return;
-      const trackingNumber = window.prompt("Tracking number", ""); if (!trackingNumber?.trim()) return;
-      const cost = Number(window.prompt("Final replacement shipping cost", "0.00")); if (!Number.isFinite(cost) || cost < 0) return setError("Enter a non-negative shipping cost.");
-      return run(() => recordShipmentLabel({ shipmentId: shipment.id, source: "ebay", carrier: carrier.trim(), service: service.trim(), trackingNumber: trackingNumber.trim(), cost }));
+      const answers = await formDialog({
+        title: "Record replacement label",
+        submitLabel: "Record label",
+        fields: [
+          { name: "carrier", label: "Carrier", defaultValue: "USPS" },
+          { name: "service", label: "Service", defaultValue: "Ground Advantage" },
+          { name: "trackingNumber", label: "Tracking number", defaultValue: "" },
+          { name: "cost", label: "Final replacement shipping cost", defaultValue: "0.00" },
+        ],
+      });
+      if (answers === null) return;
+      if (!answers.carrier?.trim()) return;
+      if (!answers.service?.trim()) return;
+      if (!answers.trackingNumber?.trim()) return;
+      const cost = Number(answers.cost); if (!Number.isFinite(cost) || cost < 0) return setError("Enter a non-negative shipping cost.");
+      return run(() => recordShipmentLabel({ shipmentId: shipment.id, source: "ebay", carrier: answers.carrier.trim(), service: answers.service.trim(), trackingNumber: answers.trackingNumber.trim(), cost }));
     }
     if (shipment.state === "label_purchased") {
-      if (!window.confirm("Confirm physical carrier handoff? This consumes only the replacement reservation.")) return;
+      if (!await confirmDialog("Confirm physical carrier handoff? This consumes only the replacement reservation.")) return;
       return run(() => confirmShipmentShipped(shipment.id));
     }
   };
-  const recordReturnShipping = (returnEntry) => {
-    const source = window.prompt("Label source: ebay or external", "ebay"); if (!source?.trim()) return;
-    const payer = window.prompt("Who paid: seller, buyer, or marketplace", "seller"); if (!payer?.trim()) return;
-    const carrier = window.prompt("Return carrier", "USPS"); if (!carrier?.trim()) return;
-    const trackingNumber = window.prompt("Return tracking number", returnEntry.tracking_number || ""); if (!trackingNumber?.trim()) return;
-    const costAnswer = window.prompt("Return label cost (enter 0 if the seller did not pay)", "0.00"); if (costAnswer === null) return;
-    const cost = Number(costAnswer); if (!Number.isFinite(cost) || cost < 0) return setError("Enter a non-negative return label cost.");
-    run(() => recordReturnShippingHandoff({ returnId: returnEntry.id, source: source.trim().toLowerCase(), payer: payer.trim().toLowerCase(), carrier: carrier.trim(), trackingNumber: trackingNumber.trim(), cost }));
+  const recordReturnShipping = async (returnEntry) => {
+    const answers = await formDialog({
+      title: "Record eBay return label",
+      submitLabel: "Record label",
+      fields: [
+        { name: "source", label: "Label source", type: "select", defaultValue: "ebay", options: ["ebay", "external"] },
+        { name: "payer", label: "Who paid", type: "select", defaultValue: "seller", options: ["seller", "buyer", "marketplace"] },
+        { name: "carrier", label: "Return carrier", defaultValue: "USPS" },
+        { name: "trackingNumber", label: "Return tracking number", defaultValue: returnEntry.tracking_number || "" },
+        { name: "cost", label: "Return label cost (enter 0 if the seller did not pay)", defaultValue: "0.00" },
+      ],
+    });
+    if (answers === null) return;
+    if (!answers.source?.trim()) return;
+    if (!answers.payer?.trim()) return;
+    if (!answers.carrier?.trim()) return;
+    if (!answers.trackingNumber?.trim()) return;
+    const cost = Number(answers.cost); if (!Number.isFinite(cost) || cost < 0) return setError("Enter a non-negative return label cost.");
+    run(() => recordReturnShippingHandoff({ returnId: returnEntry.id, source: answers.source.trim().toLowerCase(), payer: answers.payer.trim().toLowerCase(), carrier: answers.carrier.trim(), trackingNumber: answers.trackingNumber.trim(), cost }));
   };
-  const recordDecision = (returnEntry) => {
-    const decisionType = window.prompt("Confirmed eBay outcome: approve_return, decline, partial_refund, refund_without_return, or replacement", "approve_return"); if (!decisionType?.trim()) return;
-    const notes = window.prompt("Decision notes", "Confirmed in eBay"); if (notes === null) return;
-    if (!window.confirm("Record this only if eBay already confirmed the outcome. PalletFlip will not submit a marketplace action, change inventory, or create a refund entry.")) return;
-    run(() => recordConfirmedReturnDecision({ returnId: returnEntry.id, decisionType: decisionType.trim().toLowerCase(), eventKey: `ebay-confirmed:${crypto.randomUUID()}`, notes: notes.trim() }));
+  const recordDecision = async (returnEntry) => {
+    const answers = await formDialog({
+      title: "Record confirmed eBay decision",
+      submitLabel: "Continue",
+      fields: [
+        { name: "decisionType", label: "Confirmed eBay outcome", type: "select", defaultValue: "approve_return", options: ["approve_return", "decline", "partial_refund", "refund_without_return", "replacement"] },
+        { name: "notes", label: "Decision notes", defaultValue: "Confirmed in eBay" },
+      ],
+    });
+    if (answers === null) return;
+    if (!answers.decisionType?.trim()) return;
+    if (!await confirmDialog("Record this only if eBay already confirmed the outcome. PalletFlip will not submit a marketplace action, change inventory, or create a refund entry.")) return;
+    run(() => recordConfirmedReturnDecision({ returnId: returnEntry.id, decisionType: answers.decisionType.trim().toLowerCase(), eventKey: `ebay-confirmed:${crypto.randomUUID()}`, notes: answers.notes.trim() }));
   };
-  const recordCommunication = (returnEntry) => {
-    const direction = window.prompt("Message direction: seller_to_buyer, buyer_to_seller, or marketplace", "seller_to_buyer"); if (!direction?.trim()) return;
-    const body = window.prompt("Message copied from the eBay return conversation", ""); if (!body?.trim()) return;
-    if (!window.confirm("Confirm this message already exists in eBay. PalletFlip records the history but does not send the message.")) return;
-    run(() => recordReturnCommunication({ returnId: returnEntry.id, direction: direction.trim().toLowerCase(), body: body.trim(), eventKey: `ebay-message:${crypto.randomUUID()}` }));
+  const recordCommunication = async (returnEntry) => {
+    const answers = await formDialog({
+      title: "Record eBay message",
+      submitLabel: "Continue",
+      fields: [
+        { name: "direction", label: "Message direction", type: "select", defaultValue: "seller_to_buyer", options: ["seller_to_buyer", "buyer_to_seller", "marketplace"] },
+        { name: "body", label: "Message copied from the eBay return conversation", type: "textarea", defaultValue: "" },
+      ],
+    });
+    if (answers === null) return;
+    if (!answers.direction?.trim()) return;
+    if (!answers.body?.trim()) return;
+    if (!await confirmDialog("Confirm this message already exists in eBay. PalletFlip records the history but does not send the message.")) return;
+    run(() => recordReturnCommunication({ returnId: returnEntry.id, direction: answers.direction.trim().toLowerCase(), body: answers.body.trim(), eventKey: `ebay-message:${crypto.randomUUID()}` }));
   };
   const financialImpact = (returnEntry) => (returnEntry.return_financial_events ?? []).reduce((sum, event) => sum + (event.event_type === "fee_credit" ? Number(event.amount) : -Number(event.amount)), 0);
   const closedReturnStates = ["resolved", "closed", "cancelled"];
@@ -1975,6 +2137,7 @@ export function App() {
         <div className="settings-mount" hidden={view !== "settings"}><div className="view-stack"><section className="panel"><div className="panel-heading"><div><p className="eyebrow">Inventory preferences</p><h3>Storage locations</h3><span>Optional for garages, shelves, bins, or racks.</span></div><label><input type="checkbox" checked={locationTrackingEnabled} onChange={(event) => setLocationTrackingEnabled(event.target.checked)} /> Enable location tracking</label></div></section><OperationalAlertSettings /><PricingRecommendationSettings /><PackagePresetSettings /><EbaySettings /><ActivityPanel snapshot={snapshot} /></div></div>
         {toast && <div className="toast" role="status">{toast}</div>}
       </main>
+      <DialogHost />
     </div>
   );
 }

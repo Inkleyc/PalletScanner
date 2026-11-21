@@ -1507,6 +1507,28 @@ a:focus-visible {
   justify-content: flex-end;
 }
 
+/* PF-SCOPE-028: in-app dialogs (dialog-service.jsx) wear the app design
+   in every theme — tokens only here; the Work Order treatment is in the
+   workorder section below. */
+.dialog-backdrop {
+  z-index: 120;
+}
+
+.dialog-modal {
+  max-width: 520px;
+}
+
+.dialog-modal .dialog-message {
+  color: var(--app-text);
+  margin-top: 0;
+  white-space: pre-line;
+}
+
+.dialog-form-fields {
+  display: grid;
+  gap: 14px;
+}
+
 .admin-card {
   background: var(--app-surface-muted);
   border: 1px solid var(--app-border);
@@ -2865,4 +2887,21 @@ th {
   display: flex;
   flex-direction: column;
   justify-content: flex-start;
+}
+
+/* --- Dialogs (PF-SCOPE-028): the form treatment at full strength —
+   squared box, 1.5px ink frame, mono uppercase labels and title --- */
+:root[data-theme="workorder"] .dialog-modal {
+  border: 1.5px solid #2a343e;
+  border-radius: 2px;
+}
+
+:root[data-theme="workorder"] .dialog-modal h3 {
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+:root[data-theme="workorder"] .dialog-modal label span {
+  font-family: var(--font-num);
+  letter-spacing: 0.14em;
 }
