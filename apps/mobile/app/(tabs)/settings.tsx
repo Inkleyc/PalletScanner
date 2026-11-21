@@ -291,15 +291,14 @@ export default function SettingsScreen() {
         <View style={styles.card}>
           <Text style={styles.settingTitle}>Theme</Text>
           <Text style={styles.settingDescription}>
-            Day is the light slate theme. Work Order is the paper-and-ink
-            theme with hardware orange. Deep is the dark slate theme, tuned
-            for warehouses and low light.
+            Day is the light slate theme. Deep is the dark slate theme,
+            tuned for warehouses and low light. Both use the same squared
+            form structure.
           </Text>
           <View style={styles.themeOptionRow}>
             {(
               [
                 { value: "day", label: "Day" },
-                { value: "workorder", label: "Work Order" },
                 { value: "deep", label: "Deep" },
               ] as const
             ).map((option) => {

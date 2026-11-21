@@ -31,7 +31,7 @@ export default function TabLayout() {
         style={{
           minWidth: isTablet ? 56 : 52,
           height: isTablet ? 40 : 38,
-          // Work Order: the active-tab pill becomes a squared form block.
+          // Form shape: the active-tab pill becomes a squared form block.
           borderRadius: shape.isForm
             ? shape.tabActiveRadius
             : isTablet

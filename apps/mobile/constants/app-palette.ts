@@ -72,51 +72,7 @@ export const DeepPalette = {
   modalBackdrop: "rgba(4, 8, 16, 0.6)",
 } as const;
 
-/**
- * Work Order (experiment) palette — phone variation of the web Work Order
- * theme: paper, ink and hardware orange. Same token roles as DayPalette.
- * Light-only for the trial; no plate/hardware decoration, palette only.
- */
-export const WorkOrderPalette = {
-  background: "#e8e6df",
-  surface: "#f7f5ef",
-  surfaceMuted: "#efede6",
-  surfaceTint: "#e2ded2",
-  border: "#b9b2a2",
-  borderStrong: "#2a343e",
-  text: "#1a222b",
-  textMuted: "#5a6570",
-  textSoft: "#87919b",
-  primary: "#e85a08",
-  primaryStrong: "#c24e06",
-  primarySoft: "#fbe9dc",
-  primaryOn: "#ffffff",
-  success: "#1e7a46",
-  successSoft: "#e2f2e6",
-  successBorder: "#bfe3cc",
-  warning: "#96590a",
-  warningSoft: "#f6e3c8",
-  warningBorder: "#e8c795",
-  danger: "#b3372a",
-  dangerStrong: "#8f2a1e",
-  dangerSoft: "#f9e8e4",
-  dangerBorder: "#efc0b9",
-  info: "#2b5ea7",
-  infoSoft: "#e6eefb",
-  infoBorder: "#c3d4ef",
-  primaryBorder: "#e8c795",
-  shadow: "rgba(26, 34, 43, 0.10)",
-  modalBackdrop: "rgba(26, 34, 43, 0.45)",
-} as const;
-
 export type AppPaletteShape = { [K in keyof typeof DayPalette]: string };
-
-/**
- * Backwards-compatible alias for screens that are not part of the themed set
- * yet (login, onboarding and the entry screen). Those still render with the
- * Day palette.
- */
-export const AppPalette = DayPalette;
 
 export const AppLayout = {
   maxContentWidth: 980,

@@ -1,6 +1,6 @@
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import { useRouter } from "expo-router";
-import { useEffect, useState, useSyncExternalStore } from "react";
+import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import {
   ActivityIndicator,
   Keyboard,
@@ -15,8 +15,9 @@ import {
   View,
 } from "react-native";
 
-import { AppPalette } from "@/constants/app-palette";
+import { type AppPaletteShape } from "@/constants/app-palette";
 import { AppAlert as Alert } from "@/lib/app-alert";
+import { useAppPalette } from "@/lib/app-theme";
 import {
   enableTestMode,
   getSupabaseAuthSnapshot,
@@ -28,6 +29,8 @@ import {
 
 export default function LoginScreen() {
   const router = useRouter();
+  const palette = useAppPalette();
+  const styles = useMemo(() => createStyles(palette), [palette]);
   const auth = useSyncExternalStore(
     subscribeSupabaseAuth,
     getSupabaseAuthSnapshot,
@@ -97,7 +100,7 @@ export default function LoginScreen() {
   if (!auth.ready) {
     return (
       <View style={styles.loading}>
-        <ActivityIndicator size="large" color={AppPalette.primaryStrong} />
+        <ActivityIndicator size="large" color={palette.primaryStrong} />
       </View>
     );
   }
@@ -111,7 +114,7 @@ export default function LoginScreen() {
         <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
           <View style={styles.content}>
         <View style={styles.brandMark}>
-          <MaterialIcons name="inventory-2" size={42} color={AppPalette.primaryOn} />
+          <MaterialIcons name="inventory-2" size={42} color={palette.primaryOn} />
         </View>
         <Text style={styles.title}>PalletFlip</Text>
         <Text style={styles.subtitle}>
@@ -129,7 +132,7 @@ export default function LoginScreen() {
                   value={email}
                   onChangeText={setEmail}
                   placeholder="Email address"
-                  placeholderTextColor={AppPalette.textSoft}
+                  placeholderTextColor={palette.textSoft}
                   autoCapitalize="none"
                   autoCorrect={false}
                   keyboardType="email-address"
@@ -158,7 +161,7 @@ export default function LoginScreen() {
                   value={verificationCode}
                   onChangeText={setVerificationCode}
                   placeholder="Verification code"
-                  placeholderTextColor={AppPalette.textSoft}
+                  placeholderTextColor={palette.textSoft}
                   autoCapitalize="none"
                   autoCorrect={false}
                   keyboardType="number-pad"
@@ -216,14 +219,15 @@ export default function LoginScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: AppPalette.background },
+const createStyles = (palette: AppPaletteShape) =>
+  StyleSheet.create({
+  container: { flex: 1, backgroundColor: palette.background },
   avoidingView: { flex: 1 },
   loading: {
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: AppPalette.background,
+    backgroundColor: palette.background,
   },
   content: {
     flex: 1,
@@ -239,27 +243,27 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: AppPalette.primaryStrong,
+    backgroundColor: palette.primaryStrong,
     marginBottom: 24,
   },
   title: {
-    color: AppPalette.text,
+    color: palette.text,
     fontSize: 32,
     fontWeight: "700",
     marginBottom: 8,
   },
   subtitle: {
-    color: AppPalette.textMuted,
+    color: palette.textMuted,
     fontSize: 15,
     lineHeight: 22,
     marginBottom: 28,
   },
   input: {
     borderWidth: 1,
-    borderColor: AppPalette.borderStrong,
+    borderColor: palette.borderStrong,
     borderRadius: 8,
-    backgroundColor: AppPalette.surface,
-    color: AppPalette.text,
+    backgroundColor: palette.surface,
+    color: palette.text,
     fontSize: 16,
     paddingHorizontal: 14,
     paddingVertical: 14,
@@ -270,21 +274,21 @@ const styles = StyleSheet.create({
     textAlign: "center",
   },
   codeSentText: {
-    color: AppPalette.text,
+    color: palette.text,
     fontSize: 14,
     fontWeight: "600",
     marginBottom: 12,
   },
   primaryButton: {
     alignItems: "center",
-    backgroundColor: AppPalette.primaryStrong,
+    backgroundColor: palette.primaryStrong,
     borderRadius: 8,
     marginTop: 12,
     paddingVertical: 14,
   },
   disabledButton: { opacity: 0.56 },
   primaryButtonText: {
-    color: AppPalette.primaryOn,
+    color: palette.primaryOn,
     fontSize: 15,
     fontWeight: "700",
   },
@@ -293,36 +297,36 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
   },
   changeEmailText: {
-    color: AppPalette.primaryStrong,
+    color: palette.primaryStrong,
     fontSize: 13,
     fontWeight: "700",
   },
   divider: {
     height: 1,
-    backgroundColor: AppPalette.border,
+    backgroundColor: palette.border,
     marginVertical: 22,
   },
   testButton: {
     alignItems: "center",
-    borderColor: AppPalette.borderStrong,
+    borderColor: palette.borderStrong,
     borderRadius: 8,
     borderWidth: 1,
     paddingVertical: 13,
   },
   testButtonText: {
-    color: AppPalette.text,
+    color: palette.text,
     fontSize: 14,
     fontWeight: "700",
   },
   testHint: {
-    color: AppPalette.textMuted,
+    color: palette.textMuted,
     fontSize: 12,
     lineHeight: 18,
     marginTop: 8,
     textAlign: "center",
   },
   error: {
-    color: AppPalette.dangerStrong,
+    color: palette.dangerStrong,
     fontSize: 14,
     lineHeight: 20,
   },

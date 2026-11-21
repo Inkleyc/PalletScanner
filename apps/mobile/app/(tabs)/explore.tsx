@@ -2295,7 +2295,7 @@ const createStyles = (palette: AppPaletteShape, shape: AppShape) => StyleSheet.c
   workflowStatusBar: {
     paddingHorizontal: 12,
     paddingVertical: 7,
-    // Work Order: the tinted status band becomes a form band — squared to
+    // Form shape: the tinted status band becomes a form band — squared to
     // the card's corners with a firm ink rule under it.
     borderTopLeftRadius: shape.isForm ? shape.cardRadius : 0,
     borderTopRightRadius: shape.isForm ? shape.cardRadius : 0,
