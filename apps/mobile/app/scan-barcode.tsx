@@ -2,7 +2,7 @@ import { useRouter } from "expo-router";
 import { CameraView, useCameraPermissions } from "expo-camera";
 import * as Clipboard from "expo-clipboard";
 import * as ImagePicker from "expo-image-picker";
-import { useEffect, useRef, useState, useSyncExternalStore } from "react";
+import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import {
   ActivityIndicator,
   Image,
@@ -20,7 +20,8 @@ import {
 import { LoadingStatus } from "@/components/loading-status";
 import { PhotoReferenceCards } from "@/components/photo-reference-cards";
 import { WebBarcodeScanner } from "@/components/web-barcode-scanner";
-import { DeepPalette } from "@/constants/app-palette";
+import { type AppPaletteShape } from "@/constants/app-palette";
+import { useAppPalette } from "@/lib/app-theme";
 import {
   ANTHROPIC_MODEL,
   getAnalysisImageMediaType,
@@ -96,6 +97,8 @@ const BARCODE_TYPES = [
 
 export default function BarcodeScanScreen() {
   const router = useRouter();
+  const palette = useAppPalette();
+  const styles = useMemo(() => createStyles(palette), [palette]);
   const [images, setImages] = useState<ImageAssetLike[]>([]);
   const [loading, setLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -157,23 +160,23 @@ export default function BarcodeScanScreen() {
     if (score >= 8) {
       return {
         label: "Strong Sell",
-        backgroundColor: DeepPalette.successSoft,
-        color: DeepPalette.success,
+        backgroundColor: palette.successSoft,
+        color: palette.success,
       };
     }
 
     if (score >= 5) {
       return {
         label: "Worth Listing",
-        backgroundColor: DeepPalette.warningSoft,
-        color: DeepPalette.warning,
+        backgroundColor: palette.warningSoft,
+        color: palette.warning,
       };
     }
 
     return {
       label: "Consider Donating",
-      backgroundColor: DeepPalette.dangerSoft,
-      color: DeepPalette.dangerStrong,
+      backgroundColor: palette.dangerSoft,
+      color: palette.dangerStrong,
     };
   };
 
@@ -1100,7 +1103,7 @@ ${productSummary}
               value={manualBarcodeDraft}
               onChangeText={setManualBarcodeDraft}
               placeholder="e.g. 012345678905"
-              placeholderTextColor={DeepPalette.textSoft}
+              placeholderTextColor={palette.textSoft}
               autoCapitalize="none"
               autoCorrect={false}
               keyboardType="numbers-and-punctuation"
@@ -1217,7 +1220,7 @@ ${productSummary}
         >
           <View style={styles.postingProgressBackdrop}>
             <View style={styles.postingProgressDialog}>
-              <ActivityIndicator size="large" color={DeepPalette.primary} />
+              <ActivityIndicator size="large" color={palette.primary} />
               <Text style={styles.postingProgressTitle}>
                 Posting to eBay
               </Text>
@@ -1525,8 +1528,8 @@ ${productSummary}
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: DeepPalette.background },
+const createStyles = (palette: AppPaletteShape) => StyleSheet.create({
+  container: { flex: 1, backgroundColor: palette.background },
   content: { padding: 20, paddingTop: 56, paddingBottom: 28 },
   captureHeader: {
     flexDirection: "row",
@@ -1536,24 +1539,24 @@ const styles = StyleSheet.create({
     marginBottom: 18,
   },
   captureHeaderCopy: { flex: 1 },
-  title: { fontSize: 30, fontWeight: "700", color: DeepPalette.text, marginBottom: 6 },
-  subtitle: { fontSize: 14, color: DeepPalette.textMuted, marginBottom: 20, lineHeight: 20 },
+  title: { fontSize: 30, fontWeight: "700", color: palette.text, marginBottom: 6 },
+  subtitle: { fontSize: 14, color: palette.textMuted, marginBottom: 20, lineHeight: 20 },
   closeCaptureBtn: {
-    backgroundColor: DeepPalette.surface,
+    backgroundColor: palette.surface,
     borderWidth: 1,
-    borderColor: DeepPalette.border,
+    borderColor: palette.border,
     paddingHorizontal: 12,
     paddingVertical: 9,
     borderRadius: 8,
   },
-  closeCaptureBtnText: { color: DeepPalette.text, fontWeight: "600", fontSize: 13 },
+  closeCaptureBtnText: { color: palette.text, fontWeight: "600", fontSize: 13 },
   palletCard: {
-    backgroundColor: DeepPalette.surface,
+    backgroundColor: palette.surface,
     borderRadius: 10,
     padding: 16,
     marginBottom: 16,
     borderWidth: 1,
-    borderColor: DeepPalette.border,
+    borderColor: palette.border,
   },
   palletHeader: {
     flexDirection: "row",
@@ -1564,69 +1567,69 @@ const styles = StyleSheet.create({
   palletLabel: {
     fontSize: 11,
     fontWeight: "600",
-    color: DeepPalette.textSoft,
+    color: palette.textSoft,
     marginBottom: 4,
   },
-  palletName: { fontSize: 20, fontWeight: "700", color: DeepPalette.text },
-  palletMeta: { fontSize: 13, color: DeepPalette.textMuted, marginTop: 4 },
+  palletName: { fontSize: 20, fontWeight: "700", color: palette.text },
+  palletMeta: { fontSize: 13, color: palette.textMuted, marginTop: 4 },
   buttonRow: { flexDirection: "row", gap: 12, marginBottom: 12 },
   btn: {
     flex: 1,
-    backgroundColor: DeepPalette.surface,
+    backgroundColor: palette.surface,
     padding: 14,
     borderRadius: 10,
     alignItems: "center",
     borderWidth: 1,
-    borderColor: DeepPalette.border,
+    borderColor: palette.border,
   },
-  btnText: { color: DeepPalette.text, fontWeight: "600", fontSize: 15 },
+  btnText: { color: palette.text, fontWeight: "600", fontSize: 15 },
   barcodeBtn: {
-    backgroundColor: DeepPalette.primaryStrong,
+    backgroundColor: palette.primaryStrong,
     padding: 14,
     borderRadius: 10,
     alignItems: "center",
     marginBottom: 10,
   },
-  barcodeBtnText: { color: DeepPalette.primaryOn, fontWeight: "600", fontSize: 15 },
+  barcodeBtnText: { color: palette.primaryOn, fontWeight: "600", fontSize: 15 },
   manualBarcodeToggle: {
     alignItems: "center",
-    borderColor: DeepPalette.border,
+    borderColor: palette.border,
     borderRadius: 10,
     borderWidth: 1,
     marginBottom: 16,
     padding: 12,
   },
   manualBarcodeToggleText: {
-    color: DeepPalette.primaryStrong,
+    color: palette.primaryStrong,
     fontSize: 14,
     fontWeight: "700",
   },
   manualBarcodeCard: {
-    backgroundColor: DeepPalette.surface,
-    borderColor: DeepPalette.border,
+    backgroundColor: palette.surface,
+    borderColor: palette.border,
     borderRadius: 10,
     borderWidth: 1,
     marginBottom: 16,
     padding: 14,
   },
   manualBarcodeTitle: {
-    color: DeepPalette.text,
+    color: palette.text,
     fontSize: 15,
     fontWeight: "700",
     marginBottom: 4,
   },
   manualBarcodeCopy: {
-    color: DeepPalette.textMuted,
+    color: palette.textMuted,
     fontSize: 13,
     lineHeight: 18,
     marginBottom: 10,
   },
   manualBarcodeInput: {
-    backgroundColor: DeepPalette.surface,
-    borderColor: DeepPalette.borderStrong,
+    backgroundColor: palette.surface,
+    borderColor: palette.borderStrong,
     borderRadius: 10,
     borderWidth: 1,
-    color: DeepPalette.text,
+    color: palette.text,
     fontSize: 15,
     marginBottom: 10,
     paddingHorizontal: 12,
@@ -1634,19 +1637,19 @@ const styles = StyleSheet.create({
   },
   manualBarcodeSubmit: {
     alignItems: "center",
-    backgroundColor: DeepPalette.primaryStrong,
+    backgroundColor: palette.primaryStrong,
     borderRadius: 10,
     padding: 12,
   },
   manualBarcodeSubmitText: {
-    color: DeepPalette.primaryOn,
+    color: palette.primaryOn,
     fontSize: 14,
     fontWeight: "700",
   },
   scannerCard: {
     borderRadius: 12,
     overflow: "hidden",
-    backgroundColor: DeepPalette.primaryStrong,
+    backgroundColor: palette.primaryStrong,
     marginBottom: 16,
   },
   scannerView: { height: 280, width: "100%" },
@@ -1673,55 +1676,55 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     borderRadius: 8,
   },
-  closeScannerBtnText: { color: DeepPalette.text, fontWeight: "600", fontSize: 13 },
+  closeScannerBtnText: { color: palette.text, fontWeight: "600", fontSize: 13 },
   scannerTroubleBackdrop: {
     flex: 1,
-    backgroundColor: DeepPalette.modalBackdrop,
+    backgroundColor: palette.modalBackdrop,
     justifyContent: "center",
     padding: 20,
   },
   scannerTroubleDialog: {
-    backgroundColor: DeepPalette.surface,
-    borderColor: DeepPalette.border,
+    backgroundColor: palette.surface,
+    borderColor: palette.border,
     borderRadius: 10,
     borderWidth: 1,
     padding: 18,
   },
   scannerTroubleTitle: {
-    color: DeepPalette.text,
+    color: palette.text,
     fontSize: 20,
     fontWeight: "700",
     marginBottom: 8,
   },
   scannerTroubleCopy: {
-    color: DeepPalette.textMuted,
+    color: palette.textMuted,
     fontSize: 14,
     lineHeight: 20,
     marginBottom: 14,
   },
   scannerTroublePrimary: {
     alignItems: "center",
-    backgroundColor: DeepPalette.primaryStrong,
+    backgroundColor: palette.primaryStrong,
     borderRadius: 10,
     marginBottom: 8,
     paddingVertical: 12,
   },
   scannerTroublePrimaryText: {
-    color: DeepPalette.primaryOn,
+    color: palette.primaryOn,
     fontSize: 14,
     fontWeight: "700",
   },
   scannerTroubleSecondary: {
     alignItems: "center",
-    backgroundColor: DeepPalette.surfaceMuted,
-    borderColor: DeepPalette.border,
+    backgroundColor: palette.surfaceMuted,
+    borderColor: palette.border,
     borderRadius: 10,
     borderWidth: 1,
     marginBottom: 8,
     paddingVertical: 12,
   },
   scannerTroubleSecondaryText: {
-    color: DeepPalette.text,
+    color: palette.text,
     fontSize: 14,
     fontWeight: "700",
   },
@@ -1730,33 +1733,33 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
   },
   scannerTroubleCancelText: {
-    color: DeepPalette.textMuted,
+    color: palette.textMuted,
     fontSize: 14,
     fontWeight: "700",
   },
   postingProgressBackdrop: {
     flex: 1,
-    backgroundColor: DeepPalette.modalBackdrop,
+    backgroundColor: palette.modalBackdrop,
     justifyContent: "center",
     padding: 20,
   },
   postingProgressDialog: {
     alignItems: "center",
-    backgroundColor: DeepPalette.surface,
-    borderColor: DeepPalette.border,
+    backgroundColor: palette.surface,
+    borderColor: palette.border,
     borderRadius: 10,
     borderWidth: 1,
     padding: 20,
   },
   postingProgressTitle: {
-    color: DeepPalette.text,
+    color: palette.text,
     fontSize: 20,
     fontWeight: "700",
     marginTop: 14,
     marginBottom: 6,
   },
   postingProgressCopy: {
-    color: DeepPalette.textMuted,
+    color: palette.textMuted,
     fontSize: 14,
     fontWeight: "600",
     lineHeight: 20,
@@ -1764,53 +1767,53 @@ const styles = StyleSheet.create({
     textAlign: "center",
   },
   postingProgressTrack: {
-    backgroundColor: DeepPalette.surfaceMuted,
+    backgroundColor: palette.surfaceMuted,
     borderRadius: 999,
     height: 8,
     overflow: "hidden",
     width: "100%",
   },
   postingProgressFill: {
-    backgroundColor: DeepPalette.primary,
+    backgroundColor: palette.primary,
     borderRadius: 999,
     height: "100%",
     width: "64%",
   },
   barcodeStatus: {
     fontSize: 13,
-    color: DeepPalette.info,
+    color: palette.info,
     marginBottom: 12,
     fontWeight: "500",
   },
   nextStepCard: {
-    backgroundColor: DeepPalette.surface,
-    borderColor: DeepPalette.border,
+    backgroundColor: palette.surface,
+    borderColor: palette.border,
     borderRadius: 10,
     borderWidth: 1,
     marginBottom: 16,
     padding: 14,
   },
   nextStepTitle: {
-    color: DeepPalette.text,
+    color: palette.text,
     fontSize: 15,
     fontWeight: "700",
     marginBottom: 4,
   },
   nextStepCopy: {
-    color: DeepPalette.textMuted,
+    color: palette.textMuted,
     fontSize: 13,
     lineHeight: 18,
     marginBottom: 12,
   },
   actionStatus: {
-    color: DeepPalette.textMuted,
+    color: palette.textMuted,
     fontSize: 13,
     fontWeight: "600",
     marginTop: 2,
   },
   photoStrip: { marginBottom: 16 },
   thumbContainer: { position: "relative", marginRight: 8 },
-  thumb: { width: 90, height: 90, borderRadius: 8, backgroundColor: DeepPalette.surfaceMuted },
+  thumb: { width: 90, height: 90, borderRadius: 8, backgroundColor: palette.surfaceMuted },
   removeBtn: {
     position: "absolute",
     top: 4,
@@ -1822,40 +1825,40 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  removeBtnText: { color: DeepPalette.primaryOn, fontSize: 12, fontWeight: "600" },
-  photoCount: { fontSize: 13, color: DeepPalette.textMuted, marginTop: 8 },
+  removeBtnText: { color: palette.primaryOn, fontSize: 12, fontWeight: "600" },
+  photoCount: { fontSize: 13, color: palette.textMuted, marginTop: 8 },
   actionRow: { flexDirection: "row", gap: 12, marginBottom: 20 },
   analyzeBtn: {
     flex: 1,
-    backgroundColor: DeepPalette.primaryStrong,
+    backgroundColor: palette.primaryStrong,
     padding: 14,
     borderRadius: 10,
     alignItems: "center",
   },
   analyzeBtnText: { color: "#fff", fontWeight: "600", fontSize: 15 },
   clearBtn: {
-    backgroundColor: DeepPalette.surfaceMuted,
+    backgroundColor: palette.surfaceMuted,
     padding: 14,
     borderRadius: 10,
     alignItems: "center",
     paddingHorizontal: 20,
   },
-  clearBtnText: { color: DeepPalette.textMuted, fontWeight: "600", fontSize: 15 },
+  clearBtnText: { color: palette.textMuted, fontWeight: "600", fontSize: 15 },
   resultCard: {
-    backgroundColor: DeepPalette.surface,
+    backgroundColor: palette.surface,
     borderRadius: 10,
     padding: 16,
     marginTop: 8,
     borderWidth: 1,
-    borderColor: DeepPalette.border,
+    borderColor: palette.border,
   },
-  sectionLabel: { fontSize: 11, fontWeight: "700", color: DeepPalette.textSoft, marginBottom: 8 },
-  itemName: { fontSize: 22, fontWeight: "700", color: DeepPalette.text, marginBottom: 4 },
-  itemDesc: { fontSize: 14, color: DeepPalette.textMuted, marginBottom: 12, lineHeight: 20 },
+  sectionLabel: { fontSize: 11, fontWeight: "700", color: palette.textSoft, marginBottom: 8 },
+  itemName: { fontSize: 22, fontWeight: "700", color: palette.text, marginBottom: 4 },
+  itemDesc: { fontSize: 14, color: palette.textMuted, marginBottom: 12, lineHeight: 20 },
   badgeRow: { flexDirection: "row", gap: 8, flexWrap: "wrap", marginBottom: 8 },
   priceBadge: {
-    backgroundColor: DeepPalette.successSoft,
-    color: DeepPalette.success,
+    backgroundColor: palette.successSoft,
+    color: palette.success,
     fontSize: 13,
     fontWeight: "500",
     paddingHorizontal: 10,
@@ -1863,8 +1866,8 @@ const styles = StyleSheet.create({
     borderRadius: 6,
   },
   floorBadge: {
-    backgroundColor: DeepPalette.surfaceTint,
-    color: DeepPalette.primary,
+    backgroundColor: palette.surfaceTint,
+    color: palette.primary,
     fontSize: 13,
     fontWeight: "500",
     paddingHorizontal: 10,
@@ -1872,8 +1875,8 @@ const styles = StyleSheet.create({
     borderRadius: 6,
   },
   conditionBadge: {
-    backgroundColor: DeepPalette.warningSoft,
-    color: DeepPalette.warning,
+    backgroundColor: palette.warningSoft,
+    color: palette.warning,
     fontSize: 13,
     fontWeight: "500",
     paddingHorizontal: 10,
@@ -1881,15 +1884,15 @@ const styles = StyleSheet.create({
     borderRadius: 6,
   },
   platformBadge: {
-    backgroundColor: DeepPalette.infoSoft,
-    color: DeepPalette.info,
+    backgroundColor: palette.infoSoft,
+    color: palette.info,
     fontSize: 13,
     fontWeight: "500",
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 6,
   },
-  platformReason: { fontSize: 13, color: DeepPalette.textMuted, marginBottom: 16, lineHeight: 18 },
+  platformReason: { fontSize: 13, color: palette.textMuted, marginBottom: 16, lineHeight: 18 },
   sellabilityCard: {
     borderRadius: 10,
     padding: 12,
@@ -1902,15 +1905,15 @@ const styles = StyleSheet.create({
   },
   sellabilityReason: {
     fontSize: 13,
-    color: DeepPalette.textMuted,
+    color: palette.textMuted,
     lineHeight: 18,
   },
   listingBox: {
-    backgroundColor: DeepPalette.surfaceMuted,
+    backgroundColor: palette.surfaceMuted,
     borderRadius: 8,
     padding: 12,
     borderWidth: 1,
-    borderColor: DeepPalette.border,
+    borderColor: palette.border,
   },
   quickEditGrid: {
     flexDirection: "row",
@@ -1925,13 +1928,13 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   advancedToggleText: {
-    color: DeepPalette.primary,
+    color: palette.primary,
     fontSize: 14,
     fontWeight: "700",
   },
   advancedListingBox: {
     borderTopWidth: 1,
-    borderTopColor: DeepPalette.border,
+    borderTopColor: palette.border,
     paddingTop: 12,
     marginTop: 4,
   },
@@ -1944,51 +1947,51 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingVertical: 9,
     borderRadius: 8,
-    backgroundColor: DeepPalette.surface,
+    backgroundColor: palette.surface,
     borderWidth: 1,
-    borderColor: DeepPalette.border,
+    borderColor: palette.border,
     alignItems: "center",
   },
   listingPlatformTabActive: {
-    backgroundColor: DeepPalette.primaryStrong,
-    borderColor: DeepPalette.primaryStrong,
+    backgroundColor: palette.primaryStrong,
+    borderColor: palette.primaryStrong,
   },
   listingPlatformTabText: {
     fontSize: 12,
     fontWeight: "700",
-    color: DeepPalette.textMuted,
+    color: palette.textMuted,
   },
   listingPlatformTabTextActive: {
-    color: DeepPalette.primaryOn,
+    color: palette.primaryOn,
   },
   listingLabel: {
     fontSize: 11,
     fontWeight: "600",
-    color: DeepPalette.textSoft,
+    color: palette.textSoft,
     marginBottom: 4,
     marginTop: 8,
   },
   editableInput: {
     fontSize: 14,
-    color: DeepPalette.text,
+    color: palette.text,
     borderWidth: 1,
-    borderColor: DeepPalette.borderStrong,
+    borderColor: palette.borderStrong,
     borderRadius: 6,
     padding: 10,
-    backgroundColor: DeepPalette.surface,
+    backgroundColor: palette.surface,
     marginBottom: 6,
   },
   editableInputTall: { minHeight: 100, textAlignVertical: "top" },
   copyBtn: {
-    backgroundColor: DeepPalette.surfaceTint,
+    backgroundColor: palette.surfaceTint,
     padding: 12,
     borderRadius: 8,
     alignItems: "center",
     marginTop: 12,
   },
-  copyBtnText: { color: DeepPalette.primary, fontWeight: "600", fontSize: 14 },
+  copyBtnText: { color: palette.primary, fontWeight: "600", fontSize: 14 },
   saveBtn: {
-    backgroundColor: DeepPalette.primaryStrong,
+    backgroundColor: palette.primaryStrong,
     padding: 12,
     borderRadius: 8,
     alignItems: "center",
@@ -1997,46 +2000,46 @@ const styles = StyleSheet.create({
   saveBtnText: { color: "#fff", fontWeight: "600", fontSize: 14 },
   stayBtn: {
     borderWidth: 1,
-    borderColor: DeepPalette.border,
-    backgroundColor: DeepPalette.surface,
+    borderColor: palette.border,
+    backgroundColor: palette.surface,
     padding: 12,
     borderRadius: 8,
     alignItems: "center",
     marginTop: 8,
   },
-  stayBtnText: { color: DeepPalette.text, fontWeight: "600", fontSize: 14 },
+  stayBtnText: { color: palette.text, fontWeight: "600", fontSize: 14 },
   disabledAction: { opacity: 0.62 },
   addAnotherBtn: {
     borderWidth: 1,
-    borderColor: DeepPalette.border,
+    borderColor: palette.border,
     padding: 12,
     borderRadius: 8,
     alignItems: "center",
     marginTop: 8,
   },
-  addAnotherBtnText: { color: DeepPalette.text, fontWeight: "600", fontSize: 14 },
+  addAnotherBtnText: { color: palette.text, fontWeight: "600", fontSize: 14 },
   nextItemBtn: {
-    backgroundColor: DeepPalette.infoSoft,
+    backgroundColor: palette.infoSoft,
     padding: 12,
     borderRadius: 8,
     alignItems: "center",
     marginTop: 8,
   },
-  nextItemBtnText: { color: DeepPalette.info, fontWeight: "600", fontSize: 14 },
+  nextItemBtnText: { color: palette.info, fontWeight: "600", fontSize: 14 },
   finishedBtn: {
-    backgroundColor: DeepPalette.primary,
+    backgroundColor: palette.primary,
     padding: 12,
     borderRadius: 8,
     alignItems: "center",
     marginTop: 8,
   },
-  finishedBtnText: { color: DeepPalette.primaryOn, fontWeight: "600", fontSize: 14 },
+  finishedBtnText: { color: palette.primaryOn, fontWeight: "600", fontSize: 14 },
   photoTipsCard: {
     marginTop: 14,
-    backgroundColor: DeepPalette.surfaceMuted,
+    backgroundColor: palette.surfaceMuted,
     borderRadius: 10,
     borderWidth: 1,
-    borderColor: DeepPalette.border,
+    borderColor: palette.border,
     padding: 12,
   },
   photoTipsToggle: {
@@ -2047,17 +2050,17 @@ const styles = StyleSheet.create({
   photoTipsTitle: {
     fontSize: 14,
     fontWeight: "700",
-    color: DeepPalette.text,
+    color: palette.text,
   },
   photoTipsToggleText: {
     fontSize: 13,
     fontWeight: "600",
-    color: DeepPalette.primary,
+    color: palette.primary,
   },
   photoTipsBody: {
     marginTop: 10,
     fontSize: 13,
     lineHeight: 19,
-    color: DeepPalette.textMuted,
+    color: palette.textMuted,
   },
 });

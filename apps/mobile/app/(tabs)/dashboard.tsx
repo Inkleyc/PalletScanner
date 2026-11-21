@@ -4,7 +4,8 @@ import { useCallback, useMemo, useState } from "react";
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
 import { AppTextStyles, type AppPaletteShape } from "@/constants/app-palette";
-import { useAppPalette } from "@/lib/app-theme";
+import type { AppShape } from "@/constants/app-shape";
+import { useAppTheme } from "@/lib/app-theme";
 import { AppAlert as Alert } from "@/lib/app-alert";
 import { getSupabaseClient } from "@/lib/supabase-auth";
 
@@ -26,8 +27,8 @@ const emptyAttention: OperationalAttention = {
 };
 
 export default function DashboardScreen() {
-  const palette = useAppPalette();
-  const styles = useMemo(() => createStyles(palette), [palette]);
+  const { palette, shape } = useAppTheme();
+  const styles = useMemo(() => createStyles(palette, shape), [palette, shape]);
   const [attention, setAttention] = useState<OperationalAttention | null>(null);
   const [attentionError, setAttentionError] = useState("");
   const [refreshing, setRefreshing] = useState(false);
@@ -117,7 +118,7 @@ export default function DashboardScreen() {
   );
 }
 
-const createStyles = (palette: AppPaletteShape) => StyleSheet.create({
+const createStyles = (palette: AppPaletteShape, shape: AppShape) => StyleSheet.create({
   container: {
     flex: 1,
     justifyContent: "center",
@@ -164,7 +165,7 @@ const createStyles = (palette: AppPaletteShape) => StyleSheet.create({
     lineHeight: 19,
     marginTop: 10,
   },
-  attentionCard: { backgroundColor: palette.warningSoft, borderColor: palette.warning, borderRadius: 10, borderWidth: 1, marginTop: 20, padding: 16 },
+  attentionCard: { backgroundColor: palette.warningSoft, borderColor: palette.warning, borderRadius: shape.isForm ? shape.cardRadius : 10, borderWidth: shape.isForm ? shape.cardBorderWidth : 1, marginTop: 20, padding: 16 },
   attentionCardClear: { backgroundColor: palette.successSoft, borderColor: palette.success },
   attentionHeading: { alignItems: "center", flexDirection: "row", gap: 14 },
   attentionValue: { color: palette.text, fontSize: 28, fontWeight: "800", ...AppTextStyles.num },

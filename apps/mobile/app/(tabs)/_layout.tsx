@@ -13,7 +13,7 @@ import {
 
 export default function TabLayout() {
   const palette = useAppPalette();
-  const { mode } = useAppTheme();
+  const { mode, shape } = useAppTheme();
   const auth = useSyncExternalStore(
     subscribeSupabaseAuth,
     getSupabaseAuthSnapshot,
@@ -31,7 +31,12 @@ export default function TabLayout() {
         style={{
           minWidth: isTablet ? 56 : 52,
           height: isTablet ? 40 : 38,
-          borderRadius: isTablet ? 20 : 19,
+          // Work Order: the active-tab pill becomes a squared form block.
+          borderRadius: shape.isForm
+            ? shape.tabActiveRadius
+            : isTablet
+              ? 20
+              : 19,
           alignItems: "center",
           justifyContent: "center",
           backgroundColor: focused ? activeTint : "transparent",

@@ -12,6 +12,7 @@ import {
   WorkOrderPalette,
   type AppPaletteShape,
 } from "@/constants/app-palette";
+import { getAppShape, type AppShape } from "@/constants/app-shape";
 import {
   getAppSettings,
   setThemeMode,
@@ -26,6 +27,8 @@ type AppThemeContextValue = {
   mode: AppThemeMode;
   setMode: (mode: AppThemeMode) => void;
   palette: AppPaletteShape;
+  /** Structural tokens for the active mode (see constants/app-shape.ts). */
+  shape: AppShape;
 };
 
 const AppThemeContext = createContext<AppThemeContextValue | null>(null);
@@ -59,6 +62,7 @@ export function AppThemeProvider({ children }: { children: ReactNode }) {
           : mode === "deep"
             ? DeepPalette
             : DayPalette,
+      shape: getAppShape(mode),
     }),
     [mode],
   );
@@ -80,4 +84,8 @@ export function useAppTheme(): AppThemeContextValue {
 
 export function useAppPalette(): AppPaletteShape {
   return useAppTheme().palette;
+}
+
+export function useAppShape(): AppShape {
+  return useAppTheme().shape;
 }

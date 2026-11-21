@@ -14,7 +14,8 @@ import {
 } from "react-native";
 
 import { AppLayout, type AppPaletteShape } from "@/constants/app-palette";
-import { useAppPalette, useAppTheme } from "@/lib/app-theme";
+import type { AppShape } from "@/constants/app-shape";
+import { useAppTheme } from "@/lib/app-theme";
 import { AppAlert as Alert } from "@/lib/app-alert";
 import {
   getAppSettings,
@@ -64,9 +65,8 @@ const getResetBackupTimeLabel = (resetBackup: ResetBackupSummary | null) => {
 };
 
 export default function SettingsScreen() {
-  const palette = useAppPalette();
-  const styles = useMemo(() => createStyles(palette), [palette]);
-  const { mode, setMode } = useAppTheme();
+  const { mode, setMode, palette, shape } = useAppTheme();
+  const styles = useMemo(() => createStyles(palette, shape), [palette, shape]);
   const router = useRouter();
   const { width } = useWindowDimensions();
   const isLargeLayout = width >= 900;
@@ -553,7 +553,7 @@ export default function SettingsScreen() {
   );
 }
 
-const createStyles = (palette: AppPaletteShape) => StyleSheet.create({
+const createStyles = (palette: AppPaletteShape, shape: AppShape) => StyleSheet.create({
   container: { flex: 1, backgroundColor: palette.background },
   content: { padding: 24, paddingTop: 60, paddingBottom: 32 },
   innerContent: { width: "100%", alignSelf: "center" },
@@ -572,11 +572,11 @@ const createStyles = (palette: AppPaletteShape) => StyleSheet.create({
   },
   card: {
     backgroundColor: palette.surface,
-    borderRadius: 12,
+    borderRadius: shape.isForm ? shape.cardRadius : 12,
     padding: 16,
     marginBottom: 16,
-    borderWidth: 1,
-    borderColor: palette.border,
+    borderWidth: shape.isForm ? shape.cardBorderWidth : 1,
+    borderColor: shape.isForm ? palette.borderStrong : palette.border,
     shadowColor: palette.shadow,
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 1,
@@ -744,8 +744,8 @@ const createStyles = (palette: AppPaletteShape) => StyleSheet.create({
   resetCard: {
     backgroundColor: palette.dangerSoft,
     borderColor: palette.dangerBorder,
-    borderRadius: 12,
-    borderWidth: 1,
+    borderRadius: shape.isForm ? shape.cardRadius : 12,
+    borderWidth: shape.isForm ? shape.cardBorderWidth : 1,
     marginBottom: 16,
     padding: 16,
   },
@@ -757,9 +757,9 @@ const createStyles = (palette: AppPaletteShape) => StyleSheet.create({
   },
   undoBox: {
     backgroundColor: palette.surface,
-    borderColor: palette.border,
-    borderRadius: 10,
-    borderWidth: 1,
+    borderColor: shape.isForm ? palette.borderStrong : palette.border,
+    borderRadius: shape.isForm ? shape.cardRadius : 10,
+    borderWidth: shape.isForm ? shape.cardBorderWidth : 1,
     marginTop: 12,
     padding: 12,
   },
