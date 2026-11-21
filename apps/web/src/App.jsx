@@ -23,6 +23,7 @@ import { applyPricingRecommendation, archivePackagePreset, closeReturnCase, conf
 import { buildPricingRecommendations } from "./pricing-recommendation-model.js";
 import { cancelManualSaleOrder, completeAssistedChannelTask, createManualSaleOrder } from "./marketplace-observation-repository.js";
 import { ActivityPanel } from "./activity-panel.jsx";
+import { DialogHost } from "./dialog-service.jsx";
 import { PalletManager } from "./pallet-manager.jsx";
 import { Icon } from "./icons.jsx";
 import {
@@ -1975,6 +1976,7 @@ export function App() {
         <div className="settings-mount" hidden={view !== "settings"}><div className="view-stack"><section className="panel"><div className="panel-heading"><div><p className="eyebrow">Inventory preferences</p><h3>Storage locations</h3><span>Optional for garages, shelves, bins, or racks.</span></div><label><input type="checkbox" checked={locationTrackingEnabled} onChange={(event) => setLocationTrackingEnabled(event.target.checked)} /> Enable location tracking</label></div></section><OperationalAlertSettings /><PricingRecommendationSettings /><PackagePresetSettings /><EbaySettings /><ActivityPanel snapshot={snapshot} /></div></div>
         {toast && <div className="toast" role="status">{toast}</div>}
       </main>
+      <DialogHost />
     </div>
   );
 }
