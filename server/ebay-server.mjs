@@ -6,7 +6,11 @@ import { fileURLToPath } from "node:url";
 import { authenticateRequest, getAuthMode } from "./auth.mjs";
 import { createAiService } from "./ai-service.mjs";
 import { lookupBarcode } from "./barcode-service.mjs";
-import { createEbayTokenStore } from "./ebay-token-store.mjs";
+import {
+  createEbayTokenStore,
+  createRoutedEbayTokenStore,
+  createSupabaseEbayTokenStore,
+} from "./ebay-token-store.mjs";
 import { createEbayReadService } from "./ebay-read-service.mjs";
 import { createMarketplaceJobExecutor } from "./marketplace-job-executor.mjs";
 import { readRequestBody } from "./request-body.mjs";
@@ -17,9 +21,28 @@ const __dirname = path.dirname(__filename);
 const projectRoot = path.resolve(__dirname, "..");
 const dataDirectory = path.join(projectRoot, "server-data");
 const tokenFile = path.join(dataDirectory, "ebay-user-token.json");
-const tokenStore = createEbayTokenStore({
+const fileTokenStore = createEbayTokenStore({
   dataDirectory,
   legacyTokenFile: tokenFile,
+});
+// PF-SCOPE-024: when the Supabase env is configured and a call carries the
+// acting user's verified session JWT, the eBay connection lives in the
+// hosted ebay_connections table (owner-only RLS) instead of on this
+// service's ephemeral disk, so redeploys and restarts stop wiping it. The
+// env is read per call, like callSupabaseRpc, so the durable store engages
+// only once the owner has set the env — until then, and for every call
+// without a user JWT, the file store answers exactly as it always has.
+const getSupabaseTokenStore = () => {
+  const supabaseUrl =
+    process.env.SUPABASE_URL ?? process.env.EXPO_PUBLIC_SUPABASE_URL;
+  const anonKey =
+    process.env.SUPABASE_ANON_KEY ?? process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
+  if (!supabaseUrl || !anonKey) return null;
+  return createSupabaseEbayTokenStore({ supabaseUrl, anonKey });
+};
+const tokenStore = createRoutedEbayTokenStore({
+  fileStore: fileTokenStore,
+  getSupabaseStore: getSupabaseTokenStore,
 });
 
 const loadEnvFile = async (filename) => {
@@ -271,6 +294,14 @@ const authenticateAiRequest = async (req) => {
   return await authenticateRequest(req);
 };
 
+// PF-SCOPE-024: the durable token store presents the caller's Supabase
+// session JWT to PostgREST. Only jwt auth mode carries one — local mode
+// has no Authorization header and shared-key mode's Bearer value is the
+// shared API key, not a user session — so the other modes pass undefined
+// and keep the file store's behaviour.
+const getTokenStoreAuthorization = (req) =>
+  getAuthMode() === "jwt" ? req.headers.authorization : undefined;
+
 const sendJson = (req, res, statusCode, payload) => {
   res.writeHead(statusCode, {
     "Content-Type": "application/json; charset=utf-8",
@@ -312,7 +343,7 @@ const pruneExpiredOauthStates = () => {
   }
 };
 
-const getAuthorizationUrl = (userId) => {
+const getAuthorizationUrl = (userId, authorization) => {
   pruneExpiredOauthStates();
   const clientId = requireEnv("EBAY_CLIENT_ID");
   const ruName = requireEnv("EBAY_RUNAME");
@@ -321,6 +352,11 @@ const getAuthorizationUrl = (userId) => {
     .slice(2)}`;
   oauthStates.set(state, {
     userId,
+    // PF-SCOPE-024: the OAuth callback carries no Supabase JWT, so the
+    // connect-start request's session header rides in this in-memory
+    // record (same 10-minute lifetime, never persisted, never logged) for
+    // the callback's token save to present to PostgREST.
+    authorization,
     expiresAt: Date.now() + 10 * 60 * 1000,
   });
 
@@ -356,8 +392,8 @@ const requestToken = async (params) => {
   return response.json();
 };
 
-const exchangeAuthorizationCode = async (userId, code) => {
-  const existing = await tokenStore.load(userId);
+const exchangeAuthorizationCode = async (userId, code, authorization) => {
+  const existing = await tokenStore.load(userId, authorization);
   const tokenResponse = await requestToken({
     grant_type: "authorization_code",
     code,
@@ -370,12 +406,12 @@ const exchangeAuthorizationCode = async (userId, code) => {
     expiresAt: Date.now() + Number(tokenResponse.expires_in ?? 7200) * 1000,
     refreshedAt: Date.now(),
   };
-  await tokenStore.save(userId, stored);
+  await tokenStore.save(userId, stored, authorization);
   return stored;
 };
 
-const getUserAccessToken = async (userId) => {
-  const stored = await tokenStore.load(userId);
+const getUserAccessToken = async (userId, authorization) => {
+  const stored = await tokenStore.load(userId, authorization);
   if (!stored?.refresh_token) {
     throw new Error(
       "No eBay user token found. Connect your eBay account first.",
@@ -399,7 +435,7 @@ const getUserAccessToken = async (userId) => {
     expiresAt: Date.now() + Number(refreshed.expires_in ?? 7200) * 1000,
     refreshedAt: Date.now(),
   };
-  await tokenStore.save(userId, updated);
+  await tokenStore.save(userId, updated, authorization);
   return updated.access_token;
 };
 
@@ -507,8 +543,8 @@ const getCategoryTreeId = async () => {
   return categoryTreeCache;
 };
 
-const getEbaySetup = async (userId) => {
-  const accessToken = await getUserAccessToken(userId);
+const getEbaySetup = async (userId, authorization) => {
+  const accessToken = await getUserAccessToken(userId, authorization);
   const headers = { Authorization: `Bearer ${accessToken}` };
   const market = encodeURIComponent(marketplaceId);
   const [locationsResult, paymentResult, returnResult, fulfillmentResult] =
@@ -518,7 +554,7 @@ const getEbaySetup = async (userId) => {
       ebayFetch(`/sell/account/v1/return_policy?marketplace_id=${market}`, { headers }),
       ebayFetch(`/sell/account/v1/fulfillment_policy?marketplace_id=${market}`, { headers }),
     ]);
-  const stored = await tokenStore.load(userId);
+  const stored = await tokenStore.load(userId, authorization);
   return {
     defaults: getListingDefaults(stored),
     locations: (locationsResult?.locations ?? []).map((location) => ({
@@ -544,14 +580,14 @@ const getEbaySetup = async (userId) => {
   };
 };
 
-const saveEbayDefaults = async (userId, defaults) => {
-  const stored = await tokenStore.load(userId);
+const saveEbayDefaults = async (userId, defaults, authorization) => {
+  const stored = await tokenStore.load(userId, authorization);
   if (!stored?.refresh_token) {
     const error = new Error("Connect your eBay account first.");
     error.statusCode = 409;
     throw error;
   }
-  const setup = await getEbaySetup(userId);
+  const setup = await getEbaySetup(userId, authorization);
   const allowed = {
     merchantLocationKey: new Set(setup.locations.map((entry) => entry.id)),
     paymentPolicyId: new Set(setup.paymentPolicies.map((entry) => entry.id)),
@@ -570,11 +606,11 @@ const saveEbayDefaults = async (userId, defaults) => {
     }
     listingDefaults[key] = value;
   }
-  await tokenStore.save(userId, { ...stored, listingDefaults });
+  await tokenStore.save(userId, { ...stored, listingDefaults }, authorization);
   return listingDefaults;
 };
 
-const createEbayLocation = async (userId, payload) => {
+const createEbayLocation = async (userId, payload, authorization) => {
   const name = String(payload?.name ?? "PalletFlip inventory").trim();
   const postalCode = String(payload?.postalCode ?? "").trim();
   const country = String(payload?.country ?? "US").trim().toUpperCase();
@@ -591,7 +627,7 @@ const createEbayLocation = async (userId, payload) => {
     .replace(/^-+|-+$/g, "")
     .slice(0, 40) || "palletflip";
   const merchantLocationKey = `${keyBase}-${Date.now().toString(36)}`.slice(0, 50);
-  const accessToken = await getUserAccessToken(userId);
+  const accessToken = await getUserAccessToken(userId, authorization);
   await ebayFetch(
     `/sell/inventory/v1/location/${encodeURIComponent(merchantLocationKey)}`,
     {
@@ -615,14 +651,14 @@ const createEbayLocation = async (userId, payload) => {
       }),
     },
   );
-  const stored = await tokenStore.load(userId);
+  const stored = await tokenStore.load(userId, authorization);
   await tokenStore.save(userId, {
     ...stored,
     listingDefaults: {
       ...getListingDefaults(stored),
       merchantLocationKey,
     },
-  });
+  }, authorization);
   return { merchantLocationKey };
 };
 
@@ -1123,10 +1159,10 @@ const normalizeEbayTitle = (value) => {
   return (lastSpace >= 60 ? candidate.slice(0, lastSpace) : candidate).trim();
 };
 
-const createListing = async (userId, payload) => {
+const createListing = async (userId, payload, authorization) => {
   enforceListingRateLimit(userId);
-  const accessToken = await getUserAccessToken(userId);
-  const stored = await tokenStore.load(userId);
+  const accessToken = await getUserAccessToken(userId, authorization);
+  const stored = await tokenStore.load(userId, authorization);
   const listingDefaults = getListingDefaults(stored);
   const missingDefaults = Object.entries(listingDefaults)
     .filter(([, value]) => !value)
@@ -1336,7 +1372,7 @@ const createListing = async (userId, payload) => {
   };
 };
 
-const endListing = async (userId, payload) => {
+const endListing = async (userId, payload, authorization) => {
   const offerId = String(payload.offerId ?? "").trim();
   if (!offerId) {
     const error = new Error("offerId is required to end an eBay listing.");
@@ -1344,7 +1380,7 @@ const endListing = async (userId, payload) => {
     throw error;
   }
 
-  const accessToken = await getUserAccessToken(userId);
+  const accessToken = await getUserAccessToken(userId, authorization);
   await ebayFetch(
     `/sell/inventory/v1/offer/${encodeURIComponent(offerId)}/withdraw`,
     {
@@ -1391,7 +1427,7 @@ const server = createServer(async (req, res) => {
 
     if (req.method === "GET" && url.pathname === "/ebay/status") {
       const { userId } = await authenticateRequest(req);
-      const stored = await tokenStore.load(userId);
+      const stored = await tokenStore.load(userId, getTokenStoreAuthorization(req));
       const readiness = getEbayReadiness(stored);
       const defaults = getListingDefaults(stored);
       sendJson(req, res, 200, {
@@ -1435,14 +1471,14 @@ const server = createServer(async (req, res) => {
     if (req.method === "GET" && url.pathname === "/ebay/connect-url") {
       const { userId } = await authenticateRequest(req);
       sendJson(req, res, 200, {
-        authorizationUrl: getAuthorizationUrl(userId),
+        authorizationUrl: getAuthorizationUrl(userId, getTokenStoreAuthorization(req)),
       });
       return;
     }
 
     if (req.method === "GET" && url.pathname === "/ebay/setup") {
       const { userId } = await authenticateRequest(req);
-      sendJson(req, res, 200, await getEbaySetup(userId));
+      sendJson(req, res, 200, await getEbaySetup(userId, getTokenStoreAuthorization(req)));
       return;
     }
 
@@ -1454,14 +1490,14 @@ const server = createServer(async (req, res) => {
         offerOffset: url.searchParams.get("offerOffset"),
         orderOffset: url.searchParams.get("orderOffset"),
         returnOffset: url.searchParams.get("returnOffset"),
-      }));
+      }, getTokenStoreAuthorization(req)));
       return;
     }
 
     if (req.method === "POST" && url.pathname === "/ebay/setup/defaults") {
       const { userId } = await authenticateRequest(req);
       const rawBody = await readRequestBody(req);
-      const defaults = await saveEbayDefaults(userId, JSON.parse(rawBody));
+      const defaults = await saveEbayDefaults(userId, JSON.parse(rawBody), getTokenStoreAuthorization(req));
       sendJson(req, res, 200, { defaults });
       return;
     }
@@ -1469,7 +1505,7 @@ const server = createServer(async (req, res) => {
     if (req.method === "POST" && url.pathname === "/ebay/setup/location") {
       const { userId } = await authenticateRequest(req);
       const rawBody = await readRequestBody(req);
-      sendJson(req, res, 201, await createEbayLocation(userId, JSON.parse(rawBody)));
+      sendJson(req, res, 201, await createEbayLocation(userId, JSON.parse(rawBody), getTokenStoreAuthorization(req)));
       return;
     }
 
@@ -1538,7 +1574,7 @@ const server = createServer(async (req, res) => {
       }
 
       oauthStates.delete(state);
-      await exchangeAuthorizationCode(oauthState.userId, code);
+      await exchangeAuthorizationCode(oauthState.userId, code, oauthState.authorization);
       sendHtml(
         req,
         res,
@@ -1555,7 +1591,7 @@ const server = createServer(async (req, res) => {
       const { userId } = await authenticateRequest(req);
       const rawBody = await readRequestBody(req);
       const payload = JSON.parse(rawBody);
-      const result = await createListing(userId, payload);
+      const result = await createListing(userId, payload, getTokenStoreAuthorization(req));
       sendJson(req, res, 200, result);
       return;
     }
@@ -1567,7 +1603,8 @@ const server = createServer(async (req, res) => {
       const executor = createMarketplaceJobExecutor({
         callRpc: (functionName, parameters) => callSupabaseRpc(req.headers.authorization, functionName, parameters),
         ebayFetch,
-        getUserAccessToken,
+        getUserAccessToken: (tokenUserId) =>
+          getUserAccessToken(tokenUserId, getTokenStoreAuthorization(req)),
       });
       sendJson(req, res, 200, await executor.execute(userId, payload.jobId));
       return;
@@ -1585,17 +1622,18 @@ const server = createServer(async (req, res) => {
       const { userId } = await authenticateRequest(req);
       const rawBody = await readRequestBody(req);
       const payload = JSON.parse(rawBody);
-      const result = await endListing(userId, payload);
+      const result = await endListing(userId, payload, getTokenStoreAuthorization(req));
       sendJson(req, res, 200, result);
       return;
     }
 
     if (req.method === "POST" && url.pathname === "/ebay/disconnect") {
       const { userId } = await authenticateRequest(req);
-      const stored = await tokenStore.load(userId);
+      const authorization = getTokenStoreAuthorization(req);
+      const stored = await tokenStore.load(userId, authorization);
       const listingDefaults = stored?.listingDefaults;
-      await tokenStore.remove(userId);
-      if (listingDefaults) await tokenStore.save(userId, { listingDefaults });
+      await tokenStore.remove(userId, authorization);
+      if (listingDefaults) await tokenStore.save(userId, { listingDefaults }, authorization);
       sendJson(req, res, 200, { disconnected: true });
       return;
     }

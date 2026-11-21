@@ -48,7 +48,7 @@ _Run 2026-11-21 — all three passed; Drill 1 with a finding. Outcomes: `PF-SCOP
 
 The canonical gap list for PF-SCOPE-004, finalized at closeout from the proof run and the three failure drills. (The scope doc points here; do not duplicate the list elsewhere.)
 
-1. **Token storage durability:** the eBay token store is an encrypted file on the Render service's ephemeral disk; a reconnect is needed after redeploys **and apparent restarts** (the token was wiped three times on 2026-11-21 alone, once by a docs-only merge's redeploy). → PF-SCOPE-024 (durable token store).
+1. **Token storage durability:** the eBay token store is an encrypted file on the Render service's ephemeral disk; a reconnect is needed after redeploys **and apparent restarts** (the token was wiped three times on 2026-11-21 alone, once by a docs-only merge's redeploy). → PF-SCOPE-024 (durable token store). **Fix in build (2026-11-21):** PF-SCOPE-024 is IN_PROGRESS on `scope/PF-SCOPE-024-durable-token-store` — the encrypted envelope moves into `public.ebay_connections` under owner-only RLS, with the file store kept as the local fallback. Not yet resolved: the hosted migration and Render env are owner steps, and the acceptance proof (connect → redeploy → still connected) has not run.
 2. **Signed-URL listing images:** hosted photo reads return signed URLs (~1-hour expiry), unusable as eBay listing images. Closed by PR #31 (server-side media re-hosting).
 3. **Settings status fetch has no timeout:** one hung status fetch against the sleeping backend wedges the whole Settings eBay card on "Checking…" until a page refresh. → PF-SCOPE-025.
 4. **Stale OAuth state:** after a delay or a backend sleep, the connect flow can fail on a stale OAuth state token; retrying the connect succeeds.

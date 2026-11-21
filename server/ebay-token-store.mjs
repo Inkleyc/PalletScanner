@@ -122,3 +122,128 @@ export const createEbayTokenStore = ({
 
   return { load, save, remove };
 };
+
+// PF-SCOPE-024: durable store. The same AES-256-GCM envelope the file store
+// produces, persisted in public.ebay_connections through PostgREST. Every
+// request carries the publishable key as apikey and the acting user's
+// verified Supabase session JWT as Authorization, so the table's
+// owner-only RLS policies do the access control — the backend holds no
+// credential that can bypass them. Error behaviour mirrors the file
+// store's contract: a missing row returns null (not connected); a
+// transport or PostgREST failure throws (a visible error, never a silent
+// "disconnected").
+export const createSupabaseEbayTokenStore = ({
+  supabaseUrl,
+  anonKey,
+  fetchImpl = fetch,
+}) => {
+  const tableUrl = `${supabaseUrl.replace(/\/$/, "")}/rest/v1/ebay_connections`;
+
+  const requireAuthorization = (authorization) => {
+    if (!authorization?.startsWith("Bearer ")) {
+      throw new Error(
+        "A signed-in Supabase session is required to use the database eBay token store.",
+      );
+    }
+  };
+
+  const request = (authorization, path, options = {}) =>
+    fetchImpl(`${tableUrl}${path}`, {
+      signal: AbortSignal.timeout(30_000),
+      ...options,
+      headers: {
+        apikey: anonKey,
+        Authorization: authorization,
+        ...(options.headers ?? {}),
+      },
+    });
+
+  const ownerQuery = (userId) =>
+    `?owner_id=eq.${encodeURIComponent(userId)}`;
+
+  const load = async (userId, authorization) => {
+    requireAuthorization(authorization);
+    try {
+      const response = await request(
+        authorization,
+        `${ownerQuery(userId)}&select=envelope`,
+      );
+      if (!response.ok) {
+        throw new Error(`PostgREST returned ${response.status}.`);
+      }
+      const rows = await response.json();
+      if (!Array.isArray(rows) || rows.length === 0) {
+        return null;
+      }
+      return decryptPayload(rows[0].envelope);
+    } catch (error) {
+      throw new Error("Stored eBay connection could not be read.", {
+        cause: error,
+      });
+    }
+  };
+
+  const save = async (userId, tokenPayload, authorization) => {
+    requireAuthorization(authorization);
+    try {
+      const response = await request(authorization, "", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Prefer: "resolution=merge-duplicates,return=minimal",
+        },
+        body: JSON.stringify({
+          owner_id: userId,
+          envelope: encryptPayload(tokenPayload),
+          updated_at: new Date().toISOString(),
+        }),
+      });
+      if (!response.ok) {
+        throw new Error(`PostgREST returned ${response.status}.`);
+      }
+    } catch (error) {
+      throw new Error("Stored eBay connection could not be saved.", {
+        cause: error,
+      });
+    }
+  };
+
+  const remove = async (userId, authorization) => {
+    requireAuthorization(authorization);
+    try {
+      const response = await request(authorization, ownerQuery(userId), {
+        method: "DELETE",
+        headers: { Prefer: "return=minimal" },
+      });
+      if (!response.ok) {
+        throw new Error(`PostgREST returned ${response.status}.`);
+      }
+    } catch (error) {
+      throw new Error("Stored eBay connection could not be removed.", {
+        cause: error,
+      });
+    }
+  };
+
+  return { load, save, remove };
+};
+
+// PF-SCOPE-024: per-call store selection. A call that carries a user
+// session JWT goes to the durable store when one is available; every
+// other call (local mode, shared-key mode, Supabase env not configured)
+// is answered by the file store, exactly as before this scope.
+export const createRoutedEbayTokenStore = ({ fileStore, getSupabaseStore }) => {
+  const pick = (authorization) =>
+    typeof authorization === "string" && authorization.startsWith("Bearer ")
+      ? (getSupabaseStore() ?? fileStore)
+      : fileStore;
+
+  return {
+    load: (userId, authorization) =>
+      pick(authorization).load(userId, authorization),
+    save: (userId, tokenPayload, authorization) =>
+      pick(authorization).save(userId, tokenPayload, authorization),
+    remove: (userId, authorization) =>
+      pick(authorization).remove(userId, authorization),
+  };
+};
