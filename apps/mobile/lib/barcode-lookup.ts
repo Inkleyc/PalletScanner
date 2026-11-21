@@ -18,6 +18,10 @@ const BARCODE_API_BASE_URL = (
   process.env.EXPO_PUBLIC_EBAY_API_BASE_URL ??
   ""
 ).replace(/\/$/, "");
+// A warm backend answers in ~1-2s. The bound exists so a sleeping backend
+// (Render free tier cold-starts in ~50s) fails fast and the direct-source
+// chain below still has room inside the caller's overall lookup timeout.
+const BACKEND_LOOKUP_TIMEOUT_MS = 6_000;
 
 const normalizeBarcode = (barcode: string) => barcode.trim().replace(/[^0-9A-Za-z]/g, "");
 
@@ -194,26 +198,41 @@ const lookupGtinHubCandidate = async (barcode: string) => {
   } satisfies BarcodeLookupItem;
 };
 
+const lookupViaBackend = async (barcode: string) => {
+  const token = await getRuntimeBearerToken();
+  const response = await fetch(
+    `${BARCODE_API_BASE_URL}/barcode/lookup?barcode=${encodeURIComponent(barcode)}`,
+    {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+      signal: AbortSignal.timeout(BACKEND_LOOKUP_TIMEOUT_MS),
+    },
+  );
+  const body = await response.text();
+  if (!response.ok) {
+    let message = `Barcode lookup failed (${response.status}).`;
+    try {
+      const payload = JSON.parse(body) as { error?: string };
+      if (payload.error) message = payload.error;
+    } catch {
+      // Keep the status-based message when the gateway did not return JSON.
+    }
+    throw new Error(message);
+  }
+  return JSON.parse(body) as BarcodeLookupItem;
+};
+
 export const lookupBarcodeProduct = async (barcode: string) => {
   const candidates = buildBarcodeCandidates(barcode);
   if (BARCODE_API_BASE_URL) {
-    const token = await getRuntimeBearerToken();
-    const response = await fetch(
-      `${BARCODE_API_BASE_URL}/barcode/lookup?barcode=${encodeURIComponent(candidates[0] ?? barcode)}`,
-      { headers: token ? { Authorization: `Bearer ${token}` } : {} },
-    );
-    const body = await response.text();
-    if (!response.ok) {
-      let message = `Barcode lookup failed (${response.status}).`;
-      try {
-        const payload = JSON.parse(body) as { error?: string };
-        if (payload.error) message = payload.error;
-      } catch {
-        // Keep the status-based message when the gateway did not return JSON.
-      }
-      throw new Error(message);
+    try {
+      return await lookupViaBackend(candidates[0] ?? barcode);
+    } catch {
+      // The backend is best-effort: it sleeps when idle and its own sources
+      // can miss transiently, so any backend failure — network error,
+      // timeout, or a non-OK status (404 included) — falls through to the
+      // direct-source chain below instead of failing the whole lookup. The
+      // chain's own error selection decides the final message.
     }
-    return JSON.parse(body) as BarcodeLookupItem;
   }
 
   let lastError: Error | null = null;
