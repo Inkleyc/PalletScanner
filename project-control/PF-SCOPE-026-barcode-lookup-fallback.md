@@ -1,6 +1,6 @@
 # PF-SCOPE-026 — Barcode lookup fallback (mobile)
 
-Status: IN_PROGRESS (built 2026-11-20; see Verification)
+Status: CLOSED (VERIFIED 2026-11-21 — PR #34 merged as bbda3b3f; device-verified 2026-11-21: a cold scan named the product with the backend idle. Register flip landed with the PF-SCOPE-004 closeout.)
 Owner approval: 2026-11-20 ("Fix both" — this lookup fix alongside the
 scan-flow form treatment on the design experiment branch).
 

@@ -1,6 +1,6 @@
 # PF-SCOPE-017 — Slate design port, web + mobile (experiment)
 
-Status: OWNER_REVIEW — experiment built on `experiment/design-slate-port`; owner approved shipping 2026-11-08 ("Ship it — open the PR to main"); PR opened, merge on the owner's go-ahead
+Status: CLOSED (VERIFIED 2026-11-09 — merged via PR #13; owner's live pass on main passed; findings became PF-SCOPE-018/019. Register row already read CLOSED; this doc's status line was reconciled at the PF-SCOPE-004 closeout.)
 Owner approval: APPROVED to build 2026-11-08 ("Let's start with the three things you said. Do them."; phone recommendations folded in the same day: "Wrap it all into one build and execute."). Merging to main is a SEPARATE owner decision.
 Decision authority: PF-D-016 (design direction); PF-D-004 (material redesign needs owner approval — the experiment evaluates, it does not ship); repo experimental-freedom rules (isolated branch, documented, never merged without explicit approval).
 

@@ -1,5 +1,5 @@
 # PF-SCOPE-015 — Web preview hosting + Lenard-run browser passes
-Status: IN_PROGRESS
+Status: CLOSED (setup complete; sign-in retest passed 2026-11-11; register flip landed with the PF-SCOPE-004 closeout)
 Owner approval: APPROVED 2026-11-07 (owner chose the bundle: preview hosting + Lenard-run testing; recorded as PF-D-015)
 Decision authority: PF-D-015 (preview deploys and Lenard-run passes inside approved-scope autonomy); PF-D-008 unchanged (merges, hosted-database writes, and any public launch stay owner-gated).
 
