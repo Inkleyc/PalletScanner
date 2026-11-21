@@ -1,6 +1,6 @@
 # PF-SCOPE-027 — Design graduation: the form design becomes the standing design
 
-Status: IN_PROGRESS (graduating 2026-11-21; both designs built and
+Status: VERIFIED 2026-11-21 (mobile PR #35 merged as b997bbd9; web merged to main db2c87b, root check green, Work Order theme verified live in production CSS; trailing owner step: one post-merge EAS Update from main).
 device-verified on their experiment branches — merges to `main` are
 this scope's remaining work)
 Owner approval: 2026-11-21 ("set that in concrete now"), given after
