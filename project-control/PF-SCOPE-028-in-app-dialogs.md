@@ -1,6 +1,6 @@
 # PF-SCOPE-028 — In-app dialogs for the web app
 
-Status: IN_PROGRESS (built 2026-11-21 on
+Status: VERIFIED 2026-11-21 (PR #36 merged as 5aadcd17; live acceptance passed in local preview mode; return-flow forms exercised live in the PF-SCOPE-004 drills).
 `scope/PF-SCOPE-028-in-app-dialogs`; PR, CI, and the live acceptance
 pass remain — the parent runs those)
 Owner approval: APPROVED 2026-11-21 ("do it"), given for the drafted
