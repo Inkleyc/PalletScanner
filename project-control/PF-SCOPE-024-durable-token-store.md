@@ -1,6 +1,6 @@
 # PF-SCOPE-024 — Durable eBay token store (Supabase-backed, per-owner)
 
-Status: IN_PROGRESS — build 2026-11-21 on `scope/PF-SCOPE-024-durable-token-store`; owner steps (hosted migration, Render env) and the hosted acceptance proof still pending.
+Status: IN_PROGRESS — build merged 2026-11-21 (PR #38, main 04753b82). Cutover DONE 2026-11-21: hosted migration applied in the Supabase dashboard (public.ebay_connections + owner-only RLS live), Render SUPABASE_ANON_KEY set (deploy live, health OK), seller reconnected — Settings "Ready to list", 6/6 green. Acceptance proof in progress: this docs merge forces a Render redeploy; the status re-check afterwards must still read "Ready to list" with no reconnect.
 Design direction: APPROVED by Colton 2026-11-12 ("Reconnect for now, finish 004, then 024"). This document is the formal scope for that approved design; it does not change the design.
 Owner approval: APPROVED 2026-11-21 ("Approve PF-SCOPE-024 and build it")
 Objective: The eBay seller connection survives Render redeploys and restarts — connect once, stay connected — by moving the encrypted token store from Render's ephemeral disk into the hosted Supabase database, under the owner's own row-level security.
