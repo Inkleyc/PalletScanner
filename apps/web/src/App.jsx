@@ -276,7 +276,7 @@ function ListingReview({ item, onSave }) {
     await onSave({ ...candidate, ebayStatus: "active", ebayOfferId: result.offerId, ebayListingId: result.listingId, ebayListingUrl: result.listingUrl, ebayLastError: null, ebayUpdatedAt: Date.now(), listedPlatforms: [...new Set([...(candidate.listedPlatforms ?? []), "ebay"])] });
   };
   const publishEbay = async () => {
-    if (!window.confirm(`Publish ${item.name} to eBay for ${currency(item.listing_price ?? price(item, "high"))}?`)) return;
+    if (!await confirmDialog(`Publish ${item.name} to eBay for ${currency(item.listing_price ?? price(item, "high"))}?`)) return;
     setSavingPlatform("ebay-post"); setError("");
     try {
       await onSave({ ...item, ebayStatus: "posting", ebayLastError: null, ebayUpdatedAt: Date.now() });
@@ -396,12 +396,19 @@ function InventoryHistory({ item }) {
   }, [item.id, item.serverId, item.available, item.quantity, item.listing_price, refreshKey]);
 
   const placeHold = async () => {
-    const quantityAnswer = window.prompt("How many units should be held?", "1");
-    if (quantityAnswer === null) return;
-    const quantity = Number(quantityAnswer);
+    const answers = await formDialog({
+      title: "Place inventory hold",
+      submitLabel: "Place hold",
+      fields: [
+        { name: "quantity", label: "How many units should be held?", defaultValue: "1" },
+        { name: "reason", label: "Why are these units being held?", defaultValue: "Manual inventory hold" },
+      ],
+    });
+    if (answers === null) return;
+    const quantity = Number(answers.quantity);
     if (!Number.isInteger(quantity) || quantity < 1) return setError("Hold quantity must be a whole number of at least 1.");
-    const reason = window.prompt("Why are these units being held?", "Manual inventory hold");
-    if (reason === null || !reason.trim()) return setError("A hold reason is required.");
+    const reason = answers.reason;
+    if (!reason.trim()) return setError("A hold reason is required.");
     setWorking(true); setError("");
     try { await repository.reserveItem(item.id, quantity, reason); setRefreshKey((current) => current + 1); }
     catch (holdError) { setError(holdError instanceof Error ? holdError.message : "Could not place the inventory hold."); }
@@ -491,19 +498,26 @@ function InventoryDetail({ item, palletName, pallets, onSave, onRemove, onSaleRe
     catch (workflowError) { setError(workflowError instanceof Error ? workflowError.message : "Could not update status."); }
   };
   const remove = async () => {
-    if (!window.confirm(`Archive ${item.name}? It will leave active inventory but keep its history.`)) return;
+    if (!await confirmDialog(`Archive ${item.name}? It will leave active inventory but keep its history.`)) return;
     await onRemove(item.id);
   };
   const restore = async () => {
     await onSave({ ...item, archivedAt: null });
   };
   const verifyImported = async () => {
-    const countAnswer = window.prompt("How many units did you physically count?", "1");
-    if (countAnswer === null) return;
-    const countedQuantity = Number(countAnswer);
+    const answers = await formDialog({
+      title: "Verify physical inventory",
+      submitLabel: "Verify inventory",
+      fields: [
+        { name: "count", label: "How many units did you physically count?", defaultValue: "1" },
+        { name: "reason", label: "Verification note", defaultValue: "Physical count confirmed" },
+      ],
+    });
+    if (answers === null) return;
+    const countedQuantity = Number(answers.count);
     if (!Number.isInteger(countedQuantity) || countedQuantity < 0) return setError("Physical count must be a whole number of zero or more.");
-    const reason = window.prompt("Verification note", "Physical count confirmed");
-    if (reason === null || !reason.trim()) return setError("A verification note is required.");
+    const reason = answers.reason;
+    if (!reason.trim()) return setError("A verification note is required.");
     setSaving(true); setError("");
     try { await repository.verifyImportedItem(item.id, countedQuantity, reason.trim()); }
     catch (verificationError) { setError(verificationError instanceof Error ? verificationError.message : "Could not verify imported inventory."); }
@@ -694,7 +708,7 @@ function QuantitySyncQueue() {
   const changePause = async () => {
     if (!account) return;
     const paused = !account.outbound_paused;
-    if (!paused && !window.confirm("Allow reviewed outbound marketplace actions? Queued quantity changes will still require review until active synchronization is separately enabled.")) return;
+    if (!paused && !await confirmDialog("Allow reviewed outbound marketplace actions? Queued quantity changes will still require review until active synchronization is separately enabled.")) return;
     setSaving(true); setError("");
     try { setAccount(await setEbayOutboundPause({ accountId: account.id, paused })); setRows(await listMarketplaceQuantityQueue()); }
     catch (saveError) { setError(saveError instanceof Error ? saveError.message : "Could not update the outbound pause."); }
@@ -705,7 +719,7 @@ function QuantitySyncQueue() {
     const prompt = finalUnit
       ? "Withdraw this eBay listing because its last available unit is gone? PalletFlip will queue durable work before contacting eBay. The listing can be reviewed and relisted later if inventory returns."
       : `Send the reviewed eBay quantity update from ${row.advertised_quantity} to ${row.desired_quantity}? PalletFlip will queue durable work before contacting eBay.`;
-    if (!window.confirm(prompt)) return;
+    if (!await confirmDialog(prompt)) return;
     setQueueingId(row.id); setError("");
     try {
       const job = await queueEbayQuantitySync(row.id);
@@ -716,7 +730,7 @@ function QuantitySyncQueue() {
     finally { try { const [nextRows, nextJobs] = await Promise.all([listMarketplaceQuantityQueue(), listMarketplaceActionJobs()]); setRows(nextRows); setJobs(nextJobs); } catch { /* Keep the original action result visible. */ } setQueueingId(null); }
   };
   const retryJob = async (job) => {
-    if (!window.confirm("Retry this failed marketplace action now? PalletFlip will reset its bounded attempt counter and preserve the prior error in audit history.")) return;
+    if (!await confirmDialog("Retry this failed marketplace action now? PalletFlip will reset its bounded attempt counter and preserve the prior error in audit history.")) return;
     setQueueingId(job.id); setError("");
     try { const resetJob = await retryFailedMarketplaceActionJob(job.id); await executeJob(resetJob.id); }
     catch (retryError) { setError(retryError instanceof Error ? retryError.message : "Could not retry the marketplace action."); }
@@ -730,21 +744,21 @@ function QuantitySyncQueue() {
   };
   const resolvePrice = async (row, resolution) => {
     const adopting = resolution === "adopt_external";
-    if (!window.confirm(adopting ? "Adopt the currently observed eBay price as PalletFlip's approved price? This does not change eBay." : "Keep the PalletFlip approved price and dismiss this observed difference? This does not change eBay.")) return;
+    if (!await confirmDialog(adopting ? "Adopt the currently observed eBay price as PalletFlip's approved price? This does not change eBay." : "Keep the PalletFlip approved price and dismiss this observed difference? This does not change eBay.")) return;
     setQueueingId(row.id); setError("");
     try { await resolveMarketplacePriceReview({ listingId: row.id, resolution }); if (adopting) await repository.hydrate(); setRows(await listMarketplaceQuantityQueue()); }
     catch (priceError) { setError(priceError instanceof Error ? priceError.message : "Could not record the price decision."); }
     finally { setQueueingId(null); }
   };
   const applyRecommendation = async (entry) => {
-    if (!window.confirm(`Approve ${currency(entry.suggestedPrice)} as the new PalletFlip listing price for ${entry.name}? This does not change eBay.`)) return;
+    if (!await confirmDialog(`Approve ${currency(entry.suggestedPrice)} as the new PalletFlip listing price for ${entry.name}? This does not change eBay.`)) return;
     setQueueingId(entry.listingId); setError("");
     try { await applyPricingRecommendation({ listingId: entry.listingId, proposedPrice: entry.suggestedPrice }); await repository.hydrate(); setRows(await listMarketplaceQuantityQueue()); }
     catch (priceError) { setError(priceError instanceof Error ? priceError.message : "Could not apply the pricing recommendation."); }
     finally { setQueueingId(null); }
   };
   const dismissRecommendation = async (entry) => {
-    if (!window.confirm(`Dismiss this recommendation until the next ${pricingSettings.pricing_review_after_days}-day review? A price change will reopen it sooner.`)) return;
+    if (!await confirmDialog(`Dismiss this recommendation until the next ${pricingSettings.pricing_review_after_days}-day review? A price change will reopen it sooner.`)) return;
     setQueueingId(entry.listingId); setError("");
     try { await dismissPricingRecommendation({ listingId: entry.listingId, proposedPrice: entry.suggestedPrice }); setRows(await listMarketplaceQuantityQueue()); }
     catch (priceError) { setError(priceError instanceof Error ? priceError.message : "Could not dismiss the pricing recommendation."); }
@@ -839,7 +853,7 @@ function PackagePresetSettings() {
     finally { setSaving(false); }
   };
   const archive = async (preset) => {
-    if (!window.confirm(`Archive package preset ${preset.name}? Existing shipments will retain it.`)) return;
+    if (!await confirmDialog(`Archive package preset ${preset.name}? Existing shipments will retain it.`)) return;
     setSaving(true); setError("");
     try { await archivePackagePreset(preset.id); await load(); }
     catch (archiveError) { setError(archiveError instanceof Error ? archiveError.message : "Could not archive the package preset."); }
@@ -977,7 +991,7 @@ function EbaySettings({ mode = "all" }) {
   };
 
   const syncInboundEbay = async () => {
-    if (!window.confirm("Read the latest eBay data, save an audit snapshot, and import observed orders and available returns? This will not reserve, restock, or change inventory.")) return;
+    if (!await confirmDialog("Read the latest eBay data, save an audit snapshot, and import observed orders and available returns? This will not reserve, restock, or change inventory.")) return;
     setInboundSyncing(true); setMessage("");
     try {
       const parameters = new URLSearchParams({ limit: "50", inventoryOffset: "0", offerOffset: "0", orderOffset: "0", returnOffset: "0" });
@@ -1102,7 +1116,7 @@ function EbaySettings({ mode = "all" }) {
     try {
       const backup = JSON.parse(await file.text());
       if (backup.version !== 1) throw new Error("This backup version is not supported.");
-      if (!window.confirm(`Replace local dashboard data with ${backup.items?.length ?? 0} items and ${backup.pallets?.length ?? 0} pallets from this backup?`)) return;
+      if (!await confirmDialog(`Replace local dashboard data with ${backup.items?.length ?? 0} items and ${backup.pallets?.length ?? 0} pallets from this backup?`)) return;
       await repository.replaceSnapshot(backup);
       setMessage("Local data restored from backup.");
     } catch (restoreError) {
@@ -1205,7 +1219,7 @@ function AnalysisPanel({ snapshot }) {
   const updateFilter = (field) => (event) => setFilters((current) => ({ ...current, [field]: event.target.value }));
   const resetFilters = () => setFilters({ pallet: "all", category: "all", condition: "all", marketplace: "all", from: "", to: "" });
   const confirmPendingFees = async (sale) => {
-    const entered = window.prompt(`Enter the total marketplace fees for this ${currency(sale.gross)} sale.`, sale.fees ? String(sale.fees) : "");
+    const entered = await promptDialog(`Enter the total marketplace fees for this ${currency(sale.gross)} sale.`, sale.fees ? String(sale.fees) : "");
     if (entered === null) return;
     const fees = Number(entered);
     if (!Number.isFinite(fees) || fees < 0) { setProfitabilityError("Marketplace fees must be zero or greater."); return; }
@@ -1217,7 +1231,7 @@ function AnalysisPanel({ snapshot }) {
     finally { setFeeSavingId(null); }
   };
   const repairShippedSales = async (shipment) => {
-    if (!window.confirm(`Create missing financial records for ${shipment.missingLines.length} shipped order line${shipment.missingLines.length === 1 ? "" : "s"}? Inventory will not change.`)) return;
+    if (!await confirmDialog(`Create missing financial records for ${shipment.missingLines.length} shipped order line${shipment.missingLines.length === 1 ? "" : "s"}? Inventory will not change.`)) return;
     setSaleRecoveryId(shipment.id); setProfitabilityError("");
     try {
       await reconcileShippedFulfillmentSales(shipment.id);
@@ -1302,12 +1316,19 @@ function OrdersContent({ onShowReturns }) {
     finally { setReservingOrder(false); }
   };
   const startFulfillment = async (order) => {
-    if (!window.confirm("Start fulfillment for this reserved order? PalletFlip will create its pick and pack record. Missing package measurements will remain incomplete until confirmed.")) return;
+    if (!await confirmDialog("Start fulfillment for this reserved order? PalletFlip will create its pick and pack record. Missing package measurements will remain incomplete until confirmed.")) return;
     let packagePresetId = null;
     if (packagePresets.length > 0) {
-      const choices = packagePresets.map((preset, index) => `${index + 1}. ${preset.name}`).join("\n");
-      const selection = window.prompt(`Choose a package preset by number, or leave blank to measure during packing:\n\n${choices}`, "");
-      if (selection === null) return;
+      const answers = await formDialog({
+        title: "Start fulfillment",
+        submitLabel: "Continue",
+        message: "Choose a package preset by number, or leave blank to measure during packing:",
+        fields: [
+          { name: "selection", label: "Package preset", type: "select", defaultValue: "", options: [{ value: "", label: "Measure during packing" }, ...packagePresets.map((preset, index) => ({ value: String(index + 1), label: preset.name }))] },
+        ],
+      });
+      if (answers === null) return;
+      const selection = answers.selection;
       if (selection.trim()) {
         const selectedIndex = Number(selection) - 1;
         if (!Number.isInteger(selectedIndex) || !packagePresets[selectedIndex]) return setError("Choose a listed package preset number or leave the selection blank.");
@@ -1359,16 +1380,25 @@ function OrdersContent({ onShowReturns }) {
     finally { setReservingOrder(false); }
   };
   const markShipped = async (shipment) => {
-    if (!window.confirm("Confirm that this package has been handed to the carrier? This will consume the reserved inventory and cannot be treated as merely printing a label.")) return;
+    if (!await confirmDialog("Confirm that this package has been handed to the carrier? This will consume the reserved inventory and cannot be treated as merely printing a label.")) return;
     setReservingOrder(true); setError("");
     try { await confirmShipmentShipped(shipment.id); await loadOrders(); }
     catch (shipmentError) { setError(shipmentError instanceof Error ? shipmentError.message : "Could not confirm carrier handoff."); }
     finally { setReservingOrder(false); }
   };
   const adoptObservedEbayFulfillment = async (shipment, fulfillment) => {
-    const service = window.prompt("eBay shipping service", selectedOrder?.raw_payload?.observedSelectedShippingService?.service || "Imported from eBay"); if (!service?.trim()) return;
-    const cost = Number(window.prompt("Final eBay label cost", "0.00")); if (!Number.isFinite(cost) || cost < 0) return setError("Enter a non-negative final label cost.");
-    if (!window.confirm(`Use ${fulfillment.shippingCarrierCode} tracking ${fulfillment.trackingNumber} and confirm eBay's ${new Date(fulfillment.shippedDate).toLocaleString()} carrier handoff? This consumes the reserved inventory.`)) return;
+    const answers = await formDialog({
+      title: "Use observed eBay shipment",
+      submitLabel: "Continue",
+      fields: [
+        { name: "service", label: "eBay shipping service", defaultValue: selectedOrder?.raw_payload?.observedSelectedShippingService?.service || "Imported from eBay" },
+        { name: "cost", label: "Final eBay label cost", defaultValue: "0.00" },
+      ],
+    });
+    if (answers === null) return;
+    const service = answers.service; if (!service?.trim()) return;
+    const cost = Number(answers.cost); if (!Number.isFinite(cost) || cost < 0) return setError("Enter a non-negative final label cost.");
+    if (!await confirmDialog(`Use ${fulfillment.shippingCarrierCode} tracking ${fulfillment.trackingNumber} and confirm eBay's ${new Date(fulfillment.shippedDate).toLocaleString()} carrier handoff? This consumes the reserved inventory.`)) return;
     setReservingOrder(true); setError("");
     try {
       await recordShipmentLabel({ shipmentId: shipment.id, source: "ebay", carrier: fulfillment.shippingCarrierCode, service: service.trim(), trackingNumber: fulfillment.trackingNumber, cost });
@@ -1378,23 +1408,23 @@ function OrdersContent({ onShowReturns }) {
     finally { setReservingOrder(false); }
   };
   const confirmPickup = async (shipment) => {
-    if (!window.confirm("Confirm that the buyer has physically received this order? This consumes the reserved inventory and records the sale.")) return;
+    if (!await confirmDialog("Confirm that the buyer has physically received this order? This consumes the reserved inventory and records the sale.")) return;
     setReservingOrder(true); setError("");
     try { await confirmLocalPickupHandoff(shipment.id); await loadOrders(); }
     catch (pickupError) { setError(pickupError instanceof Error ? pickupError.message : "Could not confirm local pickup handoff."); }
     finally { setReservingOrder(false); }
   };
   const cancelManualOrder = async (order) => {
-    const reason = window.prompt("Why was this manual sale cancelled?", "Buyer backed out");
+    const reason = await promptDialog("Why was this manual sale cancelled?", "Buyer backed out");
     if (!reason?.trim()) return;
-    if (!window.confirm("Cancel this sale order and release its reserved inventory?")) return;
+    if (!await confirmDialog("Cancel this sale order and release its reserved inventory?")) return;
     setReservingOrder(true); setError("");
     try { await cancelManualSaleOrder({ orderId: order.id, reason: reason.trim() }); await loadOrders(); }
     catch (cancelError) { setError(cancelError instanceof Error ? cancelError.message : "Could not cancel the manual sale order."); }
     finally { setReservingOrder(false); }
   };
   const completeAssistedTask = async (task) => {
-    if (!window.confirm("Confirm that you removed or adjusted the Facebook listing to match the remaining PalletFlip quantity?")) return;
+    if (!await confirmDialog("Confirm that you removed or adjusted the Facebook listing to match the remaining PalletFlip quantity?")) return;
     setReservingOrder(true); setError("");
     try { await completeAssistedChannelTask(task.id); await loadOrders(); }
     catch (taskError) { setError(taskError instanceof Error ? taskError.message : "Could not complete the marketplace action."); }
