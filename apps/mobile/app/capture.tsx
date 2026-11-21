@@ -17,7 +17,8 @@ import {
 import { LoadingStatus } from "@/components/loading-status";
 import { PhotoReferenceCards } from "@/components/photo-reference-cards";
 import { type AppPaletteShape } from "@/constants/app-palette";
-import { useAppPalette } from "@/lib/app-theme";
+import type { AppShape } from "@/constants/app-shape";
+import { useAppPalette, useAppShape } from "@/lib/app-theme";
 import {
   isAnthropicConfigured,
 } from "@/lib/anthropic";
@@ -70,7 +71,8 @@ import {
 export default function CaptureScreen() {
   const router = useRouter();
   const palette = useAppPalette();
-  const styles = useMemo(() => createStyles(palette), [palette]);
+  const shape = useAppShape();
+  const styles = useMemo(() => createStyles(palette, shape), [palette, shape]);
   const [images, setImages] = useState<ImageAssetLike[]>([]);
   const [loading, setLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -860,7 +862,7 @@ export default function CaptureScreen() {
   );
 }
 
-const createStyles = (palette: AppPaletteShape) => StyleSheet.create({
+const createStyles = (palette: AppPaletteShape, shape: AppShape) => StyleSheet.create({
   container: { flex: 1, backgroundColor: palette.background },
   content: { padding: 20, paddingTop: 56, paddingBottom: 28 },
   captureHeader: {
@@ -884,11 +886,11 @@ const createStyles = (palette: AppPaletteShape) => StyleSheet.create({
   closeCaptureBtnText: { color: palette.text, fontWeight: "600", fontSize: 13 },
   palletCard: {
     backgroundColor: palette.surface,
-    borderRadius: 10,
+    borderRadius: shape.cardRadius,
     padding: 16,
     marginBottom: 16,
-    borderWidth: 1,
-    borderColor: palette.border,
+    borderWidth: shape.cardBorderWidth,
+    borderColor: palette.borderStrong,
   },
   palletHeader: {
     flexDirection: "row",
@@ -909,7 +911,7 @@ const createStyles = (palette: AppPaletteShape) => StyleSheet.create({
     flex: 1,
     backgroundColor: palette.surface,
     padding: 14,
-    borderRadius: 10,
+    borderRadius: shape.cardRadius,
     alignItems: "center",
     borderWidth: 1,
     borderColor: palette.border,
@@ -942,25 +944,25 @@ const createStyles = (palette: AppPaletteShape) => StyleSheet.create({
     flex: 1,
     backgroundColor: palette.primaryStrong,
     padding: 14,
-    borderRadius: 10,
+    borderRadius: shape.cardRadius,
     alignItems: "center",
   },
   analyzeBtnText: { color: "#fff", fontWeight: "600", fontSize: 15 },
   clearBtn: {
     backgroundColor: palette.surfaceMuted,
     padding: 14,
-    borderRadius: 10,
+    borderRadius: shape.cardRadius,
     alignItems: "center",
     paddingHorizontal: 20,
   },
   clearBtnText: { color: palette.textMuted, fontWeight: "600", fontSize: 15 },
   resultCard: {
     backgroundColor: palette.surface,
-    borderRadius: 10,
+    borderRadius: shape.cardRadius,
     padding: 16,
     marginTop: 8,
-    borderWidth: 1,
-    borderColor: palette.border,
+    borderWidth: shape.cardBorderWidth,
+    borderColor: palette.borderStrong,
   },
   sectionLabel: { fontSize: 11, fontWeight: "700", color: palette.textSoft, marginBottom: 8 },
   itemName: { fontSize: 22, fontWeight: "700", color: palette.text, marginBottom: 4 },
@@ -973,7 +975,7 @@ const createStyles = (palette: AppPaletteShape) => StyleSheet.create({
     fontWeight: "500",
     paddingHorizontal: 10,
     paddingVertical: 4,
-    borderRadius: 6,
+    borderRadius: shape.chipRadius,
   },
   floorBadge: {
     backgroundColor: palette.surfaceTint,
@@ -982,7 +984,7 @@ const createStyles = (palette: AppPaletteShape) => StyleSheet.create({
     fontWeight: "500",
     paddingHorizontal: 10,
     paddingVertical: 4,
-    borderRadius: 6,
+    borderRadius: shape.chipRadius,
   },
   conditionBadge: {
     backgroundColor: palette.warningSoft,
@@ -991,7 +993,7 @@ const createStyles = (palette: AppPaletteShape) => StyleSheet.create({
     fontWeight: "500",
     paddingHorizontal: 10,
     paddingVertical: 4,
-    borderRadius: 6,
+    borderRadius: shape.chipRadius,
   },
   platformBadge: {
     backgroundColor: palette.infoSoft,
@@ -1000,11 +1002,11 @@ const createStyles = (palette: AppPaletteShape) => StyleSheet.create({
     fontWeight: "500",
     paddingHorizontal: 10,
     paddingVertical: 4,
-    borderRadius: 6,
+    borderRadius: shape.chipRadius,
   },
   platformReason: { fontSize: 13, color: palette.textMuted, marginBottom: 16, lineHeight: 18 },
   sellabilityCard: {
-    borderRadius: 10,
+    borderRadius: shape.cardRadius,
     padding: 12,
     marginBottom: 12,
   },
@@ -1020,10 +1022,10 @@ const createStyles = (palette: AppPaletteShape) => StyleSheet.create({
   },
   listingBox: {
     backgroundColor: palette.surfaceMuted,
-    borderRadius: 8,
+    borderRadius: shape.cardRadius,
     padding: 12,
-    borderWidth: 1,
-    borderColor: palette.border,
+    borderWidth: shape.cardBorderWidth,
+    borderColor: palette.borderStrong,
   },
   quickEditGrid: {
     flexDirection: "row",
@@ -1095,7 +1097,7 @@ const createStyles = (palette: AppPaletteShape) => StyleSheet.create({
   copyBtn: {
     backgroundColor: palette.surfaceTint,
     padding: 12,
-    borderRadius: 8,
+    borderRadius: shape.cardRadius,
     alignItems: "center",
     marginTop: 12,
   },
@@ -1103,7 +1105,7 @@ const createStyles = (palette: AppPaletteShape) => StyleSheet.create({
   saveBtn: {
     backgroundColor: palette.primaryStrong,
     padding: 12,
-    borderRadius: 8,
+    borderRadius: shape.cardRadius,
     alignItems: "center",
     marginTop: 8,
   },
@@ -1113,7 +1115,7 @@ const createStyles = (palette: AppPaletteShape) => StyleSheet.create({
     borderColor: palette.border,
     backgroundColor: palette.surface,
     padding: 12,
-    borderRadius: 8,
+    borderRadius: shape.cardRadius,
     alignItems: "center",
     marginTop: 8,
   },
@@ -1123,7 +1125,7 @@ const createStyles = (palette: AppPaletteShape) => StyleSheet.create({
     borderWidth: 1,
     borderColor: palette.border,
     padding: 12,
-    borderRadius: 8,
+    borderRadius: shape.cardRadius,
     alignItems: "center",
     marginTop: 8,
   },
@@ -1131,7 +1133,7 @@ const createStyles = (palette: AppPaletteShape) => StyleSheet.create({
   nextItemBtn: {
     backgroundColor: palette.infoSoft,
     padding: 12,
-    borderRadius: 8,
+    borderRadius: shape.cardRadius,
     alignItems: "center",
     marginTop: 8,
   },
@@ -1139,7 +1141,7 @@ const createStyles = (palette: AppPaletteShape) => StyleSheet.create({
   finishedBtn: {
     backgroundColor: palette.primary,
     padding: 12,
-    borderRadius: 8,
+    borderRadius: shape.cardRadius,
     alignItems: "center",
     marginTop: 8,
   },
@@ -1147,9 +1149,9 @@ const createStyles = (palette: AppPaletteShape) => StyleSheet.create({
   photoTipsCard: {
     marginTop: 14,
     backgroundColor: palette.surfaceMuted,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: palette.border,
+    borderRadius: shape.cardRadius,
+    borderWidth: shape.cardBorderWidth,
+    borderColor: palette.borderStrong,
     padding: 12,
   },
   photoTipsToggle: {

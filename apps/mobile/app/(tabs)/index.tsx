@@ -22,13 +22,15 @@ import {
   subscribeInventory,
 } from "@/lib/inventory-store";
 import { AppLayout, type AppPaletteShape } from "@/constants/app-palette";
-import { useAppPalette } from "@/lib/app-theme";
+import type { AppShape } from "@/constants/app-shape";
+import { useAppPalette, useAppShape } from "@/lib/app-theme";
 import { IconSymbol } from "@/components/ui/icon-symbol";
 
 export default function HomeScreen() {
   const router = useRouter();
   const palette = useAppPalette();
-  const styles = useMemo(() => createStyles(palette), [palette]);
+  const shape = useAppShape();
+  const styles = useMemo(() => createStyles(palette, shape), [palette, shape]);
   const { width } = useWindowDimensions();
   const [createModalVisible, setCreateModalVisible] = useState(false);
   const [palletSelectorVisible, setPalletSelectorVisible] = useState(false);
@@ -257,9 +259,9 @@ const withAlpha = (hex: string, alpha: number): string => {
   return `rgba(${r}, ${g}, ${b}, ${alpha})`;
 };
 
-// The Scan home follows the active theme palette via useAppPalette
-// (see lib/app-theme.tsx); in Deep mode the values are unchanged.
-const createStyles = (palette: AppPaletteShape) => StyleSheet.create({
+// The Scan home follows the active theme palette and shape via
+// useAppPalette/useAppShape (see lib/app-theme.tsx).
+const createStyles = (palette: AppPaletteShape, shape: AppShape) => StyleSheet.create({
   container: { flex: 1, backgroundColor: palette.background },
   content: { padding: 20, paddingTop: 56, paddingBottom: 28 },
   innerContent: {
@@ -273,7 +275,7 @@ const createStyles = (palette: AppPaletteShape) => StyleSheet.create({
   subtitle: { fontSize: 14, color: palette.textMuted, marginBottom: 20 },
   primaryCard: {
     backgroundColor: palette.primaryStrong,
-    borderRadius: 14,
+    borderRadius: shape.cardRadius,
     padding: 18,
     marginBottom: 16,
     shadowColor: palette.shadow,
@@ -297,7 +299,7 @@ const createStyles = (palette: AppPaletteShape) => StyleSheet.create({
   },
   cardAction: {
     backgroundColor: palette.primaryOn,
-    borderRadius: 10,
+    borderRadius: shape.cardRadius,
     paddingVertical: 12,
     alignItems: "center",
   },
@@ -305,9 +307,9 @@ const createStyles = (palette: AppPaletteShape) => StyleSheet.create({
   palletSelector: {
     alignItems: "center",
     backgroundColor: palette.surface,
-    borderColor: palette.border,
-    borderWidth: 1,
-    borderRadius: 10,
+    borderColor: palette.borderStrong,
+    borderWidth: shape.cardBorderWidth,
+    borderRadius: shape.cardRadius,
     flexDirection: "row",
     justifyContent: "space-between",
     marginBottom: 12,
@@ -328,17 +330,17 @@ const createStyles = (palette: AppPaletteShape) => StyleSheet.create({
   },
   actionsCard: {
     backgroundColor: palette.surface,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: palette.border,
+    borderRadius: shape.cardRadius,
+    borderWidth: shape.cardBorderWidth,
+    borderColor: palette.borderStrong,
     padding: 16,
     marginBottom: 16,
   },
   workflowAction: {
     backgroundColor: palette.surfaceMuted,
-    borderWidth: 1,
-    borderColor: palette.border,
-    borderRadius: 12,
+    borderWidth: shape.cardBorderWidth,
+    borderColor: palette.borderStrong,
+    borderRadius: shape.cardRadius,
     padding: 14,
     marginTop: 10,
   },
@@ -372,7 +374,9 @@ const createStyles = (palette: AppPaletteShape) => StyleSheet.create({
   },
   modalCard: {
     backgroundColor: palette.surface,
-    borderRadius: 14,
+    borderRadius: shape.cardRadius,
+    borderWidth: shape.cardBorderWidth,
+    borderColor: palette.borderStrong,
     padding: 20,
   },
   modalTitle: {
@@ -406,7 +410,7 @@ const createStyles = (palette: AppPaletteShape) => StyleSheet.create({
   modalSecondaryAction: {
     borderWidth: 1,
     borderColor: palette.borderStrong,
-    borderRadius: 10,
+    borderRadius: 8,
     paddingHorizontal: 16,
     paddingVertical: 12,
     backgroundColor: palette.surface,
@@ -418,7 +422,7 @@ const createStyles = (palette: AppPaletteShape) => StyleSheet.create({
   },
   modalPrimaryAction: {
     backgroundColor: palette.primaryStrong,
-    borderRadius: 10,
+    borderRadius: 8,
     paddingHorizontal: 16,
     paddingVertical: 12,
   },
