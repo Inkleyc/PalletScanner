@@ -9,6 +9,7 @@ import {
 import {
   DayPalette,
   DeepPalette,
+  WorkOrderPalette,
   type AppPaletteShape,
 } from "@/constants/app-palette";
 import {
@@ -30,9 +31,10 @@ type AppThemeContextValue = {
 const AppThemeContext = createContext<AppThemeContextValue | null>(null);
 
 /**
- * Provides the active slate palette. The mode is persisted through
- * app-settings (same store as the other device settings); anything other
- * than an explicit "day" resolves to the "deep" default.
+ * Provides the active palette. The mode is persisted through app-settings
+ * (same store as the other device settings). Modes resolve exactly:
+ * "day" -> DayPalette, "workorder" -> WorkOrderPalette (experiment), and
+ * anything else -> the "deep" default.
  */
 export function AppThemeProvider({ children }: { children: ReactNode }) {
   const settings = useSyncExternalStore(
@@ -40,13 +42,23 @@ export function AppThemeProvider({ children }: { children: ReactNode }) {
     getAppSettings,
     getAppSettings,
   );
-  const mode: AppThemeMode = settings.themeMode === "day" ? "day" : "deep";
+  const mode: AppThemeMode =
+    settings.themeMode === "day"
+      ? "day"
+      : settings.themeMode === "workorder"
+        ? "workorder"
+        : "deep";
 
   const value = useMemo<AppThemeContextValue>(
     () => ({
       mode,
       setMode: setThemeMode,
-      palette: mode === "deep" ? DeepPalette : DayPalette,
+      palette:
+        mode === "workorder"
+          ? WorkOrderPalette
+          : mode === "deep"
+            ? DeepPalette
+            : DayPalette,
     }),
     [mode],
   );

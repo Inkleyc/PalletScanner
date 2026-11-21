@@ -5,7 +5,7 @@ import { ActivityIndicator, Platform, Text, View } from "react-native";
 import { HapticTab } from "@/components/haptic-tab";
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { AppLayout } from "@/constants/app-palette";
-import { useAppPalette } from "@/lib/app-theme";
+import { useAppPalette, useAppTheme } from "@/lib/app-theme";
 import {
   getSupabaseAuthSnapshot,
   subscribeSupabaseAuth,
@@ -13,6 +13,7 @@ import {
 
 export default function TabLayout() {
   const palette = useAppPalette();
+  const { mode } = useAppTheme();
   const auth = useSyncExternalStore(
     subscribeSupabaseAuth,
     getSupabaseAuthSnapshot,
@@ -96,8 +97,10 @@ export default function TabLayout() {
         tabBarLabelPosition: "below-icon",
         tabBarStyle: {
           backgroundColor: palette.surface,
-          borderTopColor: palette.border,
-          borderTopWidth: 1,
+          // Work Order signature: a heavier ink rule above the tab bar.
+          borderTopColor:
+            mode === "workorder" ? palette.borderStrong : palette.border,
+          borderTopWidth: mode === "workorder" ? 1.5 : 1,
           height: isTablet ? 98 : 86,
           paddingTop: isTablet ? 12 : 10,
           paddingBottom: isTablet ? 14 : 12,

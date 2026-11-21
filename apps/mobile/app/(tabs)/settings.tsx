@@ -290,17 +290,42 @@ export default function SettingsScreen() {
 
         <View style={styles.card}>
           <Text style={styles.settingTitle}>Theme</Text>
-          <View style={styles.settingRow}>
-            <Text style={styles.settingDescription}>
-              Deep is the dark slate theme, tuned for warehouses and low
-              light. Turn this off to use the light Day slate theme instead.
-            </Text>
-            <Switch
-              value={mode === "deep"}
-              onValueChange={(value) => setMode(value ? "deep" : "day")}
-              trackColor={{ false: palette.borderStrong, true: palette.primary }}
-              thumbColor={mode === "deep" ? "#ffffff" : palette.textMuted}
-            />
+          <Text style={styles.settingDescription}>
+            Day is the light slate theme. Work Order is the paper-and-ink
+            theme with hardware orange. Deep is the dark slate theme, tuned
+            for warehouses and low light.
+          </Text>
+          <View style={styles.themeOptionRow}>
+            {(
+              [
+                { value: "day", label: "Day" },
+                { value: "workorder", label: "Work Order" },
+                { value: "deep", label: "Deep" },
+              ] as const
+            ).map((option) => {
+              const selected = mode === option.value;
+              return (
+                <TouchableOpacity
+                  key={option.value}
+                  style={[
+                    styles.themeOption,
+                    selected && styles.themeOptionActive,
+                  ]}
+                  onPress={() => setMode(option.value)}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected }}
+                >
+                  <Text
+                    style={[
+                      styles.themeOptionText,
+                      selected && styles.themeOptionTextActive,
+                    ]}
+                  >
+                    {option.label}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
           </View>
         </View>
 
@@ -582,6 +607,34 @@ const createStyles = (palette: AppPaletteShape) => StyleSheet.create({
     fontSize: 13,
     color: palette.textMuted,
     lineHeight: 19,
+  },
+  themeOptionRow: {
+    flexDirection: "row",
+    gap: 8,
+    marginTop: 12,
+  },
+  themeOption: {
+    flex: 1,
+    borderWidth: 1,
+    borderColor: palette.borderStrong,
+    borderRadius: 8,
+    paddingVertical: 12,
+    paddingHorizontal: 8,
+    alignItems: "center",
+    backgroundColor: palette.surfaceMuted,
+  },
+  themeOptionActive: {
+    backgroundColor: palette.primarySoft,
+    borderColor: palette.primary,
+  },
+  themeOptionText: {
+    color: palette.text,
+    fontSize: 13,
+    fontWeight: "600",
+  },
+  themeOptionTextActive: {
+    color: palette.primaryStrong,
+    fontWeight: "700",
   },
   integrationStatus: {
     fontSize: 13,

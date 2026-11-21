@@ -3,7 +3,7 @@ import { Platform } from "react-native";
 
 import { readWebStorage, writeWebStorage } from "@/lib/web-storage";
 
-export type AppThemeMode = "deep" | "day";
+export type AppThemeMode = "deep" | "day" | "workorder";
 
 type AppSettings = {
   promptToPostOnSave: boolean;
