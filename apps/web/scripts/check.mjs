@@ -1,4 +1,4 @@
-import { readFile } from "node:fs/promises";
+import { readFile, readdir } from "node:fs/promises";
 globalThis.localStorage = {
   getItem: () => null,
   setItem: () => {},
@@ -39,6 +39,7 @@ const requiredFiles = [
   "src/marketplace-observation-repository.js",
   "src/marketplace-observation-model.js",
   "src/activity-panel.jsx",
+  "src/dialog-service.jsx",
   "src/pallet-manager.jsx",
   "src/dashboard-components.jsx",
   "src/web-services.js",
@@ -57,6 +58,19 @@ await Promise.all(
 
 const html = await readFile(new URL("../index.html", import.meta.url), "utf8");
 const app = await readFile(new URL("../src/App.jsx", import.meta.url), "utf8");
+
+// PF-SCOPE-028 (DIALOG RULE): app flows never use the browser-native
+// dialog boxes; dialogs are in-app via dialog-service.jsx.
+const srcEntries = await readdir(new URL("../src/", import.meta.url));
+for (const entry of srcEntries) {
+  if (!/\.(js|jsx)$/.test(entry)) continue;
+  const content = await readFile(new URL(`../src/${entry}`, import.meta.url), "utf8");
+  for (const nativeDialog of ["window.prompt", "window.confirm", "window.alert"]) {
+    if (content.includes(nativeDialog)) {
+      throw new Error(`src/${entry} uses ${nativeDialog}; use the in-app dialog service instead.`);
+    }
+  }
+}
 
 for (const marker of ['id="app"', "/src/main.jsx"]) {
   if (!html.includes(marker)) {
