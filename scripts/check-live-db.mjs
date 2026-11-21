@@ -119,7 +119,7 @@ const textTables = new Set(
 const textFunctions = new Set(
   [...migrationSql.matchAll(/function public\.([a-z_0-9]+)/gi)].map((m) => m[1]),
 );
-// Policy total is 53: 46 on public tables plus 7 on storage.objects (photo /
+// Policy total is 57: 50 on public tables plus 7 on storage.objects (photo /
 // return-evidence buckets). Two public policy headers span two lines, so
 // the public recount must allow whitespace (including a newline) between
 // the policy name and `on public.`.
@@ -184,11 +184,11 @@ assert(
   `all ${migrationFiles.length} migration files applied exactly once (applied=${catalog.migration_count}, missing=[${missingMigrations.join(", ")}], extra=[${extraMigrations.join(", ")}]). A missing migration means it failed to execute — report it as a decision needed; do not edit migrations to make this pass.`,
 );
 assertEqual(catalog.tables.length, textTables.size, "live public table count matches migration text");
-assertEqual(catalog.tables.length, 35, "live public table count matches the audit baseline");
+assertEqual(catalog.tables.length, 36, "live public table count matches the audit baseline");
 assertEqual(catalog.function_count, textFunctions.size, "live public function count matches migration text");
 assertEqual(catalog.function_count, 73, "live public function count matches the audit baseline");
 assertEqual(catalog.policy_count, textPolicyCount, "live policy count (public + storage) matches migration text");
-assertEqual(catalog.policy_count, 53, "live policy count matches the audit baseline");
+assertEqual(catalog.policy_count, 57, "live policy count matches the audit baseline");
 assertEqual(catalog.public_policy_count, textPublicPolicyCount, "live public policy count matches migration text");
 assertEqual(catalog.storage_policy_count, textStoragePolicyCount, "live storage policy count matches migration text");
 assert(catalog.rls_off.length === 0, `row-level security enabled on every public table (off: [${catalog.rls_off.join(", ")}])`);
