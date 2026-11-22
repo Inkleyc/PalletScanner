@@ -18,7 +18,7 @@ import { isSupabaseConfigured, supabase } from "./supabase.js";
 import { getAuthSessionState, sendMagicLink as requestMagicLink, signOut as requestSignOut, startAuthSession, subscribeAuthSession, syncRepositoryMode } from "./auth-session.js";
 import { buildAnalytics } from "./analytics-model.js";
 import { fetchWithTimeout } from "./timed-fetch.js";
-import { ebayPublishFailureUpdate, ebayPublishStartedUpdate, ebayPublishSuccessUpdate, getPersistedPublishError } from "./ebay-publish-state.js";
+import { ebayListingEndedUpdate, ebayPublishFailureUpdate, ebayPublishStartedUpdate, ebayPublishSuccessUpdate, getPersistedPublishError, hasLiveEbayListing } from "./ebay-publish-state.js";
 import { buildOperationalProfitability } from "./profitability-model.js";
 import { reconcileEbayPreview } from "./ebay-reconciliation.js";
 import { applyPricingRecommendation, archivePackagePreset, closeReturnCase, confirmLocalPickupHandoff, confirmSaleFees, confirmShipmentPackage, confirmShipmentPicked, confirmShipmentShipped, createManualReturn, createUnverifiedInventoryFromObservation, dismissPricingRecommendation, dispositionReturnLine, getEbayMarketplaceControl, getOperationalAttentionSummary, getPricingRecommendationSettings, importObservedEbayOrders, importObservedEbayReturns, inspectReturnLine, listEbayObservationSnapshots, listImportedEbayOrders, listMarketplaceActionJobs, listMarketplaceQuantityQueue, listPackagePresets, listReturns, listShippedSaleRecovery, loadEbayObservationSnapshot, loadOperationalProfitabilityData, matchImportedOrderLine, queueEbayQuantitySync, receiveReturnLine, reconcileShippedFulfillmentSales, recordConfirmedReturnDecision, recordEbayReconciliationDecision, recordReturnCommunication, recordReturnFinancialEvent, recordReturnLineRefund, recordReturnShippingHandoff, recordShipmentLabel, recordTrackingEvent, releaseCancelledOrderReservations, reserveImportedOrder, resolveMarketplacePriceReview, resolveReturnIdentityDiscrepancy, retryFailedMarketplaceActionJob, saveEbayObservationSnapshot, savePackagePreset, setEbayOutboundPause, startOrderFulfillment, startReturnReplacement, updatePricingRecommendationSettings, uploadReturnEvidence } from "./marketplace-observation-repository.js";
@@ -38,6 +38,7 @@ import {
   MAX_ITEM_PHOTOS,
   analyzeItemPhotos,
   configuredBackendBaseUrl,
+  endEbayListing,
   getEbayListingRequirements,
   postItemToEbay,
   preferredListingPrice,
@@ -304,6 +305,25 @@ function ListingReview({ item, onSave }) {
       await persistPublishFailure(item, message);
     } finally { setSavingPlatform(null); }
   };
+  // PF-SCOPE-030: end the live eBay listing from the web panel — the
+  // backend endpoint and the mobile action already existed; only the
+  // web UI was missing (runbook gap 22: an item archived from web
+  // kept selling on eBay because nothing here could withdraw it).
+  // On success the persisted state mirrors mobile's
+  // markInventoryItemEbayEnded (see ebay-publish-state.js). A failed
+  // end shows the backend/eBay message in the moment only — the
+  // listing is still live, so the panel keeps showing it.
+  const endListing = async () => {
+    if (!hasLiveEbayListing(item)) return;
+    if (!await confirmDialog(`End the eBay listing for ${item.name}? It will be withdrawn on eBay. You can post it again later.`)) return;
+    setSavingPlatform("ebay-end"); setError("");
+    try {
+      await endEbayListing(item.ebayOfferId);
+      await onSave(ebayListingEndedUpdate(item));
+    } catch (endError) {
+      setError(endError instanceof Error ? endError.message : "Could not end this eBay listing.");
+    } finally { setSavingPlatform(null); }
+  };
   const submitAnswers = async (event) => {
     event.preventDefault();
     const missing = questions.find((question) => question.required && !String(answers[question.key] ?? "").trim());
@@ -331,7 +351,7 @@ function ListingReview({ item, onSave }) {
     } catch { setError("Facebook Marketplace could not be opened. Check browser popup and clipboard permissions."); }
     finally { setSavingPlatform(null); }
   };
-  return <><section className="photo-review"><div className="card-row"><div><strong>Marketplace actions</strong><span>Publish to eBay or prepare the Facebook Marketplace draft.</span></div></div><div className="marketplace-action"><div><strong>eBay</strong><span>{item.ebayListingId ? `Listing ${item.ebayListingId}` : "Checks current eBay requirements before publishing."}</span></div>{item.ebayListingUrl ? <a className="button-link" href={item.ebayListingUrl} target="_blank" rel="noreferrer">View eBay listing</a> : <button className="primary-button" disabled={savingPlatform !== null} onClick={publishEbay}>{savingPlatform === "ebay-post" ? "Checking…" : "Post to eBay"}</button>}</div><div className="marketplace-action"><div><strong>Facebook Marketplace</strong><span>Copies the listing text and opens Facebook’s item composer.</span></div><button disabled={savingPlatform !== null} onClick={openFacebookDraft}>{savingPlatform === "facebook-open" ? "Opening…" : "Open Facebook draft"}</button></div><div className="marketplace-confirm"><span>{item.listedPlatforms.includes("facebook") ? "Marked as listed on Facebook" : "After publishing on Facebook, confirm it here."}</span><button disabled={savingPlatform !== null} onClick={() => updatePlatform("facebook")}>{savingPlatform === "facebook" ? "Saving…" : item.listedPlatforms.includes("facebook") ? "Remove listed mark" : "Mark listed"}</button></div>{error && <p className="error-text">{error}</p>}{item.ebayLastError && item.ebayStatus === "error" && <p className="error-text">eBay: {item.ebayLastError}</p>}{item.facebookLastError && <p className="error-text">Facebook: {item.facebookLastError}</p>}</section>{questions.length > 0 && <div className="modal-backdrop" role="presentation"><form className="edit-modal ebay-questions-modal" role="dialog" aria-modal="true" aria-labelledby="ebay-questions-title" onSubmit={submitAnswers}><div><h3 id="ebay-questions-title">A few details before posting</h3><p>eBay requires these details for the selected category. PalletFlip will save your answers with this item.</p></div>{questions.map((question) => <label key={question.key}><span>{question.label}</span>{question.type === "select" ? <select autoFocus value={answers[question.key] ?? ""} onChange={(event) => setAnswers((current) => ({ ...current, [question.key]: event.target.value }))}><option value="">Select an answer</option>{question.options.map((option) => <option key={option}>{option}</option>)}</select> : <input autoFocus value={answers[question.key] ?? ""} onChange={(event) => setAnswers((current) => ({ ...current, [question.key]: event.target.value }))} />}<small>{question.reason}</small></label>)}{error && <p className="error-text">{error}</p>}<div className="button-row"><button type="button" disabled={savingPlatform !== null} onClick={() => { setQuestions([]); setError(""); }}>Cancel</button><button className="primary-button" type="submit" disabled={savingPlatform !== null}>{savingPlatform === "ebay-questions" ? "Publishing…" : "Save and publish"}</button></div></form></div>}</>;
+  return <><section className="photo-review"><div className="card-row"><div><strong>Marketplace actions</strong><span>Publish to eBay or prepare the Facebook Marketplace draft.</span></div></div><div className="marketplace-action"><div><strong>eBay</strong><span>{item.ebayListingId ? `Listing ${item.ebayListingId}` : "Checks current eBay requirements before publishing."}</span></div>{item.ebayListingUrl ? <><div className="marketplace-action-buttons"><a className="button-link" href={item.ebayListingUrl} target="_blank" rel="noreferrer">View eBay listing</a>{hasLiveEbayListing(item) && <button className="danger-button" disabled={savingPlatform !== null} onClick={endListing}>{savingPlatform === "ebay-end" ? "Ending…" : "End listing"}</button>}</div></> : <button className="primary-button" disabled={savingPlatform !== null} onClick={publishEbay}>{savingPlatform === "ebay-post" ? "Checking…" : "Post to eBay"}</button>}</div><div className="marketplace-action"><div><strong>Facebook Marketplace</strong><span>Copies the listing text and opens Facebook’s item composer.</span></div><button disabled={savingPlatform !== null} onClick={openFacebookDraft}>{savingPlatform === "facebook-open" ? "Opening…" : "Open Facebook draft"}</button></div><div className="marketplace-confirm"><span>{item.listedPlatforms.includes("facebook") ? "Marked as listed on Facebook" : "After publishing on Facebook, confirm it here."}</span><button disabled={savingPlatform !== null} onClick={() => updatePlatform("facebook")}>{savingPlatform === "facebook" ? "Saving…" : item.listedPlatforms.includes("facebook") ? "Remove listed mark" : "Mark listed"}</button></div>{error && <p className="error-text">{error}</p>}{item.ebayLastError && item.ebayStatus === "error" && <p className="error-text">eBay: {item.ebayLastError}</p>}{item.facebookLastError && <p className="error-text">Facebook: {item.facebookLastError}</p>}</section>{questions.length > 0 && <div className="modal-backdrop" role="presentation"><form className="edit-modal ebay-questions-modal" role="dialog" aria-modal="true" aria-labelledby="ebay-questions-title" onSubmit={submitAnswers}><div><h3 id="ebay-questions-title">A few details before posting</h3><p>eBay requires these details for the selected category. PalletFlip will save your answers with this item.</p></div>{questions.map((question) => <label key={question.key}><span>{question.label}</span>{question.type === "select" ? <select autoFocus value={answers[question.key] ?? ""} onChange={(event) => setAnswers((current) => ({ ...current, [question.key]: event.target.value }))}><option value="">Select an answer</option>{question.options.map((option) => <option key={option}>{option}</option>)}</select> : <input autoFocus value={answers[question.key] ?? ""} onChange={(event) => setAnswers((current) => ({ ...current, [question.key]: event.target.value }))} />}<small>{question.reason}</small></label>)}{error && <p className="error-text">{error}</p>}<div className="button-row"><button type="button" disabled={savingPlatform !== null} onClick={() => { setQuestions([]); setError(""); }}>Cancel</button><button className="primary-button" type="submit" disabled={savingPlatform !== null}>{savingPlatform === "ebay-questions" ? "Publishing…" : "Save and publish"}</button></div></form></div>}</>;
 }
 
 function RecordSale({ item, onRecorded }) {
@@ -514,7 +534,14 @@ function InventoryDetail({ item, palletName, pallets, onSave, onRemove, onSaleRe
     catch (workflowError) { setError(workflowError instanceof Error ? workflowError.message : "Could not update status."); }
   };
   const remove = async () => {
-    if (!await confirmDialog(`Archive ${item.name}? It will leave active inventory but keep its history.`)) return;
+    // PF-SCOPE-030 rider: archiving does not end a live eBay listing
+    // (runbook gap 22) — say so in the confirmation when one exists,
+    // so the owner ends it first if it should stop selling. Warning
+    // only; the archive itself never touches eBay.
+    const archiveMessage = hasLiveEbayListing(item)
+      ? `Archive ${item.name}? It will leave active inventory but keep its history. Its eBay listing stays live unless you end it first — archiving will not end it.`
+      : `Archive ${item.name}? It will leave active inventory but keep its history.`;
+    if (!await confirmDialog(archiveMessage)) return;
     await onRemove(item.id);
   };
   const restore = async () => {

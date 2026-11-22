@@ -169,3 +169,15 @@ export const postItemToEbay = (item) =>
     method: "POST",
     body: JSON.stringify(getEbayListingPayload(item)),
   });
+
+// PF-SCOPE-030: end a live eBay listing (the backend withdraws the
+// offer). Same backendRequest plumbing as the publish call above —
+// the PF-SCOPE-025 timed fetch lives only in the Settings card's own
+// request helper, not in backendRequest, so parity means using
+// backendRequest unchanged. Mirrors the mobile app's
+// ebayApi.endListing(offerId) contract: POST { offerId }.
+export const endEbayListing = (offerId) =>
+  backendRequest("/ebay/listings/end", {
+    method: "POST",
+    body: JSON.stringify({ offerId }),
+  });
