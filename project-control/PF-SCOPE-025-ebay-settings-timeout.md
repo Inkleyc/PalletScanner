@@ -1,7 +1,38 @@
 # PF-SCOPE-025 — eBay Settings card: status fetch timeout
 
-Status: APPROVED (not built; builds now that PF-SCOPE-004 is closed — see Sequencing)
-Owner approval: APPROVED 2026-11-19 (numbered PF-SCOPE-025 by Colton)
+Status: VERIFIED 2026-11-21 (build + check-script evidence; live pass on the deployed app follows the merge — see Verification)
+Owner approval: APPROVED 2026-11-19 (numbered PF-SCOPE-025 by Colton); build authorized 2026-11-21
+
+## Build record (2026-11-21)
+
+- Branch `scope/PF-SCOPE-025-ebay-settings-timeout`. The Settings card's
+  `request()` in `apps/web/src/App.jsx` now calls `fetchWithTimeout`
+  from the new dependency-free `apps/web/src/timed-fetch.js`; every
+  settings flow (status, setup, defaults, location, connect,
+  disconnect, import preview/sync) inherits the deadline through the
+  shared helper, unchanged otherwise.
+- **Deadline: 20s** (the proposed value, kept). Reasoning: a warm
+  backend answers these calls in a few seconds at most, so 20s is
+  generous headroom for a real response; Render's cold start is ~50s,
+  so no deadline short enough to feel responsive would let the first
+  click on a sleeping backend succeed anyway. The fix's value is the
+  recoverable state — at 20s the click lands on a timeout error
+  ("The backend did not answer within 20 seconds. It may still be
+  waking up — wait a moment and try again.") on the card's existing
+  message line, loading clears via the existing `finally`, and Check
+  status is enabled for the retry that reaches the waking/awake
+  backend. This replaces the observed failure mode (~90s hangs, most
+  recently in PF-SCOPE-024's acceptance check) where the only recovery
+  was a page refresh.
+- Check-script case: `apps/web/scripts/ebay-settings-timeout.test.mjs`
+  (added to the web check list in `apps/web/package.json`). A
+  never-resolving fetch stub — faithful to real fetch, pending until
+  the AbortSignal fires, then rejecting with AbortError — drives the
+  timeout path through a mirror of checkStatus's try/catch/finally and
+  asserts loading clears and the timeout message is what renders; plus
+  pass-through, non-timeout error propagation, the 20s constant, and a
+  wiring assertion that App.jsx's request() uses the timed fetch.
+  Root `npm run check` green (84 web tests passing).
 
 ## Problem (observed, not hypothetical)
 
@@ -59,6 +90,7 @@ or right after, PF-SCOPE-024.
 
 ## Verification
 
-- Root `npm run check` green (incl. the new timeout case).
+- Root `npm run check` green (incl. the new timeout case). — DONE 2026-11-21.
 - Live pass: open Settings with the backend asleep; card must resolve
   to a state or a retryable error — never a permanent "Checking…".
+  — PENDING: runs on the deployed app after this scope merges.

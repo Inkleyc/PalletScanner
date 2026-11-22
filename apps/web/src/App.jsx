@@ -17,6 +17,7 @@ import { getRepositoryMode, repository, useCloudRepository } from "./repository-
 import { isSupabaseConfigured, supabase } from "./supabase.js";
 import { getAuthSessionState, sendMagicLink as requestMagicLink, signOut as requestSignOut, startAuthSession, subscribeAuthSession, syncRepositoryMode } from "./auth-session.js";
 import { buildAnalytics } from "./analytics-model.js";
+import { fetchWithTimeout } from "./timed-fetch.js";
 import { buildOperationalProfitability } from "./profitability-model.js";
 import { reconcileEbayPreview } from "./ebay-reconciliation.js";
 import { applyPricingRecommendation, archivePackagePreset, closeReturnCase, confirmLocalPickupHandoff, confirmSaleFees, confirmShipmentPackage, confirmShipmentPicked, confirmShipmentShipped, createManualReturn, createUnverifiedInventoryFromObservation, dismissPricingRecommendation, dispositionReturnLine, getEbayMarketplaceControl, getOperationalAttentionSummary, getPricingRecommendationSettings, importObservedEbayOrders, importObservedEbayReturns, inspectReturnLine, listEbayObservationSnapshots, listImportedEbayOrders, listMarketplaceActionJobs, listMarketplaceQuantityQueue, listPackagePresets, listReturns, listShippedSaleRecovery, loadEbayObservationSnapshot, loadOperationalProfitabilityData, matchImportedOrderLine, queueEbayQuantitySync, receiveReturnLine, reconcileShippedFulfillmentSales, recordConfirmedReturnDecision, recordEbayReconciliationDecision, recordReturnCommunication, recordReturnFinancialEvent, recordReturnLineRefund, recordReturnShippingHandoff, recordShipmentLabel, recordTrackingEvent, releaseCancelledOrderReservations, reserveImportedOrder, resolveMarketplacePriceReview, resolveReturnIdentityDiscrepancy, retryFailedMarketplaceActionJob, saveEbayObservationSnapshot, savePackagePreset, setEbayOutboundPause, startOrderFulfillment, startReturnReplacement, updatePricingRecommendationSettings, uploadReturnEvidence } from "./marketplace-observation-repository.js";
@@ -898,7 +899,10 @@ function EbaySettings({ mode = "all" }) {
       const { data } = await supabase.auth.getSession();
       bearer = data.session?.access_token ?? "";
     }
-    const response = await fetch(`${baseUrl.trim().replace(/\/$/, "")}${path}`, {
+    // PF-SCOPE-025: every settings request goes through the timed
+    // fetch, so a hung backend call surfaces as a retryable error on
+    // the message line instead of wedging the card on "Checking…".
+    const response = await fetchWithTimeout(`${baseUrl.trim().replace(/\/$/, "")}${path}`, {
       ...options,
       headers: { ...(bearer ? { Authorization: `Bearer ${bearer}` } : {}), ...(options.headers ?? {}) },
     });
