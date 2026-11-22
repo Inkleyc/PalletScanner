@@ -2094,6 +2094,13 @@ textarea {
   min-width: 0;
 }
 
+/* PF-SCOPE-030: View + End listing sit together at the row's end. */
+.marketplace-action-buttons {
+  display: flex;
+  flex: 0 0 auto;
+  gap: 8px;
+}
+
 .marketplace-action span,
 .marketplace-confirm span {
   color: var(--app-text-muted);

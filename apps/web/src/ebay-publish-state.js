@@ -58,3 +58,28 @@ export const getPersistedPublishError = (item) => {
   if (item.facebookStatus === "error" && item.facebookLastError) return item.facebookLastError;
   return null;
 };
+
+// PF-SCOPE-030: an item has a live eBay listing when it carries the
+// offer id the backend's POST /ebay/listings/end withdraws — the same
+// guard the mobile app's endItemEbayListing uses. This drives both
+// the Marketplace panel's "End listing" action and the archive
+// confirmation's stays-live warning.
+export const hasLiveEbayListing = (item) => Boolean(item?.ebayOfferId);
+
+// The persisted state after a listing is ended on eBay, mirroring the
+// mobile app's markInventoryItemEbayEnded: back to "idle", the
+// listing identifiers and any publish error cleared, "ebay" removed
+// from listedPlatforms (other platforms untouched). ebaySku and the
+// category stay, as on mobile — they describe the item, not the ended
+// listing, and a later re-publish reuses them.
+export const ebayListingEndedUpdate = (item, now = Date.now()) => ({
+  ...item,
+  ebayStatus: "idle",
+  ebayListingId: null,
+  ebayListingUrl: null,
+  ebayOfferId: null,
+  ebayProgress: null,
+  ebayLastError: null,
+  ebayUpdatedAt: now,
+  listedPlatforms: (item.listedPlatforms ?? []).filter((platform) => platform !== "ebay"),
+});
