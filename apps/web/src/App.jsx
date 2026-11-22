@@ -18,6 +18,7 @@ import { isSupabaseConfigured, supabase } from "./supabase.js";
 import { getAuthSessionState, sendMagicLink as requestMagicLink, signOut as requestSignOut, startAuthSession, subscribeAuthSession, syncRepositoryMode } from "./auth-session.js";
 import { buildAnalytics } from "./analytics-model.js";
 import { fetchWithTimeout } from "./timed-fetch.js";
+import { ebayPublishFailureUpdate, ebayPublishStartedUpdate, ebayPublishSuccessUpdate, getPersistedPublishError } from "./ebay-publish-state.js";
 import { buildOperationalProfitability } from "./profitability-model.js";
 import { reconcileEbayPreview } from "./ebay-reconciliation.js";
 import { applyPricingRecommendation, archivePackagePreset, closeReturnCase, confirmLocalPickupHandoff, confirmSaleFees, confirmShipmentPackage, confirmShipmentPicked, confirmShipmentShipped, createManualReturn, createUnverifiedInventoryFromObservation, dismissPricingRecommendation, dispositionReturnLine, getEbayMarketplaceControl, getOperationalAttentionSummary, getPricingRecommendationSettings, importObservedEbayOrders, importObservedEbayReturns, inspectReturnLine, listEbayObservationSnapshots, listImportedEbayOrders, listMarketplaceActionJobs, listMarketplaceQuantityQueue, listPackagePresets, listReturns, listShippedSaleRecovery, loadEbayObservationSnapshot, loadOperationalProfitabilityData, matchImportedOrderLine, queueEbayQuantitySync, receiveReturnLine, reconcileShippedFulfillmentSales, recordConfirmedReturnDecision, recordEbayReconciliationDecision, recordReturnCommunication, recordReturnFinancialEvent, recordReturnLineRefund, recordReturnShippingHandoff, recordShipmentLabel, recordTrackingEvent, releaseCancelledOrderReservations, reserveImportedOrder, resolveMarketplacePriceReview, resolveReturnIdentityDiscrepancy, retryFailedMarketplaceActionJob, saveEbayObservationSnapshot, savePackagePreset, setEbayOutboundPause, startOrderFulfillment, startReturnReplacement, updatePricingRecommendationSettings, uploadReturnEvidence } from "./marketplace-observation-repository.js";
@@ -274,13 +275,22 @@ function ListingReview({ item, onSave }) {
   };
   const completeEbayPublish = async (candidate) => {
     const result = await postItemToEbay(candidate);
-    await onSave({ ...candidate, ebayStatus: "active", ebayOfferId: result.offerId, ebayListingId: result.listingId, ebayListingUrl: result.listingUrl, ebayLastError: null, ebayUpdatedAt: Date.now(), listedPlatforms: [...new Set([...(candidate.listedPlatforms ?? []), "ebay"])] });
+    await onSave(ebayPublishSuccessUpdate(candidate, result));
+  };
+  // PF-SCOPE-029: a failed publish persists ebayStatus "error" +
+  // ebayLastError on the item (see ebay-publish-state.js), so the
+  // failure survives a refresh and the item lands in Review →
+  // Publishing issues. Guarded: if this save is itself what failed,
+  // the local error text still tells the owner what happened.
+  const persistPublishFailure = async (baseItem, message) => {
+    try { await onSave(ebayPublishFailureUpdate(baseItem, message)); }
+    catch { /* the local error message above still stands */ }
   };
   const publishEbay = async () => {
     if (!await confirmDialog(`Publish ${item.name} to eBay for ${currency(item.listing_price ?? price(item, "high"))}?`)) return;
     setSavingPlatform("ebay-post"); setError("");
     try {
-      await onSave({ ...item, ebayStatus: "posting", ebayLastError: null, ebayUpdatedAt: Date.now() });
+      await onSave(ebayPublishStartedUpdate(item));
       const requirements = await getEbayListingRequirements(item);
       if (requirements.status === "needs_input") {
         setAnswers(Object.fromEntries(requirements.questions.map((question) => [question.key, item.ebayItemSpecifics?.[question.key] ?? ""])));
@@ -291,6 +301,7 @@ function ListingReview({ item, onSave }) {
     } catch (publishError) {
       const message = publishError instanceof Error ? publishError.message : "Could not publish this eBay listing.";
       setError(message);
+      await persistPublishFailure(item, message);
     } finally { setSavingPlatform(null); }
   };
   const submitAnswers = async (event) => {
@@ -303,7 +314,11 @@ function ListingReview({ item, onSave }) {
       await onSave(candidate);
       await completeEbayPublish(candidate);
       setQuestions([]);
-    } catch (publishError) { setError(publishError instanceof Error ? publishError.message : "Could not publish this eBay listing."); }
+    } catch (publishError) {
+      const message = publishError instanceof Error ? publishError.message : "Could not publish this eBay listing.";
+      setError(message);
+      await persistPublishFailure(candidate, message);
+    }
     finally { setSavingPlatform(null); }
   };
   const openFacebookDraft = async () => {
@@ -2126,7 +2141,7 @@ export function App() {
         <OperationsAttention onNavigate={navigate} />
         {pallets.length === 0 && <section className="panel getting-started"><span className="admin-kicker">Start here</span><h3>Create your first pallet</h3><p>A pallet groups its purchase cost, inventory, listings, and profit. Create one before adding items.</p><button className="primary-button" onClick={async () => { const pallet = await repository.createPallet("Pallet 1"); await repository.setActivePallet(pallet.id); notify("Your first pallet is ready."); navigate("pallets"); }}>Create first pallet</button></section>}
         </div>}
-        {view === "review" && <section className="panel review-panel"><p className="data-source-note">{describeDataSource(getRepositoryMode()).note}</p><div className="saved-views" aria-label="Review queues">{workViews.map((workView) => <button key={workView.id} aria-pressed={workFilter === workView.id} onClick={() => setWorkFilter(workView.id)}><span>{workView.label}</span><strong>{workView.count}</strong></button>)}</div><div className="review-workspace"><div className="review-list" aria-label="Items to review">{reviewItems.length === 0 ? <div className="empty-queue"><strong>This queue is clear</strong><span>Choose another review category.</span></div> : reviewItems.map((item) => <button key={item.id} onClick={() => setInventoryModalId(item.id)}><ItemThumbnail item={item} /><div><strong>{item.name}</strong><span>{palletName(item.palletId)} · {getDisplayPlatform(item)}</span></div><span className={`badge ${statusBadgeClass(getDisplayStatus(item))}`}>{statusLabel[getDisplayStatus(item)]}</span></button>)}</div></div></section>}        {view === "pallets" && <PalletManager pallets={pallets} summaries={palletSummaries} activePalletId={snapshot.activePalletId} selectedPalletId={palletFilter} onFilter={(id) => { setPalletFilter(id); navigate("inventory"); }} />}
+        {view === "review" && <section className="panel review-panel"><p className="data-source-note">{describeDataSource(getRepositoryMode()).note}</p><div className="saved-views" aria-label="Review queues">{workViews.map((workView) => <button key={workView.id} aria-pressed={workFilter === workView.id} onClick={() => setWorkFilter(workView.id)}><span>{workView.label}</span><strong>{workView.count}</strong></button>)}</div><div className="review-workspace"><div className="review-list" aria-label="Items to review">{reviewItems.length === 0 ? <div className="empty-queue"><strong>This queue is clear</strong><span>Choose another review category.</span></div> : reviewItems.map((item) => <button key={item.id} onClick={() => setInventoryModalId(item.id)}><ItemThumbnail item={item} /><div><strong>{item.name}</strong><span>{palletName(item.palletId)} · {getDisplayPlatform(item)}</span>{getPersistedPublishError(item) && <span className="publish-error">{getPersistedPublishError(item)}</span>}</div><span className={`badge ${statusBadgeClass(getDisplayStatus(item))}`}>{statusLabel[getDisplayStatus(item)]}</span></button>)}</div></div></section>}        {view === "pallets" && <PalletManager pallets={pallets} summaries={palletSummaries} activePalletId={snapshot.activePalletId} selectedPalletId={palletFilter} onFilter={(id) => { setPalletFilter(id); navigate("inventory"); }} />}
         {view === "analysis" && <AnalysisPanel snapshot={snapshot} />}
         {view === "orders" && <OrdersPanel />}
         {view === "inventory" && <section className="panel table-panel" id="inventory">
