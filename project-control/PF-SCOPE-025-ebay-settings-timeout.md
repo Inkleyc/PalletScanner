@@ -93,4 +93,13 @@ or right after, PF-SCOPE-024.
 - Root `npm run check` green (incl. the new timeout case). — DONE 2026-11-21.
 - Live pass: open Settings with the backend asleep; card must resolve
   to a state or a retryable error — never a permanent "Checking…".
-  — PENDING: runs on the deployed app after this scope merges.
+  — DONE 2026-11-21 (deployed app, after PR #41 merged as main fe44ef72):
+  two consecutive Check status clicks each resolved to "Ready to list"
+  (SANDBOX · EBAY_US, 6/6 green) within 15–20s, buttons re-enabled,
+  never wedged. The timeout ERROR path was not sighted live — the
+  backend answered inside the 20s deadline on both clicks despite a
+  ~17-minute idle wait beforehand (it may have woken during the
+  sign-in flow); the error path is covered deterministically by the
+  automated never-resolving-fetch test instead. Criterion met via the
+  resolve-to-state branch. This pass also re-confirmed PF-SCOPE-024:
+  the connection survived PR #41's merge redeploy with no reconnect.
