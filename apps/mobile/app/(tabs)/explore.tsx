@@ -4,7 +4,6 @@ import {
   Image,
   Keyboard,
   KeyboardAvoidingView,
-  Linking,
   Modal,
   Platform,
   Pressable,
@@ -21,16 +20,7 @@ import {
   getPallets,
   saveInventoryItem,
   subscribeInventory,
-  updateInventoryItemFacebookStatus,
 } from "@/lib/inventory-store";
-import {
-  copyFacebookListingValue,
-  openListingDraft,
-} from "@/lib/listing-posting";
-import {
-  getPostingReadiness,
-  getPostingReadinessMessage,
-} from "@/lib/posting-validation";
 import { createStyles } from "@/components/inventory/inventory-styles";
 import { useAppTheme } from "@/lib/app-theme";
 import {
@@ -39,7 +29,6 @@ import {
   getFacebookMissingUrlItems,
   getItemsMissingPlatformListing,
   getItemsWithoutPhotos,
-  getInventoryWorkflowStatus,
   getListingFilterLabel,
   hasActiveInventoryFilters,
   type InventorySortMode,
@@ -54,13 +43,6 @@ import {
   DEMO_INVENTORY_ENABLED,
   demoInventorySeed,
   displayId,
-  displayNumber,
-  displayPhotoUri,
-  displayQuantity,
-  displaySoldPrice,
-  displayText,
-  getListedPlatforms,
-  hasListedPlatform,
   type BundleSuggestion,
 } from "@/components/inventory/inventory-helpers";
 import { useInventoryActions } from "@/components/inventory/use-inventory-actions";
@@ -69,6 +51,8 @@ import {
   InventoryFilterModal,
 } from "@/components/inventory/inventory-filters";
 import { InventorySummaryCard } from "@/components/inventory/inventory-summary";
+import { InventoryEmptyState } from "@/components/inventory/inventory-empty-state";
+import { InventoryItemCard } from "@/components/inventory/inventory-item-card";
 
 
 export default function InventoryScreen() {
@@ -229,28 +213,6 @@ export default function InventoryScreen() {
     [filteredItems],
   );
   const hasActiveFilters = hasActiveInventoryFilters(filterOptions);
-  const showItemTools = () => false;
-  const getWorkflowStatusStyle = (
-    status: ReturnType<typeof getInventoryWorkflowStatus>["status"],
-  ) => {
-    switch (status) {
-      case "sold":
-        return styles.workflowStatus_sold;
-      case "listed":
-        return styles.workflowStatus_listed;
-      case "listing_in_progress":
-        return styles.workflowStatus_listing_in_progress;
-      case "ready_to_list":
-        return styles.workflowStatus_ready_to_list;
-      case "needs_review":
-        return styles.workflowStatus_needs_review;
-      case "needs_photos":
-        return styles.workflowStatus_needs_photos;
-      default:
-        return styles.workflowStatus_captured;
-    }
-  };
-
   useEffect(() => {
     if (isLargeLayout && hasActiveFilters && !previousHasActiveFilters.current) {
       setFiltersExpanded(true);
@@ -408,401 +370,40 @@ export default function InventoryScreen() {
           suggestBundle={suggestBundle}
         />
         {filteredItems.length === 0 && (
-          <View style={styles.emptyState}>
-            <Text style={styles.emptyIcon}>+</Text>
-            <Text style={styles.emptyText}>
-              {selectedPallet ? `No items in ${selectedPallet.name}` : "No items yet"}
-            </Text>
-            <Text style={styles.emptySubtext}>
-              {selectedPallet
-                ? "Switch pallets or save more items on the Scan tab."
-                : pallets.length === 0
-                  ? "Create a pallet first, then start saving items from Scan."
-                  : "Scan items on the Scan tab and tap Save to Inventory"}
-            </Text>
-            <TouchableOpacity
-              style={styles.emptyAction}
-              onPress={() => router.push("/(tabs)")}
-            >
-              <Text style={styles.emptyActionText}>Go to Scan</Text>
-            </TouchableOpacity>
-          </View>
+          <InventoryEmptyState
+            styles={styles}
+            selectedPallet={selectedPallet}
+            pallets={pallets}
+            router={router}
+          />
         )}
 
         {filteredItems.map((item, index) => {
           const itemKey = displayId(item.id) ?? `item-${index}`;
-          const itemPhotoUri = displayPhotoUri(item.photo);
-          const itemSoldPrice = displaySoldPrice(item.soldPrice);
-          const itemQuantity = displayQuantity(item.quantity);
-          const facebookListingUrl = displayPhotoUri(item.facebookListingUrl);
-          const ebayListingUrl = displayPhotoUri(item.ebayListingUrl);
-
           return (
-          <View key={itemKey} style={styles.itemCard}>
-            {(() => {
-              const workflowStatus = getInventoryWorkflowStatus(item);
-              return (
-                <View
-                  style={[
-                    styles.workflowStatusBar,
-                    getWorkflowStatusStyle(workflowStatus.status),
-                  ]}
-                >
-                  <Text style={styles.workflowStatusText}>
-                    {workflowStatus.label}
-                  </Text>
-                </View>
-              );
-            })()}
-            {(() => {
-              if (!showItemTools()) {
-                return null;
-              }
-
-              const facebookReadiness = getPostingReadiness(item, "facebook");
-              const ebayReadiness = getPostingReadiness(item, "ebay");
-              if (facebookReadiness.ready && ebayReadiness.ready) {
-                return null;
-              }
-
-              return (
-                <View style={styles.postingReadinessBox}>
-                  <Text style={styles.postingReadinessTitle}>
-                    Posting checks
-                  </Text>
-                  {!facebookReadiness.ready ? (
-                    <Text style={styles.postingReadinessText}>
-                      Facebook: {getPostingReadinessMessage(item, "facebook")}
-                    </Text>
-                  ) : null}
-                  {!ebayReadiness.ready ? (
-                    <Text style={styles.postingReadinessText}>
-                      eBay: {getPostingReadinessMessage(item, "ebay")}
-                    </Text>
-                  ) : null}
-                </View>
-              );
-            })()}
-            {(getListedPlatforms(item).length > 0 ||
-              (item.facebookStatus === "opened" &&
-                !hasListedPlatform(item, "facebook"))) && (
-              <View style={styles.listedBannerRow}>
-                {getListedPlatforms(item).map((platform: "facebook" | "ebay") => (
-                  <View
-                    key={platform}
-                    style={[
-                      styles.listedBanner,
-                      platform === "facebook"
-                        ? styles.listedFacebookBanner
-                        : styles.listedEbayBanner,
-                    ]}
-                  >
-                    <Text style={styles.listedBannerText}>
-                      Listed to {platform === "facebook" ? "Facebook" : "eBay"}
-                    </Text>
-                    <TouchableOpacity
-                      style={styles.listedBannerClose}
-                      onPress={() => confirmUnmarkListed(item, platform)}
-                    >
-                      <Text style={styles.listedBannerCloseText}>x</Text>
-                    </TouchableOpacity>
-                  </View>
-                ))}
-                {item.facebookStatus === "opened" &&
-                !hasListedPlatform(item, "facebook") ? (
-                  <View style={[styles.listedBanner, styles.facebookDraftBanner]}>
-                    <Text style={styles.listedBannerText}>Facebook draft opened</Text>
-                  </View>
-                ) : null}
-              </View>
-            )}
-            <TouchableOpacity
-              activeOpacity={0.8}
-              style={styles.itemTop}
-              onPress={() => openItemDetails(item)}
-            >
-              {itemPhotoUri ? (
-                <Image source={{ uri: itemPhotoUri }} style={styles.itemPhoto} />
-              ) : null}
-              <View style={styles.itemInfo}>
-                <Text style={styles.itemName}>{displayText(item.name, "Unnamed item")}</Text>
-                <Text style={styles.palletTag}>{getPalletName(item.palletId)}</Text>
-                <View style={styles.badgeRow}>
-                  <Text style={styles.priceBadge}>
-                    ${displayNumber(item.low_price)}-${displayNumber(item.high_price)}
-                  </Text>
-                  <Text style={styles.quantityBadge}>Qty {itemQuantity}</Text>
-                  <Text style={styles.floorBadge}>
-                    Floor ${displayNumber(item.floor_price, displayNumber(item.low_price))}
-                  </Text>
-                  <Text style={styles.listingPriceBadge}>
-                    List ${displayNumber(item.listing_price, displayNumber(item.high_price))}
-                  </Text>
-                  <Text style={styles.conditionBadge}>
-                    {displayText(item.condition, "Unknown")}
-                  </Text>
-                </View>
-                <View style={styles.metaRow}>
-                  <Text style={styles.platformText}>
-                    {displayText(item.best_platform, "Review needed")}
-                  </Text>
-                  {itemSoldPrice !== null ? (
-                    <Text style={styles.soldPill}>Sold for ${itemSoldPrice}</Text>
-                  ) : (
-                    <Text style={styles.unsoldText}>Not marked sold</Text>
-                  )}
-                </View>
-              </View>
-            </TouchableOpacity>
-            {false ? (
-              <TouchableOpacity
-                style={styles.listingToolsToggle}
-                onPress={() => showItemActionMenu(item)}
-              >
-                <Text style={styles.listingToolsToggleText}>
-                  Actions
-                </Text>
-              </TouchableOpacity>
-            ) : null}
-            {showItemTools() ? (
-              <>
-                <View style={styles.itemActions}>
-                  <TouchableOpacity
-                    style={[styles.platformBtn, styles.facebookBtn]}
-                    onPress={() => openListingDraft(item, "facebook")}
-                  >
-                    <Text style={styles.platformBtnText}>
-                      {item.facebookStatus === "opened" &&
-                      !hasListedPlatform(item, "facebook")
-                        ? "Continue Facebook Draft"
-                        : hasListedPlatform(item, "facebook")
-                          ? "Copy Facebook Details"
-                          : "Post to Facebook"}
-                    </Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={[styles.platformBtn, styles.ebayBtn]}
-                    onPress={() => openListingDraft(item, "ebay")}
-                  >
-                    <Text style={styles.platformBtnText}>
-                      {item.ebayStatus === "posting"
-                        ? "Posting..."
-                        : item.ebayListingUrl
-                          ? "Update eBay Listing"
-                          : "Post to eBay"}
-                    </Text>
-                  </TouchableOpacity>
-                </View>
-                <ScrollView
-                  horizontal
-                  showsHorizontalScrollIndicator={false}
-                  contentContainerStyle={styles.facebookQuickCopyRow}
-                >
-                  {[
-                    "Title",
-                    "Price",
-                    "Description",
-                    "Condition",
-                    "Photo checklist",
-                  ].map((label) => (
-                    <TouchableOpacity
-                      key={label}
-                      style={styles.facebookQuickCopyBtn}
-                      onPress={() => {
-                        void copyFacebookListingValue(
-                          item,
-                          label as
-                            | "Title"
-                            | "Price"
-                            | "Description"
-                            | "Condition"
-                            | "Photo checklist",
-                        );
-                      }}
-                    >
-                      <Text style={styles.facebookQuickCopyBtnText}>
-                        Copy {label}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
-                </ScrollView>
-                {item.facebookStatus === "opened" &&
-                !hasListedPlatform(item, "facebook") ? (
-                  <TouchableOpacity
-                    style={styles.markFacebookListedBtn}
-                    onPress={() =>
-                      {
-                        updateInventoryItemFacebookStatus(item.id, {
-                          status: "listed",
-                        });
-                        setEditingFacebookUrlItemId(item.id);
-                      }
-                    }
-                  >
-                    <Text style={styles.markFacebookListedBtnText}>
-                      Mark Facebook Listed
-                    </Text>
-                  </TouchableOpacity>
-                ) : null}
-                {(hasListedPlatform(item, "facebook") ||
-                  item.facebookStatus === "opened" ||
-                  facebookListingUrl) ? (
-                  <View style={styles.facebookUrlActions}>
-                    {facebookListingUrl ? (
-                      <TouchableOpacity
-                        style={styles.viewFacebookBtn}
-                        onPress={() => {
-                          void Linking.openURL(facebookListingUrl);
-                        }}
-                      >
-                        <Text style={styles.viewFacebookBtnText}>
-                          View Facebook Listing
-                        </Text>
-                      </TouchableOpacity>
-                    ) : null}
-                    <TouchableOpacity
-                      style={styles.facebookUrlBtn}
-                      onPress={() =>
-                        setEditingFacebookUrlItemId((current) =>
-                          current === item.id ? null : item.id,
-                        )
-                      }
-                    >
-                      <Text style={styles.facebookUrlBtnText}>
-                        {facebookListingUrl
-                          ? "Edit Facebook URL"
-                          : "Add Facebook URL"}
-                      </Text>
-                    </TouchableOpacity>
-                  </View>
-                ) : null}
-                {editingFacebookUrlItemId === item.id ? (
-                  <View style={styles.facebookUrlEditorCard}>
-                    <Text style={styles.soldEditorLabel}>Facebook Listing URL</Text>
-                    <TextInput
-                      style={styles.facebookUrlInput}
-                      value={getFacebookUrlDraftValue(item)}
-                      onChangeText={(value) =>
-                        setFacebookUrlDrafts((current) => ({
-                          ...current,
-                          [item.id]: value,
-                        }))
-                      }
-                      placeholder="https://www.facebook.com/marketplace/item/..."
-                      placeholderTextColor="#999"
-                      autoCapitalize="none"
-                      autoCorrect={false}
-                    />
-                    <View style={styles.facebookUrlEditorActions}>
-                      <TouchableOpacity
-                        style={styles.secondaryActionBtn}
-                        onPress={() => {
-                          void pasteFacebookUrl(item);
-                        }}
-                      >
-                        <Text style={styles.secondaryActionBtnText}>Paste</Text>
-                      </TouchableOpacity>
-                      <TouchableOpacity
-                        style={styles.saveSoldBtn}
-                        onPress={() => saveFacebookUrl(item)}
-                      >
-                        <Text style={styles.saveSoldBtnText}>Save</Text>
-                      </TouchableOpacity>
-                      <TouchableOpacity
-                        style={styles.clearSoldBtn}
-                        onPress={() => clearFacebookUrl(item)}
-                      >
-                        <Text style={styles.clearSoldBtnText}>Clear</Text>
-                      </TouchableOpacity>
-                    </View>
-                  </View>
-                ) : null}
-                {item.facebookStatus === "error" && item.facebookLastError ? (
-                  <Text style={styles.facebookErrorText}>
-                    {item.facebookLastError}
-                  </Text>
-                ) : null}
-                {ebayListingUrl ? (
-                  <TouchableOpacity
-                    style={styles.viewEbayBtn}
-                    onPress={() => {
-                      void Linking.openURL(ebayListingUrl);
-                    }}
-                  >
-                    <Text style={styles.viewEbayBtnText}>View on eBay</Text>
-                  </TouchableOpacity>
-                ) : null}
-                {item.ebayStatus === "posting" ? (
-                  <Text style={styles.ebayProgressText}>
-                    {item.ebayProgress || "Posting to eBay..."}
-                  </Text>
-                ) : null}
-                {item.ebayStatus === "error" && item.ebayLastError ? (
-                  <Text style={styles.ebayErrorText}>{item.ebayLastError}</Text>
-                ) : null}
-              </>
-            ) : null}
-            {false ? (
-            <View style={styles.itemSecondaryActions}>
-              <TouchableOpacity
-                style={styles.secondaryActionBtn}
-                onPress={() =>
-                  setEditingSoldItemId((current) =>
-                    current === item.id ? null : item.id,
-                  )
-                }
-              >
-                <Text style={styles.secondaryActionBtnText}>
-                  {itemSoldPrice !== null
-                    ? "Edit Sold Price"
-                    : "Mark Sold"}
-                </Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={styles.removeBtn}
-                onPress={() => removeItem(item)}
-              >
-                <Text style={styles.removeBtnText}>Remove</Text>
-              </TouchableOpacity>
-            </View>
-            ) : null}
-            {editingSoldItemId === item.id && (
-              <View style={styles.soldEditorCard}>
-                <Text style={styles.soldEditorLabel}>Sold Price</Text>
-                <View style={styles.soldRow}>
-                  <TextInput
-                    style={styles.soldInput}
-                    value={getSoldDraftValue(item)}
-                    onChangeText={(value) =>
-                      setSoldDrafts((current) => ({
-                        ...current,
-                        [item.id]: value,
-                      }))
-                    }
-                    placeholder="Enter amount"
-                    placeholderTextColor="#999"
-                    keyboardType="decimal-pad"
-                  />
-                  <TouchableOpacity
-                    style={styles.saveSoldBtn}
-                    onPress={() => saveSoldPrice(item)}
-                  >
-                    <Text style={styles.saveSoldBtnText}>
-                      {itemSoldPrice !== null
-                        ? "Update"
-                        : "Save"}
-                    </Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={styles.clearSoldBtn}
-                    onPress={() => clearSoldPrice(item)}
-                  >
-                    <Text style={styles.clearSoldBtnText}>Clear</Text>
-                  </TouchableOpacity>
-                </View>
-              </View>
-            )}
-          </View>
+            <InventoryItemCard
+              key={itemKey}
+              item={item}
+              styles={styles}
+              getPalletName={getPalletName}
+              openItemDetails={openItemDetails}
+              confirmUnmarkListed={confirmUnmarkListed}
+              showItemActionMenu={showItemActionMenu}
+              removeItem={removeItem}
+              editingSoldItemId={editingSoldItemId}
+              setEditingSoldItemId={setEditingSoldItemId}
+              editingFacebookUrlItemId={editingFacebookUrlItemId}
+              setEditingFacebookUrlItemId={setEditingFacebookUrlItemId}
+              setSoldDrafts={setSoldDrafts}
+              setFacebookUrlDrafts={setFacebookUrlDrafts}
+              getSoldDraftValue={getSoldDraftValue}
+              getFacebookUrlDraftValue={getFacebookUrlDraftValue}
+              saveSoldPrice={saveSoldPrice}
+              clearSoldPrice={clearSoldPrice}
+              pasteFacebookUrl={pasteFacebookUrl}
+              saveFacebookUrl={saveFacebookUrl}
+              clearFacebookUrl={clearFacebookUrl}
+            />
           );
         })}
         </View>
