@@ -1,6 +1,6 @@
 # PF-SCOPE-008 — Core alignment follow-up (Node-resolvable core entry + provably-identical helpers)
 
-Status: VERIFIED (build) — implementation, tests, and CI evidence complete on the scope branch; the manual desktop-browser pass over Review/Inventory/Pallets/Analysis is still PENDING (routed post-merge by the parent agent) and final CLOSED waits on it, per this scope's acceptance rule that terminal evidence alone does not close the scope.
+Status: CLOSED — VERIFIED 2026-11-23 (build merged as PR #47, main 2ab699b8; manual desktop-browser pass recorded below)
 Owner approval: APPROVED 2026-11-04 ~10:24 MST (build in sequence after PRs #4–#7 merged — long since satisfied); start word given 2026-11-23.
 
 Objective: Finish the job PF-SCOPE-006 started without redoing it: make `packages/core` importable from plain Node ESM as well as from Vite/Metro, migrate the two helpers already proven behaviour-identical (`hasListingPhoto`, `isMissingPlatformListing`) to core imports at their web expression sites, and document the remaining divergences as intentional. No behaviour change on either surface.
@@ -36,7 +36,7 @@ Verification of the choice:
 - [x] Observable user result: `import "@palletscanner/core"` resolves and the full export surface is importable from plain Node ESM (smoke-proven, above), from the Vite web build, and from Metro (expo export) + the mobile typecheck — with no helper added, removed, renamed, or re-behaved (export surface pinned by test; equivalence suite green).
 - [x] Error/offline/recovery behavior: unchanged — no new failure modes; the entry fails loudly at import time if it regresses (the core unit tests import through the entry and would fail at load).
 - [x] Data/security and regression checks: `npm run check` exit 0 (mobile lint 0 errors, mobile typecheck, mobile sync tests 18/18, web suite 98/98 incl. check.mjs web-shape pins + Vite build, server tests 49/49, schema check, return-lifecycle check, core typecheck, core tests 21/21, api-client typecheck); equivalence tests for the migrated helpers import through the ENTRY and pass (49/49); divergences documented; no migration, RLS, eBay, or AI behaviour change; no secrets in the diff.
-- [ ] Manual desktop-browser pass over Review, Inventory, Pallets, and Analysis on the deployed build, comparing behaviour on the same data — PENDING, routed by the parent agent post-merge. This scope is not CLOSED until that pass is recorded.
+- [x] Manual desktop-browser pass over Review, Inventory, Pallets, and Analysis on the deployed build, comparing behaviour on the same data — DONE 2026-11-23 (deployed app, cloud data, read-only): all four sections render, no blank/broken/erroring section; Review counts (Inventory risks 0, Needs decision 1 — the photo-less "sup", Publishing issues 0, Aging 2) match the migrated helpers' expected behaviour; Inventory 3 active / 7 archived matches badges and Overview; Pallets item counts sum to 3 and costs to $203 = Overview pallet cost. Observations recorded (pre-existing analytics semantics, not regressions — this scope changed no computation, and the equivalence suite pins identical outputs): Overview reports Sold items 0 / Sold revenue $0 while Data/Analysis reports Recorded sales 2 / Gross revenue $210 (the two surfaces use different definitions/denominators — Analysis sell-through uses all 10 items incl. archived); Analysis return rate shows 100.0% although 1 of 2 recorded sales was returned; Projected available value $6,051 has no on-page breakdown. These belong to the analytics-surfaces conversation (cf. runbook gaps 13–15), not to this scope.
 
 Verification: `npm run check` (exit 0, run twice on the final tree); `npm run core:test` standalone (21/21); `node --test apps/web/scripts/shared-packages-equivalence.test.mjs` (49/49, entry-imported); Node entry-import smoke (command + before/after output recorded above); `npx expo export --platform ios` (Metro proof, above).
 
@@ -45,10 +45,10 @@ Deliverables: entry fix (Option A) + migrated helpers + entry-imported equivalen
 
 ## Completion report
 
-Status: VERIFIED (build) — browser pass pending post-merge.
+Status: CLOSED — VERIFIED 2026-11-23 (browser pass recorded under Acceptance criteria).
 User-visible changes: none (resolution- and code-organization-only, by design).
 Evidence/tests: as recorded under Acceptance criteria and Entry-fix decision.
-Remaining gaps/risks: manual desktop-browser pass outstanding (parent routes it post-merge); the 1 pre-existing mobile lint warning is untouched (0 errors).
+Remaining gaps/risks: none for this scope; the 1 pre-existing mobile lint warning is untouched (0 errors). The browser pass's analytics observations are recorded under Acceptance criteria as pre-existing semantics, not gaps in this scope.
 Commit SHA: recorded in the PR.
 Owner decision required: none for the build; CLOSED requires the browser-pass evidence.
 Proposed next scope: none from this scope; the register's sequencing has the mobile Inventory split after 008.
