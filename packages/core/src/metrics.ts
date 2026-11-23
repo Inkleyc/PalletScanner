@@ -1,4 +1,4 @@
-import type { InventoryItem, PalletSession } from "./domain";
+import type { InventoryItem, PalletSession } from "./domain.ts";
 
 export type InventoryTotals = {
   itemCount: number;

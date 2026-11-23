@@ -1,5 +1,5 @@
-import type { InventoryItem } from "./domain";
-import { hasListingPhoto } from "./inventory-query";
+import type { InventoryItem } from "./domain.ts";
+import { hasListingPhoto } from "./inventory-query.ts";
 
 export type InventoryWorkflowStatus =
   | "captured"
