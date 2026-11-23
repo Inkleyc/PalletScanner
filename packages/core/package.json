@@ -9,7 +9,8 @@
     ".": "./index.ts"
   },
   "scripts": {
-    "typecheck": "tsc -p tsconfig.json --noEmit"
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "node --test \"test/**/*.test.mjs\""
   },
   "devDependencies": {
     "typescript": "~5.9.2"

@@ -1,4 +1,4 @@
-import type { InventoryItem, MarketplacePlatform } from "./domain";
+import type { InventoryItem, MarketplacePlatform } from "./domain.ts";
 
 export type ListingFilter =
   | "all"

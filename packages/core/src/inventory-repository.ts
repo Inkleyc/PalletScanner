@@ -4,7 +4,7 @@ import type {
   ItemPhoto,
   PalletSession,
   Sale,
-} from "./domain";
+} from "./domain.ts";
 
 export type InventorySnapshot = {
   items: InventoryItem[];

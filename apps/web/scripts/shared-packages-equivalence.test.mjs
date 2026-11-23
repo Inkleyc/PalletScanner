@@ -1,21 +1,23 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-// Equivalence evidence for PF-SCOPE-006 (web adopts @palletscanner/core).
+// Equivalence evidence for PF-SCOPE-006 (web adopts @palletscanner/core),
+// extended by PF-SCOPE-008.
 //
-// The shipped web code imports `@palletscanner/core` (the package entry),
-// which Vite resolves. Node's ESM loader cannot resolve that entry: the
-// package root re-exports `./src` with extensionless specifiers, which
-// Node rejects as a directory import. This test therefore reaches the
-// identical module file directly. The functions under test are the same
-// ones Vite bundles into the web app; only the specifier differs, and the
-// difference is the Node/Vite resolution boundary documented in the
-// PF-SCOPE-006 scope document — not a second implementation.
+// This suite imports `@palletscanner/core` — the shipped package entry.
+// PF-SCOPE-006 originally reached the identical module file directly,
+// because the entry was not Node-ESM-resolvable (the package root
+// re-exported `./src` with extensionless specifiers, which Node rejects
+// as a directory import). PF-SCOPE-008 fixed the entry (Option A:
+// explicit `.ts` extensions across the core import chain), so the suite
+// now imports through the entry itself — which is what proves the fix.
+// The functions under test are the same ones Vite bundles into the web
+// app and Metro bundles into the mobile app.
 import {
   getItemPhotos,
   hasListingPhoto,
   isMissingPlatformListing,
-} from "../../../packages/core/src/inventory-query.ts";
+} from "@palletscanner/core";
 
 // Legacy web expressions, copied from the code PF-SCOPE-006 replaces
 // (App.jsx PhotoReview, web-services.js getEbayListingPayload,
@@ -73,12 +75,14 @@ const platformFixtures = [
   { listedPlatforms: ["facebook", "other"] },
 ];
 
-// Recorded equivalence for a follow-up, not a migrated call site: the web
-// sites that check platform listing live in Node-imported modules
-// (dashboard-model.js, supabase-inventory-repository.js), which cannot
-// import the core package entry under Node. These assertions prove the
-// core helper is behaviour-identical there too, so a later scope that
-// fixes the entry resolution can adopt it without re-proving equivalence.
+// PF-SCOPE-006 recorded this equivalence for a follow-up; PF-SCOPE-008
+// adopted the helper at those sites (dashboard-model.js,
+// inventory-repository.js, supabase-inventory-repository.js) once the
+// entry became Node-resolvable. These assertions remain as the
+// regression proof that the adopted helper is behaviour-identical to
+// the legacy expressions it replaced. Note the proven domain is
+// facebook/ebay only: core filters listedPlatforms to those two before
+// checking, which matches every migrated site.
 for (const item of platformFixtures) {
   for (const platform of ["facebook", "ebay"]) {
     test(`isMissingPlatformListing matches the legacy check for ${JSON.stringify(item)} / ${platform}`, () => {

@@ -27,10 +27,11 @@
     "mobile:build:android-preview": "npm run build:android-preview -w @palletscanner/mobile",
     "mobile:build:ios-preview": "npm run build:ios-preview -w @palletscanner/mobile",
     "mobile:build:development": "npm run build:development -w @palletscanner/mobile",
-    "check": "npm run lint && npm run mobile:typecheck && npm run mobile:sync:test && npm run dashboard:check && npm run server:check && npm run schema:check && npm run return:lifecycle-check && npm run core:typecheck && npm run api-client:typecheck",
+    "check": "npm run lint && npm run mobile:typecheck && npm run mobile:sync:test && npm run dashboard:check && npm run server:check && npm run schema:check && npm run return:lifecycle-check && npm run core:typecheck && npm run core:test && npm run api-client:typecheck",
     "mobile:typecheck": "npm run typecheck -w @palletscanner/mobile",
     "mobile:sync:test": "npm run sync:test -w @palletscanner/mobile",
     "core:typecheck": "npm run typecheck -w @palletscanner/core",
+    "core:test": "npm run test -w @palletscanner/core",
     "api-client:typecheck": "npm run typecheck -w @palletscanner/api-client"
   }
 }

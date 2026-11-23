@@ -1,13 +1,11 @@
-import type { InventoryItem, MarketplacePlatform } from "./domain";
+import type { InventoryItem, MarketplacePlatform } from "./domain.ts";
+import { hasListingPhoto } from "./inventory-query.ts";
 
 export type PostingReadiness = {
   ready: boolean;
   errors: string[];
   warnings: string[];
 };
-
-const hasListingPhoto = (item: InventoryItem) =>
-  Boolean((Array.isArray(item.photos) && item.photos.length > 0) || item.photo);
 
 const hasText = (value: string | null | undefined) =>
   typeof value === "string" && value.trim().length > 0;
