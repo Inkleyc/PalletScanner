@@ -1,3 +1,5 @@
+import { hasListingPhoto, isMissingPlatformListing } from "@palletscanner/core";
+
 export const currency = (value) =>
   new Intl.NumberFormat("en-US", {
     style: "currency",
@@ -21,6 +23,9 @@ export const statusClass = {
   sold: "primary",
 };
 
+// Intentional divergence from core's getInventoryWorkflowStatus
+// (different vocabulary and inputs) — see packages/core/README.md,
+// "Intentional divergences". Do not align without equivalence evidence.
 const workflowStatusByItemState = (item) => {
   if (item.soldPrice !== null) {
     return "sold";
@@ -30,7 +35,7 @@ const workflowStatusByItemState = (item) => {
     return "ready";
   }
 
-  if (!item.photos?.length && !item.photo) {
+  if (!hasListingPhoto(item)) {
     return "needs_photos";
   }
 
@@ -80,8 +85,8 @@ export const getMarketplaceQueueItems = (items) =>
   items.filter(
     (item) =>
       item.soldPrice === null &&
-      (!item.listedPlatforms?.includes("facebook") ||
-      !item.listedPlatforms?.includes("ebay")),
+      (isMissingPlatformListing(item, "facebook") ||
+        isMissingPlatformListing(item, "ebay")),
   );
 
 export const getItemAgeDays = (item, now = new Date()) => {
@@ -115,14 +120,17 @@ export const getPalletCost = (pallet) =>
     ? pallet.cost ?? pallet.palletCost
     : 0;
 
+// Intentional divergence from core's metrics (different output shape;
+// getQuantity prefers `available`) — see packages/core/README.md,
+// "Intentional divergences". check.mjs pins this shape.
 export const summarizeInventory = (items, pallets) => {
   const soldItems = items.filter((item) => item.soldPrice !== null);
   const unsoldItems = items.filter((item) => item.soldPrice === null);
-  const needsFacebook = items.filter(
-    (item) => !item.listedPlatforms?.includes("facebook"),
+  const needsFacebook = items.filter((item) =>
+    isMissingPlatformListing(item, "facebook"),
   ).length;
-  const needsEbay = items.filter(
-    (item) => !item.listedPlatforms?.includes("ebay"),
+  const needsEbay = items.filter((item) =>
+    isMissingPlatformListing(item, "ebay"),
   ).length;
   const soldRevenue = soldItems.reduce((sum, item) => sum + item.soldPrice, 0);
   const remainingLow = unsoldItems.reduce(

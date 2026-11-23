@@ -1,3 +1,4 @@
+import { getItemPhotos } from "@palletscanner/core";
 import { items as seedItems, pallets as seedPallets } from "./mock-data.js";
 
 const storageKey = "palletscanner.inventoryRepository.v1";
@@ -192,7 +193,7 @@ export const repository = {
   },
   async listPhotos(itemId) {
     const item = items.find((entry) => entry.id === itemId);
-    const photos = item?.photos?.length ? item.photos : item?.photo ? [item.photo] : [];
+    const photos = item ? getItemPhotos(item) : [];
     return photos.map((uri, index) => ({ id: `${itemId}-${index}`, itemId, uri, createdAt: itemId }));
   },
   async listSales(itemId) {

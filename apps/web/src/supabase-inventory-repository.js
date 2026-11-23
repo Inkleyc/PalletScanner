@@ -1,3 +1,5 @@
+import { getItemPhotos } from "@palletscanner/core";
+
 const clone = (value) => JSON.parse(JSON.stringify(value));
 
 const requireUser = async (client) => {
@@ -49,7 +51,7 @@ const storagePathFromSignedUrl = (uri) => {
 };
 
 export const syncItemPhotos = async (client, userId, serverItemId, item) => {
-  const photos = item.photos?.length ? item.photos : item.photo ? [item.photo] : [];
+  const photos = getItemPhotos(item);
   const existing = await client.from("item_photos").select("id,storage_path,position").eq("item_id", serverItemId);
   throwIfError(existing);
   const existingRows = existing.data ?? [];
